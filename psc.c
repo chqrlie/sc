@@ -18,6 +18,7 @@
  *  Adjustments: Jeff Buhrt, Eric Putz and Chuck Martin
  */
 
+#include "config.h"
 #include "version.h"
 
 #include <ctype.h>
@@ -48,7 +49,7 @@
 #define PRINTF_CMD_ERR(x) ": Writing command \"" x "\": %s\n"
 
 char	*coltoa(int col);
-char	*progname;
+const char	*progname;
 int	getrow(char *p);
 int	getcol(char *p);
 static int scan(void);

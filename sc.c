@@ -211,7 +211,7 @@ flush_saved(void) {
     delbuf[dbidx--] = NULL;
 }
 
-char	*progname;
+const char	*progname;
 int	Vopt;
 #ifdef TRACE
 FILE	*ftrace;
@@ -226,7 +226,7 @@ main (int argc, char  **argv)
     int     narg;
     int     nedistate;
     int	    running;
-    char    *revi;
+    const char    *revi;
     int	    anychanged = FALSE;
     int     tempx, tempy; 	/* Temp versions of curx, cury */
 
@@ -354,7 +354,7 @@ main (int argc, char  **argv)
 
 #ifdef MSDOS
     if (optind < argc)
-#else 
+#else
     if (optind < argc && !strcmp(argv[optind], "--"))
 	optind++;
     if (optind < argc && argv[optind][0] != '|' &&

@@ -25,7 +25,8 @@ MAKE=
 DEFS=
 LIB_LEX=
 LIB_CURSES=
-cat /dev/null > compat.h
+echo "/* file generated automatically, do not modify */" >  compat.h
+echo '#include "config.h"' >> compat.h
 
 while [ $# -gt 0 ]; do
 	case $1 in
@@ -78,14 +79,15 @@ test_result () {
 }
 
 gen_mk () {
-	[ $# -eq 0 ] && rm -f $OUTMK
+	[ $# -eq 0 ] && rm -f $OUTMK $OUTCONF
+	echo "/* file generated automatically, do not modify */" > $OUTCONF
+	for i in $DEFS ; do echo "#define ${i/-D/} 1" >> $OUTCONF ; done
 	[ -n "$LEX" ] && echo "LEX=$LEX" >> $OUTMK
 	[ -n "$FLOAT_STORE" ] && echo "FLOAT_STORE=$FLOAT_STORE" >> $OUTMK
-	[ -n "$DEFS" ] && echo "DEFINES=$DEFS" >> $OUTMK
+	#[ -n "$DEFS" ] && echo "DEFINES=$DEFS" >> $OUTMK
 	[ -n "$INCDIR_CURSES" ] && echo "INCDIR_CURSES=$INCDIR_CURSES" >> $OUTMK
 	[ -n "$RPATH_CURSES" ] && echo "RPATH_CURSES=$RPATH_CURSES" >> $OUTMK
-	[ -n "$LIBDIR_CURSES" ] && echo "LIBDIR_CURSES=$LIBDIR_CURSES" \
-	    >> $OUTMK
+	[ -n "$LIBDIR_CURSES" ] && echo "LIBDIR_CURSES=$LIBDIR_CURSES" >> $OUTMK
 	[ -n "$LIB_CURSES" ] && echo "LIB_CURSES=$LIB_CURSES" >> $OUTMK
 	[ -n "$LIB_AVLBST" ] && echo "LIB_AVLBST=$LIB_AVLBST" >> $OUTMK
 	[ -n "$LIB_LEX" ] && echo "LIB_LEX=$LIB_LEX" >> $OUTMK
@@ -340,15 +342,14 @@ check_ncursesw () {
 	check_for $LIB_CURSES
 	ODEFS=$DEFS
 
-	# At first test for specific ncursesw.h to not used -lncursesw with
+	# At first test for specific ncursesw.h to not use -lncursesw with
 	# traditional curses.h if both curses systems are installed.
 
 	DEFS="$DEFS -DHAVE_NCURSESW_CURSES_H"
 	INCDIR_CURSES="-I/usr/include/ncurses6"
 	RPATH_CURSES="-Wl,-rpath,/usr/lib64/ncurses6"
 	LIBDIR_CURSES="-L/usr/lib64/ncurses6"
-	PASS_TEXT=" (#include <ncursesw/curses.h>, -I/usr/include/ncurses6, \
--L/usr/lib64/ncurses6)"
+	PASS_TEXT=" (#include <ncursesw/curses.h>, -I/usr/include/ncurses6, -L/usr/lib64/ncurses6)"
 	test_curses && return # Linux NC6
 
 	INCDIR_CURSES=
@@ -360,8 +361,7 @@ check_ncursesw () {
 	INCDIR_CURSES="-I/usr/pkg/include"
 	RPATH_CURSES="-Wl,-rpath,/usr/pkg/lib"
 	LIBDIR_CURSES="-L/usr/pkg/lib"
-	PASS_TEXT=" (#include <ncursesw/curses.h>, -I/usr/pkg/include, \
--L/usr/pkg/lib)"
+	PASS_TEXT=" (#include <ncursesw/curses.h>, -I/usr/pkg/include, -L/usr/pkg/lib)"
 	test_curses && return # NetBSD
 
 	DEFS=$ODEFS
@@ -473,8 +473,7 @@ EOT
 check_lib_curses () {
 	curses_mk_compat_h
 	DEFS0=$DEFS
-	DEFS="$DEFS  -DHAVE_ATTR_T -DHAVE_ATTR_GET -DHAVE_FIXTERM \
--DHAVE_RESETTERM"
+	DEFS="$DEFS  -DHAVE_ATTR_T -DHAVE_ATTR_GET -DHAVE_FIXTERM -DHAVE_RESETTERM"
 	check_ncursesw && return
 	check_ncurses && return
 	DEFS=$DEFS0
@@ -485,8 +484,7 @@ check_netbsd_curses () {
 	curses_mk_compat_h
 	[ `uname` = "NetBSD" ] && check_curses && return
 	DEFS0=$DEFS
-	DEFS="$DEFS  -DHAVE_ATTR_T -DHAVE_ATTR_GET -DHAVE_FIXTERM \
--DHAVE_RESETTERM"
+	DEFS="$DEFS  -DHAVE_ATTR_T -DHAVE_ATTR_GET -DHAVE_FIXTERM -DHAVE_RESETTERM"
 	check_ncursesw && return
 	check_ncurses && return
 	DEFS=$DEFS0
@@ -621,6 +619,7 @@ EOT
 	test_result && DEFS="$DEFS -DHAVE_STDBOOL_H"
 }
 	[ ! -s compat.h ] && rm compat.h
+OUTCONF=config.h
 OUTMK=Makefile
 INMK=${OUTMK}.in
 CFG=config

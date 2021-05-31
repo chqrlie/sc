@@ -18,6 +18,8 @@
 #include <unistd.h>
 #endif
 
+#include "config.h"
+
 #define CLEAR_LINE error("%s", "") /* suppress warning on NetBSD curses */
 #define	ATBL(tbl, row, col)	(*(tbl + row) + (col))
 
@@ -620,7 +622,7 @@ extern	int loading;
 extern	int getrcqual;
 extern	int tbl_style;
 extern	int rndtoeven;
-extern	char *progname;
+extern	const char *progname;
 #ifdef TRACE
 extern	FILE *ftrace;
 #endif

@@ -279,7 +279,7 @@
 %token K_ERR
 %token K_SCRC
 %token K_LOCALE
-  
+
 %right ';'
 %left '?' ':'
 %left '|'
@@ -431,7 +431,7 @@ command:	S_LET var_or_range '=' e
 					    slatexext = $2; }
 	|	S_TEXEXT strarg	{ if (texext) scxfree(texext); texext = $2; }
 	|       S_PUT strarg range
-				{ (void) writefile($2, ($3.left.vp)->row, 
+				{ (void) writefile($2, ($3.left.vp)->row,
 					($3.left.vp)->col, ($3.right.vp)->row,
 					($3.right.vp)->col);
 					    scxfree($2); }
@@ -457,7 +457,7 @@ command:	S_LET var_or_range '=' e
 					    maxrow, maxcol, 0, 0); }
 	|	S_PUT		{ (void) write_cells(stdout, 0, 0,
 					    maxrow, maxcol, 0, 0); }
-	|       S_WRITE strarg range { (void) printfile($2, ($3.left.vp)->row, 
+	|       S_WRITE strarg range { (void) printfile($2, ($3.left.vp)->row,
 					($3.left.vp)->col, ($3.right.vp)->row,
 					($3.right.vp)->col);
 					    scxfree($2); }
@@ -470,7 +470,7 @@ command:	S_LET var_or_range '=' e
 					    maxrow, maxcol); }
 	|	S_WRITE		{ (void) printfile(NULL, 0, 0,
 					    maxrow, maxcol); }
-	|       S_TBL strarg range { (void) tblprintfile($2, ($3.left.vp)->row, 
+	|       S_TBL strarg range { (void) tblprintfile($2, ($3.left.vp)->row,
 					($3.left.vp)->col, ($3.right.vp)->row,
 					($3.right.vp)->col);
 					    scxfree($2); }
@@ -539,7 +539,7 @@ command:	S_LET var_or_range '=' e
 					    NULL, NULL); }
 	|	S_COPY range		{ copy($2.left.vp, $2.right.vp,
 					    NULL, NULL); }
-	|	S_COPY range var_or_range 
+	|	S_COPY range var_or_range
 					{ copy($2.left.vp, $2.right.vp,
 					    $3.left.vp, $3.right.vp); }
 	|	S_MOVE var		{ mover($2.vp, lookat(showsr, showsc),
@@ -1017,12 +1017,11 @@ command:	S_LET var_or_range '=' e
 					  goraw();
 					  scxfree($2); }
 	|	S_PLUGIN STRING '=' STRING
-					{ addplugin($2, $4, 'r'); } 
+					{ addplugin($2, $4, 'r'); }
 	|	S_PLUGOUT STRING '=' STRING
-					{ addplugin($2, $4, 'w'); } 
+					{ addplugin($2, $4, 'w'); }
 	|       PLUGIN			{ *line = '|';
-					  snprintf(line + 1, sizeof(line) - 1,
-					      $1);
+					  strlcpy(line + 1, $1, sizeof(line) - 1);
 					  readfile(line, 0);
 					  scxfree($1); }
 	|	/* nothing */
@@ -1032,37 +1031,37 @@ term: 		var			{ $$ = new_var(O_VAR, $1); }
 	|	'@' K_FIXED term	{ $$ = new('f', $3, ENULL); }
 	|	'(' '@' K_FIXED ')' term
 					{ $$ = new('F', $5, ENULL); }
-	|       '@' K_SUM '(' var_or_range ')' 
+	|       '@' K_SUM '(' var_or_range ')'
 				{ $$ = new(SUM,
 					new_range(REDUCE | SUM, $4), ENULL); }
 	|	'@' K_SUM  '(' range ',' e ')'
 				{ $$ = new(SUM,
 					new_range(REDUCE | SUM, $4), $6); }
-	|       '@' K_PROD '(' var_or_range ')' 
+	|       '@' K_PROD '(' var_or_range ')'
 				{ $$ = new(PROD,
 					new_range(REDUCE | PROD, $4), ENULL); }
 	|	'@' K_PROD  '(' range ',' e ')'
 				{ $$ = new(PROD,
 					new_range(REDUCE | PROD, $4), $6); }
-	|       '@' K_AVG '(' var_or_range ')' 
+	|       '@' K_AVG '(' var_or_range ')'
 				{ $$ = new(AVG,
 					new_range(REDUCE | AVG, $4), ENULL); }
 	|	'@' K_AVG  '(' range ',' e ')'
 				{ $$ = new(AVG,
 					new_range(REDUCE | AVG, $4), $6); }
-	|       '@' K_STDDEV '(' var_or_range ')' 
+	|       '@' K_STDDEV '(' var_or_range ')'
 				{ $$ = new(STDDEV,
 					new_range(REDUCE | STDDEV, $4), ENULL); }
 	|	'@' K_STDDEV  '(' range ',' e ')'
 				{ $$ = new(STDDEV,
 					new_range(REDUCE | STDDEV, $4), $6); }
-	|       '@' K_COUNT '(' var_or_range ')' 
+	|       '@' K_COUNT '(' var_or_range ')'
 				{ $$ = new(COUNT,
 					new_range(REDUCE | COUNT, $4), ENULL); }
 	|	'@' K_COUNT  '(' range ',' e ')'
 				{ $$ = new(COUNT,
 					new_range(REDUCE | COUNT, $4), $6); }
-	|       '@' K_MAX '(' var_or_range ')' 
+	|       '@' K_MAX '(' var_or_range ')'
 				{ $$ = new(MAX,
 					new_range(REDUCE | MAX, $4), ENULL); }
 	|	'@' K_MAX  '(' range ',' e ')'
@@ -1070,7 +1069,7 @@ term: 		var			{ $$ = new_var(O_VAR, $1); }
 					new_range(REDUCE | MAX, $4), $6); }
 	|	'@' K_MAX '(' e ',' expr_list ')'
 				{ $$ = new(LMAX, $6, $4); }
-	|       '@' K_MIN '(' var_or_range ')' 
+	|       '@' K_MIN '(' var_or_range ')'
 				{ $$ = new(MIN,
 					new_range(REDUCE | MIN, $4), ENULL); }
 	|	'@' K_MIN  '(' range ',' e ')'
@@ -1078,9 +1077,9 @@ term: 		var			{ $$ = new_var(O_VAR, $1); }
 					new_range(REDUCE | MIN, $4), $6); }
 	|	'@' K_MIN '(' e ',' expr_list ')'
 				{ $$ = new(LMIN, $6, $4); }
-	|       '@' K_ROWS '(' var_or_range ')' 
+	|       '@' K_ROWS '(' var_or_range ')'
 				{ $$ = new_range(REDUCE | 'R', $4); }
-	|       '@' K_COLS '(' var_or_range ')' 
+	|       '@' K_COLS '(' var_or_range ')'
 				{ $$ = new_range(REDUCE | 'C', $4); }
 	| '@' K_ABS '(' e ')'		{ $$ = new(ABS, $4, ENULL); }
 	| '@' K_ACOS '(' e ')'		{ $$ = new(ACOS, $4, ENULL); }
@@ -1108,7 +1107,7 @@ term: 		var			{ $$ = new_var(O_VAR, $1); }
 	| '@' K_PV  '(' e ',' e ',' e ')' { $$ = new(PV,  $4,new(':',$6,$8)); }
  	| '@' K_FV  '(' e ',' e ',' e ')' { $$ = new(FV,  $4,new(':',$6,$8)); }
  	| '@' K_PMT '(' e ',' e ',' e ')' { $$ = new(PMT, $4,new(':',$6,$8)); }
- 
+
 	| '@' K_HOUR '(' e ')'		{ $$ = new(HOUR, $4, ENULL); }
 	| '@' K_MINUTE '(' e ')'	{ $$ = new(MINUTE, $4, ENULL); }
 	| '@' K_SECOND '(' e ')'	{ $$ = new(SECOND, $4, ENULL); }
