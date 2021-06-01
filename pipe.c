@@ -255,7 +255,7 @@ void doeval(struct enode *e, char *fmt, int row, int col, int fd)
     linelim = -1;
 
     efree(e);
-    if (fmt) scxfree(fmt);
+    scxfree(fmt);
 }
 
 void doseval(struct enode *e, int row, int col, int fd)
@@ -272,8 +272,7 @@ void doseval(struct enode *e, int row, int col, int fd)
     linelim = -1;
 
     efree(e);
-    if (s)
-        scxfree(s);
+    scxfree(s);
 }
 
 void doquery(char *s, char *data, int fd)
@@ -291,7 +290,7 @@ void doquery(char *s, char *data, int fd)
     CLEAR_LINE;
     update(0);
 
-    if (s) scxfree(s);
+    scxfree(s);
 }
 
 void dogetkey(void) {

@@ -107,7 +107,7 @@ void sortrange(struct ent *left, struct ent *right, char *criteria)
     }
     scxfree(sort);
     scxfree(rows);
-    if (criteria) scxfree(criteria);
+    scxfree(criteria);
 
     r = currow;
     c = curcol;

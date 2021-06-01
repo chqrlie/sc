@@ -194,6 +194,7 @@ void flush_saved(void) {
 
     if (dbidx < 0)
         return;
+
     if ((p = delbuf[dbidx])) {
         scxfree(delbuffmt[dbidx]);
         delbuffmt[dbidx] = NULL;

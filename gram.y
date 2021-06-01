@@ -373,8 +373,7 @@ command:        S_LET var_or_range '=' e
                                 { doformat($2,$2,$3,$4, REFMTFIX); }
         |       S_FORMAT NUMBER '=' STRING
                                 { if ($2 >= 0 && $2 < 10) {
-                                    if (colformat[$2])
-                                        scxfree(colformat[$2]);
+                                    scxfree(colformat[$2]);
                                     if (strlen($4))
                                         colformat[$2] = $4;
                                     else
@@ -397,39 +396,37 @@ command:        S_LET var_or_range '=' e
                                     readfile(tmp, 0);
                                     scxfree(tmp);
                                 }
-        |       S_MDIR strarg   { if (mdir) scxfree(mdir);
+        |       S_MDIR strarg   { scxfree(mdir);
+                                  mdir = NULL;
                                   if (strlen($2))
                                     mdir = $2;
                                   modflg++; }
         |       S_AUTORUN strarg
-                                { if (autorun) scxfree(autorun);
+                                { scxfree(autorun);
+                                  autorun = NULL;
                                   if (strlen($2))
                                     autorun = $2;
                                   modflg++; }
         |       S_FKEY NUMBER '=' strarg
                                 { if ($2 > 0 && $2 <= FKEYS) {
-                                    if (fkey[$2 - 1]) {
-                                        scxfree(fkey[$2 - 1]);
-                                        fkey[$2 - 1] = NULL;
-                                    }
+                                    scxfree(fkey[$2 - 1]);
+                                    fkey[$2 - 1] = NULL;
                                     if (strlen($4))
                                         fkey[$2 - 1] = $4;
                                     modflg++;
                                   } else
                                     error("Invalid function key");
                                 }
-        |       S_SCEXT strarg  { if (scext) scxfree(scext); scext = $2; }
+        |       S_SCEXT strarg  { scxfree(scext); scext = $2; }
         |       S_HISTFILE strarg { strlcpy(histfile, $2, sizeof histfile);
                                     scxfree($2); }
-        |       S_ASCEXT strarg { if (ascext) scxfree(ascext); ascext = $2; }
+        |       S_ASCEXT strarg { scxfree(ascext); ascext = $2; }
         |       S_TBL0EXT strarg
-                                { if (tbl0ext) scxfree(tbl0ext); tbl0ext = $2; }
-        |       S_TBLEXT strarg { if (tblext) scxfree(tblext); tblext = $2; }
-        |       S_LATEXEXT strarg       { if (latexext) scxfree(latexext);
-                                            latexext = $2; }
-        |       S_SLATEXEXT strarg      { if (slatexext) scxfree(slatexext);
-                                            slatexext = $2; }
-        |       S_TEXEXT strarg { if (texext) scxfree(texext); texext = $2; }
+                                { scxfree(tbl0ext); tbl0ext = $2; }
+        |       S_TBLEXT strarg { scxfree(tblext); tblext = $2; }
+        |       S_LATEXEXT strarg       { scxfree(latexext); latexext = $2; }
+        |       S_SLATEXEXT strarg      { scxfree(slatexext); slatexext = $2; }
+        |       S_TEXEXT strarg { scxfree(texext); texext = $2; }
         |       S_PUT strarg range
                                 { (void) writefile($2, ($3.left.vp)->row,
                                         ($3.left.vp)->col, ($3.right.vp)->row,
@@ -1248,13 +1245,10 @@ strarg:         STRING          { $$ = $1; }
         |       var             {
                                     char *s;
                                     const char *s1;
-                                    size_t l;
                                     s1 = $1.vp->label;
                                     if (!s1)
                                         s1 = "NULL_STRING";
-                                    l = strlen(s1) + 1;
-                                    s = scxmalloc(l);
-                                    strlcpy(s, s1, l);
+                                    s = scxdup(s1);
                                     $$ = s;
                                 }
         ;

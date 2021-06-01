@@ -1422,11 +1422,9 @@ static void save_hist(void) {
         strlcpy(history[lasthist].histline, line, history[lasthist].len);
         histsessionnew++;
     }
-    if (history[0].histline) {
-        scxfree(history[0].histline);
-        history[0].histline = NULL;
-        history[0].len = 0;
-    }
+    scxfree(history[0].histline);
+    history[0].histline = NULL;
+    history[0].len = 0;
     histp = 0;
 }
 

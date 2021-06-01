@@ -2248,7 +2248,6 @@ struct enode *copye(register struct enode *e, int Rdelta, int Cdelta, int r1, in
         ret->e.r.right.vf = e->e.r.right.vf;
     } else {
         struct enode *temprange = NULL;
-        size_t l;
 
         if (freeenodes) {
             ret = freeenodes;
@@ -2315,9 +2314,7 @@ struct enode *copye(register struct enode *e, int Rdelta, int Cdelta, int r1, in
                 break;
             case '$':
             case EXT:
-                l = strlen(e->e.s) + 1;
-                ret->e.s = scxmalloc(l);
-                strlcpy(ret->e.s, e->e.s, l);
+                ret->e.s = scxdup(e->e.s);
                 if (e->op == '$')       /* Drop through if ret->op is EXT */
                     break;
             default:
@@ -2605,7 +2602,6 @@ void closefile(FILE *f, int pid, int rfd)
 void copyent(register struct ent *n, register struct ent *p, int dr, int dc,
              int r1, int c1, int r2, int c2, int special)
 {
-    size_t l;
     if (!n || !p) {
         error("internal error");
         return;
@@ -2623,11 +2619,8 @@ void copyent(register struct ent *n, register struct ent *p, int dr, int dc,
                 n->flags &= ~IS_STREXPR;
         }
         if (p->label) {
-            if (n->label)
-                scxfree(n->label);
-            l = strlen(p->label) + 1;
-            n->label = scxmalloc(l);
-            strlcpy(n->label, p->label, l);
+            scxfree(n->label);
+            n->label = scxdup(p->label);
             n->flags &= ~IS_LEFTFLUSH;
             n->flags |= ((p->flags & IS_LABEL) | (p->flags & IS_LEFTFLUSH));
         } else if (special != 'm') {
@@ -2637,11 +2630,8 @@ void copyent(register struct ent *n, register struct ent *p, int dr, int dc,
         n->flags |= p->flags & IS_LOCKED;
     }
     if (p->format) {
-        if (n->format)
-            scxfree(n->format);
-        l = strlen(p->format) + 1;
-        n->format = scxmalloc(l);
-        strlcpy(n->format, p->format, l);
+        scxfree(n->format);
+        n->format = scxdup(p->format);
     } else if (special != 'm' && special != 'f')
         n->format = NULL;
     n->flags |= IS_CHANGED;
@@ -3070,18 +3060,17 @@ void erasedb(void) {
         for (c = 0; c++ <= maxcol; pp++)
             if (*pp) {
                 if ((*pp)->expr)  efree((*pp)->expr);
-                if ((*pp)->label) scxfree(((*pp)->label));
+                scxfree((*pp)->label);
                 (*pp)->next = freeents; /* save [struct ent] for reuse */
                 freeents = *pp;
                 *pp = (struct ent *)0;
             }
     }
 
-    for (c = 0; c < COLFORMATS; c++)
-        if (colformat[c]) {
-            scxfree(colformat[c]);
-            colformat[c] = NULL;
-        }
+    for (c = 0; c < COLFORMATS; c++) {
+        scxfree(colformat[c]);
+        colformat[c] = NULL;
+    }
 
     maxrow = 0;
     maxcol = 0;
@@ -3106,19 +3095,15 @@ void erasedb(void) {
     for (c = 1; c < 37; c++)
         savedrow[c] = savedcol[c] = savedstrow[c] = savedstcol[c] = -1;
 
-    if (mdir) {
-        scxfree(mdir);
-        mdir = NULL;
+    scxfree(mdir);
+    mdir = NULL;
+    scxfree(autorun);
+    autorun = NULL;
+
+    for (c = 0; c < FKEYS; c++) {
+        scxfree(fkey[c]);
+        fkey[c] = NULL;
     }
-    if (autorun) {
-        scxfree(autorun);
-        autorun = NULL;
-    }
-    for (c = 0; c < FKEYS; c++)
-        if (fkey[c]) {
-            scxfree(fkey[c]);
-            fkey[c] = NULL;
-        }
 
 #ifndef MSDOS
     /*

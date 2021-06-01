@@ -24,7 +24,8 @@
  * current size if we can.
  */
 #ifndef PSC
-void checkbounds(int *rowp, int *colp)
+void
+checkbounds(int *rowp, int *colp)
 {
     if (*rowp < 0)
         *rowp = 0;
@@ -61,30 +62,31 @@ void checkbounds(int *rowp, int *colp)
     oldptr = newptr /* wait incase we can't alloc */
 
 #ifndef PSC
-static const char nolonger[] = "The table can't be any longer";
+static const char       nolonger[] = "The table can't be any longer";
 #endif /* !PSC */
 
-static const char nowider[] = "The table can't be any wider";
+static const char       nowider[] = "The table can't be any wider";
 
 /*
  * grow the main && auxiliary tables (reset maxrows/maxcols as needed)
  * toprow &&/|| topcol tell us a better guess of how big to become.
  * we return TRUE if we could grow, FALSE if not....
  */
-int growtbl(int rowcol, int toprow, int topcol)
+int
+growtbl(int rowcol, int toprow, int topcol)
 {
-    int *fwidth2;
-    int *precision2;
-    int *realfmt2;
-    int newcols;
+    int         *fwidth2;
+    int         *precision2;
+    int         *realfmt2;
+    int         newcols;
 #ifndef PSC
-    struct ent ***tbl2;
-    struct ent **nullit;
-    int cnt;
-    char *col_hidden2;
-    char *row_hidden2;
-    int newrows;
-    int i;
+    struct ent  ***tbl2;
+    struct ent  ** nullit;
+    int         cnt;
+    char        *col_hidden2;
+    char        *row_hidden2;
+    int         newrows;
+    int         i;
 
     newrows = maxrows;
 #endif /* !PSC */
@@ -132,8 +134,8 @@ int growtbl(int rowcol, int toprow, int topcol)
 
 #ifndef PSC
     if ((rowcol == GROWROW) || (rowcol == GROWBOTH) || (rowcol == GROWNEW)) {
-        struct ent ***lnullit;
-        int lcnt;
+        struct  ent *** lnullit;
+        int     lcnt;
 
         GROWALLOC(row_hidden2, row_hidden, newrows, char, nolonger);
         memset(row_hidden+maxrows, 0, (newrows-maxrows)*sizeof(char));

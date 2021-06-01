@@ -197,9 +197,7 @@ static char *dostindex(int minr, int minc, int maxr, int maxc, struct enode *val
         p = *ATBL(tbl, r, c);
 
     if (p && p->label) {
-        size_t l = strlen(p->label) + 1;
-        pr = scxmalloc(l);
-        strlcpy(pr, p->label, l);
+        pr = scxdup(p->label);
         if (p->cellerror)
             cellerror = CELLINVALID;
         return (pr);
@@ -618,11 +616,8 @@ static double doeqs(char *s1, char *s2)
     else
         v = 0.0;
 
-    if (s1)
-        scxfree(s1);
-
-    if (s2)
-        scxfree(s2);
+    scxfree(s1);
+    scxfree(s2);
 
     return(v);
 }
@@ -1038,34 +1033,27 @@ docat(register char *s1, register char *s2)
     size_t l;
 
     if (!s1 && !s2)
-        return ((char *)0);
+        return (char *)0;
     arg1 = s1 ? s1 : "";
     arg2 = s2 ? s2 : "";
     l = strlen(arg1) + strlen(arg2) + 1;
     p = scxmalloc(l);
     strlcpy(p, arg1, l);
     strlcat(p, arg2, l);
-    if (s1)
-        scxfree(s1);
-    if (s2)
-        scxfree(s2);
-    return (p);
+    scxfree(s1);
+    scxfree(s2);
+    return p;
 }
 
 static char *
 dodate(time_t tloc, const char *fmtstr)
 {
     char buff[FBUFLEN];
-    char *p;
-    size_t l;
 
     if (!fmtstr)
         fmtstr = "%a %b %d %H:%M:%S %Y";
     strftime(buff, FBUFLEN, fmtstr, localtime(&tloc));
-    l = strlen(buff) + 1;
-    p = scxmalloc(l);
-    strlcpy(p, buff, l);
-    return (p);
+    return scxdup(buff);
 }
 
 
@@ -1073,17 +1061,13 @@ static char *
 dofmt(char *fmtstr, double v)
 {
     char buff[FBUFLEN];
-    char *p;
-    size_t l;
 
     if (!fmtstr)
         return ((char *)0);
+    // XXX: Achtung Minen! snprintf from user supplied format string
     (void) snprintf(buff, FBUFLEN, fmtstr, v);
-    l = strlen(buff) + 1;
-    p = scxmalloc(l);
-    strlcpy(p, buff, l);
     scxfree(fmtstr);
-    return (p);
+    return scxdup(buff);
 }
 
 
@@ -1103,15 +1087,11 @@ doext(struct enode *se)
 {
     char *command = seval(se->e.o.left);
     double value = eval(se->e.o.right);
-    char *buf;
 
     error("Warning: External functions unavailable on VMS");
     cellerror = CELLERROR;      /* not sure if this should be a cellerror */
-    if (command)
-        scxfree(command);
-    buf = scxmalloc(1);
-    strlcpy(buf, "\0", 1);
-    return buf;
+    scxfree(command);
+    return scxdup("");
 }
 
 #else /* if defined(VMS) || defined(MSDOS) */
@@ -1131,12 +1111,12 @@ doext(struct enode *se)
         error("Warning: external functions disabled; using %s value",
                 (se->e.o.s && *se->e.o.s) ? "previous" : "null");
 
-        if (command) scxfree(command);
+        scxfree(command);
     } else {
         if ((! command) || (! *command)) {
             error ("Warning: external function given null command name");
             cellerror = CELLERROR;
-            if (command) scxfree(command);
+            scxfree(command);
         } else {
             FILE *pp;
 
@@ -1173,12 +1153,9 @@ doext(struct enode *se)
         } /* else */
     } /* else */
     if (se->e.o.s) {
-        l = strlen(se->e.o.s) + 1;
-        buf = scxmalloc(l);
-        strlcpy(buf, se->e.o.s, l);
+        buf = scxdup(se->e.o.s);
     } else {
-        buf = scxmalloc(1);
-        strlcpy(buf, "", 1);
+        buf = scxdup("");
     }
     return buf;
 }
@@ -1196,16 +1173,11 @@ doext(struct enode *se)
 static char *
 dosval(char *colstr, double rowdoub)
 {
-    struct ent *ep;
+    struct ent *ep = getent(colstr, rowdoub);
     const char *llabel;
-    char *buf;
-    size_t l;
 
-    llabel = (ep = getent(colstr, rowdoub)) ? ep->label : "";
-    l = strlen(llabel) + 1;
-    buf = scxmalloc(l);
-    strlcpy(buf, llabel, l);
-    return buf;
+    llabel = ep ? ep->label : "";
+    return scxdup(llabel);
 }
 
 
@@ -1221,16 +1193,14 @@ dosubstr(char *s, register int v1, register int v2)
     char *p;
 
     if (!s)
-        return ((char *)0);
+        return (char *)0;
 
     if (v2 >= (ssize_t)strlen(s))               /* past end */
-        v2 =  strlen(s) - 1;            /* to end   */
+        v2 = strlen(s) - 1;            /* to end   */
 
     if (v1 < 0 || v1 > v2) {            /* out of range, return null string */
         scxfree(s);
-        p = scxmalloc(1);
-        p[0] = '\0';
-        return (p);
+        return scxdup("");
     }
     s2 = p = scxmalloc(v2-v1+2);
     s1 = &s[v1];
@@ -1238,7 +1208,7 @@ dosubstr(char *s, register int v1, register int v2)
         *s2 = *s1;
     *s2 = '\0';
     scxfree(s);
-    return(p);
+    return p;
 }
 
 /*
@@ -1307,17 +1277,10 @@ docapital(char *s)
 char *
 seval(register struct enode *se)
 {
-    register char *p;
-    size_t l;
-    char *buf;
-
     if (se == (struct enode *)0) return (char *)0;
     switch (se->op) {
         case O_SCONST:
-                l = strlen(se->e.s) + 1;
-                p = scxmalloc(l);
-                strlcpy(p, se->e.s, l);
-                return (p);
+                return scxdup(se->e.s);
         case O_VAR:    {
                         struct ent *vp = se->e.v.vp;
                         int row, col;
@@ -1331,10 +1294,7 @@ seval(register struct enode *se)
                         }
                         if (!vp || !vp->label)
                             return (NULL);
-                        l = strlen(vp->label) + 1;
-                        p = scxmalloc(l);
-                        strlcpy(p, vp->label, l);
-                        return (p);
+                        return scxdup(vp->label);
         }
         case '#':    return (docat(seval(se->e.o.left), seval(se->e.o.right)));
         case 'f':    {
@@ -1375,23 +1335,18 @@ seval(register struct enode *se)
                             (int)eval(se->e.o.right->e.o.left) - 1,
                             (int)eval(se->e.o.right->e.o.right) - 1));
         case COLTOA:
-            buf = scxmalloc(10);
-            strlcpy(buf, coltoa((int)eval(se->e.o.left)), 10);
-            return buf;
+            return scxdup(coltoa((int)eval(se->e.o.left)));
         case FILENAME: {
                      int n = eval(se->e.o.left);
                      char *s = strrchr(curfile, '/');
 
                      if (n || s++ == NULL) s = curfile;
-                     l = strlen(s) + 1;
-                     p = scxmalloc(l);
-                     strlcpy(p, s, l);
-                     return (p);
+                     return scxdup(s);
         }
         default:
                      error("Illegal string expression");
                      exprerr = 1;
-                     return (NULL);
+                     return NULL;
     }
 }
 
@@ -1507,8 +1462,7 @@ RealEvalOne(register struct ent *p, int i, int j, int *chgct)
             p->flags |= IS_CHANGED;
             changed++;
         }
-        if (p->label)
-            scxfree(p->label);
+        scxfree(p->label);
         p->label = v;
     } else {
         double v;
@@ -2398,8 +2352,7 @@ slet(struct ent *v, struct enode *se, int flushdir)
     }
     if (constant(se)) {
         label(v, p, flushdir);
-        if (p)
-            scxfree(p);
+        scxfree(p);
         efree(se);
         if (v->flags & IS_STREXPR) {
             efree(v->expr);
@@ -2429,7 +2382,6 @@ format_cell(struct ent *v1, struct ent *v2, char *s)
     register struct ent *n;
     int maxr, maxc;
     int minr, minc;
-    size_t l;
 
     maxr = v2->row;
     maxc = v2->col;
@@ -2444,21 +2396,19 @@ format_cell(struct ent *v1, struct ent *v2, char *s)
     FullUpdate++;
     modflg++;
 
-    for (r = minr; r <= maxr; r++)
+    for (r = minr; r <= maxr; r++) {
         for (c = minc; c <= maxc; c++) {
             n = lookat(r, c);
             if (locked_cell(n->row, n->col))
                 continue;
-            if (n->format)
-                scxfree(n->format);
+            scxfree(n->format);
             n->format = 0;
             if (s && *s != '\0') {
-                l = strlen(s) + 1;
-                n->format = scxmalloc(l);
-                strlcpy(n->format, s, l);
+                n->format = scxdup(s);
             }
             n->flags |= IS_CHANGED;
         }
+    }
 }
 
 void
@@ -2503,8 +2453,7 @@ void clearent(struct ent *v)
     if (v->expr)
         efree(v->expr);
     v->expr = NULL;
-    if (v->format)
-        scxfree(v->format);
+    scxfree(v->format);
     v->format = NULL;
     v->flags = (IS_CHANGED|IS_CLEARED);
     changed++;
@@ -2551,9 +2500,9 @@ efree(struct enode *e)
             efree(e->e.o.left);
             efree(e->e.o.right);
         }
-        if (e->op == O_SCONST && e->e.s)
+        if (e->op == O_SCONST)
             scxfree(e->e.s);
-        else if (e->op == EXT && e->e.o.s)
+        else if (e->op == EXT)
             scxfree(e->e.o.s);
         e->e.o.left = freeenodes;
         freeenodes = e;
@@ -2571,11 +2520,9 @@ void label(register struct ent *v, register const char *s, int flushdir)
                 v = tv, flushdir = -1;
             else flushdir = -1;
         }
-        if (v->label) scxfree(v->label);
+        scxfree(v->label);
         if (s && s[0]) {
-            size_t l = strlen(s) + 1;
-            v->label = scxmalloc(l);
-            strlcpy(v->label, s, l);
+            v->label = scxdup(s);
         } else
             v->label = (char *)0;
         if (flushdir<0) v->flags |= IS_LEFTFLUSH;

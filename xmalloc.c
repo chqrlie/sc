@@ -45,12 +45,12 @@ char *scxdup(const char *s) {
 
 void scxfree(void *p)
 {
-    if (p == NULL)
-        fatal("scxfree: NULL");
-    p -= sizeof(double);
-    if (*((double *)p) != MAGIC)
-        fatal("scxfree: storage not malloc'ed");
-    free(p);
+    if (p != NULL) {
+        p -= sizeof(double);
+        if (*((double *)p) != MAGIC)
+            fatal("scxfree: storage not malloc'ed");
+        free(p);
+    }
 }
 
 static void fatal(const char *str)
