@@ -142,7 +142,7 @@ void add_crange(struct ent *r_left, struct ent *r_right, int pair)
                         r->r_prev->r_next = r->r_next;
                     else
                         color_base = r->r_next;
-                    scxfree((char *)r);
+                    scxfree(r);
                     modflg++;
                     FullUpdate++;
                     return;
@@ -175,7 +175,7 @@ void clean_crange(void) {
 
     while (cr) {
         nextcr = cr->r_next;
-        scxfree((char *)cr);
+        scxfree(cr);
         cr = nextcr;
     }
 }

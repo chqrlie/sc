@@ -414,7 +414,7 @@ int main(int argc, char  **argv)
     if (Mopt)
         mouseon();
     if (popt) {
-        char *redraw = NULL;
+        const char *redraw = NULL;
         int o;
 
 #ifdef BSD43
@@ -1269,7 +1269,7 @@ int main(int argc, char  **argv)
                             FILE *f;
                             int pid;
                             char px[MAXCMD];
-                            char *pager;
+                            const char *pager;
 
                             strlcpy(px, "| ", sizeof px);
                             if (!(pager = getenv("PAGER")))
@@ -2214,7 +2214,7 @@ void diesave(void) {
 }
 
 /* check if tbl was modified and ask to save */
-int modcheck(char *endstr)
+int modcheck(const char *endstr)
 {
     if (modflg && curfile[0]) {
         int yn_ans;

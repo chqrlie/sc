@@ -134,8 +134,8 @@ void del_range(struct ent *left, struct ent *right)
         r->r_prev->r_next = r->r_next;
     else
         rng_base = r->r_next;
-    scxfree((char *)(r->r_name));
-    scxfree((char *)r);
+    scxfree(r->r_name);
+    scxfree(r);
     modflg++;
 }
 
@@ -148,8 +148,8 @@ void clean_range(void) {
 
     while (r) {
         nextr = r->r_next;
-        scxfree((char *)(r->r_name));
-        scxfree((char *)r);
+        scxfree(r->r_name);
+        scxfree(r);
         r = nextr;
     }
 }

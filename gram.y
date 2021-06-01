@@ -1246,7 +1246,8 @@ num:            NUMBER          { $$ = (double) $1; }
 
 strarg:         STRING          { $$ = $1; }
         |       var             {
-                                    char *s, *s1;
+                                    char *s;
+                                    const char *s1;
                                     size_t l;
                                     s1 = $1.vp->label;
                                     if (!s1)

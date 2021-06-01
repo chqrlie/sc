@@ -84,7 +84,7 @@ fpe_trap(int signo)
 }
 
 struct key {
-    char *key;
+    const char *key;
     int val;
 };
 

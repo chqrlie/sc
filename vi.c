@@ -1048,7 +1048,7 @@ void ins_in_line(int c)
     }
 }
 
-void ins_string(char *s)
+void ins_string(const char *s)
 {
     while (*s)
         ins_in_line(*s++);
@@ -1359,7 +1359,7 @@ void doshell(void)
 #if VMS || MSDOS
     error("Not implemented on VMS or MS-DOS");
 #else /* VMS */
-    char *shl;
+    const char *shl;
     int pid, temp;
     char cmd[MAXCMD];
     static char lastcmd[MAXCMD];

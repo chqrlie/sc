@@ -20,7 +20,7 @@ int Crypt = 0;
 #define MAXKEYWORDSIZE 30
 char KeyWord[MAXKEYWORDSIZE] = {""};
 
-void creadfile(char *save, int eraseflg)
+void creadfile(const char *save, int eraseflg)
 {
     register FILE *f;
     int pipefd[2];

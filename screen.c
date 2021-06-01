@@ -1102,7 +1102,7 @@ void repaint(int x, int y, int len, int attron, int attroff)
 int seenerr;
 
 /* error routine for yacc (gram.y) */
-void yyerror(char *err)
+void yyerror(const char *err)
 {
     if (usecurses) {
         if (seenerr) return;

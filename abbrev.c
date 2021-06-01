@@ -36,7 +36,7 @@ void add_abbr(char *string)
             FILE *f;
             int pid;
             char px[MAXCMD];
-            char *pager;
+            const char *pager;
             struct abbrev *a;
             struct abbrev *nexta;
 
@@ -130,8 +130,8 @@ void del_abbr(char *abbrev)
         a->a_prev->a_next = a->a_next;
     else
         abbr_base = a->a_next;
-    scxfree((char *)(a->abbr));
-    scxfree((char *)a);
+    scxfree(a->abbr);
+    scxfree(a);
 }
 
 struct abbrev *find_abbr(char *abbrev, int len, struct abbrev **prev)

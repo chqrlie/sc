@@ -101,7 +101,7 @@
 #define MAXBUF  256
 
 static char *fmt_int(char *val, char *fmt, bool comma, bool negative);
-static char *fmt_frac(char *val, char *fmt, int lprecision);
+static char *fmt_frac(const char *val, const char *fmt, int lprecision);
 static char *fmt_exp(int val, char *fmt);
 
 static void reverse(register char *buf);
@@ -123,7 +123,7 @@ bool format(char *fmt, int lprecision, double val, char *buf, size_t buflen)
     static char         *mantissa = NULL;
     static char         *tmpfmt1 = NULL, *tmpfmt2 = NULL, *exptmp = NULL;
     static unsigned     mantlen = 0, fmtlen = 0;
-    char *fraction = NULL;
+    const char *fraction = NULL;
     int zero_pad = 0;
 
     if (fmt == NULL)
@@ -263,12 +263,12 @@ bool format(char *fmt, int lprecision, double val, char *buf, size_t buflen)
             integer++;
     }
     if (*cp == dpoint) {
-        fraction = cp + 1;
-        *cp = EOS;
-        cp = fraction + strlen(fraction) - 1;
+        *cp++ = EOS;
+        fraction = cp;
+        cp += strlen(cp);
         for (; zero_pad > 0; zero_pad--, cp--) {
-            if (*cp == '0')
-                *cp = EOS;
+            if (cp[-1] == '0')
+                cp[-1] = EOS;
             else
                 break;
         }
@@ -279,9 +279,9 @@ bool format(char *fmt, int lprecision, double val, char *buf, size_t buflen)
  * format the puppy
  */
     {
-    static      char *citmp = NULL, *cftmp = NULL;
-    static      unsigned cilen = 0, cflen = 0;
-    char *ci, *cf, *ce;
+    static char *citmp = NULL, *cftmp = NULL;
+    static unsigned cilen = 0, cflen = 0;
+    const char *ci, *cf, *ce;
     unsigned int len_ci, len_cf, len_ce;
     bool ret = false;
 
@@ -377,13 +377,14 @@ static char *fmt_int(char *val,      /* integer part of the value to be formatte
 
 /*****************************************************************************/
 
-static char *fmt_frac(char *val,     /* fractional part of the value to be formatted */
-                      char *fmt,          /* fractional portion of format */
+static char *fmt_frac(const char *val,     /* fractional part of the value to be formatted */
+                      const char *fmt,          /* fractional portion of format */
                       int lprecision)     /* precision, for interpreting the "&" */
 {
     static char buf[MAXBUF];
     register char *bufptr = buf;
-    register char *fmtptr = fmt, *valptr = val;
+    register const char *fmtptr = fmt;
+    register const char *valptr = val;
 
     *bufptr++ = dpoint;
     while (*fmtptr != EOS) {
@@ -492,7 +493,7 @@ static void reverse(register char *buf)
 bool engformat(int fmt, int width, int lprecision, double val, char *buf, int buflen)
 {
 
-    static char *engmult[] = {
+    static const char *engmult[] = {
         "-18", "-15", "-12", "-09", "-06", "-03",
         "+00",
         "+03", "+06", "+09", "+12", "+15", "+18"

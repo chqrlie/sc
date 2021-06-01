@@ -82,13 +82,13 @@ int constant(register struct enode *e);
 void RealEvalOne(register struct ent *p, int i, int j, int *chgct);
 void copydbuf(int deltar, int deltac);
 void decompile(register struct enode *e, int priority);
-void index_arg(char *s, struct enode *e);
-void list_arg(char *s, struct enode *e);
-void one_arg(char *s, struct enode *e);
-void range_arg(char *s, struct enode *e);
-void three_arg(char *s, struct enode *e);
-void two_arg(char *s, struct enode *e);
-void two_arg_index(char *s, struct enode *e);
+void index_arg(const char *s, struct enode *e);
+void list_arg(const char *s, struct enode *e);
+void one_arg(const char *s, struct enode *e);
+void range_arg(const char *s, struct enode *e);
+void three_arg(const char *s, struct enode *e);
+void two_arg(const char *s, struct enode *e);
+void two_arg_index(const char *s, struct enode *e);
 static double finfunc(int, double, double, double);
 static char *dostindex(int, int, int, int, struct enode *);
 static double doindex(int, int, int, int, struct enode *);
@@ -109,7 +109,7 @@ static double donval(char *, double);
 static double dolmax(struct enode *);
 static double dolmin(struct enode *);
 static char *docat(register char *, register char *);
-static char *dodate(time_t, char *);
+static char *dodate(time_t, const char *);
 static char *dofmt(char *, double);
 static char *doext(struct enode *);
 static char *dosval(char *, double);
@@ -1034,7 +1034,7 @@ static char *
 docat(register char *s1, register char *s2)
 {
     register char *p;
-    char *arg1, *arg2;
+    const char *arg1, *arg2;
     size_t l;
 
     if (!s1 && !s2)
@@ -1053,7 +1053,7 @@ docat(register char *s1, register char *s2)
 }
 
 static char *
-dodate(time_t tloc, char *fmtstr)
+dodate(time_t tloc, const char *fmtstr)
 {
     char buff[FBUFLEN];
     char *p;
@@ -1197,11 +1197,11 @@ static char *
 dosval(char *colstr, double rowdoub)
 {
     struct ent *ep;
-    char *llabel;
+    const char *llabel;
     char *buf;
     size_t l;
 
-    llabel = (ep = getent(colstr, rowdoub)) ? (ep -> label) : "";
+    llabel = (ep = getent(colstr, rowdoub)) ? ep->label : "";
     l = strlen(llabel) + 1;
     buf = scxmalloc(l);
     strlcpy(buf, llabel, l);
@@ -1494,7 +1494,7 @@ RealEvalOne(register struct ent *p, int i, int j, int *chgct)
         if (setjmp(fpe_save)) {
             error("Floating point exception %s", v_name(i, j));
             cellerror = CELLERROR;
-            v = "";
+            v = scxdup("");
         } else {
             cellerror = CELLOK;
             v = seval(p->expr);
@@ -2365,7 +2365,7 @@ slet(struct ent *v, struct enode *se, int flushdir)
     if (setjmp(fpe_save)) {
         error ("Floating point exception in cell %s", v_name(v->row, v->col));
         cellerror = CELLERROR;
-        p = "";
+        p = scxdup("");
     } else {
         cellerror = CELLOK;
         p = seval(se);
@@ -2478,8 +2478,7 @@ hide_row(int a)
     row_hidden[a] = TRUE;
 }
 
-void
-hide_col(int a)
+void hide_col(int a)
 {
     if (a < 0) {
         error("Invalid Range");
@@ -2495,8 +2494,7 @@ hide_col(int a)
     col_hidden[a] = TRUE;
 }
 
-void
-clearent(struct ent *v)
+void clearent(struct ent *v)
 {
     if (!v)
         return;
@@ -2562,8 +2560,7 @@ efree(struct enode *e)
     }
 }
 
-void
-label(register struct ent *v, register char *s, int flushdir)
+void label(register struct ent *v, register const char *s, int flushdir)
 {
     if (v) {
         if (flushdir==0 && v->flags&IS_VALID) {
@@ -2574,7 +2571,7 @@ label(register struct ent *v, register char *s, int flushdir)
                 v = tv, flushdir = -1;
             else flushdir = -1;
         }
-        if (v->label) scxfree((char *)(v->label));
+        if (v->label) scxfree(v->label);
         if (s && s[0]) {
             size_t l = strlen(s) + 1;
             v->label = scxmalloc(l);
@@ -2641,7 +2638,7 @@ decompile_list(struct enode *p)
 void
 decompile(register struct enode *e, int priority)
 {
-    register char *s;
+    register const char *s;
     if (e) {
         int mypriority;
         switch (e->op) {
@@ -2825,8 +2822,7 @@ decompile(register struct enode *e, int priority)
     } else line[linelim++] = '?';
 }
 
-void
-index_arg(char *s, struct enode *e)
+void index_arg(const char *s, struct enode *e)
 {
     if (e->e.o.right && e->e.o.right->op == ',') {
         two_arg_index(s, e);
@@ -2843,8 +2839,7 @@ index_arg(char *s, struct enode *e)
     line[linelim++] = ')';
 }
 
-void
-two_arg_index(char *s, struct enode *e)
+void two_arg_index(const char *s, struct enode *e)
 {
     for (; (line[linelim++] = *s++); );
     linelim--;
@@ -2857,8 +2852,7 @@ two_arg_index(char *s, struct enode *e)
     line[linelim++] = ')';
 }
 
-void
-list_arg(char *s, struct enode *e)
+void list_arg(const char *s, struct enode *e)
 {
     for (; (line[linelim++] = *s++); );
     linelim--;
@@ -2869,8 +2863,7 @@ list_arg(char *s, struct enode *e)
     line[linelim - 1] = ')';
 }
 
-void
-one_arg(char *s, struct enode *e)
+void one_arg(const char *s, struct enode *e)
 {
     for (; (line[linelim++] = *s++); );
     linelim--;
@@ -2878,8 +2871,7 @@ one_arg(char *s, struct enode *e)
     line[linelim++] = ')';
 }
 
-void
-two_arg(char *s, struct enode *e)
+void two_arg(const char *s, struct enode *e)
 {
     for (; (line[linelim++] = *s++); );
     linelim--;
@@ -2889,8 +2881,7 @@ two_arg(char *s, struct enode *e)
     line[linelim++] = ')';
 }
 
-void
-three_arg(char *s, struct enode *e)
+void three_arg(const char *s, struct enode *e)
 {
     for (; (line[linelim++] = *s++); );
     linelim--;
@@ -2902,8 +2893,7 @@ three_arg(char *s, struct enode *e)
     line[linelim++] = ')';
 }
 
-void
-range_arg(char *s, struct enode *e)
+void range_arg(const char *s, struct enode *e)
 {
     struct range *r;
 
@@ -2922,8 +2912,7 @@ range_arg(char *s, struct enode *e)
     line[linelim++] = ')';
 }
 
-void
-editfmt(int row, int col)
+void editfmt(int row, int col)
 {
     register struct ent *p;
 
@@ -2934,8 +2923,7 @@ editfmt(int row, int col)
     }
 }
 
-void
-editv(int row, int col)
+void editv(int row, int col)
 {
     register struct ent *p;
 
@@ -2952,8 +2940,7 @@ editv(int row, int col)
     }
 }
 
-void
-editexp(int row, int col)
+void editexp(int row, int col)
 {
     register struct ent *p;
 
@@ -2962,8 +2949,7 @@ editexp(int row, int col)
     line[linelim] = '\0';
 }
 
-void
-edits(int row, int col)
+void edits(int row, int col)
 {
     register struct ent *p;
 
@@ -2999,12 +2985,10 @@ edits(int row, int col)
         split interest in an account to two people fairly.
 */
 
-double
-rint(double d)
+double rint(double d)
 {
-        /* as sent */
-        double fl = floor(d),  fr = d-fl;
-        return
-            fr<0.5  ||  fr==0.5 && fl==floor(fl/2)*2   ?   fl   :   ceil(d);
+    /* as sent */
+    double fl = floor(d), fr = d - fl;
+    return fr < 0.5 || fr == 0.5 && fl == floor(fl / 2) * 2 ? fl : ceil(d);
 }
 #endif

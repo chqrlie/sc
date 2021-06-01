@@ -322,7 +322,7 @@ LN=ln
 #LDADD=-lm -lpdcurses
 
 #########################################
-CFLAGS += -Wall -Wextra -Werror
+CFLAGS += -Wall -Wextra -Werror -Wchar-subscripts -Wwrite-strings -Wredundant-decls -Wmissing-declarations
 _CFLAGS= $(CFLAGS) $(INCDIR_CURSES) $(DEFINES) $(__CDBG) $(__CLDBG) \
 	#-DTRACE='"/tmp/trace.txt"'
 _LDFLAGS=$(LDFLAGS) $(__CLDBG) -s

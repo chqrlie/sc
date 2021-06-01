@@ -1545,7 +1545,7 @@ void formatcol(int arg) {
                 update(1);
             }
     }
-    scxfree((char *)oldformat);
+    scxfree(oldformat);
     if (c >= 0)
         CLEAR_LINE;
 }
@@ -2808,7 +2808,7 @@ void write_cells(register FILE *f, int r0, int c0, int rn, int cn, int dr, int d
     modflg = mf;
 }
 
-int writefile(char *fname, int r0, int c0, int rn, int cn)
+int writefile(const char *fname, int r0, int c0, int rn, int cn)
 {
     register FILE *f;
     char save[PATHLEN];
@@ -2922,7 +2922,7 @@ int writefile(char *fname, int r0, int c0, int rn, int cn)
     return 0;
 }
 
-int readfile(char *fname, int eraseflg)
+int readfile(const char *fname, int eraseflg)
 {
     register FILE *f;
     char save[PATHLEN];
@@ -3067,10 +3067,10 @@ void erasedb(void) {
 
     for (r = 0; r<=maxrow; r++) {
         register struct ent **pp = ATBL(tbl, r, 0);
-        for (c=0; c++<=maxcol; pp++)
+        for (c = 0; c++ <= maxcol; pp++)
             if (*pp) {
-                if ((*pp)->expr)  efree((*pp) -> expr);
-                if ((*pp)->label) scxfree((char *)((*pp) -> label));
+                if ((*pp)->expr)  efree((*pp)->expr);
+                if ((*pp)->label) scxfree(((*pp)->label));
                 (*pp)->next = freeents; /* save [struct ent] for reuse */
                 freeents = *pp;
                 *pp = (struct ent *)0;
@@ -3425,7 +3425,7 @@ int etype(register struct enode *e)
 }
 
 /* return 1 if yes given, 0 otherwise */
-int yn_ask(char *msg)
+int yn_ask(const char *msg)
 {
     char ch;
 
@@ -3449,7 +3449,7 @@ int yn_ask(char *msg)
 #endif
 char *findhome(char *path, size_t pathsiz)
 {
-    static char *HomeDir = NULL;
+    static const char *HomeDir = NULL;
 
     if (*path == '~') {
         char *pathptr;

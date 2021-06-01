@@ -85,7 +85,7 @@ void add_frange(struct ent *or_left, struct ent *or_right, struct ent *ir_left,
                         r->r_prev->r_next = r->r_next;
                     else
                         frame_base = r->r_next;
-                    scxfree((char *)r);
+                    scxfree(r);
                     if (lastfr == r) lastfr = NULL;
                 }
                 modflg++;
@@ -145,7 +145,7 @@ void clean_frange(void) {
 
     while (fr) {
         nextfr = fr->r_next;
-        scxfree((char *)fr);
+        scxfree(fr);
         fr = nextfr;
     }
     lastfr = NULL;
