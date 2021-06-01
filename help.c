@@ -8,15 +8,15 @@
 #include <stdlib.h>
 #ifdef QREF
 #include <stdio.h>
-static const char *header = " Quick Reference";
-static const char *revision = "$Revision: 7.16 $";
+static const char * const header = " Quick Reference";
+static const char * const revision = "$Revision: 7.16 $";
 #else
 #include <limits.h>
 #include "compat.h"
 #include "sc.h"
 #endif /* QREF */
 
-static const char *intro[] = {
+static const char * const intro[] = {
 " ",
 #if defined(QREF) && defined(TROFF)
 ".SH",
@@ -47,7 +47,7 @@ static const char *intro[] = {
 (char *)0
 };
 
-static const char *toggleoptions[] = {
+static const char * const toggleoptions[] = {
 " ",
 #if defined(QREF) && defined(TROFF)
 ".SH",
@@ -79,7 +79,7 @@ static const char *toggleoptions[] = {
 (char *)0
 };
 
-static const char *setoptions[] = {
+static const char * const setoptions[] = {
 " ",
 #if defined(QREF) && defined(TROFF)
 ".SH",
@@ -105,7 +105,7 @@ static const char *setoptions[] = {
 (char *)0
 };
 
-static const char *cursor[] = {
+static const char * const cursor[] = {
 " ",
 #if defined(QREF) && defined(TROFF)
 ".SH",
@@ -137,7 +137,7 @@ static const char *cursor[] = {
 (char *)0
 };
 
-static const char *cell[] = {
+static const char * const cell[] = {
 " ",
 #if defined(QREF) && defined(TROFF)
 ".SH",
@@ -171,7 +171,7 @@ static const char *cell[] = {
 (char *)0
 };
 
-static const char *vi[] = {
+static const char * const vi[] = {
 " ",
 #if defined(QREF) && defined(TROFF)
 ".SH",
@@ -207,7 +207,7 @@ static const char *vi[] = {
 (char *)0
 };
 
-static const char *file[] = {
+static const char * const file[] = {
 " ",
 #if defined(QREF) && defined(TROFF)
 ".SH",
@@ -239,7 +239,7 @@ static const char *file[] = {
 (char *)0
 };
 
-static const char *row[] = {
+static const char * const row[] = {
 " ",
 #if defined(QREF) && defined(TROFF)
 ".SH",
@@ -272,7 +272,7 @@ static const char *row[] = {
 (char *)0
 };
 
-static const char *range[] = {
+static const char * const range[] = {
 " ",
 #if defined(QREF) && defined(TROFF)
 ".SH",
@@ -305,7 +305,7 @@ static const char *range[] = {
 (char *)0
 };
 
-static const char *misc[] = {
+static const char * const misc[] = {
 " ",
 #if defined(QREF) && defined(TROFF)
 ".SH",
@@ -332,7 +332,7 @@ static const char *misc[] = {
 (char *)0
 };
 
-static const char *var[] = {
+static const char * const var[] = {
 " ",
 #if defined(QREF) && defined(TROFF)
 ".SH",
@@ -364,7 +364,7 @@ static const char *var[] = {
 (char *)0
 };
 
-static const char *rangef[] = {
+static const char * const rangef[] = {
 " ",
 #if defined(QREF) && defined(TROFF)
 ".SH",
@@ -396,7 +396,7 @@ static const char *rangef[] = {
 (char *)0
 };
 
-static const char *numericf[] = {
+static const char * const numericf[] = {
 " ",
 #if defined(QREF) && defined(TROFF)
 ".SH",
@@ -429,7 +429,7 @@ static const char *numericf[] = {
 (char *)0
 };
 
-static const char *stringf[] = {
+static const char * const stringf[] = {
 " ",
 #if defined(QREF) && defined(TROFF)
 ".SH",
@@ -462,7 +462,7 @@ static const char *stringf[] = {
 (char *)0
 };
 
-static const char *finf[] = {
+static const char * const finf[] = {
 " ",
 #if defined(QREF) && defined(TROFF)
 ".SH",
@@ -494,7 +494,7 @@ static const char *finf[] = {
 (char *)0
 };
 
-static const char *timef[] = {
+static const char * const timef[] = {
 " ",
 #if defined(QREF) && defined(TROFF)
 ".SH",
@@ -529,11 +529,11 @@ static const char *timef[] = {
 };
 
 #ifndef QREF
-static int pscreen(const char *screen[]);
+static int pscreen(const char * const screen[]);
 
 void help(void) {
     int option;
-    const char **ns = intro;
+    const char * const *ns = intro;
 
     while ((option = pscreen(ns)) != 'q' && option != 'Q') {
         switch (option) {
@@ -561,7 +561,7 @@ void help(void) {
     (void) clrtobot();
 }
 
-static int pscreen(const char *screen[])
+static int pscreen(const char * const screen[])
 {
     int lineno;
     int dbline;
@@ -581,7 +581,7 @@ static int pscreen(const char *screen[])
     return(nmgetch());
 }
 #else
-static const char **pages[] = {
+static const char * const * const pages[] = {
     intro, toggleoptions, setoptions, cursor, cell, vi,
     file, row, range, misc, var, rangef, numericf, stringf,
     finf, timef, NULL
@@ -589,7 +589,7 @@ static const char **pages[] = {
 
 int main() {
     int lineno;
-    const char ***pagep = pages;
+    const char * const * const *pagep = pages;
 #ifdef TROFF
     int pageno = 0;
 
