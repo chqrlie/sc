@@ -166,11 +166,6 @@ RIGHTBUG=
 #YTAB=y_tab
 YTAB=y.tab
 
-# Command to use to make temporary copies of some source files.
-#LN=ln -s
-#LN=cp
-LN=ln
-
 #### SYSTEM DEFINES ####
 
 #########################################
@@ -359,25 +354,31 @@ gram.c:	gram.y
 	$(YACC) -d gram.y
 	mv $(YTAB).c gram.c
 
-$(YTAB).h:	gram.y
+$(YTAB).h: gram.y
 
-p$(name):	psc.c $O/pvmtbl.o $O/pxmalloc.o $O/version.o
+p$(name): psc.c $O/pvmtbl.o $O/pxmalloc.o $O/version.o
 	$(CC) $(_CFLAGS) ${_LDFLAGS} -o p$(name) psc.c $O/pvmtbl.o $O/pxmalloc.o $O/version.o ${PSCLIB}
+
+$O/pvmtbl.o: vmtbl.c sc.h
+	$(CC) $(_CFLAGS) -c -DPSC -o $@ vmtbl.c
+
+$O/pxmalloc.o: xmalloc.c sc.h
+	$(CC) $(_CFLAGS) -c -DPSC -o $@ xmalloc.c
 
 # Alternative link for MS-DOS (NB: MSC 5.1 has no getopt.c)
 #p$(name):	$O/psc.o $O/pvmtbl.o $O/pxmalloc.o $O/getopt.o
 #	link ${_LDFLAGS} $O/psc.o $O/pvmtbl.o $O/pxmalloc.o $O/getopt.o,p$(name);
 
-$(name)qref:	help.c sc.h
+$(name)qref: help.c sc.h
 	$(CC) $(_CFLAGS) $(_LDFLAGS) -DQREF $(QREF_FMT) -DSCNAME=\"$(NAME)\" -o $(name)qref help.c
+
+$O/qhelp.o: help.c sc.h
+	$(CC) $(_CFLAGS) ${CRYPT} -c -o $@ help.c
 
 # Alternative link for MS-DOS
 #$(name)qref:	help.c sc.h
 #	$(CC) -AL -O -Foqhelp.o -c -DQREF -DSCNAME=\"$(name)\" help.c
 #	link ${_LDFLAGS} qhelp.o,$(name)qref;
-
-$O/pvmtbl.o: sc.h vmtbl.c
-	$(CC) $(_CFLAGS) -c -DPSC -o $@ vmtbl.c
 
 # Objects
 
@@ -393,24 +394,28 @@ $O/color.o: color.c sc.h
 $O/crypt.o: crypt.c sc.h
 	$(CC) $(_CFLAGS) ${CRYPT} -c -o $@ crypt.c
 
-$O/format.o: format.c
+$O/format.o: format.c sc.h
 	$(CC) $(_CFLAGS) -c -o $@ format.c
 
 $O/frame.o: frame.c sc.h
 	$(CC) $(_CFLAGS) -c -o $@ frame.c
 
-$O/gram.o:	sc.h $(YTAB).h gram.c
-	$(CC) $(_CFLAGS) ${USELOCALE} -c -o $@ gram.c
+experres.h: gram.y eres.sed
 	sed < gram.y > experres.h -f eres.sed
+
+statres.h: gram.y sres.sed
 	sed < gram.y > statres.h -f sres.sed
+
+$O/gram.o: gram.c $(YTAB).h sc.h
+	$(CC) $(_CFLAGS) ${USELOCALE} -c -o $@ gram.c
 
 $O/help.o: help.c sc.h
 	$(CC) $(_CFLAGS) ${CRYPT} -c -o $@ help.c
 
-$O/interp.o:	interp.c sc.h
+$O/interp.o: interp.c sc.h
 	$(CC) $(_CFLAGS) ${FLOAT_STORE} ${IEEE_MATH} ${SIGVOID} ${RINT} ${REGEX} ${FMOD} -c -o $@ interp.c
 
-$O/lex.o:	sc.h $(YTAB).h $O/gram.o lex.c
+$O/lex.o: $(YTAB).h $O/gram.o lex.c sc.h experres.h statres.h
 	$(CC) $(_CFLAGS) ${SIMPLE} ${IEEE_MATH} ${LIBRARY} ${SIGVOID} ${NO_NOTIMEOUT} -c -o $@ lex.c
 
 $O/pipe.o: pipe.c sc.h
@@ -419,10 +424,10 @@ $O/pipe.o: pipe.c sc.h
 $O/range.o: range.c sc.h
 	$(CC) $(_CFLAGS) -c -o $@ range.c
 
-$O/sc.o:	sc.h sc.c
+$O/sc.o: sc.c sc.h
 	$(CC) $(_CFLAGS) ${DFLT_PAGER} ${SIGVOID} ${SAVE} -c -o $@ sc.c
 
-$O/screen.o:	sc.h screen.c
+$O/screen.o: screen.c sc.h
 	$(CC) $(_CFLAGS) ${BROKENCURSES} ${IDLOKISBAD} ${RIGHTBUG} ${SIGVOID} ${NO_IDLOK} -c -o $@ screen.c
 
 $O/sort.o: sort.c sc.h
@@ -434,20 +439,14 @@ $O/version.o: version.c version.h
 $O/vi.o: vi.c sc.h
 	$(CC) $(_CFLAGS) ${REGEX} ${HISTORY_FILE} -c -o $@ vi.c
 
-$O/vmtbl.o: vmtbl.c
+$O/vmtbl.o: vmtbl.c sc.h
 	$(CC) $(_CFLAGS) -c -o $@ vmtbl.c
 
-$O/xmalloc.o: sc.h xmalloc.c
+$O/xmalloc.o: xmalloc.c sc.h
 	$(CC) $(_CFLAGS) -c -o $@ xmalloc.c
 
-$O/compat.o: sc.h compat.c
+$O/compat.o: compat.c sc.h
 	$(CC) $(_CFLAGS) -c -o $@ compat.c
-
-$O/pxmalloc.o: xmalloc.c sc.h
-	$(CC) $(_CFLAGS) -c -DPSC -o $@ xmalloc.c
-
-$O/qhelp.o: qhelp.c sc.h
-	$(CC) $(_CFLAGS) ${CRYPT} -c -o $@ qhelp.c
 
 # other stuff
 
