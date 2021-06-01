@@ -5,42 +5,42 @@
 
 #ifndef HAVE_STRLCPY
 size_t strlcpy(char *dst, const char *src, size_t dstsize) {
-    size_t srcsize;
+    size_t srclen;
     /* Not conform to strlcpy, but avoids to access illegal memory in case
      * of unterminated strings */
-    for (srcsize = 0; srcsize < dstsize; srcsize++)
-        if (!src[srcsize])
-            break;
-    if (dstsize > srcsize)
-        dstsize = srcsize;
+    for (srclen = 0; srclen < dstsize && src[srclen]; srclen++)
+        continue;
+    if (dstsize > srclen)
+        dstsize = srclen;
     else if (dstsize)
         dstsize--;
-    if (dstsize)
-        /* assumes non-overlapping buffers */
-        memcpy(dst, src, dstsize);
-    dst[dstsize] = 0;
-    return srcsize;
+    else
+        return srclen;
+    /* assumes non-overlapping buffers */
+    memcpy(dst, src, dstsize);
+    dst[dstsize] = '\0';
+    return srclen;
 }
 #endif
 
 #ifndef HAVE_STRLCAT
 size_t strlcat(char *dst, const char *src, size_t dstsize) {
     size_t ld, ls;
-    for (ld = 0; ld < dstsize - 1; ld++)
-        if (!dst[ld])
-            break;
+    for (ld = 0; ld < dstsize && dst[ld]; ld++)
+        continue;
     dst += ld;
     dstsize -= ld;
-    for (ls = 0; ls < dstsize; ls++)
-        if (!src[ls])
-            break;
+    for (ls = 0; ls < dstsize && src[ls]; ls++)
+        continue;
     if (dstsize > ls)
         dstsize = ls;
     else if (dstsize)
         dstsize--;
-    if (dstsize)
-        memcpy(dst, src, dstsize);
-    dst[dstsize] = 0;
+    else
+        return ld + ls;
+    /* assumes non-overlapping buffers */
+    memcpy(dst, src, dstsize);
+    dst[dstsize] = '\0';
     return ld + ls;
 }
 #endif

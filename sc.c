@@ -113,7 +113,7 @@ int calc_order = BYROWS;
 int optimize  = 0;     /* Causes numeric expressions to be optimized */
 int tbl_style = 0;     /* headers for T command output */
 int rndtoeven = 0;
-int color     = 0;     /* Use color */
+int color     = 0;     /* Use color */ // XXX: should rename as use_color
 int colorneg  = 0;     /* Increment color number for cells with negative
                           numbers */
 int colorerr  = 0;     /* Color cells with errors with color 3 */

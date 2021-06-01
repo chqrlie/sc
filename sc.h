@@ -444,6 +444,8 @@ extern struct enode *new_const(int op, double a1);
 extern struct enode *new_range(int op, struct range_s a1);
 extern struct enode *new_str(char *s);
 extern struct enode *new_var(int op, struct ent_ptr a1);
+/* a linked list of free [struct ent]'s, uses .next as the pointer */
+extern struct ent *freeents;
 extern struct ent *lookat(int row, int col);
 extern struct crange *find_crange(int row, int col);
 extern struct frange *find_frange(int row, int col);

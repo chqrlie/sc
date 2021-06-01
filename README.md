@@ -84,9 +84,9 @@ The source is compiled with
 make
 ```
 (the `curses` or `ncurses` header files need to be installed,
-else `make` failes).
+else `make` fails).
 
-If `make` failes it may be possible that `./configure` did not work
+If `make` fails it may be possible that `./configure` did not work
 correctly with the installed `/bin/sh`.
 If `ksh` is installed in such cases using
 ```sh

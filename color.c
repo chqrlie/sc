@@ -16,22 +16,25 @@
 #include "compat.h"
 #include "sc.h"
 
-/* a linked list of free [struct ent]'s, uses .next as the pointer */
-extern struct ent *freeents;
-
 struct colorpair *cpairs[8];
+
 static struct crange *color_base;
+
+int are_colors(void) {
+    return (color_base != 0);
+}
 
 void initcolor(int colornum)
 {
     if (!colornum) {
         int i;
 
-        for (i = 0; i < 8; i++) cpairs[i] =
-            scxmalloc(sizeof(struct colorpair));
+        // XXX: why allocate these instead of using an array of structs?
+        for (i = 0; i < 8; i++)
+            cpairs[i] = scxmalloc(sizeof(struct colorpair));
     }
 
-/* default colors */
+    /* default colors */
     if (!colornum || colornum == 1) {
         cpairs[0]->fg = COLOR_WHITE;
         cpairs[0]->bg = COLOR_BLUE;
@@ -39,7 +42,7 @@ void initcolor(int colornum)
         init_pair(1, cpairs[0]->fg, cpairs[0]->bg);
     }
 
-/* default for negative numbers */
+    /* default for negative numbers */
     if (!colornum || colornum == 2) {
         cpairs[1]->fg = COLOR_RED;
         cpairs[1]->bg = COLOR_WHITE;
@@ -47,7 +50,7 @@ void initcolor(int colornum)
         init_pair(2, cpairs[1]->fg, cpairs[1]->bg);
     }
 
-/* default for cells with errors */
+    /* default for cells with errors */
     if (!colornum || colornum == 3) {
         cpairs[2]->fg = COLOR_WHITE;
         cpairs[2]->bg = COLOR_RED;
@@ -55,7 +58,7 @@ void initcolor(int colornum)
         init_pair(3, cpairs[2]->fg, cpairs[2]->bg);
     }
 
-/* default for '*' marking cells with attached notes */
+    /* default for '*' marking cells with attached notes */
     if (!colornum || colornum == 4) {
         cpairs[3]->fg = COLOR_BLACK;
         cpairs[3]->bg = COLOR_YELLOW;
@@ -107,8 +110,7 @@ void change_color(int pair, struct enode *e)
     v = (int) eval(e);
 
     if (!cpairs[pair])
-        cpairs[pair] =
-            scxmalloc(sizeof(struct colorpair));
+        cpairs[pair] = scxmalloc(sizeof(struct colorpair));
     cpairs[pair]->fg = v & 7;
     cpairs[pair]->bg = (v >> 3) & 7;
     cpairs[pair]->expr = e;
@@ -130,8 +132,8 @@ void add_crange(struct ent *r_left, struct ent *r_right, int pair)
     maxc = r_left->col > r_right->col ? r_left->col : r_right->col;
 
     if (!pair) {
-        if (color_base)
-            for (r = color_base; r; r = r->r_next)
+        if (color_base) {
+            for (r = color_base; r; r = r->r_next) {
                 if (    (r->r_left->row == r_left->row) &&
                         (r->r_left->col == r_left->col) &&
                         (r->r_right->row == r_right->row) &&
@@ -147,6 +149,8 @@ void add_crange(struct ent *r_left, struct ent *r_right, int pair)
                     FullUpdate++;
                     return;
                 }
+            }
+        }
         error("Color range not defined");
         return;
     }
@@ -157,7 +161,7 @@ void add_crange(struct ent *r_left, struct ent *r_right, int pair)
     r->r_color = pair;
 
     r->r_next = color_base;
-    r->r_prev = (struct crange *)0;
+    r->r_prev = NULL;
     if (color_base)
         color_base->r_prev = r;
     color_base = r;
@@ -167,11 +171,11 @@ void add_crange(struct ent *r_left, struct ent *r_right, int pair)
 }
 
 void clean_crange(void) {
-    register struct crange *cr;
-    register struct crange *nextcr;
+    struct crange *cr;
+    struct crange *nextcr;
 
     cr = color_base;
-    color_base = (struct crange *)0;
+    color_base = NULL;
 
     while (cr) {
         nextcr = cr->r_next;
@@ -184,12 +188,13 @@ struct crange *find_crange(int row, int col)
 {
     struct crange *r;
 
-    if (color_base)
+    if (color_base) {
         for (r = color_base; r; r = r->r_next) {
             if ((r->r_left->row <= row) && (r->r_left->col <= col) &&
-                    (r->r_right->row >= row) && (r->r_right->col >= col))
+                (r->r_right->row >= row) && (r->r_right->col >= col))
                 return r;
         }
+    }
     return 0;
 }
 
@@ -207,10 +212,11 @@ void sync_cranges(void)
 
 void write_cranges(FILE *f)
 {
-    register struct crange *r;
-    register struct crange *nextr;
+    struct crange *r;
+    struct crange *nextr;
 
-    for (r = nextr = color_base; nextr; r = nextr, nextr = r->r_next) /**/ ;
+    for (r = nextr = color_base; nextr; r = nextr, nextr = r->r_next)
+        continue;
     while (r) {
         fprintf(f, "color %s", v_name(r->r_left->row, r->r_left->col));
         fprintf(f, ":%s", v_name(r->r_right->row, r->r_right->col));
@@ -263,10 +269,6 @@ void list_colors(FILE *f)
         if (brokenpipe) return;
         r = r->r_prev;
     }
-}
-
-int are_colors(void) {
-    return (color_base != 0);
 }
 
 void fix_colors(int row1, int col1, int row2, int col2, int delta1, int delta2)
