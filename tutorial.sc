@@ -2,6 +2,8 @@
 # You almost certainly shouldn't edit it.
 
 abbrev "xxx this is an error"
+abbrev "abc this is normal"
+abbrev "a123 this is a cell name"
 define "page5" A81:H100
 define "page4" A61:H80
 define "page3" A41:H60

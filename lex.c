@@ -114,7 +114,7 @@ yylex(void)
     if (*p == '\0') {
         isfunc = isgoto = 0;
         ret = -1;
-    } else if (isalphachar(*p) || (*p == '_')) {
+    } else if (isalphachar_(*p)) {
         register char *la;      /* lookahead pointer */
         register struct key *tblp;
 
@@ -127,7 +127,7 @@ yylex(void)
          *  tokens made up of alphanumeric chars and '_' (a function or
          *  token or command or a range name)
          */
-        while (isalphachar(*p) && isascii((int)*p)) {
+        while (isalphachar(*p)) {
             p++;
             tokenl++;
         }
@@ -139,11 +139,11 @@ yylex(void)
          * (no alpha or '_')
          */
         if (!isdigitchar(*tokenst) && tokenl && tokenl <= 2 && (colstate ||
-                (isdigitchar(*(la-1)) && !(isalphachar(*la) || (*la == '_'))))) {
+                (isdigitchar(*(la-1)) && !(isalphachar_(*la))))) {
             ret = COL;
             yylval.ival = atocol(tokenst, tokenl);
         } else {
-            while (isalnumchar(*p) || (*p == '_')) {
+            while (isalnumchar_(*p)) {
                 p++;
                 tokenl++;
             }
@@ -241,12 +241,12 @@ yylex(void)
                 } else if (*p == 'e' || *p == 'E') {
                     while (isdigitchar(*++p))
                         continue;
-                    if (isalphachar(*p) || *p == '_') {
+                    if (isalphachar_(*p)) {
                         linelim = p - line;
                         return yylex();
                     } else
                         ret = FNUMBER;
-                } else if (isalphachar(*p) || *p == '_') {
+                } else if (isalphachar_(*p)) {
                     linelim = p - line;
                     return yylex();
                 }

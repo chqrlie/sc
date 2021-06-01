@@ -194,12 +194,11 @@ struct colorpair {
 #define SCXMEM
 
 /* stores an abbreviation and its expansion */
-/* doubly linked list, sorted by abbr name */
+/* singly linked list, sorted by abbr name */
 struct abbrev {
     SCXMEM char *abbr;
-    // XXX: should use offset
     char *exp;  // points to same block as abbr
-    struct abbrev *a_next, *a_prev;
+    struct abbrev *next;
 };
 
 struct impexfilt {
@@ -707,3 +706,6 @@ void mouseoff(void);
 #define isupperchar(c)   isupper((unsigned char)(c))
 #define tolowerchar(c)   tolower((unsigned char)(c))
 #define toupperchar(c)   toupper((unsigned char)(c))
+
+static inline int isalphachar_(char c) { return isalphachar(c) || c == '_'; }
+static inline int isalnumchar_(char c) { return isalnumchar(c) || c == '_'; }

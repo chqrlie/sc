@@ -59,7 +59,7 @@ void add_range(char *name, struct ent_ptr left, struct ent_ptr right, int is_ran
     }
 
     for (p = name; *p; p++)
-        if (!(isalnumchar(*p) || *p == '_')) {
+        if (!isalnumchar_(*p)) {
             error("Invalid range name \"%s\" - illegal combination", name);
             scxfree(name);
             return;

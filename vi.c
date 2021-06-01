@@ -27,7 +27,7 @@ char *regcmp();
 char *regex();
 #endif
 
-#define istext(a) (isalnum(a) || ((a) == '_'))
+static int iswordchar(char c) { return isalnumchar(c) || c == '_'; }
 
 static void append_line(void);
 static void back_hist(void);
@@ -680,11 +680,11 @@ void dotab(void) {
     static struct range *nextmatch;
     int len;
 
-    if ((linelim > 0 && isalnum((int)line[linelim-1])) || line[linelim-1] == '_' ||
+    if ((linelim > 0 && isalnumchar_(line[linelim-1])) ||
             (completethis && line[linelim-1] == ' ')) {
         if (!completethis) {
             for (completethis = line + linelim - 1;
-                 isalnumchar(*completethis) || *completethis == '_';
+                 isalnumchar_(*completethis);
                  completethis--)
                 continue;
             completethis++;
@@ -932,11 +932,11 @@ static int for_word(int a, int end_word, int big_word, int stop_null)
         if (big_word)
             while ((c = line[cpos]) && c != ' ')
                 cpos++;
-        else if (istext((int)line[cpos])) {
-            while ((c = line[cpos]) && istext(c))
+        else if (iswordchar(line[cpos])) {
+            while (iswordchar(c))
                 cpos++;
         } else {
-            while ((c = line[cpos]) && !istext(c) && c != ' ')
+            while ((c = line[cpos]) != '\0' && !iswordchar(c) && c != ' ')
                 cpos++;
         }
 
@@ -973,8 +973,8 @@ static int back_word(int a, int big_word)
             while (cpos > 0 && line[cpos] == ' ')
                 --cpos;
         } else if (cpos > 0 && (line[cpos-1] == ' '
-                        || ( istext((int)line[cpos]) && !istext((int)line[cpos-1]))
-                        || (!istext((int)line[cpos]) &&  istext((int)line[cpos-1])))) {
+                        || ( iswordchar(line[cpos]) && !iswordchar(line[cpos-1]))
+                        || (!iswordchar(line[cpos]) &&  iswordchar(line[cpos-1])))) {
             /* Started on the first char of a word - back up to prev. word */
             --cpos;
             while (cpos > 0 && line[cpos] == ' ')
@@ -985,11 +985,11 @@ static int back_word(int a, int big_word)
         if (big_word)
             while (cpos > 0 && (c = line[cpos]) && c != ' ')
                 --cpos;
-        else if (istext((int)line[cpos])) {
-            while (cpos > 0 && (c = line[cpos]) && istext(c))
+        else if (iswordchar(line[cpos])) {
+            while (cpos > 0 && iswordchar(line[cpos]))
                 --cpos;
         } else {
-            while (cpos > 0 && (c = line[cpos]) && !istext(c) && c != ' ')
+            while (cpos > 0 && (c = line[cpos]) != '\0' && !iswordchar(c) && c != ' ')
                 --cpos;
         }
 
@@ -1064,34 +1064,34 @@ void doabbrev(void) {
     if (istart < 0 || linelim < 2)
         return;
 
-    if (!(isalnumchar(line[linelim - 1]) || line[linelim - 1] == '_') ||
+    if (!isalnumchar_(line[linelim - 1]) ||
         !(mode == INSERT_MODE || mode == SEARCH_MODE) || istart >= linelim)
         return;
 
     pos = linelim - 2;
-    if (isalnumchar(line[pos]) || line[pos] == '_') {
+    if (isalnumchar_(line[pos])) {
         for (; pos >= istart; pos--)
-            if (!(isalnumchar(line[pos]) || line[pos] == '_'))
+            if (!isalnumchar_(line[pos]))
                 break;
     } else if (line[pos] != ' ')
         for (; pos >= istart; pos--)
-            if (isalnumchar(line[pos]) || line[pos] == '_' || line[pos] == ' ')
+            if (isalnumchar_(line[pos]) || line[pos] == ' ')
                 break;
     pos++;
 
     if (istart && pos == istart) {
-        if (isalnumchar(line[pos]) || line[pos] == '_') {
-            if (isalnumchar(line[--pos]) || line[pos] == '_')
+        if (isalnumchar_(line[pos])) {
+            if (isalnumchar_(line[--pos]))
                 return;
         } else {
-            if (!(isalnumchar(line[--pos]) || line[pos] == '_' || line[pos] == ' '))
+            if (!(isalnumchar_(line[--pos]) || line[pos] == ' '))
                 return;
         }
         pos++;
     }
 
     len = linelim - pos;
-    if (len && (a = find_abbr(line + pos, len, &prev))) {
+    if (len && (a = find_abbr(line + pos, len, &prev)) != NULL) {
         if (len > 1 || pos == 0 || line[pos-1] == ' ') {
             linelim = pos;
             del_in_line(len, 0);
