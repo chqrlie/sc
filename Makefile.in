@@ -368,28 +368,16 @@ p$(name):	psc.c $O/pvmtbl.o $O/pxmalloc.o $O/version.o
 #p$(name):	$O/psc.o $O/pvmtbl.o $O/pxmalloc.o $O/getopt.o
 #	link ${_LDFLAGS} $O/psc.o $O/pvmtbl.o $O/pxmalloc.o $O/getopt.o,p$(name);
 
-qhelp.c: help.c
-	-rm -f qhelp.c
-	${LN} help.c qhelp.c
-
-$(name)qref:	qhelp.c sc.h
-	$(CC) $(_CFLAGS) $(_LDFLAGS) -DQREF $(QREF_FMT) -DSCNAME=\"$(NAME)\" -o $(name)qref qhelp.c
+$(name)qref:	help.c sc.h
+	$(CC) $(_CFLAGS) $(_LDFLAGS) -DQREF $(QREF_FMT) -DSCNAME=\"$(NAME)\" -o $(name)qref help.c
 
 # Alternative link for MS-DOS
-#$(name)qref:	qhelp.c sc.h
-#	$(CC) -AL -O -Foqhelp.o -c -DQREF -DSCNAME=\"$(name)\" qhelp.c
+#$(name)qref:	help.c sc.h
+#	$(CC) -AL -O -Foqhelp.o -c -DQREF -DSCNAME=\"$(name)\" help.c
 #	link ${_LDFLAGS} qhelp.o,$(name)qref;
 
-pvmtbl.c: vmtbl.c
-	-rm -f pvmtbl.c
-	${LN} vmtbl.c pvmtbl.c
-
-$O/pvmtbl.o: sc.h pvmtbl.c
-	$(CC) $(_CFLAGS) -c -DPSC -o $@ pvmtbl.c
-
-pxmalloc.c: xmalloc.c
-	-rm -f pxmalloc.c
-	${LN} xmalloc.c pxmalloc.c
+$O/pvmtbl.o: sc.h vmtbl.c
+	$(CC) $(_CFLAGS) -c -DPSC -o $@ vmtbl.c
 
 # Objects
 
@@ -450,13 +438,13 @@ $O/vmtbl.o: vmtbl.c
 	$(CC) $(_CFLAGS) -c -o $@ vmtbl.c
 
 $O/xmalloc.o: sc.h xmalloc.c
-	$(CC) $(_CFLAGS) -c -DPSC -o $@ xmalloc.c
+	$(CC) $(_CFLAGS) -c -o $@ xmalloc.c
 
 $O/compat.o: sc.h compat.c
-	$(CC) $(_CFLAGS) -c -DPSC -o $@ compat.c
+	$(CC) $(_CFLAGS) -c -o $@ compat.c
 
-$O/pxmalloc.o: sc.h pxmalloc.c
-	$(CC) $(_CFLAGS) -c -DPSC -o $@ pxmalloc.c
+$O/pxmalloc.o: xmalloc.c sc.h
+	$(CC) $(_CFLAGS) -c -DPSC -o $@ xmalloc.c
 
 $O/qhelp.o: qhelp.c sc.h
 	$(CC) $(_CFLAGS) ${CRYPT} -c -o $@ qhelp.c

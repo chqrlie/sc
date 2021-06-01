@@ -13,9 +13,6 @@ experres.h
 gram.c
 psc
 psc.1
-pvmtbl.c
-pxmalloc.c
-qhelp.c
 sc
 sc.1
 scqref
