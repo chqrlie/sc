@@ -255,7 +255,8 @@ void list_colors(FILE *f)
     fprintf(f, "  %-30s %s\n","Range", "Color");
     if (!brokenpipe) fprintf(f, "  %-30s %s\n","-----", "-----");
 
-    for (r = nextr = color_base; nextr; r = nextr, nextr = r->r_next) /* */ ;
+    for (r = nextr = color_base; nextr; r = nextr, nextr = r->r_next)
+        continue;
     while (r) {
         fprintf(f, "  %-32s %d\n", r_name(r->r_left->row, r->r_left->col,
                 r->r_right->row, r->r_right->col), r->r_color);
@@ -276,7 +277,7 @@ void fix_colors(int row1, int col1, int row2, int col2, int delta1, int delta2)
 
     fr = find_frange(currow, curcol);
 
-    if (color_base)
+    if (color_base) {
         for (cr = color_base; cr; cr = ncr) {
             ncr = cr->r_next;
             r1 = cr->r_left->row;
@@ -304,4 +305,5 @@ void fix_colors(int row1, int col1, int row2, int col2, int delta1, int delta2)
                 cr->r_right = lookat(r2, c2);
             }
         }
+    }
 }

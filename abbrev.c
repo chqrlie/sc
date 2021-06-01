@@ -54,7 +54,7 @@ void add_abbr(char *string)
                     "--------");
 
             for (a = nexta = abbr_base; nexta; a = nexta, nexta = a->a_next)
-                ;
+                continue;
             while (a) {
                 (void) fprintf(f, "%-15s %s\n", a->abbr, a->exp);
                 if (brokenpipe) return;

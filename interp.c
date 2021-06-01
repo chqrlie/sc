@@ -171,9 +171,9 @@ static double finfunc(int fun, double v1, double v2, double v3)
     default:
         error("Unknown function in finfunc");
         cellerror = CELLERROR;
-        return ((double)0);
+        return (double)0;
     }
-    return (answer);
+    return answer;
 }
 
 static char *dostindex(int minr, int minc, int maxr, int maxc, struct enode *val)
@@ -200,9 +200,9 @@ static char *dostindex(int minr, int minc, int maxr, int maxc, struct enode *val
         pr = scxdup(p->label);
         if (p->cellerror)
             cellerror = CELLINVALID;
-        return (pr);
+        return pr;
     } else
-        return ((char *)0);
+        return (char *)0;
 }
 
 static double doindex(int minr, int minc, int maxr, int maxc, struct enode *val)
@@ -221,7 +221,7 @@ static double doindex(int minr, int minc, int maxr, int maxc, struct enode *val)
         c = minc;
     } else {
         error("Improper indexing operation");
-        return (double) 0;
+        return (double)0;
     }
 
     if (c <= maxc && c >=minc && r <= maxr && r >=minr &&
@@ -230,7 +230,7 @@ static double doindex(int minr, int minc, int maxr, int maxc, struct enode *val)
             cellerror = CELLINVALID;
         return p->v;
     } else
-        return (double) 0;
+        return (double)0;
 }
 
 double dolookup(struct enode * val, int minr, int minc, int maxr, int maxc, int offset, int vflag)
@@ -398,7 +398,7 @@ static double doavg(int minr, int minc, int maxr, int maxc, struct enode *e)
     rowoffset = coloffset = 0;
 
     if (count == 0)
-        return ((double)0);
+        return (double)0;
 
     return (v / (double)count);
 }
@@ -435,9 +435,9 @@ static double dostddev(int minr, int minc, int maxr, int maxc, struct enode *e)
     rowoffset = coloffset = 0;
 
     if ((n == 0) || (n == 1))
-        return ((double)0);
+        return (double)0;
     nd = (double)n;
-    return (sqrt((nd*lp-rp*rp)/(nd*(nd-1))));
+    return sqrt((nd*lp-rp*rp)/(nd*(nd-1)));
 }
 
 static double domax(int minr, int minc, int maxr, int maxc, struct enode *e)
@@ -471,9 +471,9 @@ static double domax(int minr, int minc, int maxr, int maxc, struct enode *e)
     rowoffset = coloffset = 0;
 
     if (count == 0)
-        return ((double)0);
+        return (double)0;
 
-    return (v);
+    return v;
 }
 
 static double domin(int minr, int minc, int maxr, int maxc, struct enode *e)
@@ -507,9 +507,9 @@ static double domin(int minr, int minc, int maxr, int maxc, struct enode *e)
     rowoffset = coloffset = 0;
 
     if (count == 0)
-        return ((double)0);
+        return (double)0;
 
-    return (v);
+    return v;
 }
 
 int mdays[12] = { 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
@@ -541,10 +541,10 @@ static double dodts(int e1, int e2, int e3)
                (secs = mktime(&t)) == -1) {
         error("@dts: invalid argument or date out of range");
         cellerror = CELLERROR;
-        return (0.0);
+        return 0.0;
     }
 
-    return ((double)secs);
+    return (double)secs;
 }
 
 static double dotts(int hr, int min, int sec)
@@ -552,9 +552,9 @@ static double dotts(int hr, int min, int sec)
     if (hr < 0 || hr > 23 || min < 0 || min > 59 || sec < 0 || sec > 59) {
         error ("@tts: Invalid argument");
         cellerror = CELLERROR;
-        return ((double) 0);
+        return (double)0;
     }
-    return ((double)(sec+min*60+hr*3600));
+    return (double)(sec + min * 60 + hr * 3600);
 }
 
 static double dotime(int which, double when)
@@ -578,16 +578,16 @@ static double dotime(int which, double when)
         }
 
         switch (which) {
-            case HOUR:          return ((double)(tm_cache.tm_hour));
-            case MINUTE:        return ((double)(tm_cache.tm_min));
-            case SECOND:        return ((double)(tm_cache.tm_sec));
-            case MONTH:         return ((double)(tm_cache.tm_mon));
-            case DAY:           return ((double)(tm_cache.tm_mday));
-            case YEAR:          return ((double)(tm_cache.tm_year));
+            case HOUR:          return (double)tm_cache.tm_hour;
+            case MINUTE:        return (double)tm_cache.tm_min;
+            case SECOND:        return (double)tm_cache.tm_sec;
+            case MONTH:         return (double)tm_cache.tm_mon;
+            case DAY:           return (double)tm_cache.tm_mday;
+            case YEAR:          return (double)tm_cache.tm_year;
         }
         /* Safety net */
         cellerror = CELLERROR;
-        return ((double)0);
+        return (double)0;
 }
 
 static double doston(char *s)
@@ -595,11 +595,11 @@ static double doston(char *s)
     double v;
 
     if (!s)
-        return ((double)0);
+        return (double)0;
 
     v = strtod(s, NULL);
     scxfree(s);
-    return(v);
+    return v;
 }
 
 static double doeqs(char *s1, char *s2)
@@ -607,7 +607,7 @@ static double doeqs(char *s1, char *s2)
     double v;
 
     if (!s1 && !s2)
-        return ((double)1.0);
+        return 1.0;
 
     if (!s1 || !s2)
         v = 0.0;
@@ -619,7 +619,7 @@ static double doeqs(char *s1, char *s2)
     scxfree(s1);
     scxfree(s2);
 
-    return(v);
+    return v;
 }
 
 /*
@@ -650,7 +650,7 @@ getent(char *colstr, double rowdoub)
             cellerror = CELLINVALID;
     }
     scxfree(colstr);
-    return (p);
+    return p;
 }
 
 
@@ -718,27 +718,27 @@ eval(register struct enode *e)
         return (double)0;
     }
     switch (e->op) {
-        case '+':       return (eval(e->e.o.left) + eval(e->e.o.right));
+        case '+':       return eval(e->e.o.left) + eval(e->e.o.right);
         case '-':       {
                         double l, r;
                         l = eval(e->e.o.left);
                         r = eval(e->e.o.right);
                         return l - r;
                         }
-        case '*':       return (eval(e->e.o.left) * eval(e->e.o.right));
+        case '*':       return eval(e->e.o.left) * eval(e->e.o.right);
         case '/':       {
                         double num, denom;
                         num = eval(e->e.o.left);
                         denom = eval(e->e.o.right);
                         if (cellerror) {
                             cellerror = CELLINVALID;
-                            return ((double) 0);
+                            return (double)0;
                         } else
                         if (denom)
-                            return (num/denom);
+                            return num / denom;
                         else {
                             cellerror = CELLERROR;
-                            return ((double) 0);
+                            return (double)0;
                         }
         }
         case '%':       {
@@ -749,24 +749,24 @@ eval(register struct enode *e)
                             return (num - floor(num/denom)*denom);
                         else {
                             cellerror = CELLERROR;
-                            return ((double) 0);
+                            return (double)0;
                         }
         }
-        case '^':       return (fn2_eval(pow,eval(e->e.o.left),eval(e->e.o.right)));
-        case '<':       return (eval(e->e.o.left) < eval(e->e.o.right));
+        case '^':       return fn2_eval(pow, eval(e->e.o.left), eval(e->e.o.right));
+        case '<':       return eval(e->e.o.left) < eval(e->e.o.right);
         case '=':       {
                         double l, r;
                         l = eval(e->e.o.left);
                         r = eval(e->e.o.right);
-                        return (l == r);
+                        return l == r;
                         }
-        case '>':       return (eval(e->e.o.left) > eval(e->e.o.right));
-        case '&':       return (eval(e->e.o.left) && eval(e->e.o.right));
-        case '|':       return (eval(e->e.o.left) || eval(e->e.o.right));
+        case '>':       return eval(e->e.o.left) > eval(e->e.o.right);
+        case '&':       return eval(e->e.o.left) && eval(e->e.o.right);
+        case '|':       return eval(e->e.o.left) || eval(e->e.o.right);
         case IF:
         case '?':       return eval(e->e.o.left) ? eval(e->e.o.right->e.o.left)
-                                                : eval(e->e.o.right->e.o.right);
-        case 'm':       return (-eval(e->e.o.left));
+                                                 : eval(e->e.o.right->e.o.right);
+        case 'm':       return -eval(e->e.o.left);
         case 'f':       {
                         int rtmp = rowoffset;
                         int ctmp = coloffset;
@@ -777,10 +777,10 @@ eval(register struct enode *e)
                         coloffset = ctmp;
                         return (ret);
                         }
-        case 'F':       return (eval(e->e.o.left));
-        case '!':       return (eval(e->e.o.left) == 0.0);
-        case ';':       return (((int)eval(e->e.o.left) & 7) +
-                                (((int)eval(e->e.o.right) & 7) << 3));
+        case 'F':       return eval(e->e.o.left);
+        case '!':       return eval(e->e.o.left) == 0.0;
+        case ';':       return ((int)eval(e->e.o.left) & 7) +
+                                (((int)eval(e->e.o.right) & 7) << 3);
         case O_CONST:   if (!
 #ifdef HAVE_ISFINITE
                           isfinite(
@@ -792,7 +792,7 @@ eval(register struct enode *e)
                             e->e.k = (double) 0;
                             cellerror = CELLERROR;
                         }
-                        return (e->e.k);
+                        return e->e.k;
         case O_VAR:     {
                         struct ent *vp = e->e.v.vp;
                         int row, col;
@@ -806,11 +806,11 @@ eval(register struct enode *e)
                         }
                         if (!vp || vp->flags & IS_DELETED) {
                             cellerror = CELLERROR;
-                            return (double) 0;
+                            return (double)0;
                         }
                         if (vp->cellerror)
                             cellerror = CELLINVALID;
-                        return (vp->v);
+                        return vp->v;
                         }
         case SUM:
         case PROD:
@@ -872,29 +872,29 @@ eval(register struct enode *e)
                 if (minr>maxr) r = maxr, maxr = minr, minr = r;
                 if (minc>maxc) c = maxc, maxc = minc, minc = c;
                 switch (e->op) {
-                    case REDUCE | 'R': return (maxr - minr + 1);
-                    case REDUCE | 'C': return (maxc - minc + 1);
+                    case REDUCE | 'R': return maxr - minr + 1;
+                    case REDUCE | 'C': return maxc - minc + 1;
                 }
             }
-        case ABS:        return (fn1_eval( fabs, eval(e->e.o.left)));
-        case ACOS:       return (fn1_eval( acos, eval(e->e.o.left)));
-        case ASIN:       return (fn1_eval( asin, eval(e->e.o.left)));
-        case ATAN:       return (fn1_eval( atan, eval(e->e.o.left)));
-        case ATAN2:      return (fn2_eval( atan2, eval(e->e.o.left), eval(e->e.o.right)));
-        case CEIL:       return (fn1_eval( ceil, eval(e->e.o.left)));
-        case COS:        return (fn1_eval( cos, eval(e->e.o.left)));
-        case EXP:        return (fn1_eval( exp, eval(e->e.o.left)));
-        case FABS:       return (fn1_eval( fabs, eval(e->e.o.left)));
-        case FLOOR:      return (fn1_eval( floor, eval(e->e.o.left)));
-        case HYPOT:      return (fn2_eval( hypot, eval(e->e.o.left), eval(e->e.o.right)));
-        case LOG:        return (fn1_eval( log, eval(e->e.o.left)));
-        case LOG10:      return (fn1_eval( log10, eval(e->e.o.left)));
-        case POW:        return (fn2_eval( pow, eval(e->e.o.left), eval(e->e.o.right)));
-        case SIN:        return (fn1_eval( sin, eval(e->e.o.left)));
-        case SQRT:       return (fn1_eval( sqrt, eval(e->e.o.left)));
-        case TAN:        return (fn1_eval( tan, eval(e->e.o.left)));
-        case DTR:        return (dtr(eval(e->e.o.left)));
-        case RTD:        return (rtd(eval(e->e.o.left)));
+        case ABS:        return fn1_eval( fabs, eval(e->e.o.left));
+        case ACOS:       return fn1_eval( acos, eval(e->e.o.left));
+        case ASIN:       return fn1_eval( asin, eval(e->e.o.left));
+        case ATAN:       return fn1_eval( atan, eval(e->e.o.left));
+        case ATAN2:      return fn2_eval( atan2, eval(e->e.o.left), eval(e->e.o.right));
+        case CEIL:       return fn1_eval( ceil, eval(e->e.o.left));
+        case COS:        return fn1_eval( cos, eval(e->e.o.left));
+        case EXP:        return fn1_eval( exp, eval(e->e.o.left));
+        case FABS:       return fn1_eval( fabs, eval(e->e.o.left));
+        case FLOOR:      return fn1_eval( floor, eval(e->e.o.left));
+        case HYPOT:      return fn2_eval( hypot, eval(e->e.o.left), eval(e->e.o.right));
+        case LOG:        return fn1_eval( log, eval(e->e.o.left));
+        case LOG10:      return fn1_eval( log10, eval(e->e.o.left));
+        case POW:        return fn2_eval( pow, eval(e->e.o.left), eval(e->e.o.right));
+        case SIN:        return fn1_eval( sin, eval(e->e.o.left));
+        case SQRT:       return fn1_eval( sqrt, eval(e->e.o.left));
+        case TAN:        return fn1_eval( tan, eval(e->e.o.left));
+        case DTR:        return dtr(eval(e->e.o.left));
+        case RTD:        return rtd(eval(e->e.o.left));
         case RND:
             if (rndtoeven)
                 return rint(eval(e->e.o.left));
@@ -911,7 +911,7 @@ eval(register struct enode *e)
                     do scale /= 10; while (++prec < 0);
 
                 if (rndtoeven)
-                    return (rint(eval(e->e.o.left) * scale) / scale);
+                    return rint(eval(e->e.o.left) * scale) / scale;
                 else {
                     double temp = eval(e->e.o.left);
                     temp *= scale;
@@ -921,53 +921,53 @@ eval(register struct enode *e)
                     */
                     temp = ((temp - floor(temp)) < 0.5 ?
                             floor(temp) : ceil(temp));
-                    return (temp / scale);
+                    return temp / scale;
                 }
             }
         case FV:
         case PV:
-        case PMT:       return (finfunc(e->op, eval(e->e.o.left),
-                                    eval(e->e.o.right->e.o.left),
-                                    eval(e->e.o.right->e.o.right)));
-        case HOUR:      return (dotime(HOUR, eval(e->e.o.left)));
-        case MINUTE:    return (dotime(MINUTE, eval(e->e.o.left)));
-        case SECOND:    return (dotime(SECOND, eval(e->e.o.left)));
-        case MONTH:     return (dotime(MONTH, eval(e->e.o.left)));
-        case DAY:       return (dotime(DAY, eval(e->e.o.left)));
-        case YEAR:      return (dotime(YEAR, eval(e->e.o.left)));
-        case NOW:       return (dotime(NOW, (double)0.0));
-        case DTS:       return (dodts((int)eval(e->e.o.left),
-                                    (int)eval(e->e.o.right->e.o.left),
-                                    (int)eval(e->e.o.right->e.o.right)));
-        case TTS:       return (dotts((int)eval(e->e.o.left),
-                                    (int)eval(e->e.o.right->e.o.left),
-                                    (int)eval(e->e.o.right->e.o.right)));
-        case STON:      return (doston(seval(e->e.o.left)));
-        case EQS:       return (doeqs(seval(e->e.o.right), seval(e->e.o.left)));
+        case PMT:       return finfunc(e->op, eval(e->e.o.left),
+                                       eval(e->e.o.right->e.o.left),
+                                       eval(e->e.o.right->e.o.right));
+        case HOUR:      return dotime(HOUR, eval(e->e.o.left));
+        case MINUTE:    return dotime(MINUTE, eval(e->e.o.left));
+        case SECOND:    return dotime(SECOND, eval(e->e.o.left));
+        case MONTH:     return dotime(MONTH, eval(e->e.o.left));
+        case DAY:       return dotime(DAY, eval(e->e.o.left));
+        case YEAR:      return dotime(YEAR, eval(e->e.o.left));
+        case NOW:       return dotime(NOW, (double)0.0);
+        case DTS:       return dodts((int)eval(e->e.o.left),
+                                     (int)eval(e->e.o.right->e.o.left),
+                                     (int)eval(e->e.o.right->e.o.right));
+        case TTS:       return dotts((int)eval(e->e.o.left),
+                                     (int)eval(e->e.o.right->e.o.left),
+                                     (int)eval(e->e.o.right->e.o.right));
+        case STON:      return doston(seval(e->e.o.left));
+        case EQS:       return doeqs(seval(e->e.o.right), seval(e->e.o.left));
         case LMAX:      return dolmax(e);
         case LMIN:      return dolmin(e);
-        case NVAL:      return (donval(seval(e->e.o.left),eval(e->e.o.right)));
-        case MYROW:     return ((double) (gmyrow + rowoffset));
-        case MYCOL:     return ((double) (gmycol + coloffset));
-        case LASTROW:   return ((double) maxrow);
-        case LASTCOL:   return ((double) maxcol);
-        case NUMITER:   return ((double) repct);
+        case NVAL:      return donval(seval(e->e.o.left),eval(e->e.o.right));
+        case MYROW:     return (double) (gmyrow + rowoffset);
+        case MYCOL:     return (double) (gmycol + coloffset);
+        case LASTROW:   return (double) maxrow;
+        case LASTCOL:   return (double) maxcol;
+        case NUMITER:   return (double) repct;
         case ERR_:      cellerror = CELLERROR;
-                        return ((double) 0);
-        case PI_:       return ((double) M_PI);
-        case BLACK:     return ((double) COLOR_BLACK);
-        case RED:       return ((double) COLOR_RED);
-        case GREEN:     return ((double) COLOR_GREEN);
-        case YELLOW:    return ((double) COLOR_YELLOW);
-        case BLUE:      return ((double) COLOR_BLUE);
-        case MAGENTA:   return ((double) COLOR_MAGENTA);
-        case CYAN:      return ((double) COLOR_CYAN);
-        case WHITE:     return ((double) COLOR_WHITE);
+                        return (double) 0;
+        case PI_:       return (double) M_PI;
+        case BLACK:     return (double) COLOR_BLACK;
+        case RED:       return (double) COLOR_RED;
+        case GREEN:     return (double) COLOR_GREEN;
+        case YELLOW:    return (double) COLOR_YELLOW;
+        case BLUE:      return (double) COLOR_BLUE;
+        case MAGENTA:   return (double) COLOR_MAGENTA;
+        case CYAN:      return (double) COLOR_CYAN;
+        case WHITE:     return (double) COLOR_WHITE;
         default:        error ("Illegal numeric expression");
                         exprerr = 1;
     }
     cellerror = CELLERROR;
-    return ((double)0.0);
+    return 0.0;
 }
 
 static
@@ -1063,7 +1063,7 @@ dofmt(char *fmtstr, double v)
     char buff[FBUFLEN];
 
     if (!fmtstr)
-        return ((char *)0);
+        return (char *)0;
     // XXX: Achtung Minen! snprintf from user supplied format string
     (void) snprintf(buff, FBUFLEN, fmtstr, v);
     scxfree(fmtstr);
@@ -1221,9 +1221,9 @@ docase(int acase, char *s)
     char *p = s;
 
     if (s == NULL)
-        return(NULL);
+        return NULL;
 
-    if( acase == UPPER ) {
+    if (acase == UPPER) {
         while( *p != '\0' ) {
            if (islowerchar(*p) )
                 *p = toupperchar(*p);
@@ -1237,7 +1237,7 @@ docase(int acase, char *s)
             p++;
         }
     }
-    return (s);
+    return s;
 }
 
 /*
@@ -1255,7 +1255,7 @@ docapital(char *s)
     int AllUpper = 1;
 
     if (s == NULL)
-        return (NULL);
+        return NULL;
     for (p = s; *p != '\0' && AllUpper != 0; p++)
         if (islowerchar(*p)) AllUpper = 0;
     for (p = s; *p != '\0'; p++) {
@@ -1271,7 +1271,7 @@ docapital(char *s)
         if (isupperchar(*p) && AllUpper != 0)
             *p = tolowerchar(*p);
     }
-    return (s);
+    return s;
 }
 
 char *
@@ -1293,10 +1293,10 @@ seval(register struct enode *se)
                             vp = *ATBL(tbl, row, col);
                         }
                         if (!vp || !vp->label)
-                            return (NULL);
+                            return NULL;
                         return scxdup(vp->label);
         }
-        case '#':    return (docat(seval(se->e.o.left), seval(se->e.o.right)));
+        case '#':    return docat(seval(se->e.o.left), seval(se->e.o.right));
         case 'f':    {
                      int rtmp = rowoffset;
                      int ctmp = coloffset;
@@ -1305,18 +1305,18 @@ seval(register struct enode *se)
                      ret = seval(se->e.o.left);
                      rowoffset = rtmp;
                      coloffset = ctmp;
-                     return (ret);
+                     return ret;
                      }
-        case 'F':    return (seval(se->e.o.left));
+        case 'F':    return seval(se->e.o.left);
         case IF:
-        case '?':    return (eval(se->e.o.left) ? seval(se->e.o.right->e.o.left)
-                                             : seval(se->e.o.right->e.o.right));
-        case DATE:   return (dodate((time_t)(eval(se->e.o.left)),
-                                 seval(se->e.o.right)));
-        case FMT:    return (dofmt(seval(se->e.o.left), eval(se->e.o.right)));
-        case UPPER:  return (docase(UPPER, seval(se->e.o.left)));
-        case LOWER:  return (docase(LOWER, seval(se->e.o.left)));
-        case CAPITAL:return (docapital(seval(se->e.o.left)));
+        case '?':    return eval(se->e.o.left) ? seval(se->e.o.right->e.o.left)
+                                               : seval(se->e.o.right->e.o.right);
+        case DATE:   return dodate((time_t)(eval(se->e.o.left)),
+                                   seval(se->e.o.right));
+        case FMT:    return dofmt(seval(se->e.o.left), eval(se->e.o.right));
+        case UPPER:  return docase(UPPER, seval(se->e.o.left));
+        case LOWER:  return docase(LOWER, seval(se->e.o.left));
+        case CAPITAL:return docapital(seval(se->e.o.left));
         case STINDEX: {
             int r, c;
             int maxr, maxc;
@@ -1329,13 +1329,13 @@ seval(register struct enode *se)
             if (minc>maxc) c = maxc, maxc = minc, minc = c;
             return dostindex(minr, minc, maxr, maxc, se->e.o.right);
         }
-        case EXT:    return (doext(se));
-        case SVAL:   return (dosval(seval(se->e.o.left), eval(se->e.o.right)));
-        case SUBSTR: return (dosubstr(seval(se->e.o.left),
-                            (int)eval(se->e.o.right->e.o.left) - 1,
-                            (int)eval(se->e.o.right->e.o.right) - 1));
+        case EXT:    return doext(se);
+        case SVAL:   return dosval(seval(se->e.o.left), eval(se->e.o.right));
+        case SUBSTR: return dosubstr(seval(se->e.o.left),
+                                     (int)eval(se->e.o.right->e.o.left) - 1,
+                                     (int)eval(se->e.o.right->e.o.right) - 1);
         case COLTOA:
-            return scxdup(coltoa((int)eval(se->e.o.left)));
+                     return scxdup(coltoa((int)eval(se->e.o.left)));
         case FILENAME: {
                      int n = eval(se->e.o.left);
                      char *s = strrchr(curfile, '/');
@@ -1436,7 +1436,7 @@ RealEvalAll(void)
     }
     else error("Internal error calc_order");
 
-    return (chgct);
+    return chgct;
 }
 
 void
@@ -1564,7 +1564,7 @@ new_str(char *s)
         p = scxmalloc(sizeof(struct enode));
     p->op = O_SCONST;
     p->e.s = s;
-    return (p);
+    return p;
 }
 
 void
@@ -1927,7 +1927,8 @@ num_search(double n, int firstrow, int firstcol, int lastrow,
             c++;
         else {
             if (r < lastrow) {
-                while (++r < lastrow && row_hidden[r]) /* */;
+                while (++r < lastrow && row_hidden[r])
+                    continue;
                 c = firstcol;
             } else {
                 r = firstrow;
@@ -2025,7 +2026,8 @@ str_search(char *s, int firstrow, int firstcol, int lastrow, int lastcol,
             c++;
         } else {
             if (r < lastrow) {
-                while (++r < lastrow && row_hidden[r]) /* */;
+                while (++r < lastrow && row_hidden[r])
+                    continue;
                 c = firstcol;
             } else {
                 r = firstrow;
@@ -2560,12 +2562,12 @@ coltoa(int col)
     register char *p = rname;
 
     if (col > 25) {
-        *p++ = col/26 + 'A' - 1;
+        *p++ = col / 26 + 'A' - 1;
         col %= 26;
     }
-    *p++ = col+'A';
+    *p++ = col + 'A';
     *p = '\0';
-    return (rname);
+    return rname;
 }
 
 /*

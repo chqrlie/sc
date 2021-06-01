@@ -127,7 +127,7 @@ bool format(char *fmt, int lprecision, double val, char *buf, size_t buflen)
     int zero_pad = 0;
 
     if (fmt == NULL)
-        return(true);
+        return true;
 
     if (strlen(fmt) + 1 > fmtlen) {
         fmtlen = strlen(fmt) + 40;
@@ -314,7 +314,7 @@ bool format(char *fmt, int lprecision, double val, char *buf, size_t buflen)
         ret = true;
     }
 
-    return (ret);
+    return ret;
     }
 }
 
@@ -372,7 +372,7 @@ static char *fmt_int(char *val,      /* integer part of the value to be formatte
     *bufptr = EOS;
     reverse(buf);
 
-    return (buf);
+    return buf;
 }
 
 /*****************************************************************************/
@@ -404,9 +404,9 @@ static char *fmt_frac(const char *val,     /* fractional part of the value to be
     *bufptr = EOS;
 
     if (buf[1] < '0' || buf[1] > '9')
-        return (buf + 1);
+        return buf + 1;
     else
-        return (buf);
+        return buf;
 }
 
 /*****************************************************************************/
@@ -434,7 +434,7 @@ static char *fmt_exp(int val,        /* value of the exponent */
     snprintf(valbuf, sizeof valbuf, "%d", val);
 
     strlcat(buf, fmt_int(valbuf, fmt, false, negative), sizeof buf);
-    return (buf);
+    return buf;
 }
 
 /*****************************************************************************/
@@ -501,9 +501,9 @@ bool engformat(int fmt, int width, int lprecision, double val, char *buf, int bu
     int engind = 0;
     double engmant, pow(), engabs, engexp;
 
-    if (buflen < width) return (false);
+    if (buflen < width) return false;
     if (fmt >= 0 && fmt < COLFORMATS && colformat[fmt])
-        return (format(colformat[fmt], lprecision, val, buf, buflen));
+        return format(colformat[fmt], lprecision, val, buf, buflen);
     if (fmt == REFMTFIX)
         snprintf(buf, buflen, "%*.*f", width, lprecision, val);
     if (fmt == REFMTFLT)
@@ -566,5 +566,5 @@ bool engformat(int fmt, int width, int lprecision, double val, char *buf, int bu
             buf[i] = '\0';
         }
     }
-    return (true);
+    return true;
 }

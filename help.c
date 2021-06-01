@@ -578,7 +578,7 @@ static int pscreen(const char * const screen[])
     (void) printw("Which Screen? [a-p, q]");
     (void) clrtoeol();
     (void) refresh();
-    return(nmgetch());
+    return nmgetch();
 }
 #else
 static const char * const * const pages[] = {

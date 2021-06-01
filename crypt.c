@@ -103,23 +103,23 @@ int cwritefile(char *fname, int r0, int c0, int rn, int cn)
 
     if (*fn == '|') {
         error("Can't have encrypted pipe");
-        return (-1);
-        }
+        return -1;
+    }
 
     strlcpy(save, fname, sizeof save);
 
     busave = findhome(save);
     if (dobackups && !backup_file(busave) &&
             (yn_ask("Could not create backup copy, Save anyway?: (y,n)") != 1))
-        return (0);
+        return 0;
     if ((fildes = open (busave, O_TRUNC|O_WRONLY|O_CREAT, 0600)) < 0) {
         error("Can't create file \"%s\"", save);
-        return (-1);
+        return -1;
     }
 
     if (pipe(pipefd) < 0) {
         error("Can't make pipe to child\n");
-        return (-1);
+        return -1;
     }
 
     if (KeyWord[0] == '\0') {
@@ -148,7 +148,7 @@ int cwritefile(char *fname, int r0, int c0, int rn, int cn)
             (void) kill(pid, -9);
             error("Can't fdopen file \"%s\"", save);
             (void) close(pipefd[1]);
-            return (-1);
+            return -1;
         }
     }
 
@@ -163,7 +163,7 @@ int cwritefile(char *fname, int r0, int c0, int rn, int cn)
 
     modflg = 0;
     error("File \"%s\" written (encrypted).", curfile);
-    return (0);
+    return 0;
 }
 
 #endif /* CRYPT_PATH */

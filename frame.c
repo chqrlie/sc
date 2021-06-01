@@ -207,7 +207,8 @@ void list_frames(FILE *f) {
     if (!brokenpipe)
         (void) fprintf(f, "  %-30s %s\n","-----------","-----------");
 
-    for (r = nextr = frame_base; nextr; r = nextr, nextr = r->r_next) /* */ ;
+    for (r = nextr = frame_base; nextr; r = nextr, nextr = r->r_next)
+        continue;
     while (r) {
         fprintf(f, "  %-30s", r_name(r->or_left->row, r->or_left->col,
                 r->or_right->row, r->or_right->col));

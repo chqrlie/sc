@@ -157,5 +157,5 @@ int compare(const void *row1, const void *row2)
     if (!result)
         result = (*((const int *) row1) - *((const int *) row2));
 
-    return (result);
+    return result;
 }

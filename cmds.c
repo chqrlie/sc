@@ -2544,7 +2544,7 @@ FILE *openfile(char *fname, size_t fnamesiz, int *rpid, int *rfd)
         *rfd = pipefd[1];
     }
 #endif /* VMS */
-    return (f);
+    return f;
 #endif /* MSDOS */
 }
 
@@ -2673,16 +2673,16 @@ char *findplugin(char *ext, char type)
 
     fp = filt;
     if (fp == NULL)
-        return (NULL);
+        return NULL;
     if ((!strcmp(fp->ext, ext)) && (fp->type == type))
-        return (fp->plugin);
+        return fp->plugin;
     while (fp->next != NULL) {
         fp = fp->next;
         if ((!strcmp(fp->ext, ext)) && (fp->type == type))
-            return (fp->plugin);
+            return fp->plugin;
     }
 
-    return (NULL);
+    return NULL;
 }
 #endif
 
@@ -2837,7 +2837,7 @@ int writefile(const char *fname, int r0, int c0, int rn, int cn)
 
 #if !defined(VMS) && !defined(MSDOS) && defined(CRYPT_PATH)
     if (Crypt) {
-        return (cwritefile(fname, r0, c0, rn, cn));
+        return cwritefile(fname, r0, c0, rn, cn);
     }
 #endif /* VMS */
 
@@ -2888,7 +2888,7 @@ int writefile(const char *fname, int r0, int c0, int rn, int cn)
 
     if ((f = openfile(tfname, sizeof tfname, &pid, NULL)) == NULL) {
         error("Can't create file \"%s\"", save);
-        return (-1);
+        return -1;
     }
 
     if (usecurses) {
@@ -2976,7 +2976,7 @@ int readfile(const char *fname, int eraseflg)
         else
             ret = creadfile(save, eraseflg);
         autolabel = tempautolabel;
-        return (ret);
+        return ret;
     }
 #endif /* VMS */
 
@@ -3384,14 +3384,14 @@ int etype(register struct enode *e)
         case UPPER: case LOWER: case CAPITAL:
         case O_SCONST: case '#': case DATE: case FMT: case STINDEX:
         case EXT: case SVAL: case SUBSTR:
-            return (STR);
+            return STR;
 
         case '?':
         case IF:
-            return (etype(e->e.o.right->e.o.left));
+            return etype(e->e.o.right->e.o.left);
 
         case 'f':
-            return (etype(e->e.o.right));
+            return etype(e->e.o.right);
 
         case O_VAR: {
             register struct ent *p;
@@ -3399,13 +3399,13 @@ int etype(register struct enode *e)
             if (p->expr)
                 return (p->flags & IS_STREXPR ? STR : NUM);
             else if (p->label)
-                return (STR);
+                return STR;
             else
-                return (NUM);
+                return NUM;
             }
 
         default:
-            return (NUM);
+            return NUM;
     }
 }
 
@@ -3420,10 +3420,10 @@ int yn_ask(const char *msg)
     (void) refresh();
     while ((ch = nmgetch()) != 'y' && ch != 'Y' && ch != 'n' && ch != 'N') {
         if (ch == ctl('g') || ch == ESC)
-            return (-1);
+            return -1;
     }
     if (ch == 'y' || ch == 'Y')
-        return (1);
+        return 1;
     else
         return 0;
 }
@@ -3460,7 +3460,7 @@ char *findhome(char *path, size_t pathsiz)
             *namep = '\0';
             if ((pwent = getpwnam(name)) == NULL) {
                 error("Can't find user %s", name);
-                return (NULL);
+                return NULL;
             }
             strlcpy(tmppath, pwent->pw_dir, sizeof tmppath);
         }
@@ -3468,7 +3468,7 @@ char *findhome(char *path, size_t pathsiz)
         strlcat(tmppath, pathptr, sizeof tmppath);
         strlcpy(path, tmppath, pathsiz);
     }
-    return (path);
+    return path;
 }
 
 /*
@@ -3542,8 +3542,8 @@ int backup_file(char *path)
         timebuf.modtime = statbuf.st_mtime;
         utime(tpath, &timebuf);
 
-        return ((count < 0) ? 0 : 1);
+        return (count < 0) ? 0 : 1;
     } else if (errno == ENOENT)
-        return (1);
+        return 1;
     return 0;
 }

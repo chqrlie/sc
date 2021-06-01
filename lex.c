@@ -243,12 +243,12 @@ yylex(void)
                         continue;
                     if (isalphachar(*p) || *p == '_') {
                         linelim = p - line;
-                        return (yylex());
+                        return yylex();
                     } else
                         ret = FNUMBER;
                 } else if (isalphachar(*p) || *p == '_') {
                     linelim = p - line;
-                    return (yylex());
+                    return yylex();
                 }
             }
             if ((!dateflag && *p=='.') || ret == FNUMBER) {
@@ -353,8 +353,7 @@ plugin_exists(char *name, size_t len, char *path)
  * Case-insensitivity is done crudely, by ignoring the 040 bit.
  */
 
-int
-atocol(char *string, int len)
+int atocol(char *string, int len)
 {
     register int col;
 
@@ -369,30 +368,19 @@ atocol(char *string, int len)
 
 #ifdef SIMPLE
 
-void
-initkbd(void)
-{}
-
-void
-kbd_again(void)
-{}
-
-void
-resetkbd(void)
-{}
+void initkbd(void) {}
+void kbd_again(void) {}
+void resetkbd(void) {}
 
 # ifndef VMS
 
-int
-nmgetch(void)
+int nmgetch(void)
 {
-    return (getchar());
+    return getchar();
 }
 
 # else /* VMS */
 
-int
-nmgetch(void)
 /*
    This is not perfect, it doesn't move the cursor when goraw changes
    over to deraw, but it works well enough since the whole sc package
@@ -404,6 +392,7 @@ nmgetch(void)
    and this method of reading would collide (the screen was not updated
    when continuing from screen mode in the debugger).
 */
+int nmgetch(void)
 {
     short c;
     static int key_id=0;
@@ -422,7 +411,7 @@ nmgetch(void)
         case SMG$K_TRM_DOWN:  c = ctl('n');  break;
         default:   c = c & A_CHARTEXT;
     }
-    return (c);
+    return c;
 }
 
 
@@ -588,7 +577,7 @@ nmgetch(void) {
 #  endif
 
     if (dumpindex && *dumpindex)
-        return (*dumpindex++);
+        return *dumpindex++;
 
     c = getchar();
     biggest = 0;
@@ -604,7 +593,7 @@ nmgetch(void) {
                 c = kp->k_val;
                 for (kp = &km[0]; kp < &km[N_KEY]; kp++)
                     kp->k_index = 0;
-                return (c);
+                return c;
             }
         }
         if (!biggest && kp->k_index)
@@ -620,7 +609,7 @@ nmgetch(void) {
         if (setjmp(wakeup) == 0) {
             maybe = nmgetch();
             (void) alarm(0);
-            return (maybe);
+            return maybe;
         }
     }
 
@@ -633,10 +622,10 @@ nmgetch(void) {
         dumpindex = &dumpbuf[1];
         for (kp = &km[0]; kp < &km[N_KEY]; kp++)
             kp->k_index = 0;
-        return (dumpbuf[0]);
+        return dumpbuf[0];
     }
 
-    return(c);
+    return c;
 }
 
 # endif /* if defined(BSD42) || defined (SYSIII) || defined(BSD43) */
@@ -659,8 +648,7 @@ kbd_again(void)
 #endif
 }
 
-void
-resetkbd(void)
+void resetkbd(void)
 {
     keypad(stdscr, FALSE);
 #ifndef NONOTIMEOUT
@@ -668,8 +656,7 @@ resetkbd(void)
 #endif
 }
 
-int
-nmgetch(void) {
+int nmgetch(void) {
     register int c;
 
     c = getch();
@@ -705,7 +692,7 @@ nmgetch(void) {
 # endif
         default:        break;
     }
-    return (c);
+    return c;
 }
 
 #endif /* SIMPLE */

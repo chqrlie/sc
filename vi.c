@@ -813,16 +813,16 @@ int vigetch(void) {
 
     if (do_dot) {
         if (dotb[doti] != '\0') {
-            return (dotb[doti++]);
+            return dotb[doti++];
         } else {
             do_dot = 0;
             doti = 0;
-            return (nmgetch());
+            return nmgetch();
         }
     }
     update(1);
     c = nmgetch();
-    return (c);
+    return c;
 }
 
 /* saves the current line for possible use by an undo cmd */
@@ -893,16 +893,16 @@ static int for_line(int a, int stop_null)
     ssize_t cpos = linelim;
 
     if (linelim < 0)
-        return (linelim);
+        return linelim;
     else if (a >= 0 && (size_t)(linelim + a) <= strlen(line))
         cpos += a;
     else
         cpos = strlen(line);
 
     if (cpos > 0 && (size_t)cpos == strlen(line) && !stop_null)
-        return (cpos - 1);
+        return cpos - 1;
     else
-        return (cpos);
+        return cpos;
 }
 
 /* If end_word is non-zero, go to next end-of-word.  Otherwise, go to next
@@ -949,15 +949,15 @@ static int for_word(int a, int end_word, int big_word, int stop_null)
             --cpos;
     }
 
-    return (cpos);
+    return cpos;
 }
 
 static int back_line(int a)
 {
     if (linelim > a)
-        return (linelim - a);
+        return linelim - a;
     else
-        return (0);
+        return 0;
 }
 
 static int back_word(int a, int big_word)
@@ -998,7 +998,7 @@ static int back_word(int a, int big_word)
             cpos++;
     }
 
-    return(cpos);
+    return cpos;
 }
 
 /* Text manipulation commands */
@@ -1183,7 +1183,7 @@ static int get_motion(int change)
     c = vigetch();
     if (c == '0') {
         savedot(c);
-        return (0);
+        return 0;
     }
     while (c >= '0' && c <= '9') {
         arg2 = 10 * arg2 + c - '0';
@@ -1197,22 +1197,22 @@ static int get_motion(int change)
         dotarg = arg;
     }
     switch (c) {
-    case '$':       return (strlen(line));
-    case 'b':       return (back_word(arg, 0));
-    case 'B':       return (back_word(arg, 1));
+    case '$':       return strlen(line);
+    case 'b':       return back_word(arg, 0);
+    case 'B':       return back_word(arg, 1);
     case 'c':       return (change ? -1 : linelim);
     case 'd':       return (!change ? -1 : linelim);
-    case 'e':       return (for_word(arg, 1, 0, 1) + 1);
-    case 'E':       return (for_word(arg, 1, 1, 1) + 1);
+    case 'e':       return for_word(arg, 1, 0, 1) + 1;
+    case 'E':       return for_word(arg, 1, 1, 1) + 1;
     case 'f':       return ((c = find_char(arg, 1)) == linelim ? c : c + 1);
-    case 'F':       return (find_char(arg, -1));
-    case 'h':       return (back_line(arg));
-    case 'l':       return (for_line(arg, 1));
+    case 'F':       return find_char(arg, -1);
+    case 'h':       return back_line(arg);
+    case 'l':       return for_line(arg, 1);
     case 't':       return ((c = to_char(arg, 1)) == linelim ? c : c + 1);
-    case 'T':       return (to_char(arg, -1));
-    case 'w':       return (for_word(arg, change, 0, 1) + change);
-    case 'W':       return (for_word(arg, change, 1, 1) + change);
-    default:        return (linelim);
+    case 'T':       return to_char(arg, -1);
+    case 'w':       return for_word(arg, change, 0, 1) + change;
+    case 'W':       return for_word(arg, change, 1, 1) + change;
+    default:        return linelim;
     }
 }
 
@@ -1736,7 +1736,7 @@ static int to_char(int a, int n)
     linelim = tmp;
     findfunc = 't';
 
-    return (i);
+    return i;
 }
 
 static void match_paren(void) {

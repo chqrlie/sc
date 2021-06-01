@@ -57,15 +57,15 @@ checkbounds(int *rowp, int *colp)
             nelem * sizeof(type)); \
     if (newptr == (type *)NULL) { \
         error(msg); \
-        return (FALSE); \
+        return FALSE; \
     } \
     oldptr = newptr /* wait incase we can't alloc */
 
 #ifndef PSC
-static const char       nolonger[] = "The table can't be any longer";
+static const char nolonger[] = "The table can't be any longer";
 #endif /* !PSC */
 
-static const char       nowider[] = "The table can't be any wider";
+static const char nowider[] = "The table can't be any wider";
 
 /*
  * grow the main && auxiliary tables (reset maxrows/maxcols as needed)
@@ -120,7 +120,7 @@ growtbl(int rowcol, int toprow, int topcol)
         if ((rowcol == GROWCOL) && ((maxcols == ABSMAXCOLS) ||
                 (topcol >= ABSMAXCOLS))) {
             error(nowider);
-            return (FALSE);
+            return FALSE;
         }
 
         if (topcol > maxcols)
@@ -175,8 +175,8 @@ growtbl(int rowcol, int toprow, int topcol)
             if ((tbl[i] = scxrealloc(tbl[i],
                 newcols * sizeof(struct ent **))) == (struct ent **)0) {
             error(nowider);
-            return(FALSE);
-            }
+            return FALSE;
+        }
         for (nullit = ATBL(tbl, i, maxcols), cnt = 0;
                 cnt < newcols-maxcols; cnt++, nullit++)
             *nullit = (struct ent *)NULL;
@@ -193,7 +193,7 @@ growtbl(int rowcol, int toprow, int topcol)
         if ((tbl[i] = scxmalloc((newcols *
                 sizeof(struct ent **)))) == NULL) {
             error(nowider);
-            return(FALSE);
+            return FALSE;
         }
         for (nullit = tbl[i], cnt = 0; cnt < newcols; cnt++, nullit++)
             *nullit = (struct ent *)NULL;
@@ -208,5 +208,5 @@ growtbl(int rowcol, int toprow, int topcol)
 #endif /* PSC */
 
     maxcols = newcols;
-    return (TRUE);
+    return TRUE;
 }

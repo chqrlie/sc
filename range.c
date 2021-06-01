@@ -177,22 +177,22 @@ int find_range(char *name, int len, struct ent *lmatch, struct ent *rmatch,
     if (name) {
         for (r = rng_base; r; r = r->r_next) {
             if ((cmp = strncmp(name, r->r_name, len)) > 0)
-                return (cmp);
+                return cmp;
             *rng = r;
             if (cmp == 0)
                 if (!exact || strlen(r->r_name) == (size_t)len)
-                    return (cmp);
+                    return cmp;
         }
-        return (-1);
+        return -1;
     }
 
     for (r = rng_base; r; r = r->r_next) {
         if ((lmatch == r->r_left.vp) && (rmatch == r->r_right.vp)) {
             *rng = r;
-            return (0);
+            return 0;
         }
     }
-    return (-1);
+    return -1;
 }
 
 void sync_ranges(void)
@@ -231,7 +231,8 @@ void write_ranges(FILE *f)
     register struct range *r;
     register struct range *nextr;
 
-    for (r = nextr = rng_base; nextr; r = nextr, nextr = r->r_next) /* */ ;
+    for (r = nextr = rng_base; nextr; r = nextr, nextr = r->r_next)
+        continue;
     while (r) {
         (void) fprintf(f, "define \"%s\" %s%s%s%d",
                         r->r_name,
@@ -264,7 +265,8 @@ void list_ranges(FILE *f)
     (void) fprintf(f, "  %-30s %s\n","Name","Definition");
     if (!brokenpipe) (void) fprintf(f, "  %-30s %s\n","----","----------");
 
-    for (r = nextr = rng_base; nextr; r = nextr, nextr = r->r_next) /* */ ;
+    for (r = nextr = rng_base; nextr; r = nextr, nextr = r->r_next)
+        continue;
     while (r) {
         (void) fprintf(f, "  %-30s %s%s%s%d",
                             r->r_name,
@@ -294,10 +296,10 @@ char *v_name(int row, int col)
 
     v = lookat(row, col);
     if (!find_range((char *)0, 0, v, v, &r)) {
-        return (r->r_name);
+        return r->r_name;
     } else {
         snprintf(buf, sizeof buf, "%s%d", coltoa(col), row);
-        return (buf);
+        return buf;
     }
 }
 
@@ -310,13 +312,13 @@ char *r_name(int r1, int c1, int r2, int c2)
     v1 = lookat(r1, c1);
     v2 = lookat(r2, c2);
     if (!find_range((char *)0, 0, v1, v2, &r)) {
-        return (r->r_name);
+        return r->r_name;
     } else {
         size_t l;
         snprintf(buf, sizeof buf, "%s", v_name(r1, c1));
         l = strlen(buf);
         snprintf(buf + l, sizeof(buf) - l, ":%s", v_name(r2, c2));
-        return (buf);
+        return buf;
     }
 }
 
