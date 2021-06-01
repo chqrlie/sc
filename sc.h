@@ -692,3 +692,14 @@ void mouseoff(void);
 #else
 #include <memory.h>
 #endif
+
+// character class macros to avoid undefined behavior on negative chars
+#define isspacechar(c)   isspace((unsigned char)(c))
+#define isdigitchar(c)   isdigit((unsigned char)(c))
+#define isxdigitchar(c)  isxdigit((unsigned char)(c))
+#define isalphachar(c)   isalpha((unsigned char)(c))
+#define isalnumchar(c)   isalnum((unsigned char)(c))
+#define islowerchar(c)   islower((unsigned char)(c))
+#define isupperchar(c)   isupper((unsigned char)(c))
+#define tolowerchar(c)   tolower((unsigned char)(c))
+#define toupperchar(c)   toupper((unsigned char)(c))

@@ -298,30 +298,30 @@ static int scan(void) {
     c = getchar();
 
     if (c == EOF)
-        return (END);
+        return END;
 
     if (c == '\n')
-        return (EOL);
+        return EOL;
 
     if (c == delim1 || c == delim2) {
         if (strip_delim) {
-            while ((c = getchar()) && (c == delim1 || c == delim2))
-                ;
+            while ((c = getchar()) != EOF && (c == delim1 || c == delim2))
+                continue;
             (void)ungetc(c, stdin);
         }
-        return (SPACE);
+        return SPACE;
     }
 
     if (c == '\"') {
-        while ((c = getchar()) && c != '\"' && c != '\n' && c != EOF)
+        while ((c = getchar()) != EOF && c != '\"' && c != '\n')
             *p++ = c;
         if (c != '\"')
             (void)ungetc(c, stdin);
         *p = '\0';
-        return (ALPHA);
+        return ALPHA;
     }
 
-    while (c != delim1 && c != delim2 && c!= '\n' && c != EOF) {
+    while (c != delim1 && c != delim2 && c != '\n' && c != EOF) {
         *p++ = c;
         c = getchar();
     }
@@ -329,7 +329,7 @@ static int scan(void) {
     (void)ungetc(c, stdin);
 
     p = token;
-    c = *p;
+    c = (unsigned char)*p;
     founddigit = FALSE;
     /*
      * str_nums always returns numbers as strings
@@ -337,24 +337,25 @@ static int scan(void) {
      * lastprtnum makes sure a number ends in one of [0-9eE.]
      */
     if (!strnums && (isdigit(c) || c == '.' || c == '-' || c == '+')) {
-        int     lastprtnum = FALSE;
+        int lastprtnum = FALSE;
 
-        while (isdigit(c) || c == '.' || (!plainnums && (c == '-' ||
-                                        c == '+' || c == 'e' || c == 'E'))) {
-                if (isdigit(c))
-                        lastprtnum = founddigit = TRUE;
-                else
-                if (!(c == '.' || c == 'e' || c == 'E'))
-                        lastprtnum = FALSE;
-                c = *p++;
+        while (isdigit(c) || c == '.' ||
+               (!plainnums && (c == '-' || c == '+' || c == 'e' || c == 'E')))
+        {
+            if (isdigit(c))
+                lastprtnum = founddigit = TRUE;
+            else
+            if (!(c == '.' || c == 'e' || c == 'E'))
+                lastprtnum = FALSE;
+            c = (unsigned char)*p++;
         }
         if (c == '\0' && founddigit && lastprtnum)
-            return (NUM);
+            return NUM;
         else
-            return (ALPHA);
+            return ALPHA;
     }
 
-    return (ALPHA);
+    return ALPHA;
 }
 
 /* turns [A-Z][A-Z] into a number */
@@ -364,53 +365,49 @@ int getcol(char *p)
 
     col = 0;
     if (!p)
-        return (0);
-    while (*p && !isalpha((int)*p))
+        return 0;
+    while (*p && !isalphachar(*p))
         p++;
     if (!*p)
-        return (0);
-    col = (toupper((int)*p) - 'A');
-    if (isalpha((int)*++p))
-        col = (col + 1)*26 + (toupper((int)*p) - 'A');
-    return (col);
+        return 0;
+    col = toupperchar(*p) - 'A';
+    if (isalphachar(*++p))
+        col = (col + 1) * 26 + (toupperchar(*p) - 'A');
+    return col;
 }
 
 /* given a string turn it into a row number */
 int getrow(char *p)
 {
-    int row;
-
-    row = 0;
+    int row = 0;
     if (!p)
-        return (0);
-    while (*p && !isdigit((int)*p))
+        return 0;
+    while (*p && !isdigitchar(*p))
         p++;
-    if (!*p)
-        return (0);
-    while (*p && isdigit((int)*p)) {
+    while (isdigitchar(*p)) {
         row = row * 10 + *p - '0';
         p++;
     }
-    return (row);
+    return row;
 }
 
 /* turns a column number into [A-Z][A-Z] */
 char *coltoa(int col)
 {
-        static char rname[3];
-        register char *p = rname;
+    static char rname[3];
+    register char *p = rname;
 
-        if (col < 0 || col > 27*26) { /* A-Z, AA-ZZ */
-                fprintf(stderr,"coltoa: invalid col: %d", col);
-                exit_status = EXIT_FAILURE;
-        }
+    if (col < 0 || col > 27 * 26) { /* A-Z, AA-ZZ */
+        fprintf(stderr,"coltoa: invalid col: %d", col);
+        exit_status = EXIT_FAILURE;
+    }
 
-        if (col > 25) {
-                *p++ = col/26 + 'A' - 1;
-                col %= 26;
-        }
+    if (col > 25) {
+        *p++ = col / 26 + 'A' - 1;
+        col %= 26;
+    }
 
-        *p++ = col+'A';
-        *p = '\0';
-        return (rname);
+    *p++ = col + 'A';
+    *p = '\0';
+    return rname;
 }

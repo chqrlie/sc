@@ -59,24 +59,30 @@ void add_range(char *name, struct ent_ptr left, struct ent_ptr right, int is_ran
     }
 
     for (p = name; *p; p++)
-        if (!(isalpha((int)*p) || isdigit((int)*p) || *p == '_')) {
+        if (!(isalnumchar(*p) || *p == '_')) {
             error("Invalid range name \"%s\" - illegal combination", name);
             scxfree(name);
             return;
         }
 
     p = name;
-    if (isdigit((int)*p) || (isalpha((int)*p++) && (isdigit((int)*p) ||
-                (isalpha((int)*p++) && isdigit((int)*p))))) {
+    // match 9, X9 and XX9
+    if (isdigitchar(*p) ||
+        (isalphachar(*p++) && (isdigitchar(*p) ||
+                               (isalphachar(*p++) && isdigitchar(*p))))) {
         if (*name == '0' && (name[1] == 'x' || name[1] == 'X')) {
             ++p;
-            while (isxdigit((int)*++p)) /* */;
+            while (isxdigitchar(*++p))
+                continue;
             if (*p == 'p' || *p == 'P')
-                while (isxdigit((int)*++p)) /* */;
+                while (isxdigitchar(*++p))
+                    continue;
         } else {
-            while (isdigit((int)*++p)) /* */;
-            if (isdigit((int)*name) && (*p == 'e' || *p == 'E'))
-                while (isdigit((int)*++p)) /* */;
+            while (isdigitchar(*++p))
+                continue;
+            if (isdigitchar(*name) && (*p == 'e' || *p == 'E'))
+                while (isdigitchar(*++p))
+                    continue;
         }
         if (!(*p)) {
             error("Invalid range name \"%s\" - ambiguous", name);

@@ -1225,15 +1225,15 @@ docase(int acase, char *s)
 
     if( acase == UPPER ) {
         while( *p != '\0' ) {
-           if( islower((int)*p) )
-                *p = toupper((int)*p);
+           if (islowerchar(*p) )
+                *p = toupperchar(*p);
            p++;
         }
     }
     else if (acase == LOWER) {
         while (*p != '\0') {
-            if (isupper((int)*p))
-                *p = tolower((int)*p);
+            if (isupperchar(*p))
+                *p = tolowerchar(*p);
             p++;
         }
     }
@@ -1257,19 +1257,19 @@ docapital(char *s)
     if (s == NULL)
         return (NULL);
     for (p = s; *p != '\0' && AllUpper != 0; p++)
-        if (isalpha((int)*p) && islower((int)*p))  AllUpper = 0;
+        if (islowerchar(*p)) AllUpper = 0;
     for (p = s; *p != '\0'; p++) {
-        if (!isalnum((int)*p))
-                skip = 1;
+        if (!isalnumchar(*p))
+            skip = 1;
         else
         if (skip == 1) {
             skip = 0;
-            if (islower((int)*p))
-                *p = toupper((int)*p);
+            if (islowerchar(*p))
+                *p = toupperchar(*p);
         }
         else    /* if the string was all upper before */
-        if (isupper((int)*p) && AllUpper != 0)
-            *p = tolower((int)*p);
+        if (isupperchar(*p) && AllUpper != 0)
+            *p = tolowerchar(*p);
     }
     return (s);
 }

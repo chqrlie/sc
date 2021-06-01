@@ -68,16 +68,16 @@ void add_abbr(char *string)
     if ((expansion = strchr(string, ' ')))
         *expansion++ = '\0';
 
-    if (isalpha((int)*string) || isdigit((int)*string) || *string == '_') {
+    if (isalnumchar(*string) || *string == '_') {
         for (p = string; *p; p++)
-            if (!(isalpha((int)*p) || isdigit((int)*p) || *p == '_')) {
+            if (!(isalnumchar(*p) || *p == '_')) {
                 error("Invalid abbreviation: %s", string);
                 scxfree(string);
                 return;
             }
     } else {
         for (p = string; *p; p++)
-            if ((isalpha((int)*p) || isdigit((int)*p) || *p == '_') && *(p+1)) {
+            if ((isalnumchar(*p) || *p == '_') && p[1]) {
                 error("Invalid abbreviation: %s", string);
                 scxfree(string);
                 return;

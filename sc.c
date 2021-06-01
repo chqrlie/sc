@@ -569,12 +569,12 @@ int main(int argc, char  **argv)
          */
         /* if ((c < ' ') || ( c == DEL ))   how about international here ? PB */
 #if     pyr
-            if(iscntrl(c) || (c >= 011 && c <= 015))    /* iscntrl broken in OSx4.1 */
+         if (iscntrl(c) || (c >= 011 && c <= 015))    /* iscntrl broken in OSx4.1 */
 #else
             if ((isascii(c) && (iscntrl(c) || (c == 020))) ||   /* iscntrl broken in OSx4.1 */
                         c == KEY_END || c == KEY_BACKSPACE)
 #endif
-            switch(c) {
+            switch (c) {
 #ifdef SIGTSTP
                 case ctl('z'):
                     (void) deraw(1);
@@ -1654,7 +1654,7 @@ int main(int argc, char  **argv)
                         break;
                     }
                     error("Color number to set (1-8)?");
-                    if ((c=nmgetch()) == ESC || c == ctl('g')) {
+                    if ((c = nmgetch()) == ESC || c == ctl('g')) {
                         CLEAR_LINE;
                         break;
                     }
@@ -1705,11 +1705,12 @@ int main(int argc, char  **argv)
                             strlcpy(curfile + l, ".\0", sizeof(curfile) - l);
                         }
                     }
-                    if (*curfile)
+                    if (*curfile) {
                         error("Default path is \"%s.%s\"", curfile,
-                                scext == NULL ? "sc" : scext);
+                              scext == NULL ? "sc" : scext);
+                    }
                     c = *(curfile + strlen(curfile) +
-                            strlen(curfile + strlen(curfile) + 1));
+                          strlen(curfile + strlen(curfile) + 1));
                     *(curfile + strlen(curfile) +
                             strlen(curfile + strlen(curfile) + 1)) = '\0';
                     curfile[strlen(curfile)] = c;
@@ -1787,7 +1788,7 @@ int main(int argc, char  **argv)
  * and obviates the need for a 1024 byte temporary buffer. - CRM
  */
                     c = *(curfile + strlen(curfile) +
-                            strlen(curfile + strlen(curfile) + 1));
+                          strlen(curfile + strlen(curfile) + 1));
                     *(curfile + strlen(curfile) +
                             strlen(curfile + strlen(curfile) + 1)) = '\0';
                     curfile[strlen(curfile)] = c;
@@ -1837,7 +1838,7 @@ int main(int argc, char  **argv)
                                 texext == NULL ? "tex" : texext);
                     }
                     c = *(curfile + strlen(curfile) +
-                            strlen(curfile + strlen(curfile) + 1));
+                          strlen(curfile + strlen(curfile) + 1));
                     *(curfile + strlen(curfile) +
                             strlen(curfile + strlen(curfile) + 1)) = '\0';
                     curfile[strlen(curfile)] = c;
@@ -2082,10 +2083,9 @@ int main(int argc, char  **argv)
 #endif
                 default:
                     if ((toascii(c)) != c) {
-                        error ("Weird character, decimal %d\n",
-                                (int) c);
+                        error("Weird character, decimal %d\n", (int)c);
                     } else {
-                            error ("No such command (%c)", c);
+                        error("No such command (%c)", c);
                     }
                     break;
             }

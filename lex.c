@@ -110,11 +110,11 @@ yylex(void)
     static char *tokenst = NULL;
     static size_t tokenl;
 
-    while (isspace((int)*p)) p++;
+    while (isspacechar(*p)) p++;
     if (*p == '\0') {
         isfunc = isgoto = 0;
         ret = -1;
-    } else if (isalpha((int)*p) || (*p == '_')) {
+    } else if (isalphachar(*p) || (*p == '_')) {
         register char *la;      /* lookahead pointer */
         register struct key *tblp;
 
@@ -127,23 +127,23 @@ yylex(void)
          *  tokens made up of alphanumeric chars and '_' (a function or
          *  token or command or a range name)
          */
-        while (isalpha((int)*p) && isascii((int)*p)) {
+        while (isalphachar(*p) && isascii((int)*p)) {
             p++;
             tokenl++;
         }
         la = p;
-        while (isdigit((int)*la) || (*la == '$'))
+        while (isdigitchar(*la) || *la == '$')
             la++;
         /*
          * A COL is 1 or 2 char alpha with nothing but digits following
          * (no alpha or '_')
          */
-        if (!isdigit((int)*tokenst) && tokenl && tokenl <= 2 && (colstate ||
-                (isdigit((int)*(la-1)) && !(isalpha((int)*la) || (*la == '_'))))) {
+        if (!isdigitchar(*tokenst) && tokenl && tokenl <= 2 && (colstate ||
+                (isdigitchar(*(la-1)) && !(isalphachar(*la) || (*la == '_'))))) {
             ret = COL;
             yylval.ival = atocol(tokenst, tokenl);
         } else {
-            while (isalpha((int)*p) || (*p == '_') || isdigit((int)*p)) {
+            while (isalnumchar(*p) || (*p == '_')) {
                 p++;
                 tokenl++;
             }
@@ -193,7 +193,7 @@ yylex(void)
                 }
             }
         }
-    } else if ((*p == '.') || isdigit((int)*p)) {
+    } else if ((*p == '.') || isdigitchar(*p)) {
 #ifdef SIGVOID
         void (*sig_save)();
 #else
@@ -223,7 +223,7 @@ yylex(void)
                 do {
                     v = v*10.0 + (double) ((unsigned) *p - '0');
                     tokenl++;
-                } while (isdigit((int)*++p));
+                } while (isdigitchar(*++p));
                 if (dateflag) {
                     ret = NUMBER;
                     yylval.ival = (int)v;
@@ -233,19 +233,20 @@ yylex(void)
                  *  .'s as tokens instead of interpreting them as decimal
                  *  points.  dateflag counts the .'s as they're returned.
                  */
-                } else if (*p=='.' && isdigit((int)*(p+1)) && (*(p+2)=='.' ||
-                        (isdigit((int)*(p+2)) && *(p+3)=='.'))) {
+                } else if (*p == '.' && isdigitchar(*(p+1)) &&
+                           (*(p+2) == '.' || (isdigitchar(*(p+2)) && *(p+3) == '.'))) {
                     ret = NUMBER;
                     yylval.ival = (int)v;
                     dateflag = 2;
                 } else if (*p == 'e' || *p == 'E') {
-                    while (isdigit((int)*++p)) /* */;
-                    if (isalpha((int)*p) || *p == '_') {
+                    while (isdigitchar(*++p))
+                        continue;
+                    if (isalphachar(*p) || *p == '_') {
                         linelim = p - line;
                         return (yylex());
                     } else
                         ret = FNUMBER;
-                } else if (isalpha((int)*p) || *p == '_') {
+                } else if (isalphachar(*p) || *p == '_') {
                     linelim = p - line;
                     return (yylex());
                 }
@@ -357,12 +358,12 @@ atocol(char *string, int len)
 {
     register int col;
 
-    col = (toupper((int)string[0])) - 'A';
+    col = toupperchar(string[0]) - 'A';
 
     if (len == 2)               /* has second char */
-        col = ((col + 1) * 26) + ((toupper((int)string[1])) - 'A');
+        col = ((col + 1) * 26) + (toupperchar(string[1]) - 'A');
 
-    return (col);
+    return col;
 }
 
 

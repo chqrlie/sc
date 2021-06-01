@@ -683,8 +683,10 @@ void dotab(void) {
     if ((linelim > 0 && isalnum((int)line[linelim-1])) || line[linelim-1] == '_' ||
             (completethis && line[linelim-1] == ' ')) {
         if (!completethis) {
-            for (completethis = line + linelim - 1; isalnum((int)*completethis) ||
-                    *completethis == '_'; completethis--) /* */;
+            for (completethis = line + linelim - 1;
+                 isalnumchar(*completethis) || *completethis == '_';
+                 completethis--)
+                continue;
             completethis++;
             len = line + linelim - completethis;
             if (!find_range(completethis, -len, NULL, NULL, &lastmatch)) {
@@ -1033,7 +1035,7 @@ void ins_in_line(int c)
             *line = '\0';
             linelim = 0;
         }
-        if (!inabbr && linelim > 0 && !(isalpha(c) || isdigit(c) || c == '_')) {
+        if (!inabbr && linelim > 0 && !(isalnum(c) || c == '_')) {
             inabbr++;
             doabbrev();
             inabbr--;
@@ -1062,34 +1064,27 @@ void doabbrev(void) {
     if (istart < 0 || linelim < 2)
         return;
 
-    if (!(isalpha((int)line[linelim - 1]) || isdigit((int)line[linelim - 1]) ||
-      line[linelim - 1] == '_') || !(mode == INSERT_MODE ||
-      mode == SEARCH_MODE) || istart >= linelim)
+    if (!(isalnumchar(line[linelim - 1]) || line[linelim - 1] == '_') ||
+        !(mode == INSERT_MODE || mode == SEARCH_MODE) || istart >= linelim)
         return;
 
     pos = linelim - 2;
-    if (isalpha((int)line[pos]) || isdigit((int)line[pos]) || line[pos] == '_')
-    {
+    if (isalnumchar(line[pos]) || line[pos] == '_') {
         for (; pos >= istart; pos--)
-            if (!(isalpha((int)line[pos]) || isdigit((int)line[pos]) ||
-              line[pos] == '_'))
+            if (!(isalnumchar(line[pos]) || line[pos] == '_'))
                 break;
     } else if (line[pos] != ' ')
         for (; pos >= istart; pos--)
-            if (isalpha((int)line[pos]) || isdigit((int)line[pos]) || line[pos]
-              == '_' || line[pos] == ' ')
+            if (isalnumchar(line[pos]) || line[pos] == '_' || line[pos] == ' ')
                 break;
     pos++;
 
     if (istart && pos == istart) {
-        if (isalpha((int)line[pos]) || isdigit((int)line[pos]) || line[pos] ==
-          '_') {
-            if (isalpha((int)line[--pos]) || isdigit((int)line[pos]) ||
-              line[pos] == '_')
+        if (isalnumchar(line[pos]) || line[pos] == '_') {
+            if (isalnumchar(line[--pos]) || line[pos] == '_')
                 return;
         } else {
-            if (!(isalpha((int)line[--pos]) || isdigit((int)line[pos]) ||
-                    line[pos] == '_' || line[pos] == ' '))
+            if (!(isalnumchar(line[--pos]) || line[pos] == '_' || line[pos] == ' '))
                 return;
         }
         pos++;
@@ -1120,10 +1115,10 @@ static void change_case(int a) {
         *line = '\0';
     }
     while (a--) {
-        if (islower((int)line[linelim]))
-            line[linelim] = toupper((int)line[linelim]);
-        else if (isupper((int)line[linelim]))
-            line[linelim] = tolower((int)line[linelim]);
+        if (islowerchar(line[linelim]))
+            line[linelim] = toupperchar(line[linelim]);
+        else if (isupperchar(line[linelim]))
+            line[linelim] = tolowerchar(line[linelim]);
         linelim = for_line(1, 0);
     }
 }
