@@ -1873,8 +1873,8 @@ int main(int argc, char  **argv)
                     backrow(arg);
                     break;
                 case 'H':
-                        backcol(curcol - stcol + 2);
-                        break;
+                    backcol(curcol - stcol + 2);
+                    break;
 #ifdef KEY_NPAGE
                 case KEY_NPAGE:                 /* next page */
 #endif

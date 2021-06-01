@@ -385,14 +385,12 @@ command:        S_LET var_or_range '=' e
                                 }
         |       S_GET strarg    {  /* This tmp hack is because readfile
                                     * recurses back through yyparse. */
-                                    char *tmp;
-                                    tmp = $2;
+                                    char *tmp = $2;
                                     readfile(tmp, 1);
                                     scxfree(tmp);
                                 }
         |       S_MERGE strarg  {
-                                    char *tmp;
-                                    tmp = $2;
+                                    char *tmp = $2;
                                     readfile(tmp, 0);
                                     scxfree(tmp);
                                 }
@@ -622,7 +620,7 @@ command:        S_LET var_or_range '=' e
         |       S_UNDEFINE var_or_range { del_range($2.left.vp, $2.right.vp); }
         |       S_ABBREV STRING         { add_abbr($2); }
         |       S_ABBREV                { add_abbr(NULL); }
-        |       S_UNABBREV STRING       { del_abbr($2); }
+        |       S_UNABBREV STRING       { del_abbr($2); scxfree($2); }
         |       S_FRAME range range     { add_frange($2.left.vp, $2.right.vp,
                                                 $3.left.vp, $3.right.vp,
                                                 0, 0, 0, 0); }

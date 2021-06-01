@@ -191,10 +191,14 @@ struct colorpair {
     struct enode *expr;
 };
 
+#define SCXMEM
+
 /* stores an abbreviation and its expansion */
+/* doubly linked list, sorted by abbr name */
 struct abbrev {
-    char *abbr;
-    char *exp;
+    SCXMEM char *abbr;
+    // XXX: should use offset
+    char *exp;  // points to same block as abbr
     struct abbrev *a_next, *a_prev;
 };
 
@@ -432,7 +436,7 @@ extern int plugin_exists(char *name, size_t len, char *path);
 extern int readfile(const char *fname, int eraseflg);
 extern int writefile(const char *fname, int r0, int c0, int rn, int cn);
 extern int yn_ask(const char *msg);
-extern struct abbrev *find_abbr(char *abbrev, int len, struct abbrev **prev);
+extern struct abbrev *find_abbr(const char *abbrev, int len, struct abbrev **prev);
 extern struct colorpair *cpairs[8];
 extern struct enode *copye(register struct enode *e, int Rdelta, int Cdelta,
                            int r1, int c1, int r2, int c2, int transpose);
@@ -471,7 +475,7 @@ extern void copyent(register struct ent *n, register struct ent *p,
 extern void decompile(register struct enode *e, int priority);
 extern void deleterow(register int arg);
 extern void del_range(struct ent *left, struct ent *right);
-extern void del_abbr(char *abbrev);
+extern void del_abbr(const char *abbrev);
 extern void deraw(int ClearLastLine);
 extern void diesave(void);
 extern void doend(int rowinc, int colinc);
