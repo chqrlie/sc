@@ -1,5 +1,5 @@
 /*
- * Help functions for sc 
+ * Help functions for sc
  * R. Bond, 1988
  * J. Buhrt 1990
  * $Revision: 7.16 $
@@ -8,8 +8,8 @@
 #include <stdlib.h>
 #ifdef QREF
 #include <stdio.h>
-static char	*header = " Quick Reference";
-static char	*revision = "$Revision: 7.16 $";
+static char *header = " Quick Reference";
+static char *revision = "$Revision: 7.16 $";
 #else
 #include <limits.h>
 #include "compat.h"
@@ -60,7 +60,7 @@ static char *toggleoptions[] = {
 "     ^To  Toggle options. Toggle one option selected by o:",
 "          a    Recalculate automatically or on ``@'' commands.",
 "          o    Optimize expressions upon entry if enabled.",
-"          c    Current cell highlighting enable/disable.",  
+"          c    Current cell highlighting enable/disable.",
 "          e    External function execution enable/disable.",
 "          l    Autolabeling defined cells enable/disable.",
 "          n    If enabled, a digit starts a numeric value.",
@@ -137,7 +137,6 @@ static char *cursor[] = {
 (char *)0
 };
 
-
 static char *cell[] = {
 " ",
 #if defined(QREF) && defined(TROFF)
@@ -171,7 +170,6 @@ static char *cell[] = {
 "     a new numeric constant or expression.",
 (char *)0
 };
-
 
 static char *vi[] = {
 " ",
@@ -241,7 +239,6 @@ static char *file[] = {
 (char *)0
 };
 
-
 static char *row[] = {
 " ",
 #if defined(QREF) && defined(TROFF)
@@ -275,7 +272,6 @@ static char *row[] = {
 (char *)0
 };
 
-
 static char *range[] = {
 " ",
 #if defined(QREF) && defined(TROFF)
@@ -308,7 +304,6 @@ static char *range[] = {
 "     a name previously defined using ``rd''.",
 (char *)0
 };
-
 
 static char *misc[] = {
 " ",
@@ -452,7 +447,7 @@ static char *stringf[] = {
 "                       ``e ja''.",
 "     @fmt(se,e)        Convert a number to a string using sprintf(3).",
 "                       For example,  ``@fmt(\"*%6.3f*\",10.5)'' yields",
-"                       ``*10.500*''.  Use formats are e, E, f, g, and G.", 
+"                       ``*10.500*''.  Use formats are e, E, f, g, and G.",
 "     @sval(se,e)       Return the string value of a cell selected by name.",
 "     @ext(se,e)        Call an external function (program or",
 "                       script).  Convert e to a string and append it",
@@ -466,7 +461,6 @@ static char *stringf[] = {
 "     surrounded by quotes), variables, and string functions.",
 (char *)0
 };
-
 
 static char *finf[] = {
 " ",
@@ -499,7 +493,6 @@ static char *finf[] = {
 "                       pay $1000 per month?''",
 (char *)0
 };
-
 
 static char *timef[] = {
 " ",
@@ -536,41 +529,39 @@ static char *timef[] = {
 };
 
 #ifndef QREF
-static	int	pscreen(char *screen[]);
+static int pscreen(char *screen[]);
 
-void
-help(void) {
+void help(void) {
     int option;
     char **ns = intro;
 
-    while((option = pscreen(ns)) != 'q' && option != 'Q') {
-    	switch (option) {
-	case 'a': case 'A': ns = intro; break;
-	case 'b': case 'B': ns = toggleoptions; break;
-	case 'c': case 'C': ns = setoptions; break;
-	case 'd': case 'D': ns = cursor; break;
-	case 'e': case 'E': ns = cell; break;
-	case 'f': case 'F': ns = vi; break;
-	case 'g': case 'G': ns = file; break;
-	case 'h': case 'H': ns = row; break;
-	case 'i': case 'I': ns = range; break;
-	case 'j': case 'J': ns = misc; break;
-	case 'k': case 'K': ns = var; break;
-	case 'l': case 'L': ns = rangef; break;
-	case 'm': case 'M': ns = numericf; break;
-	case 'n': case 'N': ns = stringf; break;
-	case 'o': case 'O': ns = finf; break;
-	case 'p': case 'P': ns = timef; break;
-	default: ns = intro; break;
-	}
+    while ((option = pscreen(ns)) != 'q' && option != 'Q') {
+        switch (option) {
+        case 'a': case 'A': ns = intro; break;
+        case 'b': case 'B': ns = toggleoptions; break;
+        case 'c': case 'C': ns = setoptions; break;
+        case 'd': case 'D': ns = cursor; break;
+        case 'e': case 'E': ns = cell; break;
+        case 'f': case 'F': ns = vi; break;
+        case 'g': case 'G': ns = file; break;
+        case 'h': case 'H': ns = row; break;
+        case 'i': case 'I': ns = range; break;
+        case 'j': case 'J': ns = misc; break;
+        case 'k': case 'K': ns = var; break;
+        case 'l': case 'L': ns = rangef; break;
+        case 'm': case 'M': ns = numericf; break;
+        case 'n': case 'N': ns = stringf; break;
+        case 'o': case 'O': ns = finf; break;
+        case 'p': case 'P': ns = timef; break;
+        default: ns = intro; break;
+        }
     }
     FullUpdate++;
     (void) move(1,0);
     (void) clrtobot();
 }
 
-static int
-pscreen(char *screen[])
+static int pscreen(char *screen[])
 {
     int lineno;
     int dbline;
@@ -579,9 +570,9 @@ pscreen(char *screen[])
     (void) clrtobot();
     dbline = 1;
     for (lineno = 0; screen[lineno]; lineno++) {
-	(void) move(dbline++, 4);
-	(void) addstr (screen[lineno]);
-	(void) clrtoeol();
+        (void) move(dbline++, 4);
+        (void) addstr (screen[lineno]);
+        (void) clrtoeol();
     }
     (void) move(0,0);
     (void) printw("Which Screen? [a-p, q]");
@@ -590,16 +581,17 @@ pscreen(char *screen[])
     return(nmgetch());
 }
 #else
-static char	** pages[] = { intro, toggleoptions, setoptions, cursor, cell, vi,
-			file, row, range, misc, var, rangef, numericf, stringf,
-			finf, timef, NULL};
+static char **pages[] = {
+    intro, toggleoptions, setoptions, cursor, cell, vi,
+    file, row, range, misc, var, rangef, numericf, stringf,
+    finf, timef, NULL
+};
 
-int
-main() {
-    int	lineno;
-    char	***pagep = pages;
+int main() {
+    int lineno;
+    char ***pagep = pages;
 #ifdef TROFF
-    int	pageno = 0;
+    int pageno = 0;
 
     puts(".nr PS 12");
     puts(".nr VS 14");
@@ -620,25 +612,25 @@ main() {
     puts(".LP");
 #endif
 
-    while (*pagep)
-    {
+    while (*pagep) {
 #ifndef TROFF
-	(void) fputs(SCNAME, stdout);
-	(void) fputs(header, stdout);
-	(void) printf("\n");
-	(void) puts(revision);
+        (void) fputs(SCNAME, stdout);
+        (void) fputs(header, stdout);
+        (void) printf("\n");
+        (void) puts(revision);
 #endif
 
-	for (lineno = 0; (*pagep)[lineno]; lineno++) {
-		(void) puts((*pagep)[lineno]);
-	}
+        for (lineno = 0; (*pagep)[lineno]; lineno++) {
+            (void) puts((*pagep)[lineno]);
+        }
 #if !defined(TROFF)
-	(void) putchar('\f');
+        (void) putchar('\f');
 #endif
-	pagep++;
+        pagep++;
 #ifdef TROFF
-	pageno++;
-	if (!(pageno%2)) puts(".bp");
+        pageno++;
+        if (!(pageno%2))
+            puts(".bp");
 #endif
     }
     return 0;

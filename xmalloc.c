@@ -10,49 +10,45 @@
 
 static void fatal(char *);
 
-#define	MAGIC	(double)1234567890.12344
+#define MAGIC   (double)1234567890.12344
 
-void *
-scxmalloc(size_t n)
+void *scxmalloc(size_t n)
 {
-	void *ptr;
+    void *ptr;
 
-	if ((ptr = malloc(n + sizeof(double))) == NULL)
-		fatal("scxmalloc: no memory");
-	*((double *) ptr) = MAGIC;		/* magic number */
-	return(ptr + sizeof(double));
+    if ((ptr = malloc(n + sizeof(double))) == NULL)
+        fatal("scxmalloc: no memory");
+    *((double *) ptr) = MAGIC;              /* magic number */
+    return(ptr + sizeof(double));
 }
 
 /* we make sure realloc will do a malloc if needed */
-void *
-scxrealloc(void *ptr, size_t n)
+void *scxrealloc(void *ptr, size_t n)
 {
-	if (ptr == NULL)
-		return(scxmalloc(n));
+    if (ptr == NULL)
+        return(scxmalloc(n));
 
-	ptr -= sizeof(double);
-	if (*((double *) ptr) != MAGIC)
-		fatal("scxrealloc: storage not scxmalloc'ed");
+    ptr -= sizeof(double);
+    if (*((double *) ptr) != MAGIC)
+        fatal("scxrealloc: storage not scxmalloc'ed");
 
-	if ((ptr = realloc(ptr, n + sizeof(double))) == NULL)
-		fatal("scxmalloc: no memory");
-	*((double *) ptr) = MAGIC;		/* magic number */
-	return(ptr + sizeof(double));
+    if ((ptr = realloc(ptr, n + sizeof(double))) == NULL)
+        fatal("scxmalloc: no memory");
+    *((double *) ptr) = MAGIC;              /* magic number */
+    return(ptr + sizeof(double));
 }
 
-void
-scxfree(void *p)
+void scxfree(void *p)
 {
-	if (p == NULL)
-		fatal("scxfree: NULL");
-	p -= sizeof(double);
-	if (*((double *) p) != MAGIC)
-		fatal("scxfree: storage not malloc'ed");
-	free(p);
+    if (p == NULL)
+        fatal("scxfree: NULL");
+    p -= sizeof(double);
+    if (*((double *) p) != MAGIC)
+        fatal("scxfree: storage not malloc'ed");
+    free(p);
 }
 
-static void
-fatal(char *str)
+static void fatal(char *str)
 {
 #ifndef PSC
     deraw(1);
