@@ -18,7 +18,7 @@
 
 int Crypt = 0;
 #define MAXKEYWORDSIZE 30
-char KeyWord[MAXKEYWORDSIZE] = {""};
+char KeyWord[MAXKEYWORDSIZE] = { "" };
 
 void creadfile(const char *save, int eraseflg)
 {
@@ -27,7 +27,8 @@ void creadfile(const char *save, int eraseflg)
     int fildes;
     int pid;
 
-    if (eraseflg && strcmp(save, curfile) && modcheck(" first")) return;
+    if (eraseflg && strcmp(save, curfile) && modcheck(" first"))
+        return;
 
     if ((fildes = open(findhome(save), O_RDONLY, 0)) < 0) {
         error ("Can't read file \"%s\"", save);
@@ -45,7 +46,7 @@ void creadfile(const char *save, int eraseflg)
     strlcpy(KeyWord, getpass("Enter key:"), sizeof KeyWord);
     goraw();
 
-    if ((pid=fork()) == 0) {            /* if child              */
+    if ((pid = fork()) == 0) {          /* if child              */
         (void) close(0);                /* close stdin           */
         (void) close(1);                /* close stdout          */
         (void) close(pipefd[0]);        /* close pipe input      */
@@ -54,7 +55,7 @@ void creadfile(const char *save, int eraseflg)
         (void) fprintf(stderr, " ");
         (void) execl(CRYPT_PATH, "crypt", KeyWord, 0);
         (void) fprintf(stderr, "execl(%s, \"crypt\", %s, 0) in creadfile() failed",
-                        CRYPT_PATH, KeyWord);
+                       CRYPT_PATH, KeyWord);
         exit(-127);
     } else {                            /* else parent */
         (void) close(fildes);
@@ -73,11 +74,12 @@ void creadfile(const char *save, int eraseflg)
         if (line[0] != '#') (void) yyparse();
     }
     --loading;
-        if (fclose(f) == EOF) {
-                error("fclose(pipefd): %s", strerror(errno));
-        }
+    if (fclose(f) == EOF) {
+        error("fclose(pipefd): %s", strerror(errno));
+    }
     (void) close(pipefd[0]);
-    while (pid != wait(&fildes)) /**/;
+    while (pid != wait(&fildes))
+        continue;
     linelim = -1;
     if (eraseflg) {
         strlcpy(curfile, save, sizeof curfile);
@@ -128,7 +130,7 @@ int cwritefile(char *fname, int r0, int c0, int rn, int cn)
         goraw();
     }
 
-    if ((pid=fork()) == 0) {                    /* if child              */
+    if ((pid = fork()) == 0) {                  /* if child              */
         (void) close(0);                        /* close stdin           */
         (void) close(1);                        /* close stdout          */
         (void) close(pipefd[1]);                /* close pipe output     */
@@ -137,8 +139,8 @@ int cwritefile(char *fname, int r0, int c0, int rn, int cn)
         (void) fprintf(stderr, " ");
         (void) execl(CRYPT_PATH, "crypt", KeyWord, 0);
         (void) fprintf(stderr, "execl(%s, \"crypt\", %s, 0) in cwritefile() failed",
-                        CRYPT_PATH, KeyWord);
-        exit (-127);
+                       CRYPT_PATH, KeyWord);
+        exit(-127);
     }
     else {                                /* else parent */
         (void) close(fildes);
@@ -154,11 +156,12 @@ int cwritefile(char *fname, int r0, int c0, int rn, int cn)
 
     write_fd(f, r0, c0, rn, cn);
 
-        if (fclose(f) == EOF) {
-                error("fclose(pipefd): %s", strerror(errno));
-        }
+    if (fclose(f) == EOF) {
+        error("fclose(pipefd): %s", strerror(errno));
+    }
     (void) close(pipefd[1]);
-    while (pid != wait(&fildes)) /**/;
+    while (pid != wait(&fildes))
+        continue;
     strlcpy(curfile, save, sizeof curfile);
 
     modflg = 0;

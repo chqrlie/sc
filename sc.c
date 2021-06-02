@@ -113,10 +113,10 @@ int calc_order = BYROWS;
 int optimize  = 0;     /* Causes numeric expressions to be optimized */
 int tbl_style = 0;     /* headers for T command output */
 int rndtoeven = 0;
-int color     = 0;     /* Use color */ // XXX: should rename as use_color
-int colorneg  = 0;     /* Increment color number for cells with negative
+int color     = 1;     /* Use color */ // XXX: should rename as use_color
+int colorneg  = 1;     /* Increment color number for cells with negative
                           numbers */
-int colorerr  = 0;     /* Color cells with errors with color 3 */
+int colorerr  = 1;     /* Color cells with errors with color 3 */
 int numeric_field = 0; /* Started the line editing with a number */
 int craction = 0;      /* 1 for down, 2 for right */
 int pagesize = 0;      /* If nonzero, use instead of 1/2 screen height */

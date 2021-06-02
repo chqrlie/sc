@@ -22,16 +22,19 @@
 .SH NAME
 pname \- spreadsheet calculator
 .SH SYNOPSIS
-.SY pname
-.OP \-aCceMmnoqRrvx
+.\" .SY pname
+.\" .OP \-aCceMmnoqRrvx
+.B pname
+.RB \-aCceMmnoqRrvx
 .RB [ \-P
 .IR range [/ address ]
 |
 .RI / address ]
-.OP \-W range
+.\" .OP \-W range
+.RB \-W range
 .RI [ file
 .IR .\|.\|. ]
-.YS
+.\" .YS
 .\" ==========
 .SH DESCRIPTION
 The spreadsheet calculator
