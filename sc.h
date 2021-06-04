@@ -21,7 +21,7 @@
 #include "config.h"
 
 #define CLEAR_LINE error("%s", "") /* suppress warning on NetBSD curses */
-#define ATBL(tbl, row, col)     (*(tbl + row) + (col))
+#define ATBL(tbl, row, col)     (&tbl[row][col])
 
 #define MINROWS 100     /* minimum size at startup */
 #define MINCOLS 30
@@ -47,11 +47,10 @@
 #define CPAIRS            8     /* Number of color pairs available */
 #define COLFORMATS       10     /* Number of custom column formats */
 #define DELBUFSIZE       40     /* Number of named buffers + 4 */
-#ifdef PSC
-# define error(msg)     fprintf(stderr, msg);
-#else
-# define error if (isatty(fileno(stdout)) && !move(1,0) && !clrtoeol()) printw
-#endif
+
+extern void error(const char *fmt, ...);
+extern void fatal(const char *str);
+
 #define FBUFLEN 1024    /* buffer size for a single field */
 #define PATHLEN (PATH_MAX < 8192 ? 8192 : PATH_MAX) /* maximum path length */
 
@@ -352,8 +351,16 @@ struct go_save {
 
 #define GROWNEW         1       /* first time table */
 #define GROWROW         2       /* add rows */
-#define GROWCOL         3       /* add columns */
-#define GROWBOTH        4       /* grow both */
+#define GROWCOL         4       /* add columns */
+#define GROWBOTH        6       /* grow both */
+
+/* The table data is organised as:
+   `tbl`: a pointer to an array of `maxrows` pointers to rows
+   each row pointer points to an array of `maxcols` pointers to cells
+   these cell pointers can be NULL or point to an allocated `ent` structure
+   This design is suboptimal in terms of memory space and implies much
+   dreaded three star programming.
+ */
 extern struct ent ***tbl;      /* data table ref. in vmtbl.c and ATBL() */
 
 extern char curfile[PATHLEN];

@@ -16,17 +16,15 @@
 
 void getnum(int r0, int c0, int rn, int cn, int fd)
 {
-    struct ent **pp;
-    struct ent *p;
     int r, c;
 
     for (r = r0; r <= rn; r++) {
-        for (c = c0, pp = ATBL(tbl, r, c); c <= cn; pp++, c++) {
+        for (c = c0; c <= cn; c++) {
+            struct ent *p = *ATBL(tbl, r, c);
             *line = '\0';
-            p = *pp;
             if (p) {
                 if (p->cellerror)
-                    snprintf(line, sizeof line, "%s", (*pp)->cellerror == CELLERROR ?
+                    snprintf(line, sizeof line, "%s", p->cellerror == CELLERROR ?
                             "ERROR" : "INVALID");
                 else if (p->flags & IS_VALID)
                     snprintf(line, sizeof line, "%.15g", p->v);
@@ -47,14 +45,12 @@ void getnum(int r0, int c0, int rn, int cn, int fd)
 
 void fgetnum(int r0, int c0, int rn, int cn, int fd)
 {
-    struct ent **pp;
-    struct ent *p;
     int r, c;
 
     for (r = r0; r <= rn; r++) {
-        for (c = c0, pp = ATBL(tbl, r, c); c <= cn; pp++, c++) {
+        for (c = c0; c <= cn; c++) {
+            struct ent *p = *ATBL(tbl, r, c);
             *line = '\0';
-            p = *pp;
             if (p) {
                 if (p->cellerror)
                     snprintf(line, sizeof line, "%s", p->cellerror == CELLERROR ?
@@ -89,14 +85,14 @@ void fgetnum(int r0, int c0, int rn, int cn, int fd)
 
 void getstring(int r0, int c0, int rn, int cn, int fd)
 {
-    struct ent **pp;
     int r, c;
 
     for (r = r0; r <= rn; r++) {
-        for (c = c0, pp = ATBL(tbl, r, c); c <= cn; pp++, c++) {
+        for (c = c0; c <= cn; c++) {
+            struct ent *p = *ATBL(tbl, r, c);
             *line = '\0';
-            if (*pp && (*pp)->label)
-                snprintf(line, sizeof line, "%s", (*pp)->label);
+            if (p && p->label)
+                snprintf(line, sizeof line, "%s", p->label);
             if (c < cn)
                 strlcat(line, "\t", sizeof line);
             else
@@ -113,14 +109,12 @@ void getstring(int r0, int c0, int rn, int cn, int fd)
 
 void getexp(int r0, int c0, int rn, int cn, int fd)
 {
-    struct ent **pp;
-    struct ent *p;
     int r, c;
 
     for (r = r0; r <= rn; r++) {
-        for (c = c0, pp = ATBL(tbl, r, c); c <= cn; pp++, c++) {
+        for (c = c0; c <= cn; c++) {
+            struct ent *p = *ATBL(tbl, r, c);
             *line = '\0';
-            p = *pp;
             if (p && p->expr) {
                 linelim = 0;
                 decompile(p->expr, 0);  /* set line to expr */
@@ -151,14 +145,14 @@ void getformat(int col, int fd)
 
 void getfmt(int r0, int c0, int rn, int cn, int fd)
 {
-    struct ent **pp;
     int r, c;
 
     for (r = r0; r <= rn; r++) {
-        for (c = c0, pp = ATBL(tbl, r, c); c <= cn; pp++, c++) {
+        for (c = c0; c <= cn; c++) {
+            struct ent *p = *ATBL(tbl, r, c);
             *line = '\0';
-            if (*pp && (*pp)->format)
-                snprintf(line, sizeof line, "%s", (*pp)->format);
+            if (p && p->format)
+                snprintf(line, sizeof line, "%s", p->format);
             if (c < cn)
                 strlcat(line, "\t", sizeof line);
             else

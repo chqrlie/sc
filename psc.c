@@ -38,6 +38,7 @@
 #include <limits.h>
 #include <string.h>
 #include <errno.h>
+#include <stdarg.h>
 #include "sc.h"
 
 #define END     0
@@ -84,6 +85,18 @@ static int strnums      = FALSE;
 static int plainnums    = FALSE;
 
 static char token[1000];
+
+void fatal(const char *str) {
+    fprintf(stderr, "psc: %s\n", str);
+    exit(1);
+}
+
+void error(const char *fmt, ...) {
+    va_list ap;
+    va_start(ap, fmt);
+    vfprintf(stderr, fmt, ap);
+    va_end(ap);
+}
 
 int main(int argc, char **argv)
 {
@@ -143,7 +156,7 @@ int main(int argc, char **argv)
             exit(EXIT_FAILURE);
     }
 
-        /* setup the spreadsheet arrays */
+    /* setup the spreadsheet arrays */
     if (!growtbl(GROWNEW, 0, 0))
         exit(EXIT_FAILURE);
 
@@ -154,106 +167,106 @@ int main(int argc, char **argv)
 
     while (1) {
 
-        effr = currow+roff;
-        effc = curcol+coff;
+        effr = currow + roff;
+        effc = curcol + coff;
 
         switch (scan()) {
         case END:
-                if (drop_format) exit(exit_status);
+            if (drop_format) exit(exit_status);
 
-                for (i = 0; i<maxcols; i++) {
-                        if (fwidth[i]) {
-                                if (printf("format %s %d %d %d\n", coltoa(i),
-                                                fwidth[i]+1, precision[i], REFMTFIX) < 0)
-                                {
-                                        fprintf(stderr, "%s: Column %d" PRINTF_CMD_ERR("format"),
-                                                progname, i, strerror(errno));
-                                        exit(EXIT_FAILURE);
-                                }
-                        }
+            for (i = 0; i<maxcols; i++) {
+                if (fwidth[i]) {
+                    if (printf("format %s %d %d %d\n", coltoa(i),
+                               fwidth[i]+1, precision[i], REFMTFIX) < 0)
+                    {
+                        fprintf(stderr, "%s: Column %d" PRINTF_CMD_ERR("format"),
+                                progname, i, strerror(errno));
+                        exit(EXIT_FAILURE);
+                    }
                 }
+            }
+            exit(exit_status);
 
-                exit(exit_status);
         case NUM:
-                first = FALSE;
+            first = FALSE;
 
-                if (printf("let %s%d = %s\n", coltoa(effc), effr, token) < 0) {
-                        fprintf(stderr, "%s" PRINTF_CMD_ERR("let"), progname,
-                                strerror(errno));
-                        exit_status = EXIT_FAILURE;
+            if (printf("let %s%d = %s\n", coltoa(effc), effr, token) < 0) {
+                fprintf(stderr, "%s" PRINTF_CMD_ERR("let"), progname,
+                        strerror(errno));
+                exit_status = EXIT_FAILURE;
+            }
+
+            if (effc >= maxcols - 1) {
+                if (!growtbl(GROWCOL, 0, effc)) {
+                    fprintf(stderr, "Invalid column used: %s\n", coltoa(effc));
+                    exit_status = EXIT_FAILURE;
+                    continue;
                 }
+            }
 
-                if (effc >= maxcols - 1) {
-                        if (!growtbl(GROWCOL, 0, effc)) {
-                                fprintf(stderr, "Invalid column used: %s\n", coltoa(effc));
-                                exit_status = EXIT_FAILURE;
-                                continue;
-                        }
-                }
+            i = 0;
+            j = 0;
+            p = token;
 
-                i = 0;
-                j = 0;
-                p = token;
+            while (*p && *p != '.') {
+                p++; i++;
+            }
 
-                while (*p && *p != '.') {
-                        p++; i++;
-                }
+            if (*p) {
+                p++; i++;
+            }
 
-                if (*p) {
-                        p++; i++;
-                }
+            while (*p) {
+                p++; i++; j++;
+            }
 
-                while (*p) {
-                        p++; i++; j++;
-                }
+            {
+                int ow, nw;
 
-                {
-                        int     ow, nw;
+                ow = fwidth[effc] - precision[effc];
 
-                        ow = fwidth[effc] - precision[effc];
+                if (precision[effc] < j)
+                    precision[effc] = j;
 
-                        if (precision[effc] < j)
-                                precision[effc] = j;
+                if (fwidth[effc] < i)
+                    fwidth[effc] = i;
 
-                        if (fwidth[effc] < i)
-                                fwidth[effc] = i;
-
-                        /* now make sure:
-                        *       1234.567890 (format 11 6)
-                        *       1234567.890 (format 11 3)
-                        *       both show (format 14 6)
-                        *               (really it uses 15 6 to separate columns)
-                        */
-                        if ((nw = i - j) > ow)
-                                fwidth[effc] += nw - (fwidth[effc] - precision[effc]);
-                }
-                break;
+                /* now make sure:
+                 *       1234.567890 (format 11 6)
+                 *       1234567.890 (format 11 3)
+                 *       both show (format 14 6)
+                 *               (really it uses 15 6 to separate columns)
+                 */
+                if ((nw = i - j) > ow)
+                    fwidth[effc] += nw - (fwidth[effc] - precision[effc]);
+            }
+            break;
         case ALPHA:
-                first = FALSE;
+            first = FALSE;
 
-                {
-                        const char *cmd = leftadj ? "leftstring" : "rightstring";
+            {
+                const char *cmd = leftadj ? "leftstring" : "rightstring";
 
-                        if (printf("%s %s%d = \"%s\"\n", cmd, coltoa(effc),effr,token) < 0) {
-                                fprintf(stderr, "%s: Writing command \"%s\": %s\n", progname,
-                                        cmd, strerror(errno));
-                                exit_status = EXIT_FAILURE;
-                        }
+                if (printf("%s %s%d = \"%s\"\n", cmd, coltoa(effc),effr,token) < 0) {
+                    fprintf(stderr, "%s: Writing command \"%s\": %s\n", progname,
+                            cmd, strerror(errno));
+                    exit_status = EXIT_FAILURE;
                 }
+            }
 
-                if (effc >= maxcols - 1 && !growtbl(GROWCOL, 0, effc)) {
-                        fprintf(stderr, "Invalid column used: %s\n", coltoa(effc));
-                        exit_status = EXIT_FAILURE;
-                        continue;
-                }
+            if (effc >= maxcols - 1 && !growtbl(GROWCOL, 0, effc)) {
+                fprintf(stderr, "Invalid column used: %s\n", coltoa(effc));
+                exit_status = EXIT_FAILURE;
+                continue;
+            }
 
-                i = strlen(token);
+            i = strlen(token);
 
-                if (i > fwidth[effc]) {
-                        fwidth[effc] = i;
-                }
+            if (i > fwidth[effc]) {
+                fwidth[effc] = i;
+            }
 
-                break;
+            break;
         case SPACE:
             if (first && strip_delim)
                 break;

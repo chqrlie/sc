@@ -344,7 +344,7 @@ $O:
 	mkdir -p $O
 
 $(name):$(PAR)  $(OBJS)
-	$(CC) $(_CFLAGS) ${_LDFLAGS} ${OBJS} $(RPATH_CURSES) -o $(name) ${LDADD}
+	$(CC) $(_CFLAGS) -o $@ ${_LDFLAGS} ${OBJS} $(RPATH_CURSES) ${LDADD}
 
 # Alternative link for MS-DOS
 #$(name):	$(OBJS)
@@ -356,24 +356,21 @@ gram.c:	gram.y
 
 $(YTAB).h: gram.y
 
-p$(name): psc.c $O/pvmtbl.o $O/pxmalloc.o $O/version.o
-	$(CC) $(_CFLAGS) ${_LDFLAGS} -o p$(name) psc.c $O/pvmtbl.o $O/pxmalloc.o $O/version.o ${PSCLIB}
+p$(name): psc.c $O/pvmtbl.o $O/xmalloc.o $O/version.o
+	$(CC) $(_CFLAGS) -o $@ ${_LDFLAGS} psc.c $O/pvmtbl.o $O/xmalloc.o $O/version.o ${PSCLIB}
 
-$O/pvmtbl.o: vmtbl.c sc.h
-	$(CC) $(_CFLAGS) -c -DPSC -o $@ vmtbl.c
-
-$O/pxmalloc.o: xmalloc.c sc.h
-	$(CC) $(_CFLAGS) -c -DPSC -o $@ xmalloc.c
+$O/pvmtbl.o: pvmtbl.c sc.h
+	$(CC) $(_CFLAGS) -o $@ -c pvmtbl.c
 
 # Alternative link for MS-DOS (NB: MSC 5.1 has no getopt.c)
-#p$(name):	$O/psc.o $O/pvmtbl.o $O/pxmalloc.o $O/getopt.o
-#	link ${_LDFLAGS} $O/psc.o $O/pvmtbl.o $O/pxmalloc.o $O/getopt.o,p$(name);
+#p$(name):	$O/psc.o $O/pvmtbl.o $O/xmalloc.o $O/getopt.o
+#	link ${_LDFLAGS} $O/psc.o $O/pvmtbl.o $O/xmalloc.o $O/getopt.o,p$(name);
 
 $(name)qref: help.c sc.h
-	$(CC) $(_CFLAGS) $(_LDFLAGS) -DQREF $(QREF_FMT) -DSCNAME=\"$(NAME)\" -o $(name)qref help.c
+	$(CC) $(_CFLAGS) -o $@ $(_LDFLAGS) -DQREF $(QREF_FMT) -DSCNAME=\"$(NAME)\" help.c
 
 $O/qhelp.o: help.c sc.h
-	$(CC) $(_CFLAGS) ${CRYPT} -c -o $@ help.c
+	$(CC) $(_CFLAGS) -o $@ ${CRYPT} -c help.c
 
 # Alternative link for MS-DOS
 #$(name)qref:	help.c sc.h
@@ -383,22 +380,22 @@ $O/qhelp.o: help.c sc.h
 # Objects
 
 $O/abbrev.o: abbrev.c sc.h
-	$(CC) $(_CFLAGS) ${DFLT_PAGER} -c -o $@ abbrev.c
+	$(CC) $(_CFLAGS) -o $@ ${DFLT_PAGER} -c abbrev.c
 
 $O/cmds.o: cmds.c sc.h
-	$(CC) $(_CFLAGS) ${CRYPT} -c -o $@ cmds.c
+	$(CC) $(_CFLAGS) -o $@ ${CRYPT} -c cmds.c
 
 $O/color.o: color.c sc.h
-	$(CC) $(_CFLAGS) -c -o $@ color.c
+	$(CC) $(_CFLAGS) -o $@ -c color.c
 
 $O/crypt.o: crypt.c sc.h
-	$(CC) $(_CFLAGS) ${CRYPT} -c -o $@ crypt.c
+	$(CC) $(_CFLAGS) -o $@ ${CRYPT} -c crypt.c
 
 $O/format.o: format.c sc.h
-	$(CC) $(_CFLAGS) -c -o $@ format.c
+	$(CC) $(_CFLAGS) -o $@ -c format.c
 
 $O/frame.o: frame.c sc.h
-	$(CC) $(_CFLAGS) -c -o $@ frame.c
+	$(CC) $(_CFLAGS) -o $@ -c frame.c
 
 experres.h: gram.y eres.sed
 	sed < gram.y > experres.h -f eres.sed
@@ -407,53 +404,52 @@ statres.h: gram.y sres.sed
 	sed < gram.y > statres.h -f sres.sed
 
 $O/gram.o: gram.c $(YTAB).h sc.h
-	$(CC) $(_CFLAGS) ${USELOCALE} -c -o $@ gram.c
+	$(CC) $(_CFLAGS) -o $@ ${USELOCALE} -c gram.c
 
 $O/help.o: help.c sc.h
-	$(CC) $(_CFLAGS) ${CRYPT} -c -o $@ help.c
+	$(CC) $(_CFLAGS) -o $@ ${CRYPT} -c help.c
 
 $O/interp.o: interp.c sc.h
-	$(CC) $(_CFLAGS) ${FLOAT_STORE} ${IEEE_MATH} ${SIGVOID} ${RINT} ${REGEX} ${FMOD} -c -o $@ interp.c
+	$(CC) $(_CFLAGS) -o $@ ${FLOAT_STORE} ${IEEE_MATH} ${SIGVOID} ${RINT} ${REGEX} ${FMOD} -c interp.c
 
 $O/lex.o: $(YTAB).h $O/gram.o lex.c sc.h experres.h statres.h
-	$(CC) $(_CFLAGS) ${SIMPLE} ${IEEE_MATH} ${LIBRARY} ${SIGVOID} ${NO_NOTIMEOUT} -c -o $@ lex.c
+	$(CC) $(_CFLAGS) -o $@ ${SIMPLE} ${IEEE_MATH} ${LIBRARY} ${SIGVOID} ${NO_NOTIMEOUT} -c lex.c
 
 $O/pipe.o: pipe.c sc.h
-	$(CC) $(_CFLAGS) -c -o $@ pipe.c
+	$(CC) $(_CFLAGS) -o $@ -c pipe.c
 
 $O/range.o: range.c sc.h
-	$(CC) $(_CFLAGS) -c -o $@ range.c
+	$(CC) $(_CFLAGS) -o $@ -c range.c
 
 $O/sc.o: sc.c sc.h
-	$(CC) $(_CFLAGS) ${DFLT_PAGER} ${SIGVOID} ${SAVE} -c -o $@ sc.c
+	$(CC) $(_CFLAGS) -o $@ ${DFLT_PAGER} ${SIGVOID} ${SAVE} -c sc.c
 
 $O/screen.o: screen.c sc.h
-	$(CC) $(_CFLAGS) ${BROKENCURSES} ${IDLOKISBAD} ${RIGHTBUG} ${SIGVOID} ${NO_IDLOK} -c -o $@ screen.c
+	$(CC) $(_CFLAGS) -o $@ ${BROKENCURSES} ${IDLOKISBAD} ${RIGHTBUG} ${SIGVOID} ${NO_IDLOK} -c screen.c
 
 $O/sort.o: sort.c sc.h
-	$(CC) $(_CFLAGS) -c -o $@ sort.c
+	$(CC) $(_CFLAGS) -o $@ -c sort.c
 
 $O/version.o: version.c version.h
-	$(CC) $(_CFLAGS) -c -o $@ version.c
+	$(CC) $(_CFLAGS) -o $@ -c version.c
 
 $O/vi.o: vi.c sc.h
-	$(CC) $(_CFLAGS) ${REGEX} ${HISTORY_FILE} -c -o $@ vi.c
+	$(CC) $(_CFLAGS) -o $@ ${REGEX} ${HISTORY_FILE} -c vi.c
 
 $O/vmtbl.o: vmtbl.c sc.h
-	$(CC) $(_CFLAGS) -c -o $@ vmtbl.c
+	$(CC) $(_CFLAGS) -o $@ -c vmtbl.c
 
 $O/xmalloc.o: xmalloc.c sc.h
-	$(CC) $(_CFLAGS) -c -o $@ xmalloc.c
+	$(CC) $(_CFLAGS) -o $@ -c xmalloc.c
 
 $O/compat.o: compat.c sc.h
-	$(CC) $(_CFLAGS) -c -o $@ compat.c
+	$(CC) $(_CFLAGS) -o $@ -c compat.c
 
 # other stuff
 
 clean:
 	rm -rf $O
-	rm -f *.o *res.h $(YTAB).h debug core gram.c y.output
-	rm -f pxmalloc.c pvmtbl.c qhelp.c tags
+	rm -f *.o *res.h $(YTAB).h gram.c y.output tags debug core
 
 distclean: clean
 	rm -f $(name) p$(name) $(name)qref x$(name) Makefile config.log
@@ -476,8 +472,8 @@ lint: sc.h sc.c lex.c gram.c interp.c cmds.c color.c crypt.c frame.c pipe.c \
 lintqref: help.c
 	lint ${LINTFLAGS} $(_CFLAGS) ${SIMPLE} -DQREF help.c
 
-lintpsc: psc.c vmtbl.c
-	lint ${LINTFLAGS} $(_CFLAGS) ${SIMPLE} -DPSC psc.c vmtbl.c
+lintpsc: psc.c pvmtbl.c
+	lint ${LINTFLAGS} $(_CFLAGS) ${SIMPLE} psc.c pvmtbl.c
 
 .SUFFIXES: .doc .1
 

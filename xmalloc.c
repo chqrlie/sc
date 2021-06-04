@@ -8,8 +8,6 @@
 #include "compat.h"
 #include "sc.h"
 
-static void fatal(const char *);
-
 #define MAGIC   (double)1234567890.12344
 
 void *scxmalloc(size_t n)
@@ -51,16 +49,4 @@ void scxfree(void *p)
             fatal("scxfree: storage not malloc'ed");
         free(p);
     }
-}
-
-static void fatal(const char *str)
-{
-#ifndef PSC
-    deraw(1);
-#endif /* PSC */
-    fprintf(stderr, "%s\n", str);
-#ifndef PSC
-    diesave();
-#endif /* PSC */
-    exit(1);
 }

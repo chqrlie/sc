@@ -18,6 +18,9 @@
 #include <string.h>
 #include <sys/file.h>
 #include <fcntl.h>
+#ifdef USELOCALE
+#include <locale.h>
+#endif
 #ifndef MSDOS
 #include <unistd.h>
 #endif
@@ -144,31 +147,32 @@ MEVENT mevent;
 struct ent *lookat(int row, int col)
 {
     register struct ent **pp;
+    register struct ent *p;
 
     checkbounds(&row, &col);
     pp = ATBL(tbl, row, col);
     if (*pp == NULL) {
-        if (freeents != NULL) {
-            *pp = freeents;
-            (*pp)->flags &= ~IS_CLEARED;
-            (*pp)->flags |= MAY_SYNC;
-            freeents = freeents->next;
+        if ((p = freeents) != NULL) {
+            freeents = p->next;
+            p->flags &= ~IS_CLEARED;
+            p->flags |= MAY_SYNC;
         } else {
-            *pp = scxmalloc(sizeof(struct ent));
+            p = scxmalloc(sizeof(struct ent));
         }
         if (row > maxrow) maxrow = row;
         if (col > maxcol) maxcol = col;
-        (*pp)->label = (char *)0;
-        (*pp)->row = row;
-        (*pp)->col = col;
-        (*pp)->nrow = -1;
-        (*pp)->ncol = -1;
-        (*pp)->flags = MAY_SYNC;
-        (*pp)->expr = (struct enode *)0;
-        (*pp)->v = (double) 0.0;
-        (*pp)->format = (char *)0;
-        (*pp)->cellerror = CELLOK;
-        (*pp)->next = NULL;
+        p->label = (char *)0;
+        p->row = row;
+        p->col = col;
+        p->nrow = -1;
+        p->ncol = -1;
+        p->flags = MAY_SYNC;
+        p->expr = (struct enode *)0;
+        p->v = (double)0.0;
+        p->format = (char *)0;
+        p->cellerror = CELLOK;
+        p->next = NULL;
+        *pp = p;
     }
     return *pp;
 }
@@ -216,7 +220,14 @@ int Vopt;
 FILE *ftrace;
 #endif
 
-int main(int argc, char  **argv)
+void fatal(const char *str) {
+    deraw(1);
+    fprintf(stderr, "%s\n", str);
+    diesave();
+    exit(1);
+}
+
+int main(int argc, char **argv)
 {
     int inloop = 1;
     register int c;
@@ -247,6 +258,9 @@ int main(int argc, char  **argv)
 
     Vopt = 0;
 
+#ifdef USELOCALE
+    setlocale(LC_ALL, "");
+#endif
 #ifdef MSDOS
     if ((revi = strrchr(argv[0], '\\')) != NULL)
 #else

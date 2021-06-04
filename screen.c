@@ -15,6 +15,7 @@
 #include <time.h>
 #include <limits.h>
 #include <string.h>
+#include <stdarg.h>
 
 #ifndef MSDOS
 #include <unistd.h>
@@ -67,18 +68,31 @@ extern int wasforw;    /* Causes screen to be redisplay if on lastcol */
 #endif
 extern struct go_save gs;
 
+//# define error if (isatty(fileno(stdout)) && !move(1,0) && !clrtoeol()) printw
+void error(const char *fmt, ...) {
+    char buf[256];
+    va_list ap;
+
+    if (isatty(fileno(stdout)) && !move(1,0) && !clrtoeol()) {
+        va_start(ap, fmt);
+        vsnprintf(buf, sizeof buf, fmt, ap);
+        va_end(ap);
+        addstr(buf);
+    }
+}
+
 /*
  * update() does general screen update
  *
  * standout last time in update()?
  *      At this point we will let curses do work
  */
-int standlast       = FALSE;
+int standlast = FALSE;
 
 void update(int anychanged)          /* did any cell really change in value? */
 {
     int row, col;
-    struct ent **pp;
+    struct ent *p;
     int mxrow, mxcol;
     int minsr = 0, minsc = 0, maxsr = 0, maxsc = 0;
     int r, i;
@@ -505,20 +519,20 @@ void update(int anychanged)          /* did any cell really change in value? */
     /* Get rid of cursor standout on the cell at previous cursor position */
     if (!FullUpdate) {
         if (showcell) {
-            pp = ATBL(tbl, lastrow, lastcol);
+            p = *ATBL(tbl, lastrow, lastcol);
             if (color && has_colors()) {
                 if ((cr = find_crange(lastrow, lastcol)))
                     color_set(cr->r_color, NULL);
                 else
                     color_set(1, NULL);
-                if (*pp) {
-                    if (colorneg && (*pp)->flags & IS_VALID && (*pp)->v < 0) {
+                if (p) {
+                    if (colorneg && p->flags & IS_VALID && p->v < 0) {
                         if (cr)
                             color_set(((cr->r_color) % CPAIRS) + 1, NULL);
                         else
                             color_set(2, NULL);
-                    }
-                    else if (colorerr && (*pp)->cellerror)
+                    } else
+                    if (colorerr && p->cellerror)
                         color_set(3, NULL);
                 }
             }
@@ -691,21 +705,20 @@ void update(int anychanged)          /* did any cell really change in value? */
             row = (strow < row ? row : strow);
         if (fbottomrows && r == lines - fbrows)
             row = fr->or_right->row - fbottomrows + 1;
-        for (pp = ATBL(tbl, row, col = (fleftcols && stcol >= fr->or_left->col ?
-                fr->or_left->col : stcol));
+        for (col = (fleftcols && stcol >= fr->or_left->col ?
+                fr->or_left->col : stcol);
                 col <= mxcol;
-                pp += nextcol - col,  col = nextcol, c += fieldlen) {
-
-            if (fleftcols && stcol >= fr->or_left->col &&
-                    c == rescol + flcols) {
+                col = nextcol, c += fieldlen)
+        {
+            if (fleftcols && stcol >= fr->or_left->col && c == rescol + flcols) {
                 col = (stcol < col ? col : stcol);
-                pp = ATBL(tbl, row, col);
             }
             if (frightcols && c + fwidth[col] >= cols - 1 - frcols &&
                     col < fr->or_right->col - frightcols + 1) {
                 col = fr->or_right->col - frightcols + 1;
-                pp = ATBL(tbl, row, col);
             }
+            p = *ATBL(tbl, row, col);
+
             nextcol = col + 1;
             if (col_hidden[col]) {
                 fieldlen = 0;
@@ -729,17 +742,17 @@ void update(int anychanged)          /* did any cell really change in value? */
             if ((showrange && (!showneed) && (!showexpr)
                         && (row >= minsr) && (row <= maxsr)
                         && (col >= minsc) && (col <= maxsc))
-                    || (showneed && (*pp) && ((*pp)->flags & IS_VALID) &&
-                        (((*pp)->flags & IS_STREXPR) || !((*pp)->expr)))
-                    || (showexpr && (*pp) && ((*pp)->expr))
-                    || (shownote && (*pp) && ((*pp)->nrow >= 0))) {
+                    || (showneed && p && (p->flags & IS_VALID) &&
+                        ((p->flags & IS_STREXPR) || !(p->expr)))
+                    || (showexpr && p && (p->expr))
+                    || (shownote && p && (p->nrow >= 0))) {
 
                 (void) move(r, c);
                 (void) standout();
                 if (color && has_colors() && (cr = find_crange(row, col)))
                     color_set(cr->r_color, NULL);
                 standlast++;
-                if (!*pp) {     /* no cell, but standing out */
+                if (!p) {     /* no cell, but standing out */
                     (void) printw("%*s", fwidth[col], " ");
                     (void) standend();
                     if (color && has_colors())
@@ -753,26 +766,26 @@ void update(int anychanged)          /* did any cell really change in value? */
             if ((cr = find_crange(row, col)) && color && has_colors())
                 color_set(cr->r_color, NULL);
 
-            if ((*pp) && (((*pp)->flags & IS_CHANGED || FullUpdate) ||
+            if (p && ((p->flags & IS_CHANGED || FullUpdate) ||
                     do_stand)) {
                 if (do_stand) {
-                    (*pp)->flags |= IS_CHANGED;
+                    p->flags |= IS_CHANGED;
                 } else {
                     (void) move(r, c);
-                    (*pp)->flags &= ~IS_CHANGED;
+                    p->flags &= ~IS_CHANGED;
                 }
 
                 /*
                  * Show expression; takes priority over other displays:
                  */
 
-                if ((*pp)->cellerror) {
+                if (p->cellerror) {
                     if (color && colorerr && has_colors())
                         color_set(3, NULL);
                     (void) printw("%*.*s", fwidth[col], fwidth[col],
-                        (*pp)->cellerror == CELLERROR ? "ERROR" : "INVALID");
+                        p->cellerror == CELLERROR ? "ERROR" : "INVALID");
                 } else
-                if (showexpr && ((*pp)->expr)) {
+                if (showexpr && (p->expr)) {
                     linelim = 0;
                     editexp(row, col);          /* set line to expr */
                     linelim = -1;
@@ -784,18 +797,18 @@ void update(int anychanged)          /* did any cell really change in value? */
                      * Show cell's numeric value:
                      */
 
-                    if ((*pp)->flags & IS_VALID) {
+                    if (p->flags & IS_VALID) {
                         char field[FBUFLEN];
                         char *cfmt;
                         int note;
 
                         *field = '\0';
-                        note = (*pp)->nrow >= 0 ? 1 : 0;
-                        cfmt = (*pp)->format ? (*pp)->format :
+                        note = p->nrow >= 0 ? 1 : 0;
+                        cfmt = p->format ? p->format :
                             (realfmt[col] >= 0 && realfmt[col] < COLFORMATS &&
                             colformat[realfmt[col]]) ?
                             colformat[realfmt[col]] : NULL;
-                        if (color && has_colors() && colorneg && (*pp)->v < 0) {
+                        if (color && has_colors() && colorneg && p->v < 0) {
                             if (cr)
                                 color_set(((cr->r_color) % CPAIRS) + 1, NULL);
                             else
@@ -803,15 +816,15 @@ void update(int anychanged)          /* did any cell really change in value? */
                         }
                         if (cfmt) {
                             if (*cfmt == ctl('d')) {
-                                time_t v = (time_t) ((*pp)->v);
+                                time_t v = (time_t) (p->v);
                                 strftime(field, sizeof(field),
                                         cfmt + 1, localtime(&v));
                             } else
-                                (void) format(cfmt, precision[col], (*pp)->v,
+                                (void) format(cfmt, precision[col], p->v,
                                         field, sizeof(field));
                         } else {
                             (void) engformat(realfmt[col], fwidth[col] - note,
-                                    precision[col], (*pp)->v,
+                                    precision[col], p->v,
                                     field, sizeof(field));
                         }
                         if ((ssize_t)strlen(field) > fwidth[col]) {
@@ -876,23 +889,23 @@ void update(int anychanged)          /* did any cell really change in value? */
                      * Show cell's label string:
                      */
 
-                    if ((*pp)->label) {
-                        showstring((*pp)->label,
-                                    (*pp)->flags & (IS_LEFTFLUSH|IS_LABEL),
-                                    (*pp)->flags & IS_VALID,
-                                    row, col, &nextcol, mxcol, &fieldlen,
-                                    r, c, fr, frightcols, flcols, frcols);
+                    if (p->label) {
+                        showstring(p->label,
+                                   p->flags & (IS_LEFTFLUSH|IS_LABEL),
+                                   p->flags & IS_VALID,
+                                   row, col, &nextcol, mxcol, &fieldlen,
+                                   r, c, fr, frightcols, flcols, frcols);
                     } else      /* repaint a blank cell: */
                     if ((((do_stand || !FullUpdate) &&
-                            ((*pp)->flags & IS_CHANGED)) ||
+                            (p->flags & IS_CHANGED)) ||
                             (color && has_colors() &&
                             cr && cr->r_color != 1)) &&
-                            !((*pp)->flags & IS_VALID) && !(*pp)->label) {
+                            !(p->flags & IS_VALID) && !p->label) {
                         (void) printw("%*s", fwidth[col], " ");
                     }
                 } /* else */
             } else
-            if (!*pp && color && has_colors() && cr && cr->r_color != 1) {
+            if (!p && color && has_colors() && cr && cr->r_color != 1) {
                 move(r, c);
                 color_set(cr->r_color, NULL);
                 printw("%*s", fwidth[col], " ");
@@ -911,19 +924,19 @@ void update(int anychanged)          /* did any cell really change in value? */
     /* place 'cursor marker' */
     if (showcell && (!showneed) && (!showexpr) && (!shownote)) {
         (void) move(lastmy, lastmx);
-        pp = ATBL(tbl, currow, curcol);
+        p = *ATBL(tbl, currow, curcol);
         if (color && has_colors()) {
             if ((cr = find_crange(currow, curcol)))
                 color_set(cr->r_color, NULL);
             else
                 color_set(1, NULL);
-            if (*pp) {
-                if (colorneg && (*pp)->flags & IS_VALID && (*pp)->v < 0) {
+            if (p) {
+                if (colorneg && p->flags & IS_VALID && p->v < 0) {
                     if (cr)
                         color_set(((cr->r_color) % CPAIRS) + 1, NULL);
                     else
                         color_set(2, NULL);
-                } else if (colorerr && (*pp)->cellerror)
+                } else if (colorerr && p->cellerror)
                     color_set(3, NULL);
             }
         }
