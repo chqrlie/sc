@@ -876,20 +876,12 @@ command:        S_LET var_or_range '=' e
         |       S_PULLCOPY              { copy(NULL, NULL, NULL, NULL); }
         |       S_PULLCOPY var_or_range { copy($2.left.vp, $2.right.vp,
                                              NULL, (struct ent *)1); }
-        |       S_WHEREAMI              { size_t l;
-                                          snprintf(line, sizeof line, "%s%d ",
-                                             coltoa(curcol), currow);
-                                          l = strlen(line);
-                                          snprintf(line + l, sizeof(line) - l,
-                                             "%s%d\n", coltoa(stcol), strow);
+        |       S_WHEREAMI              { snprintf(line, sizeof line, "%s%d %s%d\n",
+                                             coltoa(curcol), currow, coltoa(stcol), strow);
                                           write(macrofd, line, strlen(line));
                                           line[0] = '\0'; }
-        |       S_WHEREAMI '|' NUMBER   { size_t l;
-                                          snprintf(line, sizeof line, "%s%d ",
-                                             coltoa(curcol), currow);
-                                          l = strlen(line);
-                                          snprintf(line + l, sizeof(line) - l,
-                                             "%s%d\n", coltoa(stcol), strow);
+        |       S_WHEREAMI '|' NUMBER   { snprintf(line, sizeof line, "%s%d %s%d\n",
+                                             coltoa(curcol), currow, coltoa(stcol), strow);
                                           write($3, line, strlen(line));
                                           line[0] = '\0'; }
         |       S_GETNUM var_or_range   { getnum($2.left.vp->row,
@@ -986,7 +978,7 @@ command:        S_LET var_or_range '=' e
         |       S_QUERY '|' NUMBER      { doquery(NULL, NULL, $3); }
         |       S_GETKEY                { dogetkey(); }
         |       S_ERROR STRING          { error($2); }
-        |       S_STATUS                        { dostat(macrofd); }
+        |       S_STATUS                { dostat(macrofd); }
         |       S_STATUS '|' NUMBER     { dostat($3); }
         |       S_RECALC                { EvalAll();
                                           update(1);

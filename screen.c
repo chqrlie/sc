@@ -661,7 +661,7 @@ void update(int anychanged)          /* did any cell really change in value? */
             if (showtop && !message) {
                 (void) clrtoeol();
                 (void) printw("Default range:  %s",
-                            r_name(minsr, minsc, maxsr, maxsc));
+                              r_name(minsr, minsc, maxsr, maxsc));
             }
         }
     } else if (braille && braillealt && !message && mode_ind == 'v') {
@@ -970,14 +970,14 @@ void update(int anychanged)          /* did any cell really change in value? */
 
             if ((p1 = *ATBL(tbl, currow, curcol)) && p1->nrow > -1)
                 printw("{*%s} ", r_name(p1->nrow, p1->ncol,
-                        p1->nlastrow, p1->nlastcol));
+                                        p1->nlastrow, p1->nlastcol));
 
             /* show the current cell's format */
             if ((p1) && p1->format)
                 printw("(%s) ", p1->format);
             else
                 printw("(%d %d %d) ", fwidth[curcol], precision[curcol],
-                                realfmt[curcol]);
+                                      realfmt[curcol]);
 
             if (p1) {
                 if (p1->expr) {

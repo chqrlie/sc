@@ -559,35 +559,35 @@ static double dotts(int hr, int min, int sec)
 
 static double dotime(int which, double when)
 {
-        static time_t t_cache;
-        static struct tm tm_cache;
-        struct tm *tp;
-        time_t tloc;
+    static time_t t_cache;
+    static struct tm tm_cache;
+    struct tm *tp;
+    time_t tloc;
 
-        if (which == NOW)
-            return (double)time(NULL);
+    if (which == NOW)
+        return (double)time(NULL);
 
-        tloc = (time_t)when;
+    tloc = (time_t)when;
 
-        if (tloc != t_cache) {
-            tp = localtime(&tloc);
-            tm_cache = *tp;
-            tm_cache.tm_mon += 1;
-            tm_cache.tm_year += 1900;
-            t_cache = tloc;
-        }
+    if (tloc != t_cache) {
+        tp = localtime(&tloc);
+        tm_cache = *tp;
+        tm_cache.tm_mon += 1;
+        tm_cache.tm_year += 1900;
+        t_cache = tloc;
+    }
 
-        switch (which) {
-            case HOUR:          return (double)tm_cache.tm_hour;
-            case MINUTE:        return (double)tm_cache.tm_min;
-            case SECOND:        return (double)tm_cache.tm_sec;
-            case MONTH:         return (double)tm_cache.tm_mon;
-            case DAY:           return (double)tm_cache.tm_mday;
-            case YEAR:          return (double)tm_cache.tm_year;
-        }
-        /* Safety net */
-        cellerror = CELLERROR;
-        return (double)0;
+    switch (which) {
+    case HOUR:          return (double)tm_cache.tm_hour;
+    case MINUTE:        return (double)tm_cache.tm_min;
+    case SECOND:        return (double)tm_cache.tm_sec;
+    case MONTH:         return (double)tm_cache.tm_mon;
+    case DAY:           return (double)tm_cache.tm_mday;
+    case YEAR:          return (double)tm_cache.tm_year;
+    }
+    /* Safety net */
+    cellerror = CELLERROR;
+    return (double)0;
 }
 
 static double doston(char *s)
@@ -2319,7 +2319,7 @@ slet(struct ent *v, struct enode *se, int flushdir)
     exprerr = 0;
     (void) signal(SIGFPE, eval_fpe);
     if (setjmp(fpe_save)) {
-        error ("Floating point exception in cell %s", v_name(v->row, v->col));
+        error("Floating point exception in cell %s", v_name(v->row, v->col));
         cellerror = CELLERROR;
         p = scxdup("");
     } else {
@@ -2543,7 +2543,7 @@ decodev(struct ent_ptr v)
 
         if (!v.vp || v.vp->flags & IS_DELETED)
             snprintf(line + linelim, sizeof(line) - linelim, "@ERR");
-        else if (!find_range((char *)0, 0, v.vp, v.vp, &r) && !r->r_is_range)
+        else if ((r = find_range_coords(v.vp, v.vp)) != NULL && !r->r_is_range)
             snprintf(line + linelim, sizeof(line) - linelim, "%s", r->r_name);
         else {
             snprintf(line + linelim, sizeof(line) - linelim, "%s%s%s%d",
@@ -2552,14 +2552,15 @@ decodev(struct ent_ptr v)
                 v.vf & FIX_ROW ? "$" : "",
                 v.vp->row);
         }
-        linelim += strlen(line+linelim);
+        linelim += strlen(line + linelim);
 }
 
-char *
-coltoa(int col)
+char *coltoa(int col)
 {
-    static char rname[3];
-    register char *p = rname;
+    static unsigned int bufn;
+    static char buf[4][4];
+    char *rname = buf[bufn++ & 3];
+    char *p = rname;
 
     if (col > 25) {
         *p++ = col / 26 + 'A' - 1;
@@ -2846,13 +2847,12 @@ void range_arg(const char *s, struct enode *e)
 {
     struct range *r;
 
-    for (; (line[linelim++] = *s++); );
+    while ((line[linelim++] = *s++) != '\0')
+        continue;
     linelim--;
-    if (!find_range((char *)0, 0, e->e.r.left.vp,
-            e->e.r.right.vp, &r) && r->r_is_range) {
-        snprintf(line + linelim, sizeof(line) - linelim,
-            "%s", r->r_name);
-        linelim += strlen(line+linelim);
+    if ((r = find_range_coords(e->e.r.left.vp, e->e.r.right.vp)) != NULL && r->r_is_range) {
+        snprintf(line + linelim, sizeof(line) - linelim, "%s", r->r_name);
+        linelim += strlen(line + linelim);
     } else {
         decodev(e->e.r.left);
         line[linelim++] = ':';

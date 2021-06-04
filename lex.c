@@ -174,7 +174,7 @@ yylex(void)
             if (ret == WORD) {
                 struct range *r;
                 char *path;
-                if (!find_range(tokenst, tokenl, NULL, NULL, &r)) {
+                if (!find_range_name(tokenst, tokenl, &r)) {
                     yylval.rval.left = r->r_left;
                     yylval.rval.right = r->r_right;
                     if (r->r_is_range)
@@ -395,7 +395,7 @@ int nmgetch(void)
 int nmgetch(void)
 {
     short c;
-    static int key_id=0;
+    static int key_id = 0;
     int status;
 #  define VMScheck(a) {if (~(status = (a)) & 1) VMS_MSG (status);}
 

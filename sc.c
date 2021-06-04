@@ -153,8 +153,9 @@ struct ent *lookat(int row, int col)
             (*pp)->flags &= ~IS_CLEARED;
             (*pp)->flags |= MAY_SYNC;
             freeents = freeents->next;
-        } else
+        } else {
             *pp = scxmalloc(sizeof(struct ent));
+        }
         if (row > maxrow) maxrow = row;
         if (col > maxcol) maxcol = col;
         (*pp)->label = (char *)0;
@@ -938,8 +939,8 @@ int main(int argc, char  **argv)
 
                 case ctl('w'):  /* insert variable expression */
                     if (linelim >= 0)  {
-                        static  char *temp = NULL, *temp1 = NULL;
-                        static  unsigned        templen = 0;
+                        static char *temp = NULL, *temp1 = NULL;
+                        static unsigned templen = 0;
                         int templim;
 
                         /* scxrealloc will scxmalloc if needed */
@@ -1090,7 +1091,7 @@ int main(int argc, char  **argv)
 
                     numeric_field = 1;
                     snprintf(line, sizeof line, "let %s = %c",
-                            v_name(currow, curcol), c);
+                             v_name(currow, curcol), c);
                     linelim = strlen(line);
                     insert_mode();
                     break;
@@ -1167,7 +1168,7 @@ int main(int argc, char  **argv)
                         break;
                     case 'm':
                         snprintf(line, sizeof line, "move [destination src_range] %s ",
-                                v_name(currow, curcol));
+                                 v_name(currow, curcol));
                         linelim = strlen(line);
                         insert_mode();
                         write_line(ctl('v'));
@@ -1535,7 +1536,7 @@ int main(int argc, char  **argv)
                         savedstcol[27] = stcol;
 
                         snprintf(line, sizeof line, "label %s = \"",
-                                v_name(currow, curcol));
+                                 v_name(currow, curcol));
                         linelim = strlen(line);
                         insert_mode();
                     }
@@ -1550,7 +1551,7 @@ int main(int argc, char  **argv)
                         savedstcol[27] = stcol;
 
                         snprintf(line, sizeof line, "leftstring %s = \"",
-                                v_name(currow, curcol));
+                                 v_name(currow, curcol));
                         linelim = strlen(line);
                         insert_mode();
                     }
@@ -1565,7 +1566,7 @@ int main(int argc, char  **argv)
                         savedstcol[27] = stcol;
 
                        snprintf(line, sizeof line, "rightstring %s = \"",
-                              v_name(currow, curcol));
+                                v_name(currow, curcol));
                        linelim = strlen(line);
                        insert_mode();
                     }
@@ -1637,12 +1638,12 @@ int main(int argc, char  **argv)
                     register struct ent *p = *ATBL(tbl, currow, curcol);
                     if (p && p->format) {
                         snprintf(line, sizeof line, "fmt [format] %s \"%s",
-                                v_name(currow, curcol), p->format);
+                                 v_name(currow, curcol), p->format);
                         edit_mode();
                         linelim = strlen(line) - 1;
                     } else {
                         snprintf(line, sizeof line, "fmt [format] %s \"",
-                                   v_name(currow, curcol));
+                                 v_name(currow, curcol));
                         insert_mode();
                         linelim = strlen(line);
                     }
@@ -1985,7 +1986,7 @@ int main(int argc, char  **argv)
                         }
                         if (c == 'a' || c == 'A') {
                             snprintf(line, sizeof line, "addnote [target range] %s ",
-                                    v_name(currow, curcol));
+                                     v_name(currow, curcol));
                             linelim = strlen(line);
                             insert_mode();
                             write_line(ctl('v'));

@@ -451,27 +451,27 @@ void write_line(int c)
                                 }                                       break;
         case 'c':               if ((cr = find_crange(currow, curcol))) {
                                     ins_string(r_name(cr->r_left->row,
-                                            cr->r_left->col,
-                                            cr->r_right->row,
-                                            cr->r_right->col));
+                                                      cr->r_left->col,
+                                                      cr->r_right->row,
+                                                      cr->r_right->col));
                                     toggle_navigate_mode();
                                     ins_in_line(' ');
                                     showrange = 0;
                                 }                                       break;
         case 'f':               if ((fr = find_frange(currow, curcol))) {
                                     ins_string(r_name(fr->or_left->row,
-                                            fr->or_left->col,
-                                            fr->or_right->row,
-                                            fr->or_right->col));
+                                                      fr->or_left->col,
+                                                      fr->or_right->row,
+                                                      fr->or_right->col));
                                     toggle_navigate_mode();
                                     ins_in_line(' ');
                                     showrange = 0;
                                 }                                       break;
         case 'r':               if ((fr = find_frange(currow, curcol))) {
                                     ins_string(r_name(fr->ir_left->row,
-                                            fr->ir_left->col,
-                                            fr->ir_right->row,
-                                            fr->ir_right->col));
+                                                      fr->ir_left->col,
+                                                      fr->ir_right->row,
+                                                      fr->ir_right->col));
                                     toggle_navigate_mode();
                                     ins_in_line(' ');
                                     showrange = 0;
@@ -689,10 +689,10 @@ void dotab(void) {
                 continue;
             completethis++;
             len = line + linelim - completethis;
-            if (!find_range(completethis, -len, NULL, NULL, &lastmatch)) {
+            if (!find_range_name(completethis, -len, &lastmatch)) {
                 firstmatch = lastmatch;
                 while (firstmatch->r_next &&
-                        !strncmp(completethis, firstmatch->r_next->r_name, len))
+                       !strncmp(completethis, firstmatch->r_next->r_name, len))
                     firstmatch = firstmatch->r_next;
                 nextmatch = firstmatch;
             } else
@@ -1475,10 +1475,10 @@ static void back_hist(void) {
 
 static void search_hist(void) {
 #ifdef RECOMP
-    char        *tmp;
+    char *tmp;
 #endif
 #if !defined(REGCOMP) && !defined(RE_COMP) && !defined(REGCMP)
-    static      unsigned lastsrchlen = 0;
+    static unsigned lastsrchlen = 0;
 #endif
 
     if (linelim < 1) {

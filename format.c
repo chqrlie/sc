@@ -120,9 +120,9 @@ bool format(char *fmt, int lprecision, double val, char *buf, size_t buflen)
     int exp_val = 0;
     int width;
     char prtfmt[32];
-    static char         *mantissa = NULL;
-    static char         *tmpfmt1 = NULL, *tmpfmt2 = NULL, *exptmp = NULL;
-    static unsigned     mantlen = 0, fmtlen = 0;
+    static char *mantissa = NULL;
+    static char *tmpfmt1 = NULL, *tmpfmt2 = NULL, *exptmp = NULL;
+    static unsigned mantlen = 0, fmtlen = 0;
     const char *fraction = NULL;
     int zero_pad = 0;
 

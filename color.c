@@ -218,9 +218,10 @@ void write_cranges(FILE *f)
     for (r = nextr = color_base; nextr; r = nextr, nextr = r->r_next)
         continue;
     while (r) {
-        fprintf(f, "color %s", v_name(r->r_left->row, r->r_left->col));
-        fprintf(f, ":%s", v_name(r->r_right->row, r->r_right->col));
-        fprintf(f, " %d\n", r->r_color);
+        fprintf(f, "color %s:%s %d\n",
+                v_name(r->r_left->row, r->r_left->col),
+                v_name(r->r_right->row, r->r_right->col),
+                r->r_color);
 
         r = r->r_prev;
     }
@@ -265,7 +266,7 @@ void list_colors(FILE *f)
         continue;
     while (r) {
         fprintf(f, "  %-32s %d\n", r_name(r->r_left->row, r->r_left->col,
-                r->r_right->row, r->r_right->col), r->r_color);
+                                          r->r_right->row, r->r_right->col), r->r_color);
         if (brokenpipe) return;
         r = r->r_prev;
     }

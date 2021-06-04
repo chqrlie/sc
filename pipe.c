@@ -176,16 +176,14 @@ void getfmt(int r0, int c0, int rn, int cn, int fd)
 void getframe(int fd)
 {
     struct frange *fr;
-    size_t l;
 
     *line = '\0';
     if ((fr = find_frange(currow, curcol))) {
-        snprintf(line, sizeof line, "%s", r_name(fr->or_left->row, fr->or_left->col,
-                fr->or_right->row, fr->or_right->col));
-        strlcat(line, " ", sizeof line);
-        l = strlen(line);
-        snprintf(line + l, sizeof(line) - l, "%s", r_name(fr->ir_left->row,
-                fr->ir_left->col, fr->ir_right->row, fr->ir_right->col));
+        snprintf(line, sizeof line, "%s %s",
+                 r_name(fr->or_left->row, fr->or_left->col,
+                        fr->or_right->row, fr->or_right->col),
+                 r_name(fr->ir_left->row, fr->ir_left->col,
+                        fr->ir_right->row, fr->ir_right->col));
     }
     strlcat(line, "\n", sizeof line);
     write(fd, line, strlen(line));
@@ -195,20 +193,17 @@ void getframe(int fd)
 void getrange(char *name, int fd)
 {
     struct range *r;
-    char *p;
 
     *line = '\0';
-    if (!find_range(name, strlen(name), (struct ent *)0, (struct ent *)0, &r)) {
+    if (!find_range_name(name, strlen(name), &r)) {
         snprintf(line, sizeof line, "%s%s%s%d",
                 r->r_left.vf & FIX_COL ? "$" : "",
                 coltoa(r->r_left.vp->col),
                 r->r_left.vf & FIX_ROW ? "$" : "",
                 r->r_left.vp->row);
         if (r->r_is_range) {
-            p = line;
-            while (*p)
-                p++;
-            snprintf(p, sizeof(line) - (p - line), ":%s%s%s%d",
+            int len = strlen(line);
+            snprintf(line + len, sizeof(line) - len, ":%s%s%s%d",
                     r->r_right.vf & FIX_COL ? "$" : "",
                     coltoa(r->r_right.vp->col),
                     r->r_right.vf & FIX_ROW ? "$" : "",
@@ -301,7 +296,7 @@ void dogetkey(void) {
     deraw(0);
 
     if (c < 256) {
-        snprintf(line, sizeof line, "%c", c);
+        line[0] = c;
         len = 1;
 #ifdef HAVE_CURSES_KEYNAME
     } else if (c >= KEY_MIN && c <= KEY_MAX) {
@@ -322,17 +317,17 @@ void dogetkey(void) {
         len = strlen(line + 1) + 1;
     }
 
-
     write(macrofd, line, len);
 }
 
 void dostat(int fd)
 {
-    *line = '\0';
-    if (modflg)                 snprintf(line, sizeof line, "m");
-    if (isatty(STDIN_FILENO))   strlcat(line, "i", sizeof line);
-    if (isatty(STDOUT_FILENO))  strlcat(line, "o", sizeof line);
-    strlcat(line, "\n", sizeof line);
-    write(fd, line, strlen(line));
+    char *p = line;
+    if (modflg)                 *p++ = 'm';
+    if (isatty(STDIN_FILENO))   *p++ = 'i';
+    if (isatty(STDOUT_FILENO))  *p++ = 'o';
+    *p++ = '\n';
+    *p = '\0';
+    write(fd, line, p - line);
     linelim = -1;
 }

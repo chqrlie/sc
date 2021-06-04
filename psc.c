@@ -394,8 +394,10 @@ int getrow(char *p)
 /* turns a column number into [A-Z][A-Z] */
 char *coltoa(int col)
 {
-    static char rname[3];
-    register char *p = rname;
+    static unsigned int bufn;
+    static char buf[4][4];
+    char *rname = buf[bufn++ & 3];
+    char *p = rname;
 
     if (col < 0 || col > 27 * 26) { /* A-Z, AA-ZZ */
         fprintf(stderr,"coltoa: invalid col: %d", col);

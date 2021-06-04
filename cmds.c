@@ -901,9 +901,7 @@ void colshow_op(void) {
     if (i >= maxcols) {
         error("No hidden columns to show");
     } else {
-        snprintf(line, sizeof line, "show %s:", coltoa(i));
-        linelim = strlen(line);
-        snprintf(line + linelim, sizeof(line) - linelim, "%s", coltoa(j));
+        snprintf(line, sizeof line, "show %s:%s", coltoa(i), coltoa(j));
         linelim = strlen(line);
     }
 }
@@ -1479,17 +1477,14 @@ void formatcol(int arg) {
                     modflg++;
                     break;
                 case ' ':
-                    if (arg == 1)
+                    if (arg == 1) {
                         snprintf(line, sizeof line,
                                 "format [for column] %s ",
                                 coltoa(curcol));
-                    else {
+                    } else {
                         snprintf(line, sizeof line,
-                                "format [for columns] %s:",
-                                coltoa(curcol));
-                        linelim = strlen(line);
-                        snprintf(line + strlen(line), sizeof(line) - linelim,
-                            "%s ", coltoa(curcol+arg-1));
+                                 "format [for columns] %s:%s ",
+                                 coltoa(curcol), coltoa(curcol+arg-1));
                     }
                     linelim = strlen(line);
                     insert_mode();
@@ -2693,12 +2688,12 @@ void write_fd(register FILE *f, int r0, int c0, int rn, int cn)
     print_options(f);
     for (c = 0; c < COLFORMATS; c++)
         if (colformat[c])
-            (void) fprintf (f, "format %d = \"%s\"\n", c, colformat[c]);
+            (void) fprintf(f, "format %d = \"%s\"\n", c, colformat[c]);
     for (c = c0; c <= cn; c++)
         if (fwidth[c] != DEFWIDTH || precision[c] != DEFPREC ||
                 realfmt[c] != DEFREFMT)
-            (void) fprintf (f, "format %s %d %d %d\n", coltoa(c), fwidth[c],
-                    precision[c], realfmt[c]);
+            (void) fprintf(f, "format %s %d %d %d\n",
+                           coltoa(c), fwidth[c], precision[c], realfmt[c]);
     for (c = c0; c <= cn; c++)
         if (col_hidden[c])
             (void) fprintf(f, "hide %s\n", coltoa(c));
@@ -2724,24 +2719,18 @@ void write_fd(register FILE *f, int r0, int c0, int rn, int cn)
         pp = ATBL(tbl, r, c0);
         for (c = c0; c <= cn; c++, pp++)
             if (*pp) {
-                if ((*pp)->flags&IS_LOCKED)
-                    (void) fprintf(f, "lock %s%d\n", coltoa((*pp)->col),
-                                                     (*pp)->row);
+                if ((*pp)->flags & IS_LOCKED)
+                    (void) fprintf(f, "lock %s%d\n",
+                                   coltoa((*pp)->col), (*pp)->row);
                 if ((*pp)->nrow >= 0) {
-                    (void) fprintf(f, "addnote %s ",
-                            v_name((*pp)->row, (*pp)->col));
-                    (void) fprintf(f, "%s\n", r_name((*pp)->nrow, (*pp)->ncol,
-                            (*pp)->nlastrow, (*pp)->nlastcol));
+                    (void) fprintf(f, "addnote %s %s\n",
+                                   v_name((*pp)->row, (*pp)->col),
+                                   r_name((*pp)->nrow, (*pp)->ncol,
+                                          (*pp)->nlastrow, (*pp)->nlastcol));
                 }
             }
     }
-    /*
-     * Don't try to combine these into a single fprintf().  v_name() has
-     * a single buffer that is overwritten on each call, so the first part
-     * needs to be written to the file before making the second call.
-     */
-    fprintf(f, "goto %s", v_name(currow, curcol));
-    fprintf(f, " %s\n", v_name(strow, stcol));
+    fprintf(f, "goto %s %s\n", v_name(currow, curcol), v_name(strow, stcol));
 }
 
 void write_cells(register FILE *f, int r0, int c0, int rn, int cn, int dr, int dc)
@@ -2820,10 +2809,8 @@ int writefile(const char *fname, int r0, int c0, int rn, int cn)
                 return -1;
             }
             l = strlen(save);
-            snprintf(save + l, sizeof(save) - l, " %s%d:", coltoa(c0), r0);
-            l = strlen(save);
-            snprintf(save + l, sizeof(save) - l, "%s%d \"%s\"", coltoa(cn),
-                rn, fname);
+            snprintf(save + l, sizeof(save) - l, " %s%d:%s%d \"%s\"",
+                     coltoa(c0), r0, coltoa(cn), rn, fname);
             /* pass it to readfile as an advanced macro */
             readfile(save, 0);
             return 0;

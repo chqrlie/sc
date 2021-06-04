@@ -24,8 +24,7 @@
  * current size if we can.
  */
 #ifndef PSC
-void
-checkbounds(int *rowp, int *colp)
+void checkbounds(int *rowp, int *colp)
 {
     if (*rowp < 0)
         *rowp = 0;
@@ -72,21 +71,20 @@ static const char nowider[] = "The table can't be any wider";
  * toprow &&/|| topcol tell us a better guess of how big to become.
  * we return TRUE if we could grow, FALSE if not....
  */
-int
-growtbl(int rowcol, int toprow, int topcol)
+int growtbl(int rowcol, int toprow, int topcol)
 {
-    int         *fwidth2;
-    int         *precision2;
-    int         *realfmt2;
-    int         newcols;
+    int *fwidth2;
+    int *precision2;
+    int *realfmt2;
+    int newcols;
 #ifndef PSC
-    struct ent  ***tbl2;
-    struct ent  ** nullit;
-    int         cnt;
-    char        *col_hidden2;
-    char        *row_hidden2;
-    int         newrows;
-    int         i;
+    struct ent ***tbl2;
+    struct ent **nullit;
+    int cnt;
+    char *col_hidden2;
+    char *row_hidden2;
+    int newrows;
+    int i;
 
     newrows = maxrows;
 #endif /* !PSC */
@@ -134,19 +132,20 @@ growtbl(int rowcol, int toprow, int topcol)
 
 #ifndef PSC
     if ((rowcol == GROWROW) || (rowcol == GROWBOTH) || (rowcol == GROWNEW)) {
-        struct  ent *** lnullit;
-        int     lcnt;
+        struct ent ***lnullit;
+        int lcnt;
 
         GROWALLOC(row_hidden2, row_hidden, newrows, char, nolonger);
-        memset(row_hidden+maxrows, 0, (newrows-maxrows)*sizeof(char));
+        memset(row_hidden + maxrows, 0, (newrows - maxrows) * sizeof(char));
 
         /*
          * alloc tbl row pointers, per net.lang.c, calloc does not
          * necessarily fill in NULL pointers
          */
         GROWALLOC(tbl2, tbl, newrows, struct ent **, nolonger);
-        for (lnullit = tbl+maxrows, lcnt = 0; lcnt < newrows-maxrows;
-                lcnt++, lnullit++)
+        for (lnullit = tbl + maxrows, lcnt = 0;
+             lcnt < newrows - maxrows;
+             lcnt++, lnullit++)
             *lnullit = (struct ent **)NULL;
 /*      memset(tbl+maxrows, (char *)NULL, (newrows-maxrows)*(sizeof(struct ent **)));*/
     }
@@ -184,8 +183,7 @@ growtbl(int rowcol, int toprow, int topcol)
                 (newcols-maxcols)*sizeof(struct ent **));
 */
         }
-    }
-    else
+    } else
         i = maxrows;
 
     /* fill in the bottom of the table */

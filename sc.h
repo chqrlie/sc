@@ -395,10 +395,11 @@ extern char histfile[PATHLEN];
 extern int lastmx, lastmy;     /* Screen address of the cursor */
 extern int lastcol, lcols;     /* Spreadsheet Column the cursor was in last */
 extern int lastendrow;         /* Last bottom row of screen */
+extern struct frange *lastfr;  /* Last framed range we were in */
 extern int framerows;          /* Rows in current frame */
 extern int framecols;          /* Columns in current frame */
 extern char mode_ind;          /* Mode indicator */
-extern int     seenerr;
+extern int seenerr;
 
 extern FILE *openfile(char *, size_t, int *, int *);
 extern char *coltoa(int col);
@@ -422,8 +423,8 @@ extern int cwritefilec(const char *fname, int r0, int c0, int rn, int cn);
 extern bool engformat(int fmt, int width, int lprecision, double val,
                       char *buf, int buflen);
 extern int etype(register struct enode *e);
-extern int find_range(char *name, int len, struct ent *lmatch,
-                      struct ent *rmatch, struct range **rng);
+extern int find_range_name(const char *name, int len, struct range **rng);
+struct range *find_range_coords(struct ent *lmatch, struct ent *rmatch);
 extern bool format(char *fmt, int lprecision, double val, char *buf,
                    size_t buflen);
 extern int get_rcqual(int ch);

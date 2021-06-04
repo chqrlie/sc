@@ -17,7 +17,10 @@
 #include "sc.h"
 
 static struct frange *frame_base;
-extern struct frange *lastfr;
+
+int are_frames(void) {
+    return (frame_base != 0);
+}
 
 void add_frange(struct ent *or_left, struct ent *or_right, struct ent *ir_left,
                 struct ent *ir_right, int toprows, int bottomrows, int leftcols,
@@ -44,9 +47,9 @@ void add_frange(struct ent *or_left, struct ent *or_right, struct ent *ir_left,
         ir_right = lookat(maxr, maxc);
 
         if (ir_left->row < or_left->row ||
-                ir_left->col < or_left->col ||
-                ir_right->row > or_right->row ||
-                ir_right->col > or_right->col) {
+            ir_left->col < or_left->col ||
+            ir_right->row > or_right->row ||
+            ir_right->col > or_right->col) {
             error("Invalid parameters");
             return;
         }
@@ -97,10 +100,10 @@ void add_frange(struct ent *or_left, struct ent *or_right, struct ent *ir_left,
          * See if the specified range overlaps any previously created frange.
          */
         for (r = frame_base; r; r = r->r_next) {
-            if (  !(r->or_left->row  > or_right->row ||
-                    r->or_right->row < or_left->row  ||
-                    r->or_left->col  > or_right->col ||
-                    r->or_right->col < or_left->col)) {
+            if (!(r->or_left->row  > or_right->row ||
+                  r->or_right->row < or_left->row  ||
+                  r->or_left->col  > or_right->col ||
+                  r->or_right->col < or_left->col)) {
                 error("Framed ranges may not be nested or overlapping");
                 return;
             }
@@ -121,9 +124,9 @@ void add_frange(struct ent *or_left, struct ent *or_right, struct ent *ir_left,
             if (leftcols   < 0) leftcols   = 0;
             if (rightcols  < 0) rightcols  = 0;
             r->ir_left = lookat(r->or_left->row + toprows,
-                    r->or_left->col + leftcols);
+                                r->or_left->col + leftcols);
             r->ir_right = lookat(r->or_right->row - bottomrows,
-                    r->or_right->col - rightcols);
+                                 r->or_right->col - rightcols);
         }
 
         r->r_next = frame_base;
@@ -155,12 +158,13 @@ struct frange *find_frange(int row, int col)
 {
     struct frange *r;
 
-    if (frame_base)
+    if (frame_base) {
         for (r = frame_base; r; r = r->r_next) {
             if ((r->or_left->row <= row) && (r->or_left->col <= col) &&
-                    (r->or_right->row >= row) && (r->or_right->col >= col))
+                (r->or_right->row >= row) && (r->or_right->col >= col))
                 return r;
         }
+    }
     return 0;
 }
 
@@ -183,12 +187,14 @@ void write_franges(FILE *f)
     register struct frange *r;
     register struct frange *nextr;
 
-    for (r = nextr = frame_base; nextr; r = nextr, nextr = r->r_next) /**/ ;
+    for (r = nextr = frame_base; nextr; r = nextr, nextr = r->r_next)
+        continue;
     while (r) {
-        fprintf(f, "frame %s", v_name(r->or_left->row, r->or_left->col));
-        fprintf(f, ":%s", v_name(r->or_right->row, r->or_right->col));
-        fprintf(f, " %s", v_name(r->ir_left->row, r->ir_left->col));
-        fprintf(f, ":%s\n", v_name(r->ir_right->row, r->ir_right->col));
+        fprintf(f, "frame %s:%s %s:%s\n",
+                v_name(r->or_left->row, r->or_left->col),
+                v_name(r->or_right->row, r->or_right->col),
+                v_name(r->ir_left->row, r->ir_left->col),
+                v_name(r->ir_right->row, r->ir_right->col));
 
         r = r->r_prev;
     }
@@ -203,24 +209,21 @@ void list_frames(FILE *f) {
         return;
     }
 
-    (void) fprintf(f, "  %-30s %s\n","Outer Range","Inner Range");
+    (void) fprintf(f, "  %-30s %s\n", "Outer Range", "Inner Range");
     if (!brokenpipe)
-        (void) fprintf(f, "  %-30s %s\n","-----------","-----------");
+        (void) fprintf(f, "  %-30s %s\n", "-----------", "-----------");
 
     for (r = nextr = frame_base; nextr; r = nextr, nextr = r->r_next)
         continue;
     while (r) {
-        fprintf(f, "  %-30s", r_name(r->or_left->row, r->or_left->col,
-                r->or_right->row, r->or_right->col));
-        fprintf(f, " %s\n", r_name(r->ir_left->row, r->ir_left->col,
-                r->ir_right->row, r->ir_right->col));
+        fprintf(f, "  %-30s %s\n",
+                r_name(r->or_left->row, r->or_left->col,
+                       r->or_right->row, r->or_right->col),
+                r_name(r->ir_left->row, r->ir_left->col,
+                       r->ir_right->row, r->ir_right->col));
         if (brokenpipe) return;
         r = r->r_prev;
     }
-}
-
-int are_frames(void) {
-    return (frame_base != 0);
 }
 
 void fix_frames(int row1, int col1, int row2, int col2, int delta1, int delta2)
