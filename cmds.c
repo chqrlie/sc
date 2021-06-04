@@ -28,7 +28,7 @@
 #include "compat.h"
 #include "sc.h"
 
-void syncref(register struct enode *e);
+void syncref(struct enode *e);
 void unspecial(FILE *f, char *str, int delim);
 static struct ent *deldata1(void);
 static void deldata2(struct ent *obuf);
@@ -63,7 +63,7 @@ void duprow(void) {
     if (currow >= maxrows - 1 || (!fr && maxrow >= maxrows - 1) ||
             (fr && fr->or_right->row >= maxrows - 1)) {
         if (!growtbl(GROWROW, 0, 0))
-                return;
+            return;
     }
     modflg++;
     insertrow(1, 1);
@@ -83,7 +83,7 @@ void dupcol(void) {
 
     if (curcol >= maxcols - 1 || maxcol >= maxcols - 1) {
         if (!growtbl(GROWCOL, 0, 0))
-                return;
+            return;
     }
     modflg++;
     insertcol(1, 1);
@@ -103,7 +103,7 @@ void dupcol(void) {
 void insertrow(int arg, int delta)
 {
     int r, c, i;
-    struct ent **tmprow, **pp;
+    struct ent **tmprow;
     int lim = maxrow - currow + 1;
     struct frange *fr;
 
@@ -147,16 +147,16 @@ void insertrow(int arg, int delta)
             gs.strow += arg;
         for (r = 0; r <= maxrow; r++) {
             for (c = 0; c <= maxcol; c++) {
-                pp = ATBL(tbl, r, c);
-                if (*pp) {
-                    if ((*pp)->nrow >= currow + delta &&
-                        (*pp)->ncol >= fr->or_left->col &&
-                        (*pp)->ncol <= fr->or_right->col)
-                        ((*pp)->nrow) += arg;
-                    if ((*pp)->nlastrow >= currow + delta &&
-                        (*pp)->nlastcol >= fr->or_left->col &&
-                        (*pp)->nlastcol <= fr->or_right->col)
-                        ((*pp)->nlastrow) += arg;
+                struct ent *p = *ATBL(tbl, r, c);
+                if (p) {
+                    if (p->nrow >= currow + delta &&
+                        p->ncol >= fr->or_left->col &&
+                        p->ncol <= fr->or_right->col)
+                        p->nrow += arg;
+                    if (p->nlastrow >= currow + delta &&
+                        p->nlastcol >= fr->or_left->col &&
+                        p->nlastcol <= fr->or_right->col)
+                        p->nlastrow += arg;
                 }
             }
         }
@@ -171,10 +171,10 @@ void insertrow(int arg, int delta)
             row_hidden[r-arg] = row_hidden[r-1];
             tbl[r] = tbl[r-arg];
             tbl[r-arg] = tbl[r-1];
-            pp = ATBL(tbl, r, 0);
-            for (c = 0; c < maxcols; c++, pp++) {
-                if (*pp)
-                    (*pp)->row = r;
+            for (c = 0; c < maxcols; c++) {
+                struct ent *p = *ATBL(tbl, r, c);
+                if (p)
+                    p->row = r;
             }
         }
         tbl[r] = tmprow;                /* the last row was never used.... */
@@ -193,12 +193,12 @@ void insertrow(int arg, int delta)
             gs.strow += arg;
         for (r = 0; r <= maxrow; r++) {
             for (c = 0; c <= maxcol; c++) {
-                pp = ATBL(tbl, r, c);
-                if (*pp) {
-                    if ((*pp)->nrow >= currow + delta)
-                        ((*pp)->nrow) += arg;
-                    if ((*pp)->nlastrow >= currow + delta)
-                        ((*pp)->nlastrow) += arg;
+                struct ent *p = *ATBL(tbl, r, c);
+                if (p) {
+                    if (p->nrow >= currow + delta)
+                        p->nrow += arg;
+                    if (p->nlastrow >= currow + delta)
+                        p->nlastrow += arg;
                 }
             }
         }
@@ -240,15 +240,16 @@ void insertcol(int arg, int delta)
         col_hidden[c] = FALSE;
     }
 
+    // XXX: this loop is confusing
     for (r = 0; r <= maxrow; r++) {
         pp = ATBL(tbl, r, maxcol);
-        for (c = lim; --c >= 0; pp--)
-            if ((pp[0] = pp[-arg]))
-                pp[0]->col += arg;
-
+        for (c = lim; --c >= 0; pp--) {
+            if ((*pp = pp[-arg]))
+                (*pp)->col += arg;
+        }
         pp = ATBL(tbl, r, curcol + delta);
         for (c = curcol + delta; c - curcol - delta < arg; c++, pp++)
-            *pp = (struct ent *)0;
+            *pp = NULL;
     }
 
     /* Update all marked cells. */
@@ -268,12 +269,12 @@ void insertcol(int arg, int delta)
     /* Update note links. */
     for (r = 0; r <= maxrow; r++) {
         for (c = 0; c <= maxcol; c++) {
-            pp = ATBL(tbl, r, c);
-            if (*pp) {
-                if ((*pp)->ncol >= curcol + delta)
-                    ((*pp)->ncol) += arg;
-                if ((*pp)->nlastcol >= curcol + delta)
-                    ((*pp)->nlastcol) += arg;
+            struct ent *p = *ATBL(tbl, r, c);
+            if (p) {
+                if (p->ncol >= curcol + delta)
+                    p->ncol += arg;
+                if (p->nlastcol >= curcol + delta)
+                    p->nlastcol += arg;
             }
         }
     }
@@ -578,7 +579,7 @@ void erase_area(int sr, int sc, int er, int ec, int ignorelock)
     for (r = sr; r <= er; r++) {
         for (c = sc; c <= ec; c++) {
             pp = ATBL(tbl, r, c);
-            if (*pp && (!((*pp)->flags&IS_LOCKED) || ignorelock)) {
+            if (*pp && (!((*pp)->flags & IS_LOCKED) || ignorelock)) {
                 free_ent(*pp, 0);
                 *pp = NULL;
             }
@@ -697,13 +698,13 @@ void valueize_area(int sr, int sc, int er, int ec)
     for (r = sr; r <= er; r++) {
         for (c = sc; c <= ec; c++) {
             p = *ATBL(tbl, r, c);
-            if (p && p->flags&IS_LOCKED) {
+            if (p && (p->flags & IS_LOCKED)) {
                 error(" Cell %s%d is locked", coltoa(c), r);
                 continue;
             }
             if (p && p->expr) {
                 efree(p->expr);
-                p->expr = (struct enode *)0;
+                p->expr = NULL;
                 p->flags &= ~IS_STREXPR;
             }
         }
@@ -844,7 +845,7 @@ void pullcells(int to_insert)
             delbuf[dbidx - 1] = tmpbuf;
             delbuffmt[dbidx] = delbuffmt[dbidx - 1];
             delbuffmt[dbidx - 1] = tmpfmt;
-        } else
+        } else {
             for (p = delbuf[dbidx++]; p; p = p->next) {
                 pp = ATBL(tbl, p->row + deltar, p->col + deltac);
                 if (*pp && !((*pp)->flags & IS_LOCKED)) {
@@ -852,8 +853,10 @@ void pullcells(int to_insert)
                     *pp = NULL;
                 }
             }
+        }
         for (p = delbuf[dbidx - 1]; p; p = p->next) {
             pp = ATBL(tbl, p->row + deltar, p->col + deltac);
+            // XXX: bug if (*pp && !((*pp)->flags & IS_LOCKED))
             *pp = p;
             p->row += deltar;
             p->col += deltac;
@@ -890,13 +893,15 @@ void pullcells(int to_insert)
 }
 
 void colshow_op(void) {
-    register int i,j;
-    for (i = 0; i < maxcols; i++)
+    int i, j;
+    for (i = 0; i < maxcols; i++) {
         if (col_hidden[i])
             break;
-    for(j = i; j < maxcols; j++)
+    }
+    for (j = i; j < maxcols; j++) {
         if (!col_hidden[j])
             break;
+    }
     j--;
     if (i >= maxcols) {
         error("No hidden columns to show");
@@ -908,16 +913,16 @@ void colshow_op(void) {
 
 void rowshow_op(void)
 {
-    register int i,j;
-    for (i = 0; i < maxrows; i++)
+    int i, j;
+    for (i = 0; i < maxrows; i++) {
         if (row_hidden[i])
             break;
-    for(j = i; j < maxrows; j++)
-        if (!row_hidden[j]) {
+    }
+    for (j = i; j < maxrows; j++) {
+        if (!row_hidden[j])
             break;
-        }
+    }
     j--;
-
     if (i >= maxrows) {
         error("No hidden rows to show");
     } else {
@@ -1076,10 +1081,10 @@ void closerow(int rs, int numrow)
         /* save the first row of the group and empty it out */
         tmprow = tbl[r];
         pp = ATBL(tbl, r, 0);
-        for (c = maxcol + 1; --c >= 0; pp++) {
+        for (c = maxcol + 1; c --> 0; pp++) {
             if (*pp) {
                 free_ent(*pp, 1);
-                *pp = (struct ent *)0;
+                *pp = NULL;
             }
         }
 
@@ -1087,10 +1092,11 @@ void closerow(int rs, int numrow)
         for (; r + numrow < maxrows - 1; r += numrow) {
             row_hidden[r] = row_hidden[r + numrow];
             tbl[r] = tbl[r + numrow];
-            pp = ATBL(tbl, r, 0);
-            for (c = 0; c < maxcols; c++, pp++)
-                if (*pp)
-                    (*pp)->row = r;
+            for (c = 0; c < maxcols; c++) {
+                struct ent *p = *ATBL(tbl, r, c);
+                if (p)
+                    p->row = r;
+            }
         }
         tbl[r] = tmprow;
     }
@@ -1126,18 +1132,18 @@ void closerow(int rs, int numrow)
     /* Update note links. */
     for (r = 0; r <= maxrow; r++) {
         for (c = 0; c <= maxcol; c++) {
-            pp = ATBL(tbl, r, c);
-            if (*pp) {
-                if ((*pp)->nrow >= rs && (*pp)->nrow < rs + numrow)
-                    (*pp)->nrow = rs;
-                if ((*pp)->nrow >= rs + numrow)
-                    ((*pp)->nrow) -= numrow;
-                if ((*pp)->nlastrow >= rs && (*pp)->nlastrow < rs + numrow)
-                    (*pp)->nlastrow = rs - 1;
-                if ((*pp)->nlastrow >= rs + numrow)
-                    ((*pp)->nlastrow) -= numrow;
-                if ((*pp)->nlastrow < (*pp)->nrow)
-                    (*pp)->nrow = (*pp)->ncol = -1;
+            struct ent *p = *ATBL(tbl, r, c);
+            if (p) {
+                if (p->nrow >= rs && p->nrow < rs + numrow)
+                    p->nrow = rs;
+                if (p->nrow >= rs + numrow)
+                    p->nrow -= numrow;
+                if (p->nlastrow >= rs && p->nlastrow < rs + numrow)
+                    p->nlastrow = rs - 1;
+                if (p->nlastrow >= rs + numrow)
+                    p->nlastrow -= numrow;
+                if (p->nlastrow < p->nrow)
+                    p->nrow = p->ncol = -1;
             }
         }
     }
@@ -1189,11 +1195,12 @@ void closecol(int arg)
     sync_refs();
     erase_area(0, curcol, maxrow, curcol + arg - 1, 0);
     fix_ranges(-1, curcol, -1, curcol + arg - 1, -1, -1);
-    for (i = 0; i < DELBUFSIZE; i++)
+    for (i = 0; i < DELBUFSIZE; i++) {
         if ((obuf && delbuf[i] == obuf) || (qbuf && i == qbuf)) {
             delbuf[i] = delbuf[dbidx];
             delbuffmt[i] = delbuffmt[dbidx];
         }
+    }
     qbuf = 0;
     for (i = DELBUFSIZE - 1; i > DELBUFSIZE - 9; i--) {
         delbuf[i] = delbuf[i-1];
@@ -1206,35 +1213,35 @@ void closecol(int arg)
 
     /* clear then copy the block left */
     cs = maxcols - arg - 1;
-    for (r=0; r<=maxrow; r++) {
-        for (c = curcol; c - curcol < arg; c++)
-            if ((p = *ATBL(tbl, r, c)))
-                free_ent(p, 1);
-
-        pp = ATBL(tbl, r, curcol);
-        for (c=curcol; c <= cs; c++, pp++) {
-            if (c > cs)
-                *pp = (struct ent *)0;
-            else if ((pp[0] = pp[arg]))
-                pp[0]->col -= arg;
+    for (r = 0; r <= maxrow; r++) {
+        for (c = curcol; c - curcol < arg; c++) {
+            pp = ATBL(tbl, r, c);
+            if (*pp) {
+                free_ent(*pp, 1);
+                *pp = NULL;
+            }
         }
-
-        c = arg;
-        for (; --c >= 0; pp++)
-            *pp = (struct ent *)0;
+        for (c = curcol; c <= cs; c++) {
+            pp = ATBL(tbl, r, c);
+            if ((*pp = pp[arg])) {
+                (*pp)->col -= arg;
+                pp[arg] = NULL;
+            }
+        }
     }
 
-    for (i = curcol; i < maxcols - arg - 1; i++) {
-        fwidth[i] = fwidth[i+arg];
-        precision[i] = precision[i+arg];
-        realfmt[i] = realfmt[i+arg];
-        col_hidden[i] = col_hidden[i+arg];
+    for (c = curcol; c < maxcols - arg - 1; c++) {
+        fwidth[c] = fwidth[c + arg];
+        precision[c] = precision[c + arg];
+        realfmt[c] = realfmt[c + arg];
+        col_hidden[c] = col_hidden[c + arg];
     }
-    for (; i < maxcols - 1; i++) {
-        fwidth[i] = DEFWIDTH;
-        precision[i] = DEFPREC;
-        realfmt[i] = DEFREFMT;
-        col_hidden[i] = FALSE;
+    // XXX: maxcols or maxcols - 1 or even maxcols + 1 ???
+    for (; c < maxcols - 1; c++) {
+        fwidth[c] = DEFWIDTH;
+        precision[c] = DEFPREC;
+        realfmt[c] = DEFREFMT;
+        col_hidden[c] = FALSE;
     }
 
     /* Update all marked cells. */
@@ -1268,18 +1275,18 @@ void closecol(int arg)
     /* Update note links. */
     for (r = 0; r <= maxrow; r++) {
         for (c = 0; c <= maxcol; c++) {
-            pp = ATBL(tbl, r, c);
-            if (*pp) {
-                if ((*pp)->ncol >= curcol && (*pp)->ncol < curcol + arg)
-                    (*pp)->ncol = curcol;
-                if ((*pp)->ncol >= curcol + arg)
-                    ((*pp)->ncol) -= arg;
-                if ((*pp)->nlastcol >= curcol && (*pp)->nlastcol < curcol + arg)
-                    (*pp)->nlastcol = curcol - 1;
-                if ((*pp)->nlastcol >= curcol + arg)
-                    ((*pp)->nlastcol) -= arg;
-                if ((*pp)->nlastcol < (*pp)->ncol)
-                    (*pp)->nrow = (*pp)->ncol = -1;
+            struct ent *p = *ATBL(tbl, r, c);
+            if (p) {
+                if (p->ncol >= curcol && p->ncol < curcol + arg)
+                    p->ncol = curcol;
+                if (p->ncol >= curcol + arg)
+                    p->ncol -= arg;
+                if (p->nlastcol >= curcol && p->nlastcol < curcol + arg)
+                    p->nlastcol = curcol - 1;
+                if (p->nlastcol >= curcol + arg)
+                    p->nlastcol -= arg;
+                if (p->nlastcol < p->ncol)
+                    p->nrow = p->ncol = -1;
             }
         }
     }
@@ -1292,7 +1299,7 @@ void closecol(int arg)
 
 void doend(int rowinc, int colinc)
 {
-    register struct ent *p;
+    struct ent *p;
     int r, c;
 
     if (!loading)
@@ -1316,7 +1323,7 @@ void doend(int rowinc, int colinc)
                 currow--;
             break;
         case  1:
-            while (!VALID_CELL(p, currow, curcol) && currow < maxrows-1)
+            while (!VALID_CELL(p, currow, curcol) && currow < maxrows - 1)
                 currow++;
             break;
         case  0:
@@ -1326,7 +1333,7 @@ void doend(int rowinc, int colinc)
                     curcol--;
                 break;
             case  1:
-                while (!VALID_CELL(p, currow, curcol) && curcol < maxcols-1)
+                while (!VALID_CELL(p, currow, curcol) && curcol < maxcols - 1)
                     curcol++;
                 break;
             }
@@ -1347,7 +1354,7 @@ void doend(int rowinc, int colinc)
             currow--;
         break;
     case  1:
-        while (VALID_CELL(p, currow, curcol) && currow < maxrows-1)
+        while (VALID_CELL(p, currow, curcol) && currow < maxrows - 1)
             currow++;
         break;
     case  0:
@@ -1357,7 +1364,7 @@ void doend(int rowinc, int colinc)
                 curcol--;
             break;
         case  1:
-            while (VALID_CELL(p, currow, curcol) && curcol < maxcols-1)
+            while (VALID_CELL(p, currow, curcol) && curcol < maxcols - 1)
                 curcol++;
             break;
         }
@@ -1374,12 +1381,12 @@ void doend(int rowinc, int colinc)
 /* Modified 9/17/90 THA to handle more formats */
 void doformat(int c1, int c2, int w, int p, int r)
 {
-    register int i;
+    int i;
     int crows = 0;
     int ccols = c2;
 
-    if (c1 >= maxcols && !growtbl(GROWCOL, 0, c1)) c1 = maxcols-1 ;
-    if (c2 >= maxcols && !growtbl(GROWCOL, 0, c2)) c2 = maxcols-1 ;
+    if (c1 >= maxcols && !growtbl(GROWCOL, 0, c1)) c1 = maxcols-1;
+    if (c2 >= maxcols && !growtbl(GROWCOL, 0, c2)) c2 = maxcols-1;
 
     if (w == 0) {
         error("Width too small - setting to 1");
@@ -1708,7 +1715,6 @@ void printfile(char *fname, int r0, int c0, int rn, int cn)
     unsigned int fieldlen, nextcol;
     long namelen;
     int row, col;
-    register struct ent **pp;
     size_t fnamesiz;
     char file[256];
     char path[1024];
@@ -1761,7 +1767,7 @@ void printfile(char *fname, int r0, int c0, int rn, int cn)
             return;
         }
 
-        if ((f = openfile(fname, fnamesiz, &pid, NULL)) == (FILE *)0) {
+        if ((f = openfile(fname, fnamesiz, &pid, NULL)) == NULL) {
             error("Can't create file \"%s\"", fname);
             return;
         }
@@ -1780,17 +1786,16 @@ void printfile(char *fname, int r0, int c0, int rn, int cn)
             continue;
 
         pline[plinelim=0] = '\0';
-        for (pp = ATBL(tbl, row, col=c0); col<=cn;
-                pp += nextcol-col, col = nextcol, c += fieldlen) {
-
-            nextcol = col+1;
+        for (col = c0; col <= cn; col = nextcol, c += fieldlen) {
+            struct ent *p = *ATBL(tbl, row, col);
+            nextcol = col + 1;
             if (col_hidden[col]) {
                 fieldlen = 0;
                 continue;
             }
 
             fieldlen = fwidth[col];
-            if (*pp) {
+            if (p) {
                 char *s;
 
                 /*
@@ -1807,22 +1812,22 @@ void printfile(char *fname, int r0, int c0, int rn, int cn)
                 while (plinelim < (int)c)
                     pline[plinelim++] = ' ';
                 plinelim = c;
-                if ((*pp)->flags&IS_VALID) {
+                if (p->flags & IS_VALID) {
                     while (plinelim + fwidth[col] > (int)(fbufs_allocated * FBUFLEN)) {
                         if ((pline = scxrealloc(pline, FBUFLEN * ++fbufs_allocated)) == NULL) {
                             error("Realloc failed in printfile()");
                             return;
                         }
                     }
-                    if ((*pp)->cellerror) {
+                    if (p->cellerror) {
                         snprintf(pline + plinelim,
                                  FBUFLEN * fbufs_allocated - plinelim,
                                  "%*s", fwidth[col],
-                                 ((*pp)->cellerror == CELLERROR ? "ERROR " : "INVALID "));
+                                 (p->cellerror == CELLERROR ? "ERROR " : "INVALID "));
                     } else {
                         char *cfmt;
 
-                        cfmt = (*pp)->format ? (*pp)->format :
+                        cfmt = p->format ? p->format :
                             (realfmt[col] >= 0 && realfmt[col] < COLFORMATS &&
                              colformat[realfmt[col]]) ?
                             colformat[realfmt[col]] : 0;
@@ -1830,14 +1835,14 @@ void printfile(char *fname, int r0, int c0, int rn, int cn)
                             char field[FBUFLEN];
 
                             if (*cfmt == ctl('d')) {
-                                time_t v = (time_t) ((*pp)->v);
+                                time_t v = (time_t) (p->v);
                                 strftime(field, sizeof(field), cfmt + 1,
                                          localtime(&v));
                                 snprintf(pline + plinelim,
                                          FBUFLEN * fbufs_allocated - plinelim,
                                          "%-*s", fwidth[col], field);
                             } else {
-                                format(cfmt, precision[col], (*pp)->v, field,
+                                format(cfmt, precision[col], p->v, field,
                                        sizeof(field));
                                 snprintf(pline+plinelim,
                                          FBUFLEN * fbufs_allocated - plinelim,
@@ -1846,7 +1851,7 @@ void printfile(char *fname, int r0, int c0, int rn, int cn)
                         } else {
                             char field[FBUFLEN];
                             engformat(realfmt[col], fwidth[col],
-                                      precision[col], (*pp) -> v,
+                                      precision[col], p->v,
                                       field, sizeof(field));
                             snprintf(pline+plinelim,
                                      FBUFLEN * fbufs_allocated - plinelim,
@@ -1855,10 +1860,10 @@ void printfile(char *fname, int r0, int c0, int rn, int cn)
                     }
                     plinelim += strlen(pline+plinelim);
                 }
-                if ((s = (*pp)->label)) {
+                if ((s = p->label)) {
                     ssize_t slen;
                     char *start, *last;
-                    register char *fp;
+                    char *fp;
                     struct ent *nc;
 
                     /*
@@ -1889,9 +1894,8 @@ void printfile(char *fname, int r0, int c0, int rn, int cn)
                     }
 
                     /* Now justify and print */
-                    start = (*pp)->flags & IS_LEFTFLUSH ? pline + c
-                                        : pline + c + fieldlen - slen;
-                    if ((*pp)->flags & IS_LABEL)
+                    start = (p->flags & IS_LEFTFLUSH) ? pline + c : pline + c + fieldlen - slen;
+                    if (p->flags & IS_LABEL)
                         start = pline + (c + ((fwidth[col] > slen) ?
                                               (fwidth[col] - slen) / 2 : 0));
                     last = pline + c + fieldlen;
@@ -1922,10 +1926,10 @@ void printfile(char *fname, int r0, int c0, int rn, int cn)
                         }
                     }
 
-                    if (!((*pp)->flags & IS_VALID) ||
-                        (int)fieldlen != fwidth[col])
+                    if (!(p->flags & IS_VALID) || (int)fieldlen != fwidth[col]) {
                         while (fp < last)
                             *fp++ = ' ';
+                    }
                     if (plinelim < fp - pline)
                         plinelim = fp - pline;
                 }
@@ -1945,7 +1949,6 @@ void tblprintfile(char *fname, int r0, int c0, int rn, int cn)
     int pid;
     long namelen;
     int row, col;
-    register struct ent **pp;
     size_t fnamesiz;
     char coldelim = DEFCOLDELIM;
     char file[256];
@@ -2030,7 +2033,7 @@ void tblprintfile(char *fname, int r0, int c0, int rn, int cn)
         !yn_ask("Confirm that you want to destroy the data base: (y,n)"))
         return;
 
-    if ((f = openfile(fname, fnamesiz, &pid, NULL)) == (FILE *)0) {
+    if ((f = openfile(fname, fnamesiz, &pid, NULL)) == NULL) {
         error ("Can't create file \"%s\"", fname);
         return;
     }
@@ -2095,37 +2098,38 @@ void tblprintfile(char *fname, int r0, int c0, int rn, int cn)
             fprintf(f,"   <Row # The next body row\n");
         }
 
-        for (pp = ATBL(tbl, row, col = c0); col <= cn; col++, pp++) {
+        for (col = c0; col <= cn; col++) {
+            struct ent *p = *ATBL(tbl, row, col);
             if (tbl_style == FRAME) {
                 fprintf(f,"    <Cell <CellContent <Para\n");
                 fprintf(f,"       <PgfTag `CellBody'> # in Paragraph Format Catalog\n");
                 fprintf(f,"       <ParaLine <String `");
             }
-            if (*pp) {
+            if (p) {
                 char *s;
-                if ((*pp)->flags & IS_VALID) {
-                    if ((*pp)->cellerror) {
+                if (p->flags & IS_VALID) {
+                    if (p->cellerror) {
                         (void) fprintf(f, "%*s", fwidth[col],
-                                       ((*pp)->cellerror == CELLERROR ? "ERROR" : "INVALID"));
-                    } else if ((*pp)->format) {
+                                       (p->cellerror == CELLERROR ? "ERROR" : "INVALID"));
+                    } else if (p->format) {
                         char field[FBUFLEN];
-                        if (*((*pp)->format) == ctl('d')) {
-                            time_t v = (time_t) ((*pp)->v);
-                            strftime(field, sizeof(field), ((*pp)->format)+1,
+                        if (*(p->format) == ctl('d')) {
+                            time_t v = (time_t) (p->v);
+                            strftime(field, sizeof(field), (p->format)+1,
                                      localtime(&v));
                         } else
-                            format((*pp)->format, precision[col], (*pp)->v,
+                            format(p->format, precision[col], p->v,
                                    field, sizeof(field));
                         unspecial(f, field, coldelim);
                     } else {
                         char field[FBUFLEN];
                         (void) engformat(realfmt[col], fwidth[col],
-                                         precision[col], (*pp) -> v,
+                                         precision[col], p->v,
                                          field, sizeof(field));
                         unspecial(f, field, coldelim);
                     }
                 }
-                if ((s = (*pp)->label)) {
+                if ((s = p->label)) {
                     unspecial(f, s, coldelim);
                 }
             }
@@ -2190,14 +2194,14 @@ void unspecial(FILE *f, char *str, int delim)
     }
 }
 
-struct enode *copye(register struct enode *e, int Rdelta, int Cdelta, int r1, int c1,
+struct enode *copye(struct enode *e, int Rdelta, int Cdelta, int r1, int c1,
                     int r2, int c2, int transpose)
 {
-    register struct enode *ret;
+    struct enode *ret;
     static struct enode *range = NULL;
 
-    if (e == (struct enode *)0)
-        ret = (struct enode *)0;
+    if (e == NULL)
+        ret = NULL;
     else if (e->op & REDUCE) {
         int newrow, newcol;
         if (freeenodes) {
@@ -2298,7 +2302,7 @@ struct enode *copye(register struct enode *e, int Rdelta, int Cdelta, int r1, in
                     Rdelta = Cdelta = 0;
                 ret->e.o.left = copye(e->e.o.left, Rdelta, Cdelta,
                         r1, c1, r2, c2, transpose);
-                ret->e.o.right = (struct enode *)0;
+                ret->e.o.right = NULL;
                 break;
             case '$':
             case EXT:
@@ -2335,7 +2339,7 @@ struct enode *copye(register struct enode *e, int Rdelta, int Cdelta, int r1, in
 void sync_refs(void)
 {
     int i, j;
-    register struct ent *p;
+    struct ent *p;
     sync_ranges();
     for (i = 0; i <= maxrow; i++) {
         for (j = 0; j <= maxcol; j++) {
@@ -2352,31 +2356,31 @@ void sync_refs(void)
     }
 }
 
-void syncref(register struct enode *e)
+void syncref(struct enode *e)
 {
-    if (e == (struct enode *)0)
+    if (e == NULL)
         return;
     else if (e->op & REDUCE) {
         e->e.r.right.vp = lookat(e->e.r.right.vp->row, e->e.r.right.vp->col);
         e->e.r.left.vp = lookat(e->e.r.left.vp->row, e->e.r.left.vp->col);
     } else {
         switch (e->op) {
-            case 'v':
-                if (e->e.v.vp->flags & IS_CLEARED) {
-                    e->op = ERR_;
-                    e->e.o.left = NULL;
-                    e->e.o.right = NULL;
-                } else if (e->e.v.vp->flags & MAY_SYNC)
-                    e->e.v.vp = lookat(e->e.v.vp->row, e->e.v.vp->col);
-                break;
-            case 'k':
-                break;
-            case '$':
-                break;
-            default:
-                syncref(e->e.o.right);
-                syncref(e->e.o.left);
-                break;
+        case 'v':
+            if (e->e.v.vp->flags & IS_CLEARED) {
+                e->op = ERR_;
+                e->e.o.left = NULL;
+                e->e.o.right = NULL;
+            } else if (e->e.v.vp->flags & MAY_SYNC)
+                e->e.v.vp = lookat(e->e.v.vp->row, e->e.v.vp->col);
+            break;
+        case 'k':
+            break;
+        case '$':
+            break;
+        default:
+            syncref(e->e.o.right);
+            syncref(e->e.o.left);
+            break;
         }
     }
 }
@@ -2384,11 +2388,9 @@ void syncref(register struct enode *e)
 /* mark a row as hidden */
 void hiderow(int arg)
 {
-    register int r1;
-    register int r2;
+    int r1 = currow;
+    int r2 = r1 + arg - 1;
 
-    r1 = currow;
-    r2 = r1 + arg - 1;
     if (r1 < 0 || r1 > r2) {
         error("Invalid range");
         return;
@@ -2408,11 +2410,8 @@ void hiderow(int arg)
 /* mark a column as hidden */
 void hidecol(int arg)
 {
-    int c1;
-    int c2;
-
-    c1 = curcol;
-    c2 = c1 + arg - 1;
+    int c1 = curcol;
+    int c2 = c1 + arg - 1;
     if (c1 < 0 || c1 > c2) {
         error ("Invalid range");
         return;
@@ -2590,7 +2589,7 @@ void closefile(FILE *f, int pid, int rfd)
  * the "pt" command.  r1, c1, r2, and c2 define the range in which the dr
  * and dc values should be used.
  */
-void copyent(register struct ent *n, register struct ent *p, int dr, int dc,
+void copyent(struct ent *n, struct ent *p, int dr, int dc,
              int r1, int c1, int r2, int c2, int special)
 {
     if (!n || !p) {
@@ -2598,7 +2597,7 @@ void copyent(register struct ent *n, register struct ent *p, int dr, int dc,
         return;
     }
     if (special != 'f') {
-        if (special != 'm' || p->flags & IS_VALID) {
+        if (special != 'm' || (p->flags & IS_VALID)) {
             n->v = p->v;
             n->flags |= p->flags & IS_VALID;
         }
@@ -2677,9 +2676,8 @@ char *findplugin(char *ext, char type)
 }
 #endif
 
-void write_fd(register FILE *f, int r0, int c0, int rn, int cn)
+void write_fd(FILE *f, int r0, int c0, int rn, int cn)
 {
-    register struct ent **pp;
     int r, c;
 
     (void) fprintf(f, "# This data file was generated by the Spreadsheet ");
@@ -2689,18 +2687,20 @@ void write_fd(register FILE *f, int r0, int c0, int rn, int cn)
     for (c = 0; c < COLFORMATS; c++)
         if (colformat[c])
             (void) fprintf(f, "format %d = \"%s\"\n", c, colformat[c]);
-    for (c = c0; c <= cn; c++)
+    for (c = c0; c <= cn; c++) {
         if (fwidth[c] != DEFWIDTH || precision[c] != DEFPREC ||
                 realfmt[c] != DEFREFMT)
             (void) fprintf(f, "format %s %d %d %d\n",
                            coltoa(c), fwidth[c], precision[c], realfmt[c]);
-    for (c = c0; c <= cn; c++)
+    }
+    for (c = c0; c <= cn; c++) {
         if (col_hidden[c])
             (void) fprintf(f, "hide %s\n", coltoa(c));
-    for (r = r0; r <= rn; r++)
+    }
+    for (r = r0; r <= rn; r++) {
         if (row_hidden[r])
             (void) fprintf(f, "hide %d\n", r);
-
+    }
     write_ranges(f);
     write_franges(f);
     write_colors(f, 0);
@@ -2710,32 +2710,33 @@ void write_fd(register FILE *f, int r0, int c0, int rn, int cn)
         (void) fprintf(f, "mdir \"%s\"\n", mdir);
     if (autorun)
         (void) fprintf(f, "autorun \"%s\"\n", autorun);
-    for (c = 0; c < FKEYS; c++)
+    for (c = 0; c < FKEYS; c++) {
         if (fkey[c])
             (void) fprintf(f, "fkey %d = \"%s\"\n", c + 1, fkey[c]);
-
+    }
     write_cells(f, r0, c0, rn, cn, r0, c0);
     for (r = r0; r <= rn; r++) {
-        pp = ATBL(tbl, r, c0);
-        for (c = c0; c <= cn; c++, pp++)
-            if (*pp) {
-                if ((*pp)->flags & IS_LOCKED)
+        for (c = c0; c <= cn; c++) {
+            struct ent *p = *ATBL(tbl, r, c);
+            if (p) {
+                if (p->flags & IS_LOCKED) {
                     (void) fprintf(f, "lock %s%d\n",
-                                   coltoa((*pp)->col), (*pp)->row);
-                if ((*pp)->nrow >= 0) {
+                                   coltoa(p->col), p->row);
+                }
+                if (p->nrow >= 0) {
                     (void) fprintf(f, "addnote %s %s\n",
-                                   v_name((*pp)->row, (*pp)->col),
-                                   r_name((*pp)->nrow, (*pp)->ncol,
-                                          (*pp)->nlastrow, (*pp)->nlastcol));
+                                   v_name(p->row, p->col),
+                                   r_name(p->nrow, p->ncol,
+                                          p->nlastrow, p->nlastcol));
                 }
             }
+        }
     }
     fprintf(f, "goto %s %s\n", v_name(currow, curcol), v_name(strow, stcol));
 }
 
-void write_cells(register FILE *f, int r0, int c0, int rn, int cn, int dr, int dc)
+void write_cells(FILE *f, int r0, int c0, int rn, int cn, int dr, int dc)
 {
-    register struct ent **pp;
     int r, c, mf;
     int rs = 0;
     int cs = 0;
@@ -2754,25 +2755,26 @@ void write_cells(register FILE *f, int r0, int c0, int rn, int cn, int dr, int d
     }
     if (Vopt) valueize_area(dr, dc, rn, cn);
     for (r = dr; r <= rn; r++) {
-        pp = ATBL(tbl, r, dc);
-        for (c = dc; c <= cn; c++, pp++)
-            if (*pp) {
-                if ((*pp)->label || (*pp)->flags & IS_STREXPR) {
+        for (c = dc; c <= cn; c++) {
+            struct ent *p = *ATBL(tbl, r, c);
+            if (p) {
+                if (p->label || (p->flags & IS_STREXPR)) {
                     edits(r, c);
                     (void) fprintf(f, "%s\n", line);
                 }
-                if ((*pp)->flags & IS_VALID) {
+                if (p->flags & IS_VALID) {
                     editv(r, c);
                     dpointptr = strchr(line, dpoint);
                     if (dpointptr != NULL)
                         *dpointptr = '.';
                     (void) fprintf(f, "%s\n", line);
                 }
-                if ((*pp)->format) {
+                if (p->format) {
                     editfmt(r, c);
                     (void) fprintf(f, "%s\n",line);
                 }
             }
+        }
     }
     if (dr != r0 || dc != c0) {
         pullcells('x');
@@ -2785,7 +2787,7 @@ void write_cells(register FILE *f, int r0, int c0, int rn, int cn, int dr, int d
 
 int writefile(const char *fname, int r0, int c0, int rn, int cn)
 {
-    register FILE *f;
+    FILE *f;
     char save[PATHLEN];
     char tfname[PATHLEN];
     long namelen;
@@ -2897,7 +2899,7 @@ int writefile(const char *fname, int r0, int c0, int rn, int cn)
 
 int readfile(const char *fname, int eraseflg)
 {
-    register FILE *f;
+    FILE *f;
     char save[PATHLEN];
     int tempautolabel;
     char *p;
@@ -3030,25 +3032,26 @@ int readfile(const char *fname, int eraseflg)
 
 /* erase the database (tbl, etc.) */
 void erasedb(void) {
-    int  r, c;
+    int r, c;
     char *home;
 
-    for (c = 0; c<=maxcol; c++) {
+    for (c = 0; c <= maxcol; c++) {
         fwidth[c] = DEFWIDTH;
         precision[c] = DEFPREC;
         realfmt[c] = DEFREFMT;
     }
 
-    for (r = 0; r<=maxrow; r++) {
-        register struct ent **pp = ATBL(tbl, r, 0);
-        for (c = 0; c++ <= maxcol; pp++)
+    for (r = 0; r <= maxrow; r++) {
+        for (c = 0; c <= maxcol; c++) {
+            struct ent **pp = ATBL(tbl, r, c);
             if (*pp) {
-                if ((*pp)->expr)  efree((*pp)->expr);
+                efree((*pp)->expr);
                 scxfree((*pp)->label);
                 (*pp)->next = freeents; /* save [struct ent] for reuse */
                 freeents = *pp;
-                *pp = (struct ent *)0;
+                *pp = NULL;
             }
+        }
     }
 
     for (c = 0; c < COLFORMATS; c++) {
@@ -3242,7 +3245,7 @@ void dotick(int tick)
 
 void gotonote(void)
 {
-    register struct ent *p;
+    struct ent *p;
 
     p = lookat(currow, curcol);
     if (p->nrow == -1) {
@@ -3364,9 +3367,9 @@ void showstring(char *string,        /* to display */
     *fieldlenp = fieldlen;
 }
 
-int etype(register struct enode *e)
+int etype(struct enode *e)
 {
-    if (e == (struct enode *)0)
+    if (e == NULL)
         return NUM;
     switch (e->op) {
         case UPPER: case LOWER: case CAPITAL:
@@ -3382,10 +3385,10 @@ int etype(register struct enode *e)
             return etype(e->e.o.right);
 
         case O_VAR: {
-            register struct ent *p;
+            struct ent *p;
             p = e->e.v.vp;
             if (p->expr)
-                return (p->flags & IS_STREXPR ? STR : NUM);
+                return (p->flags & IS_STREXPR) ? STR : NUM;
             else if (p->label)
                 return STR;
             else
@@ -3495,7 +3498,7 @@ int backup_file(char *path)
         /* if we know the optimum block size, use it */
         if ((statbuf.st_blksize > buflen) || (buf == NULL)) {
             buflen = statbuf.st_blksize;
-            if ((buf = scxrealloc(buf, buflen)) == (char *)0) {
+            if ((buf = scxrealloc(buf, buflen)) == NULL) {
                 buflen = 0;
                 return 0;
             }

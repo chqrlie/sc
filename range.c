@@ -234,8 +234,8 @@ static void sync_enode(struct enode *e)
 
 void write_ranges(FILE *f)
 {
-    register struct range *r;
-    register struct range *nextr;
+    struct range *r;
+    struct range *nextr;
 
     for (r = nextr = rng_base; nextr; r = nextr, nextr = r->r_next)
         continue;
@@ -260,8 +260,8 @@ void write_ranges(FILE *f)
 
 void list_ranges(FILE *f)
 {
-    register struct range *r;
-    register struct range *nextr;
+    struct range *r;
+    struct range *nextr;
 
     if (!are_ranges()) {
         fprintf(f, "  No ranges defined");

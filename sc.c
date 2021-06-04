@@ -146,8 +146,8 @@ MEVENT mevent;
 /* return a pointer to a cell's [struct ent *], creating if needed */
 struct ent *lookat(int row, int col)
 {
-    register struct ent **pp;
-    register struct ent *p;
+    struct ent **pp;
+    struct ent *p;
 
     checkbounds(&row, &col);
     pp = ATBL(tbl, row, col);
@@ -161,15 +161,15 @@ struct ent *lookat(int row, int col)
         }
         if (row > maxrow) maxrow = row;
         if (col > maxcol) maxcol = col;
-        p->label = (char *)0;
+        p->label = NULL;
         p->row = row;
         p->col = col;
         p->nrow = -1;
         p->ncol = -1;
         p->flags = MAY_SYNC;
         p->expr = (struct enode *)0;
-        p->v = (double)0.0;
-        p->format = (char *)0;
+        p->v = 0.0;
+        p->format = NULL;
         p->cellerror = CELLOK;
         p->next = NULL;
         *pp = p;
@@ -183,7 +183,7 @@ struct ent *lookat(int row, int col)
  * variable references.
  * We also use it as a last-deleted buffer for the 'p' command.
  */
-void free_ent(register struct ent *p, int unlock)
+void free_ent(struct ent *p, int unlock)
 {
     p->next = delbuf[dbidx];
     delbuf[dbidx] = p;
@@ -194,8 +194,8 @@ void free_ent(register struct ent *p, int unlock)
 
 /* free deleted cells */
 void flush_saved(void) {
-    register struct ent *p;
-    register struct ent *q;
+    struct ent *p;
+    struct ent *q;
 
     if (dbidx < 0)
         return;
@@ -230,7 +230,7 @@ void fatal(const char *str) {
 int main(int argc, char **argv)
 {
     int inloop = 1;
-    register int c;
+    int c;
     int edistate = -1;
     int narg;
     int nedistate;
@@ -1034,7 +1034,7 @@ int main(int argc, char **argv)
 
         } else if (!numeric && ( c == '+' || c == '-' )) {
             /* increment/decrement ops */
-            register struct ent *p = *ATBL(tbl, currow, curcol);
+            struct ent *p = *ATBL(tbl, currow, curcol);
             if (!p || !(p->flags & IS_VALID)) {
                 if (c == '+') {
                     editv(currow, curcol);
@@ -1051,9 +1051,9 @@ int main(int argc, char **argv)
             FullUpdate++;
             modflg++;
             if (c == '+')
-                p->v += (double) arg;
+                p->v += (double)arg;
             else
-                p->v -= (double) arg;
+                p->v -= (double)arg;
         } else if (c > KEY_F0 && c <= KEY_F(FKEYS)) {
             /* a function key was pressed */
             if (fkey[c - KEY_F0 - 1]) {
@@ -1124,7 +1124,7 @@ int main(int argc, char **argv)
                         editv(currow, curcol);
                         linelim = strlen(line);
                         insert_mode();
-                        if (c == '-' || p->flags & IS_VALID)
+                        if (c == '-' || (p->flags & IS_VALID))
                             write_line(c);
                         else
                             write_line(ctl('v'));
@@ -1483,54 +1483,51 @@ int main(int argc, char **argv)
                     break;
                 case 'w':
                     {
-                    register struct ent *p;
+                        struct ent *p;
 
-                    while (--arg>=0) {
-                        do {
-                            if (curcol < maxcols - 1)
-                                curcol++;
-                            else {
-                                if (currow < maxrows - 1) {
-                                    while(++currow < maxrows - 1 &&
-                                            row_hidden[currow])
-                                        ;
-                                    curcol = 0;
-                                } else {
-                                    error("At end of table");
-                                    break;
+                        while (--arg >= 0) {
+                            do {
+                                if (curcol < maxcols - 1)
+                                    curcol++;
+                                else {
+                                    if (currow < maxrows - 1) {
+                                        while (++currow < maxrows - 1 && row_hidden[currow])
+                                            continue;
+                                        curcol = 0;
+                                    } else {
+                                        error("At end of table");
+                                        break;
+                                    }
                                 }
-                            }
-                        } while(col_hidden[curcol] ||
-                                !VALID_CELL(p, currow, curcol));
-                    }
-                    rowsinrange = 1;
-                    colsinrange = fwidth[curcol];
-                    break;
+                            } while (col_hidden[curcol] || !VALID_CELL(p, currow, curcol));
+                        }
+                        rowsinrange = 1;
+                        colsinrange = fwidth[curcol];
+                        break;
                     }
                 case 'b':
                     {
-                    register struct ent *p;
+                        struct ent *p;
 
-                    while (--arg>=0) {
-                        do {
-                            if (curcol)
-                                curcol--;
-                            else {
-                                if (currow) {
-                                    while(--currow && row_hidden[currow])
-                                        ;
-                                    curcol = maxcols - 1;
-                                } else {
-                                    error("At start of table");
-                                    break;
+                        while (--arg >= 0) {
+                            do {
+                                if (curcol)
+                                    curcol--;
+                                else {
+                                    if (currow) {
+                                        while (--currow && row_hidden[currow])
+                                            continue;
+                                        curcol = maxcols - 1;
+                                    } else {
+                                        error("At start of table");
+                                        break;
+                                    }
                                 }
-                            }
-                        } while (col_hidden[curcol] ||
-                                !VALID_CELL(p, currow, curcol));
-                    }
-                    rowsinrange = 1;
-                    colsinrange = fwidth[curcol];
-                    break;
+                            } while (col_hidden[curcol] || !VALID_CELL(p, currow, curcol));
+                        }
+                        rowsinrange = 1;
+                        colsinrange = fwidth[curcol];
+                        break;
                     }
                 case '^':
                     gototop();
@@ -1649,7 +1646,7 @@ int main(int argc, char **argv)
                     formatcol(arg);
                     break;
                 case 'F': {
-                    register struct ent *p = *ATBL(tbl, currow, curcol);
+                    struct ent *p = *ATBL(tbl, currow, curcol);
                     if (p && p->format) {
                         snprintf(line, sizeof line, "fmt [format] %s \"%s",
                                  v_name(currow, curcol), p->format);
@@ -1991,7 +1988,7 @@ int main(int argc, char **argv)
                         break;
                 case '*':
                     {
-                        register struct ent *p;
+                        struct ent *p;
 
                         error("Note: Add/Delete/Show/*(go to note)?");
                         if ((c = nmgetch()) == ESC || c == ctl('g')) {

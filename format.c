@@ -104,7 +104,7 @@ static char *fmt_int(char *val, char *fmt, bool comma, bool negative);
 static char *fmt_frac(const char *val, const char *fmt, int lprecision);
 static char *fmt_exp(int val, char *fmt);
 
-static void reverse(register char *buf);
+static void reverse(char *buf);
 
 char *colformat[COLFORMATS];
 
@@ -112,7 +112,7 @@ char *colformat[COLFORMATS];
 
 bool format(char *fmt, int lprecision, double val, char *buf, size_t buflen)
 {
-    register char *cp;
+    char *cp;
     char *tmp, *tp;
     bool comma = false, negative = false;
     char *integer = NULL, *decimal = NULL;
@@ -382,9 +382,9 @@ static char *fmt_frac(const char *val,     /* fractional part of the value to be
                       int lprecision)     /* precision, for interpreting the "&" */
 {
     static char buf[MAXBUF];
-    register char *bufptr = buf;
-    register const char *fmtptr = fmt;
-    register const char *valptr = val;
+    char *bufptr = buf;
+    const char *fmtptr = fmt;
+    const char *valptr = val;
 
     *bufptr++ = dpoint;
     while (*fmtptr != EOS) {
@@ -415,7 +415,7 @@ static char *fmt_exp(int val,        /* value of the exponent */
                      char *fmt)          /* exponent part of the format */
 {
     static char buf[MAXBUF];
-    register char *bufptr = buf;
+    char *bufptr = buf;
     char valbuf[64];
     bool negative = false;
 
@@ -439,10 +439,10 @@ static char *fmt_exp(int val,        /* value of the exponent */
 
 /*****************************************************************************/
 
-static void reverse(register char *buf)
+static void reverse(char *buf)
 {
-    register char *cp = buf + strlen(buf) - 1;
-    register char tmp;
+    char *cp = buf + strlen(buf) - 1;
+    char tmp;
 
     while (buf < cp) {
         tmp = *cp;
@@ -531,10 +531,10 @@ bool engformat(int fmt, int width, int lprecision, double val, char *buf, int bu
                 /* Revert to floating point */
                 snprintf(buf, buflen, "%*.*E", width, lprecision, val);
             } else {
-                engexp = (double) (engind-6)*3;
-                engmant = val/pow(10.0e0,engexp);
+                engexp = (double)(engind-6) * 3;
+                engmant = val / pow(10.0e0, engexp);
                 snprintf(buf, buflen, "%*.*fe%s", width-4,
-                        lprecision, engmant, engmult[engind]);
+                         lprecision, engmant, engmult[engind]);
             }
         }
     }

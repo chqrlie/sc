@@ -293,7 +293,7 @@
 command:        S_LET var_or_range '=' e
                                 { let($2.left.vp, $4); }
         |       S_LET var_or_range '='
-                                { $2.left.vp->v = (double) 0.0;
+                                { $2.left.vp->v = 0.0;
                                   if ($2.left.vp->expr &&
                                         !($2.left.vp->flags & IS_STREXPR)) {
                                     efree($2.left.vp->expr);
@@ -1105,9 +1105,9 @@ term:           var                     { $$ = new_var(O_VAR, $1); }
         | '@' K_DTS '(' e ',' e ',' e ')'
                                         { $$ = new(DTS, $4, new(',', $6, $8));}
         | NUMBER '.' NUMBER '.' NUMBER  { $$ = new(DTS,
-                                new_const(O_CONST, (double) $1),
-                                new(',', new_const(O_CONST, (double) $3),
-                                new_const(O_CONST, (double) $5)));}
+                                new_const(O_CONST, (double)$1),
+                                new(',', new_const(O_CONST, (double)$3),
+                                new_const(O_CONST, (double)$5)));}
         | '@' K_TTS '(' e ',' e ',' e ')'
                                         { $$ = new(TTS, $4, new(',', $6, $8));}
         | '@' K_STON '(' e ')'          { $$ = new(STON, $4, ENULL); }
@@ -1156,7 +1156,7 @@ term:           var                     { $$ = new_var(O_VAR, $1); }
         |       '(' e ')'       { $$ = $2; }
         |       '+' term        { $$ = $2; }
         |       '-' term        { $$ = new('m', $2, ENULL); }
-        |       NUMBER          { $$ = new_const(O_CONST, (double) $1); }
+        |       NUMBER          { $$ = new_const(O_CONST, (double)$1); }
         |       FNUMBER         { $$ = new_const(O_CONST, $1); }
         | '@'   K_PI            { $$ = new(PI_, ENULL, ENULL); }
         |       STRING          { $$ = new_str($1); }
@@ -1225,7 +1225,7 @@ var_or_range:   range           { $$ = $1; }
         |       var             { $$.left = $1; $$.right = $1; }
         ;
 
-num:            NUMBER          { $$ = (double) $1; }
+num:            NUMBER          { $$ = (double)$1; }
         |       FNUMBER         { $$ = $1; }
         |       '-' num         { $$ = -$2; }
         |       '+' num         { $$ = $2; }
@@ -1366,16 +1366,16 @@ setitem :       K_AUTO                  { setauto(1); }
         ;
 
 /* types of errors, to 'goto' */
-errlist :       K_ERROR range           { num_search((double)0,
+errlist :       K_ERROR range           { num_search(0.0,
                                           $2.left.vp->row, $2.left.vp->col,
                                           $2.right.vp->row, $2.right.vp->col,
                                           CELLERROR); }
-        |       K_ERROR                 { num_search((double)0, 0, 0,
+        |       K_ERROR                 { num_search(0.0, 0, 0,
                                           maxrow, maxcol, CELLERROR); }
-        |       K_INVALID range         { num_search((double)0,
+        |       K_INVALID range         { num_search(0.0,
                                           $2.left.vp->row, $2.left.vp->col,
                                           $2.right.vp->row, $2.right.vp->col,
                                           CELLINVALID); }
-        |       K_INVALID               { num_search((double)0, 0, 0,
+        |       K_INVALID               { num_search(0.0, 0, 0,
                                           maxrow, maxcol, CELLINVALID); }
         ;

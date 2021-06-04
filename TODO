@@ -4,7 +4,7 @@
 * add emacs macro language
 * add emacs command completion
 * add 1-2-3 menus
-* convert help to markdown 
+* convert help to markdown
 * built-in hyperlinked help system
 * chain cells w/ equations into a linked list or dependency tree
 	-have a top level eval, eval and UPDATE all lower nodes
@@ -22,7 +22,7 @@
 * an option to go into a ^R like <mode>
 	++data entry fields (highlight entry cells)....
 	++only allow entry in these cells....
-* don't redraw the whole screen all the time 
+* don't redraw the whole screen all the time
 	(only cells that change, (in addition to what is in 'fixed #9'))
 	(Note: there was no #9 when I took this over, and I've renumbered
 	things since then, so I'm not sure what this is referring to - CRM)

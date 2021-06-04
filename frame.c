@@ -140,8 +140,8 @@ void add_frange(struct ent *or_left, struct ent *or_right, struct ent *ir_left,
 }
 
 void clean_frange(void) {
-    register struct frange *fr;
-    register struct frange *nextfr;
+    struct frange *fr;
+    struct frange *nextfr;
 
     fr = frame_base;
     frame_base = NULL;
@@ -184,8 +184,8 @@ void sync_franges(void)
 
 void write_franges(FILE *f)
 {
-    register struct frange *r;
-    register struct frange *nextr;
+    struct frange *r;
+    struct frange *nextr;
 
     for (r = nextr = frame_base; nextr; r = nextr, nextr = r->r_next)
         continue;
@@ -201,8 +201,8 @@ void write_franges(FILE *f)
 }
 
 void list_frames(FILE *f) {
-    register struct frange *r;
-    register struct frange *nextr;
+    struct frange *r;
+    struct frange *nextr;
 
     if (!are_frames()) {
         fprintf(f, "  No frames");

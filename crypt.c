@@ -22,7 +22,7 @@ char KeyWord[MAXKEYWORDSIZE] = { "" };
 
 void creadfile(const char *save, int eraseflg)
 {
-    register FILE *f;
+    FILE *f;
     int pipefd[2];
     int fildes;
     int pid;
@@ -60,7 +60,7 @@ void creadfile(const char *save, int eraseflg)
     } else {                            /* else parent */
         (void) close(fildes);
         (void) close(pipefd[1]);        /* close pipe output */
-        if ((f = fdopen(pipefd[0], "r")) == (FILE *)0) {
+        if ((f = fdopen(pipefd[0], "r")) == NULL) {
             (void) kill(pid, 9);
             error("Can't fdopen file \"%s\"", save);
             (void)close(pipefd[0]);
@@ -89,7 +89,7 @@ void creadfile(const char *save, int eraseflg)
 
 int cwritefile(char *fname, int r0, int c0, int rn, int cn)
 {
-    register FILE *f;
+    FILE *f;
     int pipefd[2];
     int fildes;
     int pid;

@@ -102,7 +102,7 @@ int main(int argc, char **argv)
 {
     int c;
     int i, j;
-    register char *p;
+    char *p;
 
     progname = argv[0];
     while ((c = getopt(argc, argv, "rfLks:R:C:n:d:SPv")) != EOF) {
@@ -303,9 +303,9 @@ int main(int argc, char **argv)
 }
 
 static int scan(void) {
-    register int c;
-    register char *p;
-    register int founddigit;
+    int c;
+    char *p;
+    int founddigit;
 
     p = token;
     c = getchar();

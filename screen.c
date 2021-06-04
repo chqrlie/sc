@@ -526,7 +526,7 @@ void update(int anychanged)          /* did any cell really change in value? */
                 else
                     color_set(1, NULL);
                 if (p) {
-                    if (colorneg && p->flags & IS_VALID && p->v < 0) {
+                    if (colorneg && (p->flags & IS_VALID) && p->v < 0) {
                         if (cr)
                             color_set(((cr->r_color) % CPAIRS) + 1, NULL);
                         else
@@ -616,7 +616,7 @@ void update(int anychanged)          /* did any cell really change in value? */
         for (col = rescol, i = (fleftcols && stcol >= fr->or_left->col ?
                 fr->or_left->col : stcol);
                 i <= mxcol; i++) {
-            register int k;
+            int k;
             if (fleftcols && stcol >= fr->or_left->col &&
                     col == rescol + flcols)
                 i = (stcol < i ? i : stcol);
@@ -766,8 +766,7 @@ void update(int anychanged)          /* did any cell really change in value? */
             if ((cr = find_crange(row, col)) && color && has_colors())
                 color_set(cr->r_color, NULL);
 
-            if (p && ((p->flags & IS_CHANGED || FullUpdate) ||
-                    do_stand)) {
+            if (p && ((p->flags & IS_CHANGED) || FullUpdate || do_stand)) {
                 if (do_stand) {
                     p->flags |= IS_CHANGED;
                 } else {
@@ -891,7 +890,7 @@ void update(int anychanged)          /* did any cell really change in value? */
 
                     if (p->label) {
                         showstring(p->label,
-                                   p->flags & (IS_LEFTFLUSH|IS_LABEL),
+                                   p->flags & (IS_LEFTFLUSH | IS_LABEL),
                                    p->flags & IS_VALID,
                                    row, col, &nextcol, mxcol, &fieldlen,
                                    r, c, fr, frightcols, flcols, frcols);
@@ -931,7 +930,7 @@ void update(int anychanged)          /* did any cell really change in value? */
             else
                 color_set(1, NULL);
             if (p) {
-                if (colorneg && p->flags & IS_VALID && p->v < 0) {
+                if (colorneg && (p->flags & IS_VALID) && p->v < 0) {
                     if (cr)
                         color_set(((cr->r_color) % CPAIRS) + 1, NULL);
                     else
@@ -976,7 +975,7 @@ void update(int anychanged)          /* did any cell really change in value? */
             move(lastmy, lastmx);
     } else {
         if (showtop) {                  /* show top line */
-            register struct ent *p1;
+            struct ent *p1;
             int printed = 0;            /* printed something? */
 
             (void) printw("%s%d ", coltoa(curcol), currow);
@@ -1043,7 +1042,7 @@ void update(int anychanged)          /* did any cell really change in value? */
             if (!printed)
                 (void) addstr("[]");
             /* Display if cell is locked */
-            if (p1 && p1->flags&IS_LOCKED)
+            if (p1 && (p1->flags & IS_LOCKED))
                 (void) addstr(" locked");
         }
         if (braille)

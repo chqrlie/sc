@@ -417,9 +417,9 @@ extern void *scxmalloc(size_t n);
 extern void *scxrealloc(void *ptr, size_t n);
 extern char *scxdup(const char *s);
 extern void scxfree(void *p);
-extern char *seval(register struct enode *se);
+extern char *seval(struct enode *se);
 extern char *v_name(int row, int col);
-extern double eval(register struct enode *e);
+extern double eval(struct enode *e);
 extern int any_locked_cells(int r1, int c1, int r2, int c2);
 extern int are_colors(void);
 extern int are_frames(void);
@@ -429,7 +429,7 @@ extern int creadfile(const char *save, int  eraseflg);
 extern int cwritefilec(const char *fname, int r0, int c0, int rn, int cn);
 extern bool engformat(int fmt, int width, int lprecision, double val,
                       char *buf, int buflen);
-extern int etype(register struct enode *e);
+extern int etype(struct enode *e);
 extern int find_range_name(const char *name, int len, struct range **rng);
 struct range *find_range_coords(struct ent *lmatch, struct ent *rmatch);
 extern bool format(char *fmt, int lprecision, double val, char *buf,
@@ -445,7 +445,7 @@ extern int writefile(const char *fname, int r0, int c0, int rn, int cn);
 extern int yn_ask(const char *msg);
 extern struct abbrev *find_abbr(const char *abbrev, int len, struct abbrev **prev);
 extern struct colorpair *cpairs[8];
-extern struct enode *copye(register struct enode *e, int Rdelta, int Cdelta,
+extern struct enode *copye(struct enode *e, int Rdelta, int Cdelta,
                            int r1, int c1, int r2, int c2, int transpose);
 extern struct enode *new(int op, struct enode *a1, struct enode *a2);
 extern struct enode *new_const(int op, double a1);
@@ -479,10 +479,10 @@ extern void closerow(int r, int numrow);
 extern void colshow_op(void);
 extern void copy(struct ent *dv1, struct ent *dv2, struct ent *v1,
                  struct ent *v2);
-extern void copyent(register struct ent *n, register struct ent *p,
+extern void copyent(struct ent *n, struct ent *p,
                     int dr, int dc, int r1, int c1, int r2, int c2, int transpose);
-extern void decompile(register struct enode *e, int priority);
-extern void deleterow(register int arg);
+extern void decompile(struct enode *e, int priority);
+extern void deleterow(int arg);
 extern void del_range(struct ent *left, struct ent *right);
 extern void del_abbr(const char *abbrev);
 extern void deraw(int ClearLastLine);
@@ -516,7 +516,7 @@ extern void formatcol(int arg);
 extern void format_cell(struct ent *v1, struct ent *v2, char *s);
 extern void forwcol(int arg);
 extern void forwrow(int arg);
-extern void free_ent(register struct ent *p, int unlock);
+extern void free_ent(struct ent *p, int unlock);
 extern void getexp(int r0, int c0, int rn, int cn, int fd);
 extern void getfmt(int r0, int c0, int rn, int cn, int fd);
 extern void getformat(int col, int fd);
@@ -537,7 +537,7 @@ extern void insert_mode(void);
 extern void insertcol(int arg, int delta);
 extern void insertrow(int arg, int delta);
 extern void kbd_again(void);
-extern void label(register struct ent *v, const char *s, int flushdir);
+extern void label(struct ent *v, const char *s, int flushdir);
 extern void let(struct ent *v, struct enode *e);
 extern void list_colors(FILE *f);
 extern void list_ranges(FILE *f);
@@ -582,11 +582,11 @@ extern void tblprintfile(char *fname, int r0, int c0, int rn, int cn);
 extern void unlock_cells(struct ent *v1, struct ent *v2);
 extern void update(int anychanged);
 extern void valueize_area(int sr, int sc, int er, int ec);
-extern void write_cells(register FILE *f, int r0, int c0, int rn, int cn,
+extern void write_cells(FILE *f, int r0, int c0, int rn, int cn,
                         int dr, int dc);
 extern void write_colors(FILE *f, int indent);
 extern void write_cranges(FILE *f);
-extern void write_fd(register FILE *f, int r0, int c0, int rn, int cn);
+extern void write_fd(FILE *f, int r0, int c0, int rn, int cn);
 extern void write_franges(FILE *f);
 extern void write_hist(void);
 extern void write_line(int c);

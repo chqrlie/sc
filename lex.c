@@ -115,8 +115,8 @@ yylex(void)
         isfunc = isgoto = 0;
         ret = -1;
     } else if (isalphachar_(*p)) {
-        register char *la;      /* lookahead pointer */
-        register struct key *tblp;
+        char *la;      /* lookahead pointer */
+        struct key *tblp;
 
         if (!tokenst) {
             tokenst = p;
@@ -221,7 +221,7 @@ yylex(void)
                 tokenst = p;
                 tokenl = 0;
                 do {
-                    v = v*10.0 + (double) ((unsigned) *p - '0');
+                    v = v * 10.0 + (double)((unsigned) *p - '0');
                     tokenl++;
                 } while (isdigitchar(*++p));
                 if (dateflag) {
@@ -272,7 +272,7 @@ yylex(void)
                     yylval.fval = v;
                 } else {
                     temp = (int)v;
-                    if((double)temp != v) {
+                    if ((double)temp != v) {
                         ret = FNUMBER;
                         yylval.fval = v;
                     } else {
@@ -355,7 +355,7 @@ plugin_exists(char *name, size_t len, char *path)
 
 int atocol(char *string, int len)
 {
-    register int col;
+    int col;
 
     col = toupperchar(string[0]) - 'A';
 
@@ -481,8 +481,8 @@ charout(int c) {
 void
 initkbd(void)
 {
-    register struct key_map *kp;
-    register i,j;
+    struct key_map *kp;
+    i,j;
     char *p = keyarea;
     char *ktmp;
     static char buf[1024]; /* Why do I have to do this again? */
@@ -519,7 +519,7 @@ initkbd(void)
         if (kp->k_str && (kp->k_str[1] == 0) && (kp->k_str[0] != kp->k_val))
             for (j = 0; dont_use[j] != 0; j++)
                 if (kp->k_str[0] == dont_use[j]) {
-                     kp->k_str = (char *)0;
+                     kp->k_str = NULL;
                      break;
                 }
     }
@@ -560,10 +560,10 @@ resetkbd(void)
 
 int
 nmgetch(void) {
-    register int c;
-    register struct key_map *kp;
-    register struct key_map *biggest;
-    register int i;
+    int c;
+    struct key_map *kp;
+    struct key_map *biggest;
+    int i;
     int almost;
     int maybe;
 
@@ -657,7 +657,7 @@ void resetkbd(void)
 }
 
 int nmgetch(void) {
-    register int c;
+    int c;
 
     c = getch();
     switch (c) {

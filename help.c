@@ -44,7 +44,7 @@ static const char * const intro[] = {
 " P:   Time and date functions",
 " ",
 " Q:   Return to main spreadsheet",
-(char *)0
+NULL
 };
 
 static const char * const toggleoptions[] = {
@@ -76,7 +76,7 @@ static const char * const toggleoptions[] = {
 "               after entry and move right after entry.",
 "          z    Set the newline action limits to the current row and column",
 "            (for r && z see also set rowlimit=n, collimit=n)",
-(char *)0
+NULL
 };
 
 static const char * const setoptions[] = {
@@ -102,7 +102,7 @@ static const char * const setoptions[] = {
 "          rowlimit=n    Set the remembered row limit for newline action.",
 "          collimit=n    Set the remembered column limit for newline action.",
 "                        (rowlimit and collimit can both be set by ^Tz)",
-(char *)0
+NULL
 };
 
 static const char * const cursor[] = {
@@ -134,7 +134,7 @@ static const char * const cursor[] = {
 "     g          Go to a cell.  Cell name, range name, quoted string,",
 "                a number, 'error', or 'invalid' to specify which cell.",
 "     ` '        Go to a marked cell (see help screen e for more info.",
-(char *)0
+NULL
 };
 
 static const char * const cell[] = {
@@ -168,7 +168,7 @@ static const char * const cell[] = {
 " ",
 "     In numeric mode, a decimal digit, ``+'', ``-'', and ``.'' all start",
 "     a new numeric constant or expression.",
-(char *)0
+NULL
 };
 
 static const char * const vi[] = {
@@ -204,7 +204,7 @@ static const char * const vi[] = {
 "     ^V           Enter navigate mode.  Another ^V enters current cell address.",
 "     ^W           Type, in the command line, the current cell's expression.",
 "     ^A           Type, in the command line, the current cell's numeric value.",
-(char *)0
+NULL
 };
 
 static const char * const file[] = {
@@ -236,7 +236,7 @@ static const char * const file[] = {
 "     a program for Put, Write and Table.  If a cell name is used",
 "     as the file name, the cell's string part will be used as the",
 "     file name.",
-(char *)0
+NULL
 };
 
 static const char * const row[] = {
@@ -269,7 +269,7 @@ static const char * const row[] = {
 " ",
 "     @myrow, @mycol        return the row or column of the current cell",
 "     @lastrow, @lastcol    return the row or column of the current cell",
-(char *)0
+NULL
 };
 
 static const char * const range[] = {
@@ -302,7 +302,7 @@ static const char * const range[] = {
 "     A range is specified by giving the cell names separated by ``:'',",
 "     such as ``a20:k52''.  Another way to refer to a range is to use",
 "     a name previously defined using ``rd''.",
-(char *)0
+NULL
 };
 
 static const char * const misc[] = {
@@ -329,7 +329,7 @@ static const char * const misc[] = {
 "     @        Recalculate the spreadsheet.",
 "     TAB      When the character cursor is on the top line TAB can be used",
 "              to start or stop the display of the default range.",
-(char *)0
+NULL
 };
 
 static const char * const var[] = {
@@ -361,7 +361,7 @@ static const char * const var[] = {
 "     e?e1:e2  or @if(e,e1,e2)",
 "             Conditional: If e is non zero then then e1, else e2.",
 "     Terms may be constants, variables, and parenthesized expressions.",
-(char *)0
+NULL
 };
 
 static const char * const rangef[] = {
@@ -393,7 +393,7 @@ static const char * const rangef[] = {
 "                       the value from the next column (row); @hlookup",
 "                       (@vlookup) searches the first row (column) in r and",
 "                       returns the value n columns (rows) from the match.",
-(char *)0
+NULL
 };
 
 static const char * const numericf[] = {
@@ -426,7 +426,7 @@ static const char * const numericf[] = {
 "     @dtr(e)  @rtd(e)           Convert degrees to/from radians.",
 "     @cos(e)  @sin(e)  @tan(e)  Trig functions of radian arguments.",
 "     @asin(e) @acos(e) @atan(e) Inverse trig function.",
-(char *)0
+NULL
 };
 
 static const char * const stringf[] = {
@@ -459,7 +459,7 @@ static const char * const stringf[] = {
 "     @capital(e)       Return the string with words in upper case",
 "     String expressions are made up of constant strings (characters",
 "     surrounded by quotes), variables, and string functions.",
-(char *)0
+NULL
 };
 
 static const char * const finf[] = {
@@ -491,7 +491,7 @@ static const char * const finf[] = {
 "                       interest.  It answers the question: ``How",
 "                       much can I borrow at 18% for 30 years if I",
 "                       pay $1000 per month?''",
-(char *)0
+NULL
 };
 
 static const char * const timef[] = {
@@ -525,7 +525,7 @@ static const char * const timef[] = {
 "                       last full hour: 0 to 59.",
 "     @second(e)        Return the number of seconds since the",
 "                       last full minute: 0 to 59.",
-(char *)0
+NULL
 };
 
 #ifndef QREF

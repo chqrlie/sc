@@ -64,7 +64,7 @@ static void stop_edit(void);
 static int  to_char(int arg, int n);
 static void u_save(int c);
 static void yank_cmd(int delete, int change);
-static void yank_chars(register int first, register int last, int delete);
+static void yank_chars(int first, int last, int delete);
 static int get_motion(int);
 int vigetch(void);
 #ifdef NCURSES_MOUSE_VERSION
@@ -442,7 +442,7 @@ void write_line(int c)
                                     struct ent *p = *ATBL(tbl, currow, curcol);
                                     char temp[100];
 
-                                    if (p && p->flags & IS_VALID) {
+                                    if (p && (p->flags & IS_VALID)) {
                                         snprintf(temp, sizeof temp, "%.*f",
                                                 precision[curcol], p->v);
                                         ins_string(temp);
@@ -544,7 +544,7 @@ void write_line(int c)
         case 'g':               dogoto();                               break;
         case 'n':               go_last();                              break;
         case 'w':               {
-                                register struct ent *p;
+                                struct ent *p;
 
                                 while (--arg>=0) {
                                     do {
@@ -569,7 +569,7 @@ void write_line(int c)
                                 break;
                                 }
         case 'b':               {
-                                register struct ent *p;
+                                struct ent *p;
 
                                 while (--arg>=0) {
                                     do {
@@ -911,7 +911,7 @@ static int for_line(int a, int stop_null)
 
 static int for_word(int a, int end_word, int big_word, int stop_null)
 {
-    register int c;
+    int c;
     ssize_t cpos;
 
     cpos = linelim;
@@ -962,8 +962,8 @@ static int back_line(int a)
 
 static int back_word(int a, int big_word)
 {
-    register int c;
-    register int cpos;
+    int c;
+    int cpos;
 
     cpos = linelim;
 
@@ -1008,7 +1008,7 @@ static int back_word(int a, int big_word)
  */
 static void del_in_line(int a, int back_null)
 {
-    register int len, i;
+    int len, i;
 
     if (linelim >= 0) {
         len = strlen(line);
@@ -1101,7 +1101,7 @@ void doabbrev(void) {
 }
 
 static void append_line(void) {
-    register int i;
+    int i;
 
     i = linelim;
     if (i >= 0 && line[i])
@@ -1141,7 +1141,7 @@ static void rep_char(void) {
 
 static void replace_in_line(int c)
 {
-    register int len;
+    int len;
 
     if (c < 256) {
         if (linelim < 0) {
@@ -1227,7 +1227,7 @@ static void yank_cmd(int delete, int change)
     yank_chars(cpos, linelim, delete);
 }
 
-static void yank_chars(register int first, register int last, int delete)
+static void yank_chars(int first, int last, int delete)
 {
     int temp;
 
@@ -1697,7 +1697,7 @@ static void last_col(void) {
 }
 
 static int find_char(int a, int n) {
-    register int i;
+    int i;
 
     if (findchar)
         finddir = n;
@@ -1725,7 +1725,7 @@ static int find_char(int a, int n) {
 
 static int to_char(int a, int n)
 {
-    register int i;
+    int i;
     int tmp = linelim;
 
     if (linelim + n >= 0 && (size_t)(linelim + n) < strlen(line))
@@ -1841,7 +1841,7 @@ void leftlimit(void) {
 }
 
 void rightlimit(void) {
-    register struct ent *p;
+    struct ent *p;
     struct frange *fr;
 
     remember(0);
@@ -1897,7 +1897,7 @@ void gototop(void) {
 }
 
 void gotobottom(void) {
-    register struct ent *p;
+    struct ent *p;
     struct frange *fr;
 
     remember(0);
