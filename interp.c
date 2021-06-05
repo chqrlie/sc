@@ -59,7 +59,7 @@ struct go_save gs;
 
 #define ISVALID(r,c)    ((r)>=0 && (r)<maxrows && (c)>=0 && (c)<maxcols)
 
-jmp_buf fpe_save;
+static jmp_buf fpe_save;
 int exprerr;        /* Set by eval() and seval() if expression errors */
 double prescale = 1.0; /* Prescale for constants in let() */
 int extfunc  = 0;   /* Enable/disable external functions */
@@ -72,22 +72,21 @@ extern bool decimal;    /* Set if there was a decimal point in the number */
 /* a linked list of free [struct enodes]'s, uses .e.o.left as the pointer */
 struct enode *freeenodes = NULL;
 
-double dolookup(struct enode * val, int minr, int minc, int maxr,
-                int maxc, int offr, int offc);
-double fn1_eval(double (*fn)(), double arg);
-double fn2_eval(double (*fn)(), double arg1, double arg2);
+static double dolookup(struct enode * val, int minr, int minc, int maxr,
+                       int maxc, int offr, int offc);
+static double fn1_eval(double (*fn)(double), double arg);
+static double fn2_eval(double (*fn)(double, double), double arg1, double arg2);
 static int RealEvalAll(void);
-int constant(struct enode *e);
-void RealEvalOne(struct ent *p, int i, int j, int *chgct);
-void copydbuf(int deltar, int deltac);
-void decompile(struct enode *e, int priority);
-void index_arg(const char *s, struct enode *e);
-void list_arg(const char *s, struct enode *e);
-void one_arg(const char *s, struct enode *e);
-void range_arg(const char *s, struct enode *e);
-void three_arg(const char *s, struct enode *e);
-void two_arg(const char *s, struct enode *e);
-void two_arg_index(const char *s, struct enode *e);
+static int constant(struct enode *e);
+static void RealEvalOne(struct ent *p, int i, int j, int *chgct);
+static void copydbuf(int deltar, int deltac);
+static void index_arg(const char *s, struct enode *e);
+static void list_arg(const char *s, struct enode *e);
+static void one_arg(const char *s, struct enode *e);
+static void range_arg(const char *s, struct enode *e);
+static void three_arg(const char *s, struct enode *e);
+static void two_arg(const char *s, struct enode *e);
+static void two_arg_index(const char *s, struct enode *e);
 static double finfunc(int, double, double, double);
 static char *dostindex(int, int, int, int, struct enode *);
 static double doindex(int, int, int, int, struct enode *);
@@ -112,21 +111,20 @@ static char *dodate(time_t, const char *);
 static char *dofmt(char *, double);
 static char *doext(struct enode *);
 static char *dosval(char *, double);
-static void decodev(struct ent_ptr);
 static char *docapital(char *);
 static char *docase(int, char *);
 static char *dosubstr(char *, int, int);
 
+#ifdef RINT
 double rint(double d);
-int cellerror = CELLOK;     /* is there an error in this cell */
-static void g_free(void);
-static
-#ifdef SIGVOID
-void
-#else
-int
 #endif
-eval_fpe(int);
+static int cellerror = CELLOK;     /* is there an error in this cell */
+static void g_free(void);
+#ifdef SIGVOID
+static void eval_fpe(int);
+#else
+static int eval_fpe(int);
+#endif
 
 #ifndef M_PI
 #define M_PI (double)3.14159265358979323846
@@ -142,26 +140,26 @@ static double finfunc(int fun, double v1, double v2, double v3)
 
     switch (fun) {
     case PV:
-        if (v2)
+        if (v2) {
             answer = v1 * (1 - 1 / p) / v2;
-        else {
+        } else {
             cellerror = CELLERROR;
             answer = 0.0;
         }
         break;
     case FV:
-        if (v2)
+        if (v2) {
             answer = v1 * (p - 1) / v2;
-        else {
+        } else {
             cellerror = CELLERROR;
             answer = 0.0;
         }
         break;
     case PMT:
         /* CHECK IF ~= 1 - 1/1 */
-        if (p && p != 1.0)
+        if (p && p != 1.0) {
             answer = v1 * v2 / (1 - 1 / p);
-        else {
+        } else {
             cellerror = CELLERROR;
             answer = 0.0;
         }
@@ -169,7 +167,8 @@ static double finfunc(int fun, double v1, double v2, double v3)
     default:
         error("Unknown function in finfunc");
         cellerror = CELLERROR;
-        return 0.0;
+        answer = 0.0;
+        break;
     }
     return answer;
 }
@@ -231,7 +230,7 @@ static double doindex(int minr, int minc, int maxr, int maxc, struct enode *val)
         return 0.0;
 }
 
-double dolookup(struct enode * val, int minr, int minc, int maxr, int maxc, int offset, int vflag)
+static double dolookup(struct enode * val, int minr, int minc, int maxr, int maxc, int offset, int vflag)
 {
     double v, ret = 0.0;
     int r, c;
@@ -516,10 +515,9 @@ static double domin(int minr, int minc, int maxr, int maxc, struct enode *e)
     return v;
 }
 
-int mdays[12] = { 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
-
 static double dodts(int e1, int e2, int e3)
 {
+    int mdays[12] = { 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
     int yr, mo, day;
     time_t secs;
     struct tm t;
@@ -536,13 +534,12 @@ static double dodts(int e1, int e2, int e3)
     mdays[1] = 28 + (yr % 4 == 0) - (yr % 100 == 0) + (yr % 400 == 0);
 
     t.tm_hour = t.tm_min = t.tm_sec = 0;
-    t.tm_mon = --mo;
+    t.tm_mon = mo - 1;
     t.tm_mday = day;
-    t.tm_year = yr -= 1900;
+    t.tm_year = yr - 1900;
     t.tm_isdst = -1;
 
-    if (mo < 0 || mo > 11 || day < 1 || day > mdays[mo] ||
-               (secs = mktime(&t)) == -1) {
+    if (mo < 1 || mo > 12 || day < 1 || day > mdays[mo - 1] || (secs = mktime(&t)) == -1) {
         error("@dts: invalid argument or date out of range");
         cellerror = CELLERROR;
         return 0.0;
@@ -955,13 +952,11 @@ double eval(struct enode *e)
     return 0.0;
 }
 
-static
 #ifdef SIGVOID
-void
+static void eval_fpe(int i) /* Trap for FPE errors in eval */
 #else
-int
+static int eval_fpe(int i) /* Trap for FPE errors in eval */
 #endif
-eval_fpe(int i) /* Trap for FPE errors in eval */
 {
     (void)i;
 #if defined(i386) && !defined(M_XENIX)
@@ -980,7 +975,7 @@ eval_fpe(int i) /* Trap for FPE errors in eval */
     longjmp(fpe_save, 1);
 }
 
-double fn1_eval(double (*fn)(), double a)
+static double fn1_eval(double (*fn)(double), double a)
 {
     double res;
     errno = 0;
@@ -990,7 +985,7 @@ double fn1_eval(double (*fn)(), double a)
     return res;
 }
 
-double fn2_eval(double (*fn)(), double arg1, double arg2)
+static double fn2_eval(double (*fn)(double, double), double arg1, double arg2)
 {
     double res;
     errno = 0;
@@ -1043,7 +1038,7 @@ static char *dofmt(char *fmtstr, double v)
         return NULL;
     // XXX: Achtung Minen! snprintf from user supplied format string
     // MUST validate format string for no or single arg of type double
-    snprintf(buff, FBUFLEN, fmtstr, v);
+    ((int (*)(char *, size_t, const char *, ...))snprintf)(buff, FBUFLEN, fmtstr, v);
     scxfree(fmtstr);
     return scxdup(buff);
 }
@@ -1060,7 +1055,7 @@ static char *dofmt(char *fmtstr, double v)
  */
 
 #if defined(VMS) || defined(MSDOS)
-char *doext(struct enode *se)
+static char *doext(struct enode *se)
 {
     char *command = seval(se->e.o.left);
     double value = eval(se->e.o.right);
@@ -1654,7 +1649,7 @@ void copy(struct ent *dv1, struct ent *dv2, struct ent *v1, struct ent *v2)
     error("Copy done.");
 }
 
-void copydbuf(int deltar, int deltac)
+static void copydbuf(int deltar, int deltac)
 {
     int vr, vc;
     struct ent *p = delbuf[dbidx];
@@ -2007,8 +2002,8 @@ void str_search(char *s, int firstrow, int firstcol, int lastrow, int lastcol,
             *line = '\0';
             if (p) {
                 if (p->cellerror) {
-                    snprintf(line, sizeof line, "%s", p->cellerror == CELLERROR ?
-                            "ERROR" : "INVALID");
+                    snprintf(line, sizeof line, "%s",
+                             p->cellerror == CELLERROR ? "ERROR" : "INVALID");
                 } else if (p->flags & IS_VALID) {
                     if (p->format) {
                         if (*(p->format) == ctl('d')) {
@@ -2030,7 +2025,6 @@ void str_search(char *s, int firstrow, int firstcol, int lastrow, int lastcol,
             if (p && p->expr) {
                 linelim = 0;
                 decompile(p->expr, 0);  /* set line to expr */
-                line[linelim] = '\0';
                 if (*line == '?')
                     *line = '\0';
             }
@@ -2039,34 +2033,36 @@ void str_search(char *s, int firstrow, int firstcol, int lastrow, int lastcol,
             if (gs.g_type == G_STR) {
                 if (p && p->label
 #if defined(REGCOMP)
-                        && (regexec(&preg, p->label, 0, NULL, 0) == 0))
+                        && (regexec(&preg, p->label, 0, NULL, 0) == 0)
 #else
 #if defined(RE_COMP)
-                        && (re_exec(p->label) != 0))
+                        && (re_exec(p->label) != 0)
 #else
 #if defined(REGCMP)
-                        && (regex(tmp, p->label) != NULL))
+                        && (regex(tmp, p->label) != NULL)
 #else
-                        && (strcmp(s, p->label) == 0))
+                        && (strcmp(s, p->label) == 0)
 #endif
 #endif
 #endif
+                    )
                     break;
             } else                      /* gs.g_type != G_STR */
             if (*line != '\0'
 #if defined(REGCOMP)
-                        && (regexec(&preg, line, 0, NULL, 0) == 0))
+                        && (regexec(&preg, line, 0, NULL, 0) == 0)
 #else
 #if defined(RE_COMP)
-                        && (re_exec(line) != 0))
+                        && (re_exec(line) != 0)
 #else
 #if defined(REGCMP)
-                        && (regex(tmp, line) != NULL))
+                        && (regex(tmp, line) != NULL)
 #else
-                        && (strcmp(s, line) == 0))
+                        && (strcmp(s, line) == 0)
 #endif
 #endif
 #endif
+                    )
                     break;
         }
         if (r == endr && c == endc) {
@@ -2435,7 +2431,7 @@ void clearent(struct ent *v)
 /*
  * Say if an expression is a constant (return 1) or not.
  */
-int constant(struct enode *e)
+static int constant(struct enode *e)
 {
     return (e == NULL
         ||  e->op == O_CONST
@@ -2504,25 +2500,6 @@ void label(struct ent *v, const char *s, int flushdir)
     }
 }
 
-static void decodev(struct ent_ptr v)
-{
-    struct range *r;
-
-    if (!v.vp || (v.vp->flags & IS_DELETED))
-        snprintf(line + linelim, sizeof(line) - linelim, "@ERR");
-    else
-    if ((r = find_range_coords(v.vp, v.vp)) != NULL && !r->r_is_range)
-        snprintf(line + linelim, sizeof(line) - linelim, "%s", r->r_name);
-    else {
-        snprintf(line + linelim, sizeof(line) - linelim, "%s%s%s%d",
-                 v.vf & FIX_COL ? "$" : "",
-                 coltoa(v.vp->col),
-                 v.vf & FIX_ROW ? "$" : "",
-                 v.vp->row);
-    }
-    linelim += strlen(line + linelim);
-}
-
 char *coltoa(int col)
 {
     static unsigned int bufn;
@@ -2539,6 +2516,35 @@ char *coltoa(int col)
     return rname;
 }
 
+static void out_word(const char *s) {
+    while ((line[linelim] = *s++))
+        linelim++;
+}
+
+static void out_char(int c) {
+    line[linelim++] = c;
+    line[linelim] = '\0';
+}
+
+static void out_var(struct ent_ptr v)
+{
+    struct range *r;
+
+    if (!v.vp || (v.vp->flags & IS_DELETED)) {
+        out_word("@ERR");
+    } else
+    if ((r = find_range_coords(v.vp, v.vp)) != NULL && !r->r_is_range) {
+        out_word(r->r_name);
+    } else {
+        snprintf(line + linelim, sizeof(line) - linelim, "%s%s%s%d",
+                 v.vf & FIX_COL ? "$" : "",
+                 coltoa(v.vp->col),
+                 v.vf & FIX_ROW ? "$" : "",
+                 v.vp->row);
+        linelim += strlen(line + linelim);
+    }
+}
+
 /*
  *      To make list elements come out in the same order
  *      they were entered, we must do a depth-first eval
@@ -2546,15 +2552,45 @@ char *coltoa(int col)
  */
 static void decompile_list(struct enode *p)
 {
-    if (!p) return;
-    decompile_list(p->e.o.left);    /* depth first */
-    decompile(p->e.o.right, 0);
-    line[linelim++] = ',';
+    if (p) {
+        if (p->e.o.left) {
+            decompile_list(p->e.o.left);    /* depth first */
+            out_char(',');
+        }
+        decompile(p->e.o.right, 0);
+    }
+}
+
+static void out_const(double v) {
+    snprintf(line + linelim, sizeof(line) - linelim, "%.15g", v);
+    linelim += strlen(line + linelim);
+}
+
+static void out_sconst(const char *s) {
+    // XXX: potentially incorrect for embedded `"`
+    snprintf(line + linelim, sizeof(line) - linelim, "\"%s\"", s);
+    linelim += strlen(line + linelim);
+}
+
+static void out_range(struct enode *e) {
+    struct range *r;
+
+    if ((r = find_range_coords(e->e.r.left.vp, e->e.r.right.vp)) != NULL && r->r_is_range) {
+        out_word(r->r_name);
+    } else {
+        out_var(e->e.r.left);
+        out_char(':');
+        out_var(e->e.r.right);
+    }
+}
+
+static void unary_arg(const char *s, struct enode *e) {
+    out_word(s);
+    decompile(e->e.o.left, 30);
 }
 
 void decompile(struct enode *e, int priority)
 {
-    const char *s;
     if (e) {
         int mypriority;
         switch (e->op) {
@@ -2569,35 +2605,16 @@ void decompile(struct enode *e, int priority)
         case '*': case '/': case '%': mypriority = 10; break;
         case '^': mypriority = 12; break;
         }
-        if (mypriority < priority) line[linelim++] = '(';
-        // XXX: possible buffer overflow?
+        if (mypriority < priority) out_char('(');
+
         switch (e->op) {
-        case 'f':       for (s = "@fixed "; (line[linelim++] = *s++); )
-                            continue;
-                        linelim--;
-                        decompile(e->e.o.left, 30);
-                        break;
-        case 'F':       for (s = "(@fixed)"; (line[linelim++] = *s++); )
-                            continue;
-                        linelim--;
-                        decompile(e->e.o.left, 30);
-                        break;
-        case 'm':       line[linelim++] = '-';
-                        decompile(e->e.o.left, 30);
-                        break;
-        case '!':       line[linelim++] = '!';
-                        decompile(e->e.o.left, 30);
-                        break;
-        case O_VAR:     decodev(e->e.v);
-                        break;
-        case O_CONST:   snprintf(line + linelim, sizeof(line) - linelim,
-                                 "%.15g", e->e.k);
-                        linelim += strlen(line+linelim);
-                        break;
-        case O_SCONST:  snprintf(line + linelim, sizeof(line) - linelim,
-                                 "\"%s\"", e->e.s);
-                        linelim += strlen(line+linelim);
-                        break;
+        case 'f':       unary_arg("@fixed ", e); break;
+        case 'F':       unary_arg("(@fixed)", e); break;
+        case 'm':       unary_arg("-", e); break;
+        case '!':       unary_arg("!", e); break;
+        case O_VAR:     out_var(e->e.v); break;
+        case O_CONST:   out_const(e->e.k); break;
+        case O_SCONST:  out_sconst(e->e.s); break;
 
         case SUM:       index_arg("@sum", e); break;
         case PROD:      index_arg("@prod", e); break;
@@ -2606,235 +2623,168 @@ void decompile(struct enode *e, int priority)
         case STDDEV:    index_arg("@stddev", e); break;
         case MAX:       index_arg("@max", e); break;
         case MIN:       index_arg("@min", e); break;
-        case REDUCE | 'R': range_arg("@rows(", e); break;
-        case REDUCE | 'C': range_arg("@cols(", e); break;
+        case REDUCE | 'R': range_arg("@rows", e); break;
+        case REDUCE | 'C': range_arg("@cols", e); break;
 
-        case ABS:       one_arg("@abs(", e); break;
-        case ACOS:      one_arg("@acos(", e); break;
-        case ASIN:      one_arg("@asin(", e); break;
-        case ATAN:      one_arg("@atan(", e); break;
-        case ATAN2:     two_arg("@atan2(", e); break;
-        case CEIL:      one_arg("@ceil(", e); break;
-        case COS:       one_arg("@cos(", e); break;
-        case EXP:       one_arg("@exp(", e); break;
-        case FABS:      one_arg("@fabs(", e); break;
-        case FLOOR:     one_arg("@floor(", e); break;
-        case HYPOT:     two_arg("@hypot(", e); break;
-        case LOG:       one_arg("@ln(", e); break;
-        case LOG10:     one_arg("@log(", e); break;
-        case POW:       two_arg("@pow(", e); break;
-        case SIN:       one_arg("@sin(", e); break;
-        case SQRT:      one_arg("@sqrt(", e); break;
-        case TAN:       one_arg("@tan(", e); break;
-        case DTR:       one_arg("@dtr(", e); break;
-        case RTD:       one_arg("@rtd(", e); break;
-        case RND:       one_arg("@rnd(", e); break;
-        case ROUND:     two_arg("@round(", e); break;
-        case HOUR:      one_arg("@hour(", e); break;
-        case MINUTE:    one_arg("@minute(", e); break;
-        case SECOND:    one_arg("@second(", e); break;
-        case MONTH:     one_arg("@month(", e); break;
-        case DAY:       one_arg("@day(", e); break;
-        case YEAR:      one_arg("@year(", e); break;
-        case NOW:       for (s = "@now"; (line[linelim++] = *s++); )
-                            continue;
-                        linelim--;
-                        break;
+        case ABS:       one_arg("@abs", e); break;
+        case ACOS:      one_arg("@acos", e); break;
+        case ASIN:      one_arg("@asin", e); break;
+        case ATAN:      one_arg("@atan", e); break;
+        case ATAN2:     two_arg("@atan2", e); break;
+        case CEIL:      one_arg("@ceil", e); break;
+        case COS:       one_arg("@cos", e); break;
+        case EXP:       one_arg("@exp", e); break;
+        case FABS:      one_arg("@fabs", e); break;
+        case FLOOR:     one_arg("@floor", e); break;
+        case HYPOT:     two_arg("@hypot", e); break;
+        case LOG:       one_arg("@ln", e); break;
+        case LOG10:     one_arg("@log", e); break;
+        case POW:       two_arg("@pow", e); break;
+        case SIN:       one_arg("@sin", e); break;
+        case SQRT:      one_arg("@sqrt", e); break;
+        case TAN:       one_arg("@tan", e); break;
+        case DTR:       one_arg("@dtr", e); break;
+        case RTD:       one_arg("@rtd", e); break;
+        case RND:       one_arg("@rnd", e); break;
+        case ROUND:     two_arg("@round", e); break;
+        case HOUR:      one_arg("@hour", e); break;
+        case MINUTE:    one_arg("@minute", e); break;
+        case SECOND:    one_arg("@second", e); break;
+        case MONTH:     one_arg("@month", e); break;
+        case DAY:       one_arg("@day", e); break;
+        case YEAR:      one_arg("@year", e); break;
+        case NOW:       out_word("@now"); break;
         case DATE:      if (e->e.o.right)
-                            two_arg("@date(", e);
+                            two_arg("@date", e);
                         else
-                            one_arg("@date(", e);
+                            one_arg("@date", e);
                         break;
-        case FMT:       two_arg("@fmt(", e); break;
-        case UPPER:     one_arg("@upper(", e); break;
-        case LOWER:     one_arg("@lower(", e); break;
-        case CAPITAL:   one_arg("@capital(", e); break;
-        case DTS:       three_arg("@dts(", e); break;
-        case TTS:       three_arg("@tts(", e); break;
-        case STON:      one_arg("@ston(", e); break;
-        case EQS:       two_arg("@eqs(", e); break;
-        case LMAX:      list_arg("@max(", e); break;
-        case LMIN:      list_arg("@min(", e); break;
-        case FV:        three_arg("@fv(", e); break;
-        case PV:        three_arg("@pv(", e); break;
-        case PMT:       three_arg("@pmt(", e); break;
-        case NVAL:      two_arg("@nval(", e); break;
-        case SVAL:      two_arg("@sval(", e); break;
-        case EXT:       two_arg("@ext(", e); break;
-        case SUBSTR:    three_arg("@substr(", e); break;
+        case FMT:       two_arg("@fmt", e); break;
+        case UPPER:     one_arg("@upper", e); break;
+        case LOWER:     one_arg("@lower", e); break;
+        case CAPITAL:   one_arg("@capital", e); break;
+        case DTS:       three_arg("@dts", e); break;
+        case TTS:       three_arg("@tts", e); break;
+        case STON:      one_arg("@ston", e); break;
+        case EQS:       two_arg("@eqs", e); break;
+        case LMAX:      list_arg("@max", e); break;
+        case LMIN:      list_arg("@min", e); break;
+        case FV:        three_arg("@fv", e); break;
+        case PV:        three_arg("@pv", e); break;
+        case PMT:       three_arg("@pmt", e); break;
+        case NVAL:      two_arg("@nval", e); break;
+        case SVAL:      two_arg("@sval", e); break;
+        case EXT:       two_arg("@ext", e); break;
+        case SUBSTR:    three_arg("@substr", e); break;
         case STINDEX:   index_arg("@stindex", e); break;
         case INDEX:     index_arg("@index", e); break;
         case LOOKUP:    index_arg("@lookup", e); break;
         case HLOOKUP:   two_arg_index("@hlookup", e); break;
         case VLOOKUP:   two_arg_index("@vlookup", e); break;
-        case IF:        three_arg("@if(", e); break;
-        case MYROW:     for (s = "@myrow"; (line[linelim++] = *s++); )
-                            continue;
-                        linelim--;
-                        break;
-        case MYCOL:     for (s = "@mycol"; (line[linelim++] = *s++); )
-                            continue;
-                        linelim--;
-                        break;
-        case LASTROW:   for (s = "@lastrow"; (line[linelim++] = *s++); )
-                            continue;
-                        linelim--;
-                        break;
-        case LASTCOL:   for (s = "@lastcol"; (line[linelim++] = *s++); )
-                            continue;
-                        linelim--;
-                        break;
-        case COLTOA:    one_arg("@coltoa(", e); break;
-        case FILENAME:  one_arg("@filename(", e); break;
-        case NUMITER:   for (s = "@numiter"; (line[linelim++] = *s++); )
-                            continue;
-                        linelim--;
-                        break;
-        case ERR_:      for (s = "@err"; (line[linelim++] = *s++); )
-                            continue;
-                        linelim--;
-                        break;
-        case PI_:       for (s = "@pi"; (line[linelim++] = *s++); )
-                            continue;
-                        linelim--;
-                        break;
-        case BLACK:     for (s = "@black"; (line[linelim++] = *s++); )
-                            continue;
-                        linelim--;
-                        break;
-        case RED:       for (s = "@red"; (line[linelim++] = *s++); )
-                            continue;
-                        linelim--;
-                        break;
-        case GREEN:     for (s = "@green"; (line[linelim++] = *s++); )
-                            continue;
-                        linelim--;
-                        break;
-        case YELLOW:    for (s = "@yellow"; (line[linelim++] = *s++); )
-                            continue;
-                        linelim--;
-                        break;
-        case BLUE:      for (s = "@blue"; (line[linelim++] = *s++); )
-                            continue;
-                        linelim--;
-                        break;
-        case MAGENTA:   for (s = "@magenta"; (line[linelim++] = *s++); )
-                            continue;
-                        linelim--;
-                        break;
-        case CYAN:      for (s = "@cyan"; (line[linelim++] = *s++); )
-                            continue;
-                        linelim--;
-                        break;
-        case WHITE:     for (s = "@white"; (line[linelim++] = *s++); )
-                            continue;
-                        linelim--;
-                        break;
+        case IF:        three_arg("@if", e); break;
+        case MYROW:     out_word("@myrow"); break;
+        case MYCOL:     out_word("@mycol"); break;
+        case LASTROW:   out_word("@lastrow"); break;
+        case LASTCOL:   out_word("@lastcol"); break;
+        case COLTOA:    one_arg("@coltoa", e); break;
+        case FILENAME:  one_arg("@filename", e); break;
+        case NUMITER:   out_word("@numiter"); break;
+        case ERR_:      out_word("@err"); break;
+        case PI_:       out_word("@pi"); break;
+        case BLACK:     out_word("@black"); break;
+        case RED:       out_word("@red"); break;
+        case GREEN:     out_word("@green"); break;
+        case YELLOW:    out_word("@yellow"); break;
+        case BLUE:      out_word("@blue"); break;
+        case MAGENTA:   out_word("@magenta"); break;
+        case CYAN:      out_word("@cyan"); break;
+        case WHITE:     out_word("@white"); break;
         default:        decompile(e->e.o.left, mypriority);
-                        line[linelim++] = e->op;
-                        decompile(e->e.o.right, mypriority+1);
+                        out_char(e->op);
+                        decompile(e->e.o.right, mypriority + 1);
                         break;
         }
-        if (mypriority < priority)
-            line[linelim++] = ')';
+        if (mypriority < priority) out_char(')');
     } else {
-        line[linelim++] = '?';
+        out_char('?');
     }
 }
 
-void index_arg(const char *s, struct enode *e)
+static void index_arg(const char *s, struct enode *e)
 {
     if (e->e.o.right && e->e.o.right->op == ',') {
         two_arg_index(s, e);
         return;
     }
-    for (; (line[linelim++] = *s++); )
-        continue;
-    linelim--;
-    range_arg("(", e->e.o.left);
-    linelim--;
+    out_word(s);
+    out_char('(');
+    out_range(e->e.o.left);
     if (e->e.o.right) {
-        line[linelim++] = ',';
+        out_char(',');
         decompile(e->e.o.right, 0);
     }
-    line[linelim++] = ')';
+    out_char(')');
 }
 
-void two_arg_index(const char *s, struct enode *e)
+static void two_arg_index(const char *s, struct enode *e)
 {
-    for (; (line[linelim++] = *s++); )
-        continue;
-    linelim--;
-    range_arg("(", e->e.o.left);
-    linelim--;
-    line[linelim++] = ',';
+    out_word(s);
+    out_char('(');
+    out_range(e->e.o.left);
+    out_char(',');
     decompile(e->e.o.right->e.o.left, 0);
-    line[linelim++] = ',';
+    out_char(',');
     decompile(e->e.o.right->e.o.right, 0);
-    line[linelim++] = ')';
+    out_char(')');
 }
 
-void list_arg(const char *s, struct enode *e)
+static void list_arg(const char *s, struct enode *e)
 {
-    for (; (line[linelim++] = *s++); )
-        continue;
-    linelim--;
-
+    out_word(s);
+    out_char('(');
     decompile(e->e.o.right, 0);
-    line[linelim++] = ',';
+    out_char(',');
     decompile_list(e->e.o.left);
-    line[linelim - 1] = ')';
+    out_char(')');
 }
 
-void one_arg(const char *s, struct enode *e)
+static void one_arg(const char *s, struct enode *e)
 {
-    for (; (line[linelim++] = *s++); )
-        continue;
-    linelim--;
+    out_word(s);
+    out_char('(');
     decompile(e->e.o.left, 0);
-    line[linelim++] = ')';
+    out_char(')');
 }
 
-void two_arg(const char *s, struct enode *e)
+static void two_arg(const char *s, struct enode *e)
 {
-    for (; (line[linelim++] = *s++); )
-        continue;
-    linelim--;
+    out_word(s);
+    out_char('(');
     decompile(e->e.o.left, 0);
-    line[linelim++] = ',';
-    decompile (e->e.o.right, 0);
-    line[linelim++] = ')';
+    // XXX: should test e->e.o.right
+    out_char(',');
+    decompile(e->e.o.right, 0);
+    out_char(')');
 }
 
-void three_arg(const char *s, struct enode *e)
+static void three_arg(const char *s, struct enode *e)
 {
-    for (; (line[linelim++] = *s++); )
-        continue;
-    linelim--;
+    out_word(s);
+    out_char('(');
     decompile(e->e.o.left, 0);
-    line[linelim++] = ',';
+    out_char(',');
     decompile(e->e.o.right->e.o.left, 0);
-    line[linelim++] = ',';
-    decompile (e->e.o.right->e.o.right, 0);
-    line[linelim++] = ')';
+    out_char(',');
+    decompile(e->e.o.right->e.o.right, 0);
+    out_char(')');
 }
 
-void range_arg(const char *s, struct enode *e)
+static void range_arg(const char *s, struct enode *e)
 {
-    struct range *r;
-
-    for (; (line[linelim++] = *s++); )
-        continue;
-    linelim--;
-    if ((r = find_range_coords(e->e.r.left.vp, e->e.r.right.vp)) != NULL && r->r_is_range) {
-        snprintf(line + linelim, sizeof(line) - linelim, "%s", r->r_name);
-        linelim += strlen(line + linelim);
-    } else {
-        decodev(e->e.r.left);
-        line[linelim++] = ':';
-        decodev(e->e.r.right);
-    }
-    line[linelim++] = ')';
+    out_word(s);
+    out_char('(');
+    out_range(e);
+    out_char(')');
 }
 
 void editfmt(int row, int col)
@@ -2850,49 +2800,43 @@ void editfmt(int row, int col)
 
 void editv(int row, int col)
 {
-    struct ent *p;
+    struct ent *p = lookat(row, col);
 
-    p = lookat(row, col);
     snprintf(line, sizeof line, "let %s = ", v_name(row, col));
     linelim = strlen(line);
     if (p->flags & IS_VALID) {
         if ((p->flags & IS_STREXPR) || p->expr == NULL) {
-            snprintf(line + linelim, sizeof(line) - linelim,
-                     "%.15g", p->v);
-            linelim = strlen(line);
-        } else
+            snprintf(line + linelim, sizeof(line) - linelim, "%.15g", p->v);
+            linelim += strlen(line + linelim);
+        } else {
             editexp(row, col);
+        }
     }
 }
 
 void editexp(int row, int col)
 {
-    struct ent *p;
+    struct ent *p = lookat(row, col);
 
-    p = lookat(row, col);
     decompile(p->expr, 0);
-    line[linelim] = '\0';
 }
 
 void edits(int row, int col)
 {
-    struct ent *p;
+    struct ent *p = lookat(row, col);
 
-    p = lookat(row, col);
-    if (p->flags & IS_LABEL) {
-        snprintf(line, sizeof line, "label %s = ", v_name(row, col));
-    } else {
-        snprintf(line, sizeof line, "%sstring %s = ",
-                ((p->flags & IS_LEFTFLUSH) ? "left" : "right"),
-                 v_name(row, col));
-    }
+    snprintf(line, sizeof line, "%s %s = ",
+             (p->flags & IS_LABEL) ? "label" :
+             (p->flags & IS_LEFTFLUSH) ? "leftstring" : "rightstring",
+             v_name(row, col));
     linelim = strlen(line);
     if ((p->flags & IS_STREXPR) && p->expr) {
         editexp(row, col);
     } else if (p->label) {
         snprintf(line + linelim, sizeof(line) - linelim, "\"%s\"", p->label);
-        linelim += strlen(line+linelim);
+        linelim += strlen(line + linelim);
     } else {
+        /* output a single `"` for the user to start entering the string */
         snprintf(line + linelim, sizeof(line) - linelim, "\"");
         linelim += 1;
     }
