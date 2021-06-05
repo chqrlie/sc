@@ -317,7 +317,11 @@ YTAB=y.tab
 #LDADD=-lm -lpdcurses
 
 #########################################
-CFLAGS += -Wall -Wextra -Werror -Wchar-subscripts -Wwrite-strings -Wredundant-decls -Wmissing-declarations
+CFLAGS += -Wall -Wextra -Werror -Wwrite-strings -Wchar-subscripts
+CFLAGS += -Wredundant-decls -Wmissing-declarations -Wundef -Wsign-compare
+CFLAGS += -Wunused -Wno-unused-parameter -Wuninitialized
+CFLAGS += -Wformat-nonliteral -Wmissing-format-attribute -Wstrict-prototypes
+CFLAGS += -Wnested-externs -Wdeclaration-after-statement
 _CFLAGS= $(CFLAGS) $(INCDIR_CURSES) $(DEFINES) $(__CDBG) $(__CLDBG) \
 	#-DTRACE='"/tmp/trace.txt"'
 _LDFLAGS=$(LDFLAGS) $(__CLDBG) -s

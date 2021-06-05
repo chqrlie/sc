@@ -20,6 +20,13 @@
 
 #include "config.h"
 
+#if (defined(__GNUC__) || defined(__TINYC__))
+/* make sure that the keyword is not disabled by glibc (TINYC case) */
+#define sc__attr_printf(a, b)  __attribute__((format(printf, a, b)))
+#else
+#define sc__attr_printf(a, b)
+#endif
+
 #define CLEAR_LINE error("%s", "") /* suppress warning on NetBSD curses */
 #define ATBL(tbl, row, col)     (&tbl[row][col])
 
@@ -48,7 +55,7 @@
 #define COLFORMATS       10     /* Number of custom column formats */
 #define DELBUFSIZE       40     /* Number of named buffers + 4 */
 
-extern void error(const char *fmt, ...);
+extern void error(const char *fmt, ...) sc__attr_printf(1,2);
 extern void fatal(const char *str);
 
 #define FBUFLEN 1024    /* buffer size for a single field */
@@ -667,21 +674,16 @@ void repaint(int, int, int, int, int);
 void update(int);
 void doshell(void);
 #ifdef SIGVOID
-void doquit(int);
-void time_out(int);
-void dump_me(int);
-void nopipe(int);
-# ifdef SIGWINCH
-void winchg(int);
-# endif
+#define sigret_t void
 #else
-int doquit(int);
-int time_out(int);
-int dump_me(int);
-int nopipe(int);
-# ifdef SIGWINCH
-int winchg(int);
-# endif
+#define sigret_t int
+#endif
+sigret_t doquit(int);
+sigret_t time_out(int);
+sigret_t dump_me(int);
+sigret_t nopipe(int);
+#ifdef SIGWINCH
+sigret_t winchg(int);
 #endif
 void gohome(void);
 void leftlimit(void);
@@ -691,7 +693,7 @@ void gotobottom(void);
 void mouseon(void);
 void mouseoff(void);
 
-#if BSD42 || SYSIII
+#if defined BSD42 || defined SYSIII
 
 #ifndef cbreak
 #define cbreak          crmode

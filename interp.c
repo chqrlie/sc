@@ -120,11 +120,7 @@ double rint(double d);
 #endif
 static int cellerror = CELLOK;     /* is there an error in this cell */
 static void g_free(void);
-#ifdef SIGVOID
-static void eval_fpe(int);
-#else
-static int eval_fpe(int);
-#endif
+static sigret_t eval_fpe(int);
 
 #ifndef M_PI
 #define M_PI (double)3.14159265358979323846
@@ -952,11 +948,7 @@ double eval(struct enode *e)
     return 0.0;
 }
 
-#ifdef SIGVOID
-static void eval_fpe(int i) /* Trap for FPE errors in eval */
-#else
-static int eval_fpe(int i) /* Trap for FPE errors in eval */
-#endif
+static sigret_t eval_fpe(int i) /* Trap for FPE errors in eval */
 {
     (void)i;
 #if defined(i386) && !defined(M_XENIX)
@@ -1038,6 +1030,7 @@ static char *dofmt(char *fmtstr, double v)
         return NULL;
     // XXX: Achtung Minen! snprintf from user supplied format string
     // MUST validate format string for no or single arg of type double
+    // Prevent warning: format string is not a string literal [-Werror,-Wformat-nonliteral]
     ((int (*)(char *, size_t, const char *, ...))snprintf)(buff, FBUFLEN, fmtstr, v);
     scxfree(fmtstr);
     return scxdup(buff);
@@ -1933,7 +1926,9 @@ void str_search(char *s, int firstrow, int firstcol, int lastrow, int lastcol,
     struct ent *p;
     int r, c;
     int endr, endc;
-    char *tmp;
+#if defined(RE_COMP) || defined(REGCMP)
+    char *tmp = NULL;
+#endif
 #if defined(REGCOMP)
     regex_t preg;
     int errcode;
@@ -1944,18 +1939,17 @@ void str_search(char *s, int firstrow, int firstcol, int lastrow, int lastcol,
 
 #if defined(REGCOMP)
     if ((errcode = regcomp(&preg, s, REG_EXTENDED))) {
+        char buf[160];
         scxfree(s);
-        tmp = scxmalloc(160);
-        regerror(errcode, &preg, tmp, sizeof(tmp));
-        error(tmp);
-        scxfree(tmp);
+        regerror(errcode, &preg, buf, sizeof(buf));
+        error("%s", buf);
         return;
     }
 #endif
 #if defined(RE_COMP)
     if ((tmp = re_comp(s)) != NULL) {
         scxfree(s);
-        error(tmp);
+        error("%s", tmp);
         return;
     }
 #endif
@@ -2517,13 +2511,15 @@ char *coltoa(int col)
 }
 
 static void out_word(const char *s) {
-    while ((line[linelim] = *s++))
+    while (((size_t)linelim < sizeof(line) - 1) && (line[linelim] = *s++))
         linelim++;
 }
 
 static void out_char(int c) {
-    line[linelim++] = c;
-    line[linelim] = '\0';
+    if ((size_t)linelim < sizeof(line) - 1) {
+        line[linelim++] = c;
+        line[linelim] = '\0';
+    }
 }
 
 static void out_var(struct ent_ptr v)
@@ -2793,7 +2789,7 @@ void editfmt(int row, int col)
 
     p = lookat(row, col);
     if (p->format) {
-        snprintf(line, sizeof line,  "fmt %s \"%s\"", v_name(row, col), p->format);
+        snprintf(line, sizeof line, "fmt %s \"%s\"", v_name(row, col), p->format);
         linelim = strlen(line);
     }
 }
@@ -2833,6 +2829,7 @@ void edits(int row, int col)
     if ((p->flags & IS_STREXPR) && p->expr) {
         editexp(row, col);
     } else if (p->label) {
+        // XXX: incorrect if p->label contains embedded `"`
         snprintf(line + linelim, sizeof(line) - linelim, "\"%s\"", p->label);
         linelim += strlen(line + linelim);
     } else {

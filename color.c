@@ -236,7 +236,6 @@ void write_colors(FILE *f, int indent)
             snprintf(line, sizeof line, "color %d = ", i + 1);
             linelim = strlen(line);
             decompile(cpairs[i]->expr, 0);
-            line[linelim] = '\0';
             fprintf(f, "%*s%s\n", indent, "", line);
             if (brokenpipe) return;
             c++;

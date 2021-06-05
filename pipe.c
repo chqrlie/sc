@@ -118,7 +118,6 @@ void getexp(int r0, int c0, int rn, int cn, int fd)
             if (p && p->expr) {
                 linelim = 0;
                 decompile(p->expr, 0);  /* set line to expr */
-                line[linelim] = '\0';
                 if (*line == '?')
                     *line = '\0';
             }

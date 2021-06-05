@@ -188,17 +188,13 @@ yylex(void)
                     ret = PLUGIN;
                 } else {
                     scxfree(path);
-                    linelim = p-line;
+                    linelim = p - line;
                     yyerror("Unintelligible word");
                 }
             }
         }
     } else if ((*p == '.') || isdigitchar(*p)) {
-#ifdef SIGVOID
-        void (*sig_save)();
-#else
-        int (*sig_save)();
-#endif
+        sigret_t (*sig_save)(int);
         double v = 0.0;
         int temp;
         char *nstart = p;
@@ -297,11 +293,11 @@ yylex(void)
             p++;
         if (*p)
             p++;
-        linelim = p-line;
+        linelim = p - line;
         tokenst = NULL;
         return yylex();
     } else ret = *p++;
-    linelim = p-line;
+    linelim = p - line;
     if (!isfunc) isfunc = ((ret == '@') + (ret == S_GOTO) - (ret == S_SET));
     if (ret == S_GOTO) isgoto = TRUE;
     tokenst = NULL;
@@ -524,7 +520,7 @@ void initkbd(void)
         new_chars.t_lnextc = -1;
     if (old_chars.t_rprntc == ctl('r'))
         new_chars.t_rprntc = -1;
-    (void)ioctl(fileno(stdin), TIOCSLTC, (char *)&new_chars);
+    ioctl(fileno(stdin), TIOCSLTC, (char *)&new_chars);
 #  endif
 }
 
@@ -535,7 +531,7 @@ kbd_again(void)
         tputs(ks, 1, charout);
 
 #  ifdef TIOCSLTC
-    (void)ioctl(fileno(stdin), TIOCSLTC, (char *)&new_chars);
+    ioctl(fileno(stdin), TIOCSLTC, (char *)&new_chars);
 #  endif
 }
 
@@ -546,12 +542,11 @@ resetkbd(void)
         tputs(ke, 1, charout);
 
 #  ifdef TIOCSLTC
-    (void)ioctl(fileno(stdin), TIOCSLTC, (char *)&old_chars);
+    ioctl(fileno(stdin), TIOCSLTC, (char *)&old_chars);
 #  endif
 }
 
-int
-nmgetch(void) {
+int nmgetch(void) {
     int c;
     struct key_map *kp;
     struct key_map *biggest;
@@ -561,12 +556,6 @@ nmgetch(void) {
 
     static char dumpbuf[10];
     static char *dumpindex;
-
-#  ifdef SIGVOID
-    void time_out(int);
-#  else
-    int time_out(int);
-#  endif
 
     if (dumpindex && *dumpindex)
         return *dumpindex++;
@@ -689,13 +678,7 @@ int nmgetch(void) {
 
 #endif /* SIMPLE */
 
-#ifdef SIGVOID
-void
-#else
-int
-#endif
-time_out(int signo)
-{
+sigret_t time_out(int signo) {
     (void)signo;
     longjmp(wakeup, 1);
 }

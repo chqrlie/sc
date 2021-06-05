@@ -583,10 +583,10 @@ int main(int argc, char **argv)
          * some BSD systems are reportedly broken as well
          */
         /* if ((c < ' ') || (c == DEL))   how about international here ? PB */
-#if     pyr
+#if defined pyr
          if (iscntrl(c) || (c >= 011 && c <= 015))    /* iscntrl broken in OSx4.1 */
 #else
-            if ((isascii(c) && (iscntrl(c) || (c == 020))) ||   /* iscntrl broken in OSx4.1 */
+         if ((isascii(c) && (iscntrl(c) || (c == 020))) ||   /* iscntrl broken in OSx4.1 */
                         c == KEY_END || c == KEY_BACKSPACE)
 #endif
             switch (c) {
@@ -967,7 +967,7 @@ int main(int argc, char **argv)
                         strlcpy(temp, line, templen);
                         templim = linelim;
                         linelim = 0;            /* reset line to empty  */
-                        editexp(currow,curcol);
+                        editexp(currow, curcol);
                         strlcpy(temp1, line, templen);
                         strlcpy(line, temp, sizeof line);
                         linelim = templim;
@@ -1677,9 +1677,8 @@ int main(int argc, char **argv)
                     CLEAR_LINE;
                     snprintf(line, sizeof line, "color %d = ", c);
                     linelim = strlen(line);
-                    if (cpairs[c-1] && cpairs[c-1]->expr) {
-                        decompile(cpairs[c-1]->expr, 0);
-                        line[linelim] = '\0';
+                    if (cpairs[c - 1] && cpairs[c - 1]->expr) {
+                        decompile(cpairs[c - 1]->expr, 0);
                         edit_mode();
                     } else {
                         insert_mode();
@@ -1700,9 +1699,9 @@ int main(int argc, char **argv)
                 case 'P':
                     snprintf(line, sizeof line, "put [\"dest\" range] \"");
 
-/* See the comments under "case 'W':" below for an explanation of the
- * logic here.
- */
+                    /* See the comments under "case 'W':" below for an
+                     * explanation of the logic here.
+                     */
                     curfile[strlen(curfile) + 1] = '\0';
                     if (strrchr(curfile, '.') != NULL) {
                         size_t l;
@@ -1718,13 +1717,13 @@ int main(int argc, char **argv)
                         }
                     }
                     if (*curfile) {
-                        error("Default path is \"%s.%s\"", curfile,
-                              scext == NULL ? "sc" : scext);
+                        error("Default path is \"%s.%s\"",
+                              curfile, scext == NULL ? "sc" : scext);
                     }
-                    c = *(curfile + strlen(curfile) +
-                          strlen(curfile + strlen(curfile) + 1));
+                    c = *(curfile + strlen(curfile) + strlen(curfile + strlen(curfile) + 1));
                     *(curfile + strlen(curfile) +
                             strlen(curfile + strlen(curfile) + 1)) = '\0';
+                    // XXX: curfile no longer null terminated?
                     curfile[strlen(curfile)] = c;
                     linelim = strlen(line);
                     insert_mode();
@@ -1765,14 +1764,14 @@ int main(int argc, char **argv)
                 case 'W':
                     snprintf(line, sizeof line, "write [\"dest\" range] \"");
 
-/* First, append an extra null byte to curfile.  Then, if curfile ends in
- * ".sc" (or '.' followed by the string in scext), move the '.' to the
- * end and replace it with a null byte.  This results in two consecutive
- * null-terminated strings, the first being curfile with the ".sc" (or '.'
- * and scext) removed, if present, and the second being either "sc." (or
- * scext and '.') or "", depending on whether the ".sc" (or '.' and scext)
- * was present or not.
- */
+                    /* First, append an extra null byte to curfile.  Then, if curfile ends in
+                     * ".sc" (or '.' followed by the string in scext), move the '.' to the
+                     * end and replace it with a null byte.  This results in two consecutive
+                     * null-terminated strings, the first being curfile with the ".sc" (or '.'
+                     * and scext) removed, if present, and the second being either "sc." (or
+                     * scext and '.') or "", depending on whether the ".sc" (or '.' and scext)
+                     * was present or not.
+                     */
                     curfile[strlen(curfile) + 1] = '\0';
                     if (strrchr(curfile, '.') != NULL) {
                         size_t l;
@@ -1788,17 +1787,17 @@ int main(int argc, char **argv)
                         }
                     }
 
-/* Now append ".asc" (or '.' and the value of ascext) to the possibly
- * truncated curfile.
- */
-                    if (*curfile)
+                    /* Now append ".asc" (or '.' and the value of ascext) to the possibly
+                     * truncated curfile.
+                     */
+                    if (*curfile) {
                         error("Default file is \"%s.%s\"", curfile,
                                 ascext == NULL ? "asc" : ascext);
-
-/* Now swap the '.' and null bytes again.  If there is no '.', swap a
- * null byte with itself.  This may seem convoluted, but it works well,
- * and obviates the need for a 1024 byte temporary buffer. - CRM
- */
+                    }
+                    /* Now swap the '.' and null bytes again.  If there is no '.', swap a
+                     * null byte with itself.  This may seem convoluted, but it works well,
+                     * and obviates the need for a 1024 byte temporary buffer. - CRM
+                     */
                     c = *(curfile + strlen(curfile) +
                           strlen(curfile + strlen(curfile) + 1));
                     *(curfile + strlen(curfile) +
@@ -2141,28 +2140,18 @@ void signals(void)
 #endif
     signal(SIGTERM, doquit);
     signal(SIGFPE, doquit);
-#ifdef  SIGWINCH
+#ifdef SIGWINCH
     signal(SIGWINCH, winchg);
 #endif
 }
 
-#ifdef SIGVOID
-void
-#else
-int
-#endif
-nopipe(int i)
+sigret_t nopipe(int i)
 {
     (void)i;
     brokenpipe = TRUE;
 }
 
-#ifdef SIGVOID
-void
-#else
-int
-#endif
-winchg(int i)
+sigret_t winchg(int i)
 {
     (void)i;
     stopdisp();
@@ -2182,12 +2171,7 @@ winchg(int i)
 #endif
 }
 
-#ifdef SIGVOID
-void
-#else
-int
-#endif
-doquit(int i)
+sigret_t doquit(int i)
 {
     (void)i;
     if (usecurses) {
@@ -2198,12 +2182,7 @@ doquit(int i)
     exit (1);
 }
 
-#ifdef SIGVOID
-void
-#else
-int
-#endif
-dump_me(int i)
+sigret_t dump_me(int i)
 {
     (void)i;
     if (usecurses)

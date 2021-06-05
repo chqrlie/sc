@@ -647,30 +647,30 @@ void toggle_navigate_mode(void)
     int limtmp;
 
     switch (prev_mode) {
-        case INSERT_MODE:
-                                if (mode == NAVIGATE_MODE) {
-                                    prev_mode = NAVIGATE_MODE;
-                                    insert_mode();
-                                    break;
-                                } else
-                                    return;
-        case EDIT_MODE:
-                                if (mode == NAVIGATE_MODE) {
-                                    prev_mode = NAVIGATE_MODE;
-                                    limtmp = linelim;
-                                    edit_mode();
-                                    linelim = limtmp;
-                                    break;
-                                } else
-                                    return;
-        case NAVIGATE_MODE:
-                                prev_mode = mode;
-                                mode_ind = 'v';
-                                mode = NAVIGATE_MODE;
-                                break;
-        default:
-                                prev_mode = NAVIGATE_MODE;
-                                break;
+    case INSERT_MODE:
+        if (mode == NAVIGATE_MODE) {
+            prev_mode = NAVIGATE_MODE;
+            insert_mode();
+            break;
+        } else
+            return;
+    case EDIT_MODE:
+        if (mode == NAVIGATE_MODE) {
+            prev_mode = NAVIGATE_MODE;
+            limtmp = linelim;
+            edit_mode();
+            linelim = limtmp;
+            break;
+        } else
+            return;
+    case NAVIGATE_MODE:
+        prev_mode = mode;
+        mode_ind = 'v';
+        mode = NAVIGATE_MODE;
+        break;
+    default:
+        prev_mode = NAVIGATE_MODE;
+        break;
     }
 }
 
@@ -809,8 +809,6 @@ static void dotcmd(void) {
 }
 
 int vigetch(void) {
-    int c;
-
     if (do_dot) {
         if (dotb[doti] != '\0') {
             return dotb[doti++];
@@ -821,16 +819,14 @@ int vigetch(void) {
         }
     }
     update(1);
-    c = nmgetch();
-    return c;
+    return nmgetch();
 }
 
 /* saves the current line for possible use by an undo cmd */
 static void u_save(int c)
 {
-    if (strlen(line)+1 > undolen) {
-        undolen = strlen(line)+40;
-
+    if (strlen(line) + 1 > undolen) {
+        undolen = strlen(line) + 40;
         undo_line = scxrealloc(undo_line, undolen);
     }
     strlcpy(undo_line, line, undolen);
@@ -838,7 +834,6 @@ static void u_save(int c)
     undo_lim = linelim;
 
     /* reset dot command if not processing it. */
-
     if (!do_dot) {
         doti = 0;
         savedot(c);
@@ -847,6 +842,7 @@ static void u_save(int c)
 
 /* Restores the current line saved by u_save() */
 static void restore_it(void) {
+    // XXX: never freed
     static char *tempc = NULL;
     static unsigned templen = 0;
     int tempi;
@@ -854,7 +850,7 @@ static void restore_it(void) {
     if ((undo_line == NULL) || (*undo_line == '\0'))
         return;
 
-    if (strlen(line)+1 > templen) {
+    if (strlen(line) + 1 > templen) {
         templen = strlen(line) + 40;
         tempc = scxrealloc(tempc, templen);
     }
@@ -1197,22 +1193,22 @@ static int get_motion(int change)
         dotarg = arg;
     }
     switch (c) {
-    case '$':       return strlen(line);
-    case 'b':       return back_word(arg, 0);
-    case 'B':       return back_word(arg, 1);
-    case 'c':       return (change ? -1 : linelim);
-    case 'd':       return (!change ? -1 : linelim);
-    case 'e':       return for_word(arg, 1, 0, 1) + 1;
-    case 'E':       return for_word(arg, 1, 1, 1) + 1;
-    case 'f':       return ((c = find_char(arg, 1)) == linelim ? c : c + 1);
-    case 'F':       return find_char(arg, -1);
-    case 'h':       return back_line(arg);
-    case 'l':       return for_line(arg, 1);
-    case 't':       return ((c = to_char(arg, 1)) == linelim ? c : c + 1);
-    case 'T':       return to_char(arg, -1);
-    case 'w':       return for_word(arg, change, 0, 1) + change;
-    case 'W':       return for_word(arg, change, 1, 1) + change;
-    default:        return linelim;
+    case '$':   return strlen(line);
+    case 'b':   return back_word(arg, 0);
+    case 'B':   return back_word(arg, 1);
+    case 'c':   return (change ? -1 : linelim);
+    case 'd':   return (!change ? -1 : linelim);
+    case 'e':   return for_word(arg, 1, 0, 1) + 1;
+    case 'E':   return for_word(arg, 1, 1, 1) + 1;
+    case 'f':   return ((c = find_char(arg, 1)) == linelim ? c : c + 1);
+    case 'F':   return find_char(arg, -1);
+    case 'h':   return back_line(arg);
+    case 'l':   return for_line(arg, 1);
+    case 't':   return ((c = to_char(arg, 1)) == linelim ? c : c + 1);
+    case 'T':   return to_char(arg, -1);
+    case 'w':   return for_word(arg, change, 0, 1) + change;
+    case 'W':   return for_word(arg, change, 1, 1) + change;
+    default:    return linelim;
     }
 }
 
@@ -1276,70 +1272,70 @@ static void cr_line(void) {
     if (cellassign) {
         cellassign = 0;
         switch (craction) {
-            case CRROWS:
-                if ((rowlimit >= 0) && (currow >= rowlimit)) {
-                    forwcol(1);
-                    currow = 0;
-                } else {
-                    if ((fr = find_frange(currow, curcol))) {
-                        forwrow(1);
-                        if (currow > fr->ir_right->row) {
-                            backrow(1);
-                            if (autowrap) {
-                                forwcol(1);
-                                currow = fr->ir_left->row;
-                                if (row_hidden[currow])
-                                    forwrow(1);
-                                if (curcol > fr->ir_right->col) {
-                                    backcol(1);
-                                    if (autoinsert)
-                                        insertcol(1, 1);
-                                    else {
-                                        currow = fr->ir_right->row;
-                                        if (row_hidden[currow])
-                                            backrow(1);
-                                    }
-                                }
-                            } else if (autoinsert)
-                                insertrow(1, 1);
-                        }
-                    } else
-                        forwrow(1);
-                }
-                break;
-            case CRCOLS:
-                if ((collimit >= 0) && (curcol >= collimit)) {
+        case CRROWS:
+            if ((rowlimit >= 0) && (currow >= rowlimit)) {
+                forwcol(1);
+                currow = 0;
+            } else {
+                if ((fr = find_frange(currow, curcol))) {
                     forwrow(1);
-                    curcol = 0;
-                } else {
-                    if ((fr = find_frange(currow, curcol))) {
-                        forwcol(1);
-                        if (curcol > fr->ir_right->col) {
-                            backcol(1);
-                            if (autowrap) {
+                    if (currow > fr->ir_right->row) {
+                        backrow(1);
+                        if (autowrap) {
+                            forwcol(1);
+                            currow = fr->ir_left->row;
+                            if (row_hidden[currow])
                                 forwrow(1);
-                                curcol = fr->ir_left->col;
-                                if (col_hidden[curcol])
-                                    forwcol(1);
-                                if (currow > fr->ir_right->row) {
-                                    backrow(1);
-                                    if (autoinsert)
-                                        insertrow(1, 1);
-                                    else {
-                                        curcol = fr->ir_right->col;
-                                        if (col_hidden[curcol])
-                                            backcol(1);
-                                    }
+                            if (curcol > fr->ir_right->col) {
+                                backcol(1);
+                                if (autoinsert)
+                                    insertcol(1, 1);
+                                else {
+                                    currow = fr->ir_right->row;
+                                    if (row_hidden[currow])
+                                        backrow(1);
                                 }
-                            } else if (autoinsert)
-                                insertcol(1, 1);
-                        }
-                    } else
-                        forwcol(1);
-                }
-                break;
-            default:
-                break;
+                            }
+                        } else if (autoinsert)
+                            insertrow(1, 1);
+                    }
+                } else
+                    forwrow(1);
+            }
+            break;
+        case CRCOLS:
+            if ((collimit >= 0) && (curcol >= collimit)) {
+                forwrow(1);
+                curcol = 0;
+            } else {
+                if ((fr = find_frange(currow, curcol))) {
+                    forwcol(1);
+                    if (curcol > fr->ir_right->col) {
+                        backcol(1);
+                        if (autowrap) {
+                            forwrow(1);
+                            curcol = fr->ir_left->col;
+                            if (col_hidden[curcol])
+                                forwcol(1);
+                            if (currow > fr->ir_right->row) {
+                                backrow(1);
+                                if (autoinsert)
+                                    insertrow(1, 1);
+                                else {
+                                    curcol = fr->ir_right->col;
+                                    if (col_hidden[curcol])
+                                        backcol(1);
+                                }
+                            }
+                        } else if (autoinsert)
+                            insertcol(1, 1);
+                    }
+                } else
+                    forwcol(1);
+            }
+            break;
+        default:
+            break;
         }
     }
 }
@@ -1351,7 +1347,7 @@ void doshell(void)
     *  "!"      forks a shell
     *  "!!" repeats last command
     */
-#if VMS || MSDOS
+#if defined VMS || defined MSDOS
     error("Not implemented on VMS or MS-DOS");
 #else /* VMS */
     const char *shl;
@@ -1479,7 +1475,7 @@ static void back_hist(void) {
 
 static void search_hist(void) {
 #ifdef RECOMP
-    char *tmp;
+    char *tmp = NULL;
 #endif
 #if !defined(REGCOMP) && !defined(RE_COMP) && !defined(REGCMP)
     static unsigned lastsrchlen = 0;
@@ -1497,15 +1493,14 @@ static void search_hist(void) {
     else
         last_search = &preg;
     if ((errcode = regcomp(last_search, line, REG_EXTENDED))) {
-        char *tmp = scxmalloc(160);
-        regerror(errcode, last_search, tmp, sizeof(tmp));
-        error(tmp);
-        scxfree(tmp);
+        char buf[160];
+        regerror(errcode, last_search, buf, sizeof buf);
+        error("%s", buf);
         return;
     }
 #elif defined RE_COMP
     if ((tmp = re_comp(line)) != NULL) {
-        error(tmp);
+        error("%s", tmp);
         return;
     }
 #elif defined REGCMP
@@ -1987,7 +1982,7 @@ void query(const char *s, char *data)
         linelim = 0;
     }
     if (s != NULL) {
-        error(s);
+        error("%s", s);
     }
 
     while (linelim >= 0) {

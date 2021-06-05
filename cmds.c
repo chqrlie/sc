@@ -298,15 +298,13 @@ void deleterow(int arg)
     int rs = maxrow - currow + 1;
     struct frange *fr;
     struct ent *obuf = NULL;
-    char buf[50];
 
     if ((fr = find_frange(currow, curcol)))
         rs = fr->or_right->row - currow + 1;
     if (rs - arg < 0) {
         rs = rs > 0 ? rs : 0;
-        snprintf(buf, sizeof buf, "Can't delete %d row%s %d row%s left", arg,
-                (arg != 1 ? "s," : ","), rs, (rs != 1 ? "s" : ""));
-        error(buf);
+        error("Can't delete %d row%s %d row%s left", arg,
+              (arg != 1 ? "s," : ","), rs, (rs != 1 ? "s" : ""));
         return;
     }
     if (fr) {
@@ -437,7 +435,6 @@ static void deldata2(struct ent *obuf) {
 void yankrow(int arg) {
     int rs = maxrow - currow + 1;
     int i, qtmp;
-    char buf[50];
     struct frange *fr;
     struct ent *obuf = NULL;
 
@@ -445,9 +442,8 @@ void yankrow(int arg) {
         rs = fr->or_right->row - currow + 1;
     if (rs - arg < 0) {
         rs = rs > 0 ? rs : 0;
-        snprintf(buf, sizeof buf, "Can't yank %d row%s %d row%s left", arg,
-                (arg != 1 ? "s," : ","), rs, (rs != 1 ? "s" : ""));
-        error(buf);
+        error("Can't yank %d row%s %d row%s left", arg,
+              (arg != 1 ? "s," : ","), rs, (rs != 1 ? "s" : ""));
         return;
     }
     sync_refs();
@@ -494,14 +490,12 @@ void yankrow(int arg) {
 void yankcol(int arg) {
     int cs = maxcol - curcol + 1;
     int i, qtmp;
-    char buf[50];
     struct ent *obuf = NULL;
 
     if (cs - arg < 0) {
         cs = cs > 0 ? cs : 0;
-        snprintf(buf, sizeof buf, "Can't yank %d column%s %d column%s left",
-            arg, (arg != 1 ? "s," : ","), cs, (cs != 1 ? "s" : ""));
-        error(buf);
+        error("Can't yank %d column%s %d column%s left",
+              arg, (arg != 1 ? "s," : ","), cs, (cs != 1 ? "s" : ""));
         return;
     }
     sync_refs();
@@ -1159,13 +1153,11 @@ void closecol(int arg)
     struct ent **pp;
     struct ent *p;
     struct ent *obuf = NULL;
-    char buf[50];
 
     if (cs - arg < 0) {
         cs = cs > 0 ? cs : 0;
-        snprintf(buf, sizeof buf, "Can't delete %d column%s %d column%s left",
-            arg, (arg != 1 ? "s," : ","), cs, (cs != 1 ? "s" : ""));
-        error(buf);
+        error("Can't delete %d column%s %d column%s left",
+              arg, (arg != 1 ? "s," : ","), cs, (cs != 1 ? "s" : ""));
         return;
     }
     if (any_locked_cells(0, curcol, maxrow, curcol + arg - 1)) {
@@ -1486,8 +1478,8 @@ void formatcol(int arg) {
                 case ' ':
                     if (arg == 1) {
                         snprintf(line, sizeof line,
-                                "format [for column] %s ",
-                                coltoa(curcol));
+                                 "format [for column] %s ",
+                                 coltoa(curcol));
                     } else {
                         snprintf(line, sizeof line,
                                  "format [for columns] %s:%s ",
@@ -1496,21 +1488,19 @@ void formatcol(int arg) {
                     linelim = strlen(line);
                     insert_mode();
                     error("Current format is %d %d %d",
-                            fwidth[curcol], precision[curcol],
-                            realfmt[curcol]);
+                          fwidth[curcol], precision[curcol], realfmt[curcol]);
                     continue;
                 case '=':
                     error("Define format type (0-9):");
                     refresh();
                     if ((c = nmgetch()) >= '0' && c <= '9') {
-                        if (colformat[c-'0']) {
+                        if (colformat[c - '0']) {
                             snprintf(line, sizeof line,
-                                    "format %c = \"%s\"", c, colformat[c-'0']);
+                                     "format %c = \"%s\"", c, colformat[c - '0']);
                             edit_mode();
                             linelim = strlen(line) - 1;
                         } else {
-                            snprintf(line, sizeof line,
-                                    "format %c = \"", c);
+                            snprintf(line, sizeof line, "format %c = \"", c);
                             insert_mode();
                             linelim = strlen(line);
                         }

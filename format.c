@@ -94,6 +94,7 @@
 #include <sys/types.h>
 #include <time.h>
 #include <limits.h>
+#include <math.h>
 #include "compat.h"
 #include "sc.h"
 
@@ -119,7 +120,6 @@ bool format(char *fmt, int lprecision, double val, char *buf, size_t buflen)
     char *exponent = NULL;
     int exp_val = 0;
     int width;
-    char prtfmt[32];
     static char *mantissa = NULL;
     static char *tmpfmt1 = NULL, *tmpfmt2 = NULL, *exptmp = NULL;
     static unsigned mantlen = 0, fmtlen = 0;
@@ -256,8 +256,7 @@ bool format(char *fmt, int lprecision, double val, char *buf, size_t buflen)
         }
         zero_pad = strlen(decimal) - zero_pad;
     }
-    snprintf(prtfmt, sizeof prtfmt, "%%.%dlf", width);
-    snprintf(mantissa, mantlen, prtfmt, val);
+    snprintf(mantissa, mantlen, "%.*lf", width, val);
     for (cp = integer = mantissa; *cp != dpoint && *cp != EOS; cp++) {
         if (*integer == '0')
             integer++;
@@ -499,7 +498,7 @@ bool engformat(int fmt, int width, int lprecision, double val, char *buf, int bu
         "+03", "+06", "+09", "+12", "+15", "+18"
     };
     int engind = 0;
-    double engmant, pow(), engabs, engexp;
+    double engmant, engabs, engexp;
 
     if (buflen < width) return false;
     if (fmt >= 0 && fmt < COLFORMATS && colformat[fmt])

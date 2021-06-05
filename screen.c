@@ -75,7 +75,8 @@ void error(const char *fmt, ...) {
 
     if (isatty(fileno(stdout)) && !move(1,0) && !clrtoeol()) {
         va_start(ap, fmt);
-        vsnprintf(buf, sizeof buf, fmt, ap);
+        // Prevent warning: format string is not a string literal [-Werror,-Wformat-nonliteral]
+        ((int (*)(char *, size_t, const char *, va_list))vsnprintf)(buf, sizeof buf, fmt, ap);
         va_end(ap);
         addstr(buf);
     }
@@ -952,17 +953,17 @@ void update(int anychanged)          /* did any cell really change in value? */
     clrtoeol();
 
     if (linelim >= 0) {
-        int ctlchars;
-
-        for (i = ctlchars = 0; i < linelim; i++)
-            if ((unsigned char) line[i] < ' ')
+        int ctlchars = 0;
+        for (i = 0; i < linelim; i++) {
+            if ((unsigned char)line[i] < ' ')
                 ctlchars++;
+        }
         addch(mode_ind);
         addch('>');
         addch(search_ind);
         addstr(line);
         if (!braille || (!message && mode_ind != 'v'))
-            move((linelim+3+ctlchars)/cols, (linelim+3+ctlchars)%cols);
+            move((linelim + 3 + ctlchars) / cols, (linelim + 3 + ctlchars) % cols);
         else if (message)
             move(1, 0);
         else if (braillealt)
@@ -1118,9 +1119,10 @@ void yyerror(const char *err)
         move(1, 0);
         clrtoeol();
         printw("%s: %.*s<=%s", err, (int)linelim, line, line + linelim);
-    } else
-        fprintf(stderr, "%s: %.*s<=%s\n", err, (int)linelim, line,
-          line + linelim);
+    } else {
+        fprintf(stderr, "%s: %.*s<=%s\n",
+                err, (int)linelim, line, line + linelim);
+    }
 }
 
 #ifdef XENIX2_3
@@ -1129,7 +1131,7 @@ struct termio tmio;
 
 void startdisp(void)
 {
-#if sun
+#ifdef sun
     int  fd;
     fd = dup(0);
 #endif
@@ -1156,7 +1158,7 @@ void startdisp(void)
                 init_pair(i + 1, cpairs[i]->fg, cpairs[i]->bg);
         if (color && has_colors())
             bkgdset(COLOR_PAIR(1) | ' ');
-#if sun
+#ifdef sun
         close(0);
         dup(fd);
         close(fd);
