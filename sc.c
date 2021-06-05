@@ -1709,12 +1709,12 @@ int main(int argc, char **argv)
                         if (!strcmp((strrchr(curfile, '.')), ".sc")) {
                             *strrchr(curfile, '.') = '\0';
                             l = strlen(curfile) + 3;
-                            strlcpy(curfile + l, ".\0", sizeof(curfile) - l);
+                            strlcpy(curfile + l, ".", sizeof(curfile) - l);
                         } else if (scext != NULL &&
                                 !strcmp((strrchr(curfile, '.') + 1), scext)) {
                             *strrchr(curfile, '.') = '\0';
                             l = strlen(curfile) + strlen(scext) + 1;
-                            strlcpy(curfile + l, ".\0", sizeof(curfile) - l);
+                            strlcpy(curfile + l, ".", sizeof(curfile) - l);
                         }
                     }
                     if (*curfile) {

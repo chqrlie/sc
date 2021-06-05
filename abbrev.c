@@ -157,6 +157,6 @@ void write_abbrevs(FILE *f)
     struct abbrev *a;
 
     for (a = abbr_base; a; a = a->next) {
-        (void) fprintf(f, "abbrev \"%s\" \"%s\"\n", a->abbr, a->exp);
+        (void) fprintf(f, "abbrev \"%s %s\"\n", a->abbr, a->exp);
     }
 }

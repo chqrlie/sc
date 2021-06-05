@@ -1383,7 +1383,7 @@ void doshell(void)
             execl(shl, shl, "-c", cmd, (char *)NULL);
         else
             execl(shl, shl, (char *)NULL);
-        exit (-127);
+        exit(-127);
     }
 
     while (pid != wait(&temp));

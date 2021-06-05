@@ -582,6 +582,7 @@ extern void tblprintfile(char *fname, int r0, int c0, int rn, int cn);
 extern void unlock_cells(struct ent *v1, struct ent *v2);
 extern void update(int anychanged);
 extern void valueize_area(int sr, int sc, int er, int ec);
+extern void write_abbrevs(FILE *f);
 extern void write_cells(FILE *f, int r0, int c0, int rn, int cn,
                         int dr, int dc);
 extern void write_colors(FILE *f, int indent);
@@ -719,3 +720,7 @@ void mouseoff(void);
 
 static inline int isalphachar_(char c) { return isalphachar(c) || c == '_'; }
 static inline int isalnumchar_(char c) { return isalnumchar(c) || c == '_'; }
+
+#ifndef HAVE_ISFINITE
+#define isfinite(v)  finite(v)
+#endif

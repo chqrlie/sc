@@ -1774,7 +1774,7 @@ void printfile(char *fname, int r0, int c0, int rn, int cn)
     } else
         f = stdout;
 
-    if (!pline && (pline = scxmalloc(FBUFLEN * ++fbufs_allocated)) == (char *)NULL) {
+    if (!pline && (pline = scxmalloc(FBUFLEN * ++fbufs_allocated)) == NULL) {
         error("Malloc failed in printfile()");
         return;
     }
@@ -1803,9 +1803,8 @@ void printfile(char *fname, int r0, int c0, int rn, int cn)
                  * attempting to write 'out of bounds'.
                  */
                 while (c > (fbufs_allocated * FBUFLEN)) {
-                    if ((pline = scxrealloc (pline,
-                            FBUFLEN * ++fbufs_allocated)) == NULL) {
-                        error ("Realloc failed in printfile()");
+                    if ((pline = scxrealloc(pline, FBUFLEN * ++fbufs_allocated)) == NULL) {
+                        error("Realloc failed in printfile()");
                         return;
                     }
                 }
@@ -2034,7 +2033,7 @@ void tblprintfile(char *fname, int r0, int c0, int rn, int cn)
         return;
 
     if ((f = openfile(fname, fnamesiz, &pid, NULL)) == NULL) {
-        error ("Can't create file \"%s\"", fname);
+        error("Can't create file \"%s\"", fname);
         return;
     }
 
@@ -2684,14 +2683,16 @@ void write_fd(FILE *f, int r0, int c0, int rn, int cn)
     (void) fprintf(f, "Calculator.\n");
     (void) fprintf(f, "# You almost certainly shouldn't edit it.\n\n");
     print_options(f);
-    for (c = 0; c < COLFORMATS; c++)
+    write_abbrevs(f);
+    for (c = 0; c < COLFORMATS; c++) {
         if (colformat[c])
             (void) fprintf(f, "format %d = \"%s\"\n", c, colformat[c]);
+    }
     for (c = c0; c <= cn; c++) {
-        if (fwidth[c] != DEFWIDTH || precision[c] != DEFPREC ||
-                realfmt[c] != DEFREFMT)
+        if (fwidth[c] != DEFWIDTH || precision[c] != DEFPREC || realfmt[c] != DEFREFMT) {
             (void) fprintf(f, "format %s %d %d %d\n",
                            coltoa(c), fwidth[c], precision[c], realfmt[c]);
+        }
     }
     for (c = c0; c <= cn; c++) {
         if (col_hidden[c])
@@ -2799,7 +2800,7 @@ int writefile(const char *fname, int r0, int c0, int rn, int cn)
 #ifndef MSDOS
     /* find the extension and mapped plugin if exists */
     if ((p = strrchr(fname, '.'))) {
-        if ((plugin = findplugin(p+1, 'w')) != NULL) {
+        if ((plugin = findplugin(p + 1, 'w')) != NULL) {
             size_t l;
             if (!plugin_exists(plugin, strlen(plugin), save + 1)) {
                 error("plugin not found");
@@ -2827,9 +2828,9 @@ int writefile(const char *fname, int r0, int c0, int rn, int cn)
 #endif /* VMS */
 
     if (*fname == '\0') {
-        if (isatty(STDOUT_FILENO) || *curfile != '\0')
+        if (isatty(STDOUT_FILENO) || *curfile != '\0') {
             fname = curfile;
-        else {
+        } else {
             write_fd(stdout, r0, c0, rn, cn);
             return 0;
         }
@@ -2838,9 +2839,9 @@ int writefile(const char *fname, int r0, int c0, int rn, int cn)
 #ifdef MSDOS
     namelen = 12;
 #else
-    if ((tpp = strrchr(fname, '/')) == NULL)
+    if ((tpp = strrchr(fname, '/')) == NULL) {
         namelen = pathconf(".", _PC_NAME_MAX);
-    else {
+    } else {
         *tpp = '\0';
         namelen = pathconf(fname, _PC_NAME_MAX);
         *tpp = '/';
@@ -2848,10 +2849,10 @@ int writefile(const char *fname, int r0, int c0, int rn, int cn)
 #endif /* MSDOS */
 
     (void) strlcpy(tfname, fname, sizeof tfname);
-    for (tpp = tfname; *tpp != '\0'; tpp++)
+    for (tpp = tfname; *tpp != '\0'; tpp++) {
         if (*tpp == '\\' && *(tpp + 1) == '"')
             (void) memmove(tpp, tpp + 1, strlen(tpp));
-
+    }
     if (scext != NULL) {
         if (strlen(tfname) > 3 && !strcmp(tfname + strlen(tfname) - 3, ".sc"))
             tfname[strlen(tfname) - 3] = '\0';
@@ -2865,12 +2866,12 @@ int writefile(const char *fname, int r0, int c0, int rn, int cn)
     }
 
     (void) strlcpy(save, tfname, sizeof save);
-    for (tpp = save; *tpp != '\0'; tpp++)
+    for (tpp = save; *tpp != '\0'; tpp++) {
         if (*tpp == '"') {
             (void) memmove(tpp + 1, tpp, strlen(tpp) + 1);
             *tpp++ = '\\';
         }
-
+    }
     if ((f = openfile(tfname, sizeof tfname, &pid, NULL)) == NULL) {
         error("Can't create file \"%s\"", save);
         return -1;
