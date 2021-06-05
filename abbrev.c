@@ -48,12 +48,12 @@ void add_abbr(SCXMEM char *string)
             if (!f) {
                 error("Can't open pipe to %s", pager);
             } else {
-                (void) fprintf(f, "\n%-15s %s\n", "Abbreviation", "Expanded");
+                fprintf(f, "\n%-15s %s\n", "Abbreviation", "Expanded");
                 if (!brokenpipe)
-                    (void) fprintf(f, "%-15s %s\n", "------------", "--------");
+                    fprintf(f, "%-15s %s\n", "------------", "--------");
 
                 for (a = abbr_base; a && !brokenpipe; a = a->next) {
-                    (void) fprintf(f, "%-15s %s\n", a->abbr, a->exp);
+                    fprintf(f, "%-15s %s\n", a->abbr, a->exp);
                 }
                 closefile(f, pid, 0);
             }
@@ -157,6 +157,6 @@ void write_abbrevs(FILE *f)
     struct abbrev *a;
 
     for (a = abbr_base; a; a = a->next) {
-        (void) fprintf(f, "abbrev \"%s %s\"\n", a->abbr, a->exp);
+        fprintf(f, "abbrev \"%s %s\"\n", a->abbr, a->exp);
     }
 }

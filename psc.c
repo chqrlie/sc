@@ -320,7 +320,7 @@ static int scan(void) {
         if (strip_delim) {
             while ((c = getchar()) != EOF && (c == delim1 || c == delim2))
                 continue;
-            (void)ungetc(c, stdin);
+            ungetc(c, stdin);
         }
         return SPACE;
     }
@@ -329,7 +329,7 @@ static int scan(void) {
         while ((c = getchar()) != EOF && c != '\"' && c != '\n')
             *p++ = c;
         if (c != '\"')
-            (void)ungetc(c, stdin);
+            ungetc(c, stdin);
         *p = '\0';
         return ALPHA;
     }
@@ -339,7 +339,7 @@ static int scan(void) {
         c = getchar();
     }
     *p = '\0';
-    (void)ungetc(c, stdin);
+    ungetc(c, stdin);
 
     p = token;
     c = (unsigned char)*p;

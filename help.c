@@ -557,8 +557,8 @@ void help(void) {
         }
     }
     FullUpdate++;
-    (void) move(1,0);
-    (void) clrtobot();
+    move(1,0);
+    clrtobot();
 }
 
 static int pscreen(const char * const screen[])
@@ -566,18 +566,18 @@ static int pscreen(const char * const screen[])
     int lineno;
     int dbline;
 
-    (void) move(1,0);
-    (void) clrtobot();
+    move(1,0);
+    clrtobot();
     dbline = 1;
     for (lineno = 0; screen[lineno]; lineno++) {
-        (void) move(dbline++, 4);
-        (void) addstr (screen[lineno]);
-        (void) clrtoeol();
+        move(dbline++, 4);
+        addstr(screen[lineno]);
+        clrtoeol();
     }
-    (void) move(0,0);
-    (void) printw("Which Screen? [a-p, q]");
-    (void) clrtoeol();
-    (void) refresh();
+    move(0,0);
+    printw("Which Screen? [a-p, q]");
+    clrtoeol();
+    refresh();
     return nmgetch();
 }
 #else
@@ -614,17 +614,17 @@ int main() {
 
     while (*pagep) {
 #ifndef TROFF
-        (void) fputs(SCNAME, stdout);
-        (void) fputs(header, stdout);
-        (void) printf("\n");
-        (void) puts(revision);
+        fputs(SCNAME, stdout);
+        fputs(header, stdout);
+        printf("\n");
+        puts(revision);
 #endif
 
         for (lineno = 0; (*pagep)[lineno]; lineno++) {
-            (void) puts((*pagep)[lineno]);
+            puts((*pagep)[lineno]);
         }
 #if !defined(TROFF)
-        (void) putchar('\f');
+        putchar('\f');
 #endif
         pagep++;
 #ifdef TROFF

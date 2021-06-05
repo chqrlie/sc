@@ -46,24 +46,24 @@ void creadfile(const char *save, int eraseflg)
     strlcpy(KeyWord, getpass("Enter key:"), sizeof KeyWord);
     goraw();
 
-    if ((pid = fork()) == 0) {          /* if child              */
-        (void) close(0);                /* close stdin           */
-        (void) close(1);                /* close stdout          */
-        (void) close(pipefd[0]);        /* close pipe input      */
-        (void) dup(fildes);             /* standard in from file */
-        (void) dup(pipefd[1]);          /* connect to pipe       */
-        (void) fprintf(stderr, " ");
-        (void) execl(CRYPT_PATH, "crypt", KeyWord, 0);
-        (void) fprintf(stderr, "execl(%s, \"crypt\", %s, 0) in creadfile() failed",
-                       CRYPT_PATH, KeyWord);
+    if ((pid = fork()) == 0) {   /* if child              */
+        close(0);                /* close stdin           */
+        close(1);                /* close stdout          */
+        close(pipefd[0]);        /* close pipe input      */
+        dup(fildes);             /* standard in from file */
+        dup(pipefd[1]);          /* connect to pipe       */
+        fprintf(stderr, " ");
+        execl(CRYPT_PATH, "crypt", KeyWord, 0);
+        fprintf(stderr, "execl(%s, \"crypt\", %s, 0) in creadfile() failed",
+                CRYPT_PATH, KeyWord);
         exit(-127);
-    } else {                            /* else parent */
-        (void) close(fildes);
-        (void) close(pipefd[1]);        /* close pipe output */
+    } else {                     /* else parent */
+        close(fildes);
+        close(pipefd[1]);        /* close pipe output */
         if ((f = fdopen(pipefd[0], "r")) == NULL) {
-            (void) kill(pid, 9);
+            kill(pid, 9);
             error("Can't fdopen file \"%s\"", save);
-            (void)close(pipefd[0]);
+            close(pipefd[0]);
             return;
         }
     }
@@ -71,13 +71,13 @@ void creadfile(const char *save, int eraseflg)
     loading++;
     while (fgets(line, sizeof(line), f)) {
         linelim = 0;
-        if (line[0] != '#') (void) yyparse();
+        if (line[0] != '#') yyparse();
     }
     --loading;
     if (fclose(f) == EOF) {
         error("fclose(pipefd): %s", strerror(errno));
     }
-    (void) close(pipefd[0]);
+    close(pipefd[0]);
     while (pid != wait(&fildes))
         continue;
     linelim = -1;
@@ -130,26 +130,25 @@ int cwritefile(char *fname, int r0, int c0, int rn, int cn)
         goraw();
     }
 
-    if ((pid = fork()) == 0) {                  /* if child              */
-        (void) close(0);                        /* close stdin           */
-        (void) close(1);                        /* close stdout          */
-        (void) close(pipefd[1]);                /* close pipe output     */
-        (void) dup(pipefd[0]);                  /* connect to pipe input */
-        (void) dup(fildes);                     /* standard out to file  */
-        (void) fprintf(stderr, " ");
-        (void) execl(CRYPT_PATH, "crypt", KeyWord, 0);
-        (void) fprintf(stderr, "execl(%s, \"crypt\", %s, 0) in cwritefile() failed",
-                       CRYPT_PATH, KeyWord);
+    if ((pid = fork()) == 0) {           /* if child              */
+        close(0);                        /* close stdin           */
+        close(1);                        /* close stdout          */
+        close(pipefd[1]);                /* close pipe output     */
+        dup(pipefd[0]);                  /* connect to pipe input */
+        dup(fildes);                     /* standard out to file  */
+        fprintf(stderr, " ");
+        execl(CRYPT_PATH, "crypt", KeyWord, 0);
+        fprintf(stderr, "execl(%s, \"crypt\", %s, 0) in cwritefile() failed",
+                CRYPT_PATH, KeyWord);
         exit(-127);
-    }
-    else {                                /* else parent */
-        (void) close(fildes);
-        (void) close(pipefd[0]);                  /* close pipe input */
+    } else {                             /* else parent */
+        close(fildes);
+        close(pipefd[0]);                /* close pipe input */
         f = fdopen(pipefd[1], "w");
         if (f == 0) {
-            (void) kill(pid, -9);
+            kill(pid, -9);
             error("Can't fdopen file \"%s\"", save);
-            (void) close(pipefd[1]);
+            close(pipefd[1]);
             return -1;
         }
     }
@@ -159,7 +158,7 @@ int cwritefile(char *fname, int r0, int c0, int rn, int cn)
     if (fclose(f) == EOF) {
         error("fclose(pipefd): %s", strerror(errno));
     }
-    (void) close(pipefd[1]);
+    close(pipefd[1]);
     while (pid != wait(&fildes))
         continue;
     strlcpy(curfile, save, sizeof curfile);

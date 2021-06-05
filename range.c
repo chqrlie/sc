@@ -240,20 +240,20 @@ void write_ranges(FILE *f)
     for (r = nextr = rng_base; nextr; r = nextr, nextr = r->r_next)
         continue;
     while (r) {
-        (void) fprintf(f, "define \"%s\" %s%s%s%d",
-                       r->r_name,
-                       r->r_left.vf & FIX_COL ? "$" : "",
-                       coltoa(r->r_left.vp->col),
-                       r->r_left.vf & FIX_ROW ? "$" : "",
-                       r->r_left.vp->row);
-        if (r->r_is_range)
-            (void) fprintf(f, ":%s%s%s%d\n",
-                           r->r_right.vf & FIX_COL ? "$" : "",
-                           coltoa(r->r_right.vp->col),
-                           r->r_right.vf & FIX_ROW ? "$" : "",
-                           r->r_right.vp->row);
-        else
-            (void) fprintf(f, "\n");
+        fprintf(f, "define \"%s\" %s%s%s%d",
+                r->r_name,
+                r->r_left.vf & FIX_COL ? "$" : "",
+                coltoa(r->r_left.vp->col),
+                r->r_left.vf & FIX_ROW ? "$" : "",
+                r->r_left.vp->row);
+        if (r->r_is_range) {
+            fprintf(f, ":%s%s%s%d",
+                    r->r_right.vf & FIX_COL ? "$" : "",
+                    coltoa(r->r_right.vp->col),
+                    r->r_right.vf & FIX_ROW ? "$" : "",
+                    r->r_right.vp->row);
+        }
+        fprintf(f, "\n");
         r = r->r_prev;
     }
 }
@@ -268,27 +268,27 @@ void list_ranges(FILE *f)
         return;
     }
 
-    (void) fprintf(f, "  %-30s %s\n","Name","Definition");
-    if (!brokenpipe) (void) fprintf(f, "  %-30s %s\n","----","----------");
+    fprintf(f, "  %-30s %s\n","Name","Definition");
+    if (!brokenpipe) fprintf(f, "  %-30s %s\n","----","----------");
 
     for (r = nextr = rng_base; nextr; r = nextr, nextr = r->r_next)
         continue;
     while (r) {
-        (void) fprintf(f, "  %-30s %s%s%s%d",
-                       r->r_name,
-                       r->r_left.vf & FIX_COL ? "$" : "",
-                       coltoa(r->r_left.vp->col),
-                       r->r_left.vf & FIX_ROW ? "$" : "",
-                       r->r_left.vp->row);
+        fprintf(f, "  %-30s %s%s%s%d",
+                r->r_name,
+                r->r_left.vf & FIX_COL ? "$" : "",
+                coltoa(r->r_left.vp->col),
+                r->r_left.vf & FIX_ROW ? "$" : "",
+                r->r_left.vp->row);
         if (brokenpipe) return;
-        if (r->r_is_range)
-            (void) fprintf(f, ":%s%s%s%d\n",
-                           r->r_right.vf & FIX_COL ? "$" : "",
-                           coltoa(r->r_right.vp->col),
-                           r->r_right.vf & FIX_ROW ? "$" : "",
-                           r->r_right.vp->row);
-        else
-            (void) fprintf(f, "\n");
+        if (r->r_is_range) {
+            fprintf(f, ":%s%s%s%d",
+                    r->r_right.vf & FIX_COL ? "$" : "",
+                    coltoa(r->r_right.vp->col),
+                    r->r_right.vf & FIX_ROW ? "$" : "",
+                    r->r_right.vp->row);
+        }
+        fprintf(f, "\n");
         if (brokenpipe) return;
         r = r->r_prev;
     }

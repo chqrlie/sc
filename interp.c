@@ -969,14 +969,14 @@ eval_fpe(int i) /* Trap for FPE errors in eval */
     asm("       fwait");
 #else
 #ifdef IEEE_MATH
-    (void)fpsetsticky((fp_except)0);    /* Clear exception */
+    fpsetsticky((fp_except)0);    /* Clear exception */
 #endif /* IEEE_MATH */
 #ifdef PC
     _fpreset();
 #endif
 #endif
     /* re-establish signal handler for next time */
-    (void)signal(SIGFPE, eval_fpe);
+    signal(SIGFPE, eval_fpe);
     longjmp(fpe_save, 1);
 }
 
@@ -1043,7 +1043,7 @@ static char *dofmt(char *fmtstr, double v)
         return NULL;
     // XXX: Achtung Minen! snprintf from user supplied format string
     // MUST validate format string for no or single arg of type double
-    (void)snprintf(buff, FBUFLEN, fmtstr, v);
+    snprintf(buff, FBUFLEN, fmtstr, v);
     scxfree(fmtstr);
     return scxdup(buff);
 }
@@ -1098,7 +1098,7 @@ static char *doext(struct enode *se)
             scxfree(command);
 
             error("Running external function...");
-            (void)refresh();
+            refresh();
 
             if ((pf = popen(buff, "r")) == NULL) {     /* run it */
                 error("Warning: running \"%s\" failed", buff);
@@ -1117,7 +1117,7 @@ static char *doext(struct enode *se)
                         se->e.o.s = scxrealloc(se->e.o.s, len + 1);
                     strlcpy(se->e.o.s, buff, len + 1);
                 }
-                (void)pclose(pf);
+                pclose(pf);
             }
         }
     }
@@ -1344,7 +1344,7 @@ void EvalAll(void) {
     int lastcnt, pair, v;
 
     repct = 1;
-    (void)signal(SIGFPE, eval_fpe);
+    signal(SIGFPE, eval_fpe);
 
     while ((lastcnt = RealEvalAll()) && (++repct <= propagation))
         continue;
@@ -1371,7 +1371,7 @@ void EvalAll(void) {
             }
         }
     }
-    (void)signal(SIGFPE, doquit);
+    signal(SIGFPE, doquit);
 }
 
 /*
@@ -2124,7 +2124,7 @@ void fill(struct ent *v1, struct ent *v2, double start, double inc)
             for (c = minc; c <= maxc; c++) {
                 n = lookat(r, c);
                 if (n->flags & IS_LOCKED) continue;
-                (void) clearent(n);
+                clearent(n);
                 n->v = start;
                 start += inc;
                 n->flags |= (IS_CHANGED | IS_VALID);
@@ -2136,7 +2136,7 @@ void fill(struct ent *v1, struct ent *v2, double start, double inc)
         for (c = minc; c <= maxc; c++) {
             for (r = minr; r <= maxr; r++) {
                 n = lookat(r, c);
-                (void) clearent(n);
+                clearent(n);
                 n->v = start;
                 start += inc;
                 n->flags |= (IS_CHANGED | IS_VALID);
@@ -2217,7 +2217,7 @@ void let(struct ent *v, struct enode *e)
         val = 0.0;
     } else {
         exprerr = 0;
-        (void) signal(SIGFPE, eval_fpe);
+        signal(SIGFPE, eval_fpe);
         if (setjmp(fpe_save)) {
             error("Floating point exception in cell %s", v_name(v->row, v->col));
             val = 0.0;
@@ -2233,7 +2233,7 @@ void let(struct ent *v, struct enode *e)
             FullUpdate++;
             v->cellerror = cellerror;
         }
-        (void) signal(SIGFPE, doquit);
+        signal(SIGFPE, doquit);
         if (exprerr) {
             efree(e);
             return;
@@ -2289,7 +2289,7 @@ void slet(struct ent *v, struct enode *se, int flushdir)
     if (v->row == currow && v->col == curcol)
         cellassign = 1;
     exprerr = 0;
-    (void) signal(SIGFPE, eval_fpe);
+    signal(SIGFPE, eval_fpe);
     if (setjmp(fpe_save)) {
         error("Floating point exception in cell %s", v_name(v->row, v->col));
         cellerror = CELLERROR;
@@ -2305,7 +2305,7 @@ void slet(struct ent *v, struct enode *se, int flushdir)
         FullUpdate++;
         v->cellerror = cellerror;
     }
-    (void) signal(SIGFPE, doquit);
+    signal(SIGFPE, doquit);
     if (exprerr) {
         efree(se);
         return;

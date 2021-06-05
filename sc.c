@@ -205,7 +205,7 @@ void flush_saved(void) {
         delbuffmt[dbidx] = NULL;
     }
     while (p) {
-        (void) clearent(p);
+        clearent(p);
         q = p->next;
         p->next = freeents;     /* put this ent on the front of freeents */
         freeents = p;
@@ -289,7 +289,7 @@ int main(int argc, char **argv)
                     break;
             case 'x':
 #if defined(VMS) || defined(MSDOS) || !defined(CRYPT_PATH)
-                    (void) fprintf(stderr, "Crypt not available\n");
+                    fprintf(stderr, "Crypt not available\n");
                     exit (1);
 #else
                     Crypt = 1;
@@ -389,7 +389,7 @@ int main(int argc, char **argv)
         erasedb();
 
     while (optind < argc) {
-        (void) readfile(argv[optind], 0);
+        readfile(argv[optind], 0);
         optind++;
     }
 
@@ -400,7 +400,7 @@ int main(int argc, char **argv)
     EvalAll();
 
     if (!(popt || isatty(STDIN_FILENO)))
-        (void) readfile("-", 0);
+        readfile("-", 0);
 
     if (qopt) {
         stopdisp();
@@ -566,13 +566,13 @@ int main(int argc, char **argv)
         update(anychanged);
         anychanged = FALSE;
 #ifndef SYSV3   /* HP/Ux 3.1 this may not be wanted */
-        (void) refresh(); /* 5.3 does a refresh in getch */
+        refresh(); /* 5.3 does a refresh in getch */
 #endif
         c = nmgetch();
         getyx(stdscr, tempy, tempx);
-        (void) move(1, 0);
-        (void) clrtoeol();
-        (void) move(tempy, tempx);
+        move(1, 0);
+        clrtoeol();
+        move(tempy, tempx);
         seenerr = 0;
         showneed = 0;   /* reset after each update */
         showexpr = 0;
@@ -592,24 +592,24 @@ int main(int argc, char **argv)
             switch (c) {
 #ifdef SIGTSTP
                 case ctl('z'):
-                    (void) deraw(1);
-                    (void) kill(0, SIGTSTP); /* Nail process group */
+                    deraw(1);
+                    kill(0, SIGTSTP); /* Nail process group */
 
                     /* the pc stops here */
 
-                    (void) goraw();
+                    goraw();
                     break;
 #endif
                 case ctl('r'):
                     showneed = 1;
                 case ctl('l'):
                     FullUpdate++;
-                    (void) clearok(stdscr,1);
+                    clearok(stdscr,1);
                     break;
                 case ctl('x'):
                     FullUpdate++;
                     showexpr = 1;
-                    (void) clearok(stdscr,1);
+                    clearok(stdscr,1);
                     break;
                 default:
                     error ("No such command (^%c)", c + 0100);
@@ -714,8 +714,8 @@ int main(int argc, char **argv)
                 case ctl('g'):
                     showrange = 0;
                     linelim = -1;
-                    (void) move(1, 0);
-                    (void) clrtoeol();
+                    move(1, 0);
+                    clrtoeol();
                     break;
 
                 case ESC:       /* ctl('[') */
@@ -794,7 +794,7 @@ int main(int argc, char **argv)
 "Toggle: a:auto,c:cell,e:ext funcs,n:numeric,t:top,$:pre-scale,<MORE>");
 #endif
                     if (braille) move(1, 0);
-                    (void) refresh();
+                    refresh();
 
                     switch (nmgetch()) {
                         case 'a': case 'A':
@@ -1157,7 +1157,7 @@ int main(int argc, char **argv)
                     error(
 "Range: x:erase v:value c:copy f:fill d:def l:lock U:unlock S:show u:undef F:fmt");
                     if (braille) move(1, 0);
-                    (void) refresh();
+                    refresh();
 
                     c = nmgetch();
                     CLEAR_LINE;
@@ -1743,7 +1743,7 @@ int main(int argc, char **argv)
                     insert_mode();
                     break;
                 case 'D':
-                    (void) snprintf(line, sizeof line, "mdir [\"macro_directory\"] \"");
+                    snprintf(line, sizeof line, "mdir [\"macro_directory\"] \"");
                     linelim = strlen(line);
                     insert_mode();
                     break;
@@ -1966,7 +1966,7 @@ int main(int argc, char **argv)
                                 if (n->flags & IS_LOCKED)
                                     continue;
                                 if (!p) {
-                                    (void) clearent(n);
+                                    clearent(n);
                                     continue;
                                 }
                             } else {
@@ -2034,17 +2034,17 @@ int main(int argc, char **argv)
                         case ctl('m'):
                             strow = currow;
                             FullUpdate++;
-                            (void) clearok(stdscr,1);
+                            clearok(stdscr,1);
                             break;
                         case '.':
                             strow = -1;
                             FullUpdate++;
-                            (void) clearok(stdscr,1);
+                            clearok(stdscr,1);
                             break;
                         case '|':
                             stcol = -1;
                             FullUpdate++;
-                            (void) clearok(stdscr,1);
+                            clearok(stdscr,1);
                             break;
                         case 'c':
                             /* Force centering of current cell (or range, if
@@ -2054,7 +2054,7 @@ int main(int argc, char **argv)
                             strow = -1;
                             stcol = -1;
                             FullUpdate++;
-                            (void) clearok(stdscr,1);
+                            clearok(stdscr,1);
                             break;
                         default:
                             break;
@@ -2130,19 +2130,19 @@ void setauto(int i)
 
 void signals(void)
 {
-    (void) signal(SIGINT, doquit);
+    signal(SIGINT, doquit);
 #if !defined(MSDOS)
-    (void) signal(SIGQUIT, dump_me);
-    (void) signal(SIGPIPE, nopipe);
-    (void) signal(SIGALRM, time_out);
+    signal(SIGQUIT, dump_me);
+    signal(SIGPIPE, nopipe);
+    signal(SIGALRM, time_out);
 #ifndef __DJGPP__
-    (void) signal(SIGBUS, doquit);
+    signal(SIGBUS, doquit);
 #endif
 #endif
-    (void) signal(SIGTERM, doquit);
-    (void) signal(SIGFPE, doquit);
+    signal(SIGTERM, doquit);
+    signal(SIGFPE, doquit);
 #ifdef  SIGWINCH
-    (void) signal(SIGWINCH, winchg);
+    signal(SIGWINCH, winchg);
 #endif
 }
 
@@ -2174,11 +2174,11 @@ winchg(int i)
      */
     refresh();
     FullUpdate++;
-    (void) clearok(stdscr, TRUE);
+    clearok(stdscr, TRUE);
     update(1);
     refresh();
-#ifdef  SIGWINCH
-    (void) signal(SIGWINCH, winchg);
+#ifdef SIGWINCH
+    signal(SIGWINCH, winchg);
 #endif
 }
 

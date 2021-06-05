@@ -71,7 +71,7 @@ void duprow(void) {
         struct ent *p = *ATBL(tbl, currow - 1, curcol);
         if (p) {
             struct ent *n = lookat(currow, curcol);
-            (void) copyent(n, p, 1, 0, 0, 0, maxrow, maxcol, 0);
+            copyent(n, p, 1, 0, 0, 0, maxrow, maxcol, 0);
         }
     }
     curcol = coltmp;
@@ -566,8 +566,8 @@ void erase_area(int sr, int sc, int er, int ec, int ignorelock)
      * that pulling cells always works correctly even if the cells at one
      * or more edges of the range are all empty.
      */
-    (void) lookat(sr, sc);
-    (void) lookat(er, ec);
+    lookat(sr, sc);
+    lookat(er, ec);
 
     delbuffmt[++dbidx] = scxmalloc((4*(ec-sc+1)+(er-sr+1))*sizeof(char));
     for (c = sc; c <= ec; c++) {
@@ -960,7 +960,7 @@ int get_rcqual(int ch)
           (ch == 'p')             ? "  p: paste  m: merge  x: xchg  <MORE>" :
           (ch == 'Z')             ? "  Z: save/exit" : "");
 
-    (void) refresh();
+    refresh();
 
     switch (c = nmgetch()) {
         case 'r':       return ('r');
@@ -1657,52 +1657,54 @@ void print_options(FILE *f)
        )
         return;         /* No reason to do this */
 
-    (void) fprintf(f, "set");
+    fprintf(f, "set");
     if (!autocalc)
-        (void) fprintf(f," !autocalc");
+        fprintf(f," !autocalc");
     if (autoinsert)
-        (void) fprintf(f," autoinsert");
+        fprintf(f," autoinsert");
     if (autowrap)
-        (void) fprintf(f," autowrap");
+        fprintf(f," autowrap");
     if (cslop)
-        (void) fprintf(f," cslop");
+        fprintf(f," cslop");
     if (optimize)
-        (void) fprintf(f," optimize");
+        fprintf(f," optimize");
     if (rndtoeven)
-        (void) fprintf(f, " rndtoeven");
+        fprintf(f, " rndtoeven");
     if (propagation != 10)
-        (void) fprintf(f, " iterations = %d", propagation);
+        fprintf(f, " iterations = %d", propagation);
     if (calc_order != BYROWS )
-        (void) fprintf(f, " bycols");
+        fprintf(f, " bycols");
     if (numeric)
-        (void) fprintf(f, " numeric");
+        fprintf(f, " numeric");
     if (prescale != 1.0)
-        (void) fprintf(f, " prescale");
+        fprintf(f, " prescale");
     if (extfunc)
-        (void) fprintf(f, " extfun");
+        fprintf(f, " extfun");
     if (!showtop)
-        (void) fprintf(f, " !toprow");
-    if (tbl_style)
-        (void) fprintf(f, " tblstyle = %s", tbl_style == TBL ? "tbl" :
-                                        tbl_style == LATEX ? "latex" :
-                                        tbl_style == SLATEX ? "slatex" :
-                                        tbl_style == TEX ? "tex" :
-                                        tbl_style == FRAME ? "frame" : "0" );
+        fprintf(f, " !toprow");
+    if (tbl_style) {
+        fprintf(f, " tblstyle = %s",
+                tbl_style == TBL ? "tbl" :
+                tbl_style == LATEX ? "latex" :
+                tbl_style == SLATEX ? "slatex" :
+                tbl_style == TEX ? "tex" :
+                tbl_style == FRAME ? "frame" : "0" );
+    }
     if (craction)
-        (void) fprintf(f, " craction = %d", craction);
+        fprintf(f, " craction = %d", craction);
     if (pagesize)
-        (void) fprintf(f, " pagesize = %d", pagesize);
+        fprintf(f, " pagesize = %d", pagesize);
     if (rowlimit >= 0)
-        (void) fprintf(f, " rowlimit = %d", rowlimit);
+        fprintf(f, " rowlimit = %d", rowlimit);
     if (collimit >= 0)
-        (void) fprintf(f, " collimit = %d", collimit);
+        fprintf(f, " collimit = %d", collimit);
     if (color)
-        (void) fprintf(f," color");
+        fprintf(f," color");
     if (colorneg)
-        (void) fprintf(f," colorneg");
+        fprintf(f," colorneg");
     if (colorerr)
-        (void) fprintf(f," colorerr");
-    (void) fprintf(f, "\n");
+        fprintf(f," colorerr");
+    fprintf(f, "\n");
 }
 
 void printfile(char *fname, int r0, int c0, int rn, int cn)
@@ -1936,7 +1938,7 @@ void printfile(char *fname, int r0, int c0, int rn, int cn)
         }
         pline[plinelim++] = '\n';
         pline[plinelim] = '\0';
-        (void) fputs (pline, f);
+        fputs(pline, f);
     }
 
     if (fname) closefile(f, pid, 0);
@@ -2092,7 +2094,7 @@ void tblprintfile(char *fname, int r0, int c0, int rn, int cn)
 
     for (row = r0; row <= rn; row++) {
         if (tbl_style == TEX)
-            (void) fprintf (f, "\\+");
+            fprintf(f, "\\+");
         else if (tbl_style == FRAME) {
             fprintf(f,"   <Row # The next body row\n");
         }
@@ -2108,8 +2110,8 @@ void tblprintfile(char *fname, int r0, int c0, int rn, int cn)
                 char *s;
                 if (p->flags & IS_VALID) {
                     if (p->cellerror) {
-                        (void) fprintf(f, "%*s", fwidth[col],
-                                       (p->cellerror == CELLERROR ? "ERROR" : "INVALID"));
+                        fprintf(f, "%*s", fwidth[col],
+                                (p->cellerror == CELLERROR ? "ERROR" : "INVALID"));
                     } else if (p->format) {
                         char field[FBUFLEN];
                         if (*(p->format) == ctl('d')) {
@@ -2122,9 +2124,9 @@ void tblprintfile(char *fname, int r0, int c0, int rn, int cn)
                         unspecial(f, field, coldelim);
                     } else {
                         char field[FBUFLEN];
-                        (void) engformat(realfmt[col], fwidth[col],
-                                         precision[col], p->v,
-                                         field, sizeof(field));
+                        engformat(realfmt[col], fwidth[col],
+                                  precision[col], p->v,
+                                  field, sizeof(field));
                         unspecial(f, field, coldelim);
                     }
                 }
@@ -2138,32 +2140,32 @@ void tblprintfile(char *fname, int r0, int c0, int rn, int cn)
             }
             if (col < cn) {
                 if (tbl_style != FRAME)
-                    (void) fprintf(f,"%c", coldelim);
+                    fprintf(f,"%c", coldelim);
             }
         }
         if (tbl_style == LATEX) {
-            if (row < rn) (void) fprintf (f, "\\\\");
+            if (row < rn) fprintf (f, "\\\\");
         }
         else if (tbl_style == SLATEX) {
-            if (row < rn) (void) fprintf(f, "!!");
+            if (row < rn) fprintf(f, "!!");
         }
         else if (tbl_style == TEX) {
-            (void) fprintf (f, "\\cr");
+            fprintf (f, "\\cr");
         }
         else if (tbl_style == FRAME) {
             fprintf(f,"   > # end of Row\n");
         }
-        (void) fprintf(f,"\n");
+        fprintf(f,"\n");
     }
 
     if (tbl_style == TBL)
-        (void) fprintf (f,".TE\n.\\\" ** end of %s spreadsheet output\n", progname);
+        fprintf (f,".TE\n.\\\" ** end of %s spreadsheet output\n", progname);
     else if (tbl_style == LATEX)
-        (void) fprintf(f,"\\end{tabular}\n%% ** end of %s spreadsheet output\n", progname);
+        fprintf(f,"\\end{tabular}\n%% ** end of %s spreadsheet output\n", progname);
     else if (tbl_style == SLATEX)
-        (void) fprintf (f,"!end<tabular>\n%% ** end of %s spreadsheet output\n", progname);
+        fprintf (f,"!end<tabular>\n%% ** end of %s spreadsheet output\n", progname);
     else if (tbl_style == TEX)
-        (void) fprintf (f,"}\n%% ** end of %s spreadsheet output\n", progname);
+        fprintf (f,"}\n%% ** end of %s spreadsheet output\n", progname);
     else if (tbl_style == FRAME) {
         fprintf(f,"  > # end of TblBody\n");
         fprintf(f," ># end of Tbl\n");
@@ -2503,32 +2505,32 @@ FILE *openfile(char *fname, size_t fnamesiz, int *rpid, int *rfd)
 #else /* VMS */
 
     if ((pid = fork()) == 0) {            /* if child */
-        (void) close(0);                /* close stdin */
-        (void) close(pipefd[1]);
-        (void) dup(pipefd[0]);          /* connect to first pipe */
+        close(0);                /* close stdin */
+        close(pipefd[1]);
+        dup(pipefd[0]);          /* connect to first pipe */
         if (rfd != NULL) {              /* if opening for read */
-            (void) close(1);            /* close stdout */
-            (void) close(pipefd[2]);
-            (void) dup(pipefd[3]);      /* connect to second pipe */
+            close(1);            /* close stdout */
+            close(pipefd[2]);
+            dup(pipefd[3]);      /* connect to second pipe */
         }
-        (void) signal(SIGINT, SIG_DFL); /* reset */
+        signal(SIGINT, SIG_DFL); /* reset */
         execl("/bin/sh", "sh", "-c", efname, (char *)NULL);
         exit (-127);
     } else {                            /* else parent */
         *rpid = pid;
         if ((f = fdopen(pipefd[(rfd == NULL ? 1 : 2)], rfd == NULL ? "w" : "r")) == NULL) {
-            (void) kill(pid, 9);
+            kill(pid, 9);
             error("Can't fdopen %sput", rfd == NULL ? "out" : "in");
-            (void) close(pipefd[1]);
+            close(pipefd[1]);
             if (rfd != NULL)
-                (void) close(pipefd[3]);
+                close(pipefd[3]);
             *rpid = 0;
             return 0;
         }
     }
-    (void) close(pipefd[0]);
+    close(pipefd[0]);
     if (rfd != NULL) {
-        (void) close(pipefd[3]);
+        close(pipefd[3]);
         *rfd = pipefd[1];
     }
 #endif /* VMS */
@@ -2549,10 +2551,10 @@ void closefile(FILE *f, int pid, int rfd)
         while (pid != wait(&temp))
             continue;
         if (rfd == 0) {
-            (void) printf("Press any key to continue ");
-            (void) fflush(stdout);
+            printf("Press any key to continue ");
+            fflush(stdout);
             cbreak();
-            (void) nmgetch();
+            nmgetch();
             goraw();
             clear();
         } else {
@@ -2679,28 +2681,28 @@ void write_fd(FILE *f, int r0, int c0, int rn, int cn)
 {
     int r, c;
 
-    (void) fprintf(f, "# This data file was generated by the Spreadsheet ");
-    (void) fprintf(f, "Calculator.\n");
-    (void) fprintf(f, "# You almost certainly shouldn't edit it.\n\n");
+    fprintf(f, "# This data file was generated by the Spreadsheet ");
+    fprintf(f, "Calculator.\n");
+    fprintf(f, "# You almost certainly shouldn't edit it.\n\n");
     print_options(f);
     write_abbrevs(f);
     for (c = 0; c < COLFORMATS; c++) {
         if (colformat[c])
-            (void) fprintf(f, "format %d = \"%s\"\n", c, colformat[c]);
+            fprintf(f, "format %d = \"%s\"\n", c, colformat[c]);
     }
     for (c = c0; c <= cn; c++) {
         if (fwidth[c] != DEFWIDTH || precision[c] != DEFPREC || realfmt[c] != DEFREFMT) {
-            (void) fprintf(f, "format %s %d %d %d\n",
-                           coltoa(c), fwidth[c], precision[c], realfmt[c]);
+            fprintf(f, "format %s %d %d %d\n",
+                    coltoa(c), fwidth[c], precision[c], realfmt[c]);
         }
     }
     for (c = c0; c <= cn; c++) {
         if (col_hidden[c])
-            (void) fprintf(f, "hide %s\n", coltoa(c));
+            fprintf(f, "hide %s\n", coltoa(c));
     }
     for (r = r0; r <= rn; r++) {
         if (row_hidden[r])
-            (void) fprintf(f, "hide %d\n", r);
+            fprintf(f, "hide %d\n", r);
     }
     write_ranges(f);
     write_franges(f);
@@ -2708,12 +2710,12 @@ void write_fd(FILE *f, int r0, int c0, int rn, int cn)
     write_cranges(f);
 
     if (mdir)
-        (void) fprintf(f, "mdir \"%s\"\n", mdir);
+        fprintf(f, "mdir \"%s\"\n", mdir);
     if (autorun)
-        (void) fprintf(f, "autorun \"%s\"\n", autorun);
+        fprintf(f, "autorun \"%s\"\n", autorun);
     for (c = 0; c < FKEYS; c++) {
         if (fkey[c])
-            (void) fprintf(f, "fkey %d = \"%s\"\n", c + 1, fkey[c]);
+            fprintf(f, "fkey %d = \"%s\"\n", c + 1, fkey[c]);
     }
     write_cells(f, r0, c0, rn, cn, r0, c0);
     for (r = r0; r <= rn; r++) {
@@ -2721,14 +2723,13 @@ void write_fd(FILE *f, int r0, int c0, int rn, int cn)
             struct ent *p = *ATBL(tbl, r, c);
             if (p) {
                 if (p->flags & IS_LOCKED) {
-                    (void) fprintf(f, "lock %s%d\n",
-                                   coltoa(p->col), p->row);
+                    fprintf(f, "lock %s%d\n", coltoa(p->col), p->row);
                 }
                 if (p->nrow >= 0) {
-                    (void) fprintf(f, "addnote %s %s\n",
-                                   v_name(p->row, p->col),
-                                   r_name(p->nrow, p->ncol,
-                                          p->nlastrow, p->nlastcol));
+                    fprintf(f, "addnote %s %s\n",
+                            v_name(p->row, p->col),
+                            r_name(p->nrow, p->ncol,
+                                   p->nlastrow, p->nlastcol));
                 }
             }
         }
@@ -2761,18 +2762,18 @@ void write_cells(FILE *f, int r0, int c0, int rn, int cn, int dr, int dc)
             if (p) {
                 if (p->label || (p->flags & IS_STREXPR)) {
                     edits(r, c);
-                    (void) fprintf(f, "%s\n", line);
+                    fprintf(f, "%s\n", line);
                 }
                 if (p->flags & IS_VALID) {
                     editv(r, c);
                     dpointptr = strchr(line, dpoint);
                     if (dpointptr != NULL)
                         *dpointptr = '.';
-                    (void) fprintf(f, "%s\n", line);
+                    fprintf(f, "%s\n", line);
                 }
                 if (p->format) {
                     editfmt(r, c);
-                    (void) fprintf(f, "%s\n",line);
+                    fprintf(f, "%s\n",line);
                 }
             }
         }
@@ -2848,10 +2849,10 @@ int writefile(const char *fname, int r0, int c0, int rn, int cn)
     }
 #endif /* MSDOS */
 
-    (void) strlcpy(tfname, fname, sizeof tfname);
+    strlcpy(tfname, fname, sizeof tfname);
     for (tpp = tfname; *tpp != '\0'; tpp++) {
         if (*tpp == '\\' && *(tpp + 1) == '"')
-            (void) memmove(tpp, tpp + 1, strlen(tpp));
+            memmove(tpp, tpp + 1, strlen(tpp));
     }
     if (scext != NULL) {
         if (strlen(tfname) > 3 && !strcmp(tfname + strlen(tfname) - 3, ".sc"))
@@ -2865,10 +2866,10 @@ int writefile(const char *fname, int r0, int c0, int rn, int cn)
         strlcat(tfname, scext, sizeof tfname);
     }
 
-    (void) strlcpy(save, tfname, sizeof save);
+    strlcpy(save, tfname, sizeof save);
     for (tpp = save; *tpp != '\0'; tpp++) {
         if (*tpp == '"') {
-            (void) memmove(tpp + 1, tpp, strlen(tpp) + 1);
+            memmove(tpp + 1, tpp, strlen(tpp) + 1);
             *tpp++ = '\\';
         }
     }
@@ -2886,7 +2887,7 @@ int writefile(const char *fname, int r0, int c0, int rn, int cn)
     closefile(f, pid, 0);
 
     if (!pid) {
-        (void) strlcpy(curfile, save, sizeof curfile);
+        strlcpy(curfile, save, sizeof curfile);
         modflg = 0;
         FullUpdate++;
         if (usecurses) {
@@ -2912,12 +2913,12 @@ int readfile(const char *fname, int eraseflg)
     autolabel = 0;                      /* reading a file */
 
     if (*fname == '*' && mdir) {
-       (void) strlcpy(save, mdir, sizeof save);
-       (void) strlcat(save, fname, sizeof save);
+        strlcpy(save, mdir, sizeof save);
+        strlcat(save, fname, sizeof save);
     } else {
         if (*fname == '\0')
             fname = curfile;
-        (void) strlcpy(save, fname, sizeof save);
+        strlcpy(save, fname, sizeof save);
     }
 
 #ifndef MSDOS
@@ -2946,7 +2947,7 @@ int readfile(const char *fname, int eraseflg)
                 }
                 p--;
             }
-            (void) strlcpy(curfile, p, sizeof curfile);
+            strlcpy(curfile, p, sizeof curfile);
         }
     }
 #endif
@@ -3005,7 +3006,7 @@ int readfile(const char *fname, int eraseflg)
         }
 #endif /* MSDOS */
         linelim = 0;
-        if (line[0] != '#') (void) yyparse();
+        if (line[0] != '#') yyparse();
     }
     macrofd = savefd;
     --loading;
@@ -3019,10 +3020,10 @@ int readfile(const char *fname, int eraseflg)
 #endif /* MSDOS */
     linelim = -1;
     if (eraseflg) {
-        (void) strlcpy(curfile, save, sizeof curfile);
+        strlcpy(curfile, save, sizeof curfile);
         modflg = 0;
         cellassign = 0;
-        if (autorun && !skipautorun) (void) readfile(autorun, 0);
+        if (autorun && !skipautorun) readfile(autorun, 0);
         skipautorun = 0;
         EvalAll();
     }
@@ -3102,7 +3103,7 @@ void erasedb(void) {
         strlcat(curfile, "/.scrc", sizeof curfile);
         if ((c = open(curfile, O_RDONLY)) > -1) {
             close(c);
-            (void) readfile(curfile, 0);
+            readfile(curfile, 0);
         }
     }
 
@@ -3112,7 +3113,7 @@ void erasedb(void) {
     if (scrc && strcmp(home, getcwd(curfile, PATHLEN)) &&
             (c = open(".scrc", O_RDONLY)) > -1) {
         close(c);
-        (void) readfile(".scrc", 0);
+        readfile(".scrc", 0);
     }
 #endif /* MSDOS */
 
@@ -3358,11 +3359,7 @@ void showstring(char *string,        /* to display */
         if (*fp == '\\' && *(fp + 1) == '"')
             memmove(fp, fp + 1, strlen(fp));
     }
-#ifdef VMS
-    mvaddstr(r, c, field);      /* this is a macro */
-#else
-    (void) mvaddstr(r, c, field);
-#endif
+    mvaddstr(r, c, field);
 
     *nextcolp  = nextcol;
     *fieldlenp = fieldlen;
@@ -3406,10 +3403,10 @@ int yn_ask(const char *msg)
 {
     char ch;
 
-    (void) move(0, 0);
-    (void) clrtoeol();
-    (void) addstr(msg);
-    (void) refresh();
+    move(0, 0);
+    clrtoeol();
+    addstr(msg);
+    refresh();
     while ((ch = nmgetch()) != 'y' && ch != 'Y' && ch != 'n' && ch != 'N') {
         if (ch == ctl('g') || ch == ESC)
             return -1;

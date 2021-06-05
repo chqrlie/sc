@@ -877,8 +877,8 @@ static void stop_edit(void) {
         showrange = 0;
         numeric_field = 0;
         linelim = -1;
-        (void) move(1, 0);
-        (void) clrtoeol();
+        move(1, 0);
+        clrtoeol();
     }
 }
 
@@ -1270,7 +1270,7 @@ static void cr_line(void) {
     save_hist();
     nosavedot = 1;
     linelim = 0;
-    (void) yyparse();
+    yyparse();
     showrange = 0;
     linelim = -1;
     if (cellassign) {
@@ -1355,7 +1355,7 @@ void doshell(void)
     error("Not implemented on VMS or MS-DOS");
 #else /* VMS */
     const char *shl;
-    int pid, temp;
+    int pid, temp, len;
     char cmd[MAXCMD];
     static char lastcmd[MAXCMD];
 
@@ -1363,22 +1363,25 @@ void doshell(void)
         shl = "/bin/sh";
 
     deraw(1);
-    (void) fputs("! ", stdout);
-    (void) fflush(stdout);
-    (void) fgets(cmd, MAXCMD, stdin);
-    cmd[strlen(cmd) - 1] = '\0';        /* clobber \n */
-    if (strcmp(cmd,"!") == 0)           /* repeat? */
+    fputs("! ", stdout);
+    fflush(stdout);
+    if (!fgets(cmd, MAXCMD, stdin))
+        *cmd = '\0';
+    len = strlen(cmd);
+    if (len && cmd[len - 1] == '\n')
+        cmd[--len] = '\0';        /* clobber \n */
+    if (strcmp(cmd, "!") == 0)           /* repeat? */
         strlcpy(cmd, lastcmd, sizeof cmd);
     else
         strlcpy(lastcmd, cmd, sizeof lastcmd);
 
     if (modflg) {
-        (void) puts("[No write since last change]");
-        (void) fflush(stdout);
+        puts("[No write since last change]");
+        fflush(stdout);
     }
 
     if (!(pid = fork())) {
-        (void) signal(SIGINT, SIG_DFL);  /* reset */
+        signal(SIGINT, SIG_DFL);  /* reset */
         if (strlen(cmd))
             execl(shl, shl, "-c", cmd, (char *)NULL);
         else
@@ -1386,12 +1389,13 @@ void doshell(void)
         exit(-127);
     }
 
-    while (pid != wait(&temp));
+    while (pid != wait(&temp))
+        continue;
 
-    (void) printf("Press any key to continue ");
+    printf("Press any key to continue ");
     fflush(stdout);
     cbreak();
-    (void)getch();
+    getch();
     goraw();
     clear();
 #endif /* VMS */

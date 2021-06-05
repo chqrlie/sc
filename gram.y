@@ -426,50 +426,50 @@ command:        S_LET var_or_range '=' e
         |       S_SLATEXEXT strarg      { scxfree(slatexext); slatexext = $2; }
         |       S_TEXEXT strarg { scxfree(texext); texext = $2; }
         |       S_PUT strarg range
-                                { (void) writefile($2, ($3.left.vp)->row,
+                                { writefile($2, ($3.left.vp)->row,
                                         ($3.left.vp)->col, ($3.right.vp)->row,
                                         ($3.right.vp)->col);
                                             scxfree($2); }
-        |       S_PUT strarg    { (void) writefile($2, 0, 0, maxrow, maxcol);
+        |       S_PUT strarg    { writefile($2, 0, 0, maxrow, maxcol);
                                             scxfree($2); }
-        |       S_PUT range             { (void) write_cells(stdout,
+        |       S_PUT range             { write_cells(stdout,
                                           $2.left.vp->row, $2.left.vp->col,
                                           $2.right.vp->row, $2.right.vp->col,
                                           $2.left.vp->row, $2.left.vp->col); }
         |       S_PUT range '/' var_or_range
-                                        { (void) write_cells(stdout,
+                                        { write_cells(stdout,
                                           $2.left.vp->row, $2.left.vp->col,
                                           $2.right.vp->row, $2.right.vp->col,
                                           $4.left.vp->row, $4.left.vp->col); }
         |       S_PUT '%' '/' var_or_range
-                                        { (void) write_cells(stdout, 0, 0,
+                                        { write_cells(stdout, 0, 0,
                                           maxrow, maxcol,
                                           $4.left.vp->row, $4.left.vp->col); }
-        |       S_PUT '/' var_or_range  { (void) write_cells(stdout,
+        |       S_PUT '/' var_or_range  { write_cells(stdout,
                                           showsr, showsc, currow, curcol,
                                           $3.left.vp->row, $3.left.vp->col); }
-        |       S_PUT '%'       { (void) write_cells(stdout, 0, 0,
+        |       S_PUT '%'       { write_cells(stdout, 0, 0,
                                             maxrow, maxcol, 0, 0); }
-        |       S_PUT           { (void) write_cells(stdout, 0, 0,
+        |       S_PUT           { write_cells(stdout, 0, 0,
                                             maxrow, maxcol, 0, 0); }
-        |       S_WRITE strarg range { (void) printfile($2, ($3.left.vp)->row,
+        |       S_WRITE strarg range { printfile($2, ($3.left.vp)->row,
                                         ($3.left.vp)->col, ($3.right.vp)->row,
                                         ($3.right.vp)->col);
                                             scxfree($2); }
-        |       S_WRITE strarg  { (void) printfile($2, 0, 0, maxrow, maxcol);
+        |       S_WRITE strarg  { printfile($2, 0, 0, maxrow, maxcol);
                                             scxfree($2); }
-        |       S_WRITE range           { (void) printfile(NULL,
+        |       S_WRITE range           { printfile(NULL,
                                           $2.left.vp->row, $2.left.vp->col,
                                           $2.right.vp->row, $2.right.vp->col); }
-        |       S_WRITE '%'     { (void) printfile(NULL, 0, 0,
+        |       S_WRITE '%'     { printfile(NULL, 0, 0,
                                             maxrow, maxcol); }
-        |       S_WRITE         { (void) printfile(NULL, 0, 0,
+        |       S_WRITE         { printfile(NULL, 0, 0,
                                             maxrow, maxcol); }
-        |       S_TBL strarg range { (void) tblprintfile($2, ($3.left.vp)->row,
+        |       S_TBL strarg range { tblprintfile($2, ($3.left.vp)->row,
                                         ($3.left.vp)->col, ($3.right.vp)->row,
                                         ($3.right.vp)->col);
                                             scxfree($2); }
-        |       S_TBL strarg    { (void)tblprintfile($2, 0, 0, maxrow, maxcol);
+        |       S_TBL strarg    { tblprintfile($2, 0, 0, maxrow, maxcol);
                                             scxfree($2); }
         |       S_SHOW COL ':' COL      { showcol($2, $4); }
         |       S_SHOW NUMBER ':' NUMBER

@@ -74,7 +74,7 @@ fpe_trap(int signo)
     asm("       fwait");
 #else
 # ifdef IEEE_MATH
-    (void)fpsetsticky((fp_except)0);    /* Clear exception */
+    fpsetsticky((fp_except)0);    /* Clear exception */
 # endif /* IEEE_MATH */
 # ifdef PC
     _fpreset();
@@ -205,7 +205,7 @@ yylex(void)
 
         sig_save = signal(SIGFPE, fpe_trap);
         if (setjmp(fpe_buf)) {
-            (void) signal(SIGFPE, sig_save);
+            signal(SIGFPE, sig_save);
             yylval.fval = v;
             error("Floating point exception\n");
             isfunc = isgoto = 0;
@@ -276,7 +276,7 @@ yylex(void)
                 }
             }
         }
-        (void) signal(SIGFPE, sig_save);
+        signal(SIGFPE, sig_save);
     } else if (*p=='"') {
         char *ptr;
         ptr = p+1;      /* "string" or "string\"quoted\"" */
@@ -467,16 +467,14 @@ char dont_use[] = {
     ctl('x'), ctl('z'), 0
 };
 
-int
-charout(int c) {
+int charout(int c) {
     return putchar(c);
 }
 
-void
-initkbd(void)
+void initkbd(void)
 {
     struct key_map *kp;
-    i,j;
+    int i, j;
     char *p = keyarea;
     char *ktmp;
     static char buf[1024]; /* Why do I have to do this again? */
@@ -520,7 +518,7 @@ initkbd(void)
 
 
 #  ifdef TIOCSLTC
-    (void)ioctl(fileno(stdin), TIOCGLTC, (char *)&old_chars);
+    ioctl(fileno(stdin), TIOCGLTC, (char *)&old_chars);
     new_chars = old_chars;
     if (old_chars.t_lnextc == ctl('v'))
         new_chars.t_lnextc = -1;
@@ -597,12 +595,12 @@ nmgetch(void) {
     }
 
     if (almost) {
-        (void) signal(SIGALRM, time_out);
-        (void) alarm(1);
+        signal(SIGALRM, time_out);
+        alarm(1);
 
         if (setjmp(wakeup) == 0) {
             maybe = nmgetch();
-            (void) alarm(0);
+            alarm(0);
             return maybe;
         }
     }

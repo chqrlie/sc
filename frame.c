@@ -209,9 +209,9 @@ void list_frames(FILE *f) {
         return;
     }
 
-    (void) fprintf(f, "  %-30s %s\n", "Outer Range", "Inner Range");
+    fprintf(f, "  %-30s %s\n", "Outer Range", "Inner Range");
     if (!brokenpipe)
-        (void) fprintf(f, "  %-30s %s\n", "-----------", "-----------");
+        fprintf(f, "  %-30s %s\n", "-----------", "-----------");
 
     for (r = nextr = frame_base; nextr; r = nextr, nextr = r->r_next)
         continue;
