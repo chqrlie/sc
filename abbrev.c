@@ -19,12 +19,11 @@
 static struct abbrev *abbr_base;
 
 static int are_abbrevs(void) {
-    return (abbr_base != 0);
+    return abbr_base != NULL;
 }
 
 // add an abbreviation
-void add_abbr(SCXMEM char *string)
-{
+void add_abbr(SCXMEM char *string) {
     struct abbrev *a;
     struct abbrev *prev;
     char *p;

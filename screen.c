@@ -1066,25 +1066,6 @@ void update(int anychanged)          /* did any cell really change in value? */
             move(lastmy, lastmx + fwidth[sc_lastcol]);
     }
 
-    if (color && has_colors())
-        color_set(1, NULL);
-
-    if (revmsg[0]) {
-        move(0, 0);
-        clrtoeol();      /* get rid of topline display */
-        printw(revmsg);
-        *revmsg = '\0';         /* don't show it again */
-        if (braille)
-            if (message)
-                move(1, 0);
-            else
-                move(lastmy, lastmx);
-        else if (showcell)
-            move(lines - 1, cols - 1);
-        else
-            move(lastmy, lastmx + fwidth[sc_lastcol]);
-    }
-
     FullUpdate = FALSE;
 }
 

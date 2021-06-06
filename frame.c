@@ -88,7 +88,8 @@ void add_frange(struct ent *or_left, struct ent *or_right, struct ent *ir_left,
                     else
                         frame_base = r->r_next;
                     scxfree(r);
-                    if (lastfr == r) lastfr = NULL;
+                    if (lastfr == r)
+                        lastfr = NULL;
                 }
                 modflg++;
                 FullUpdate++;
@@ -153,8 +154,7 @@ void clean_frange(void) {
     lastfr = NULL;
 }
 
-struct frange *find_frange(int row, int col)
-{
+struct frange *find_frange(int row, int col) {
     struct frange *r;
 
     if (frame_base) {
@@ -167,8 +167,7 @@ struct frange *find_frange(int row, int col)
     return 0;
 }
 
-void sync_franges(void)
-{
+void sync_franges(void) {
     struct frange *fr;
 
     fr = frame_base;

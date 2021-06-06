@@ -410,6 +410,20 @@ int main(int argc, char **argv) {
 #endif
 }
 
+/* try to save the current spreadsheet if we can */
+static void diesave(void) {
+    char path[PATHLEN];
+
+    if (modcheck(" before Spreadsheet dies") == 1) {
+        snprintf(path, sizeof path, "~/%s", SAVENAME);
+        if (writefile(path, 0, 0, maxrow, maxcol) < 0) {
+            snprintf(path, sizeof path, "/tmp/%s", SAVENAME);
+            if (writefile(path, 0, 0, maxrow, maxcol) < 0)
+                error("Couldn't save current spreadsheet, Sorry");
+        }
+    }
+}
+
 void signals(void) {
     signal(SIGINT, doquit);
 #if !defined(MSDOS)
@@ -467,20 +481,6 @@ sigret_t dump_me(int i) {
         diesave();
     deraw(1);
     abort();
-}
-
-/* try to save the current spreadsheet if we can */
-void diesave(void) {
-    char path[PATHLEN];
-
-    if (modcheck(" before Spreadsheet dies") == 1) {
-        snprintf(path, sizeof path, "~/%s", SAVENAME);
-        if (writefile(path, 0, 0, maxrow, maxcol) < 0) {
-            snprintf(path, sizeof path, "/tmp/%s", SAVENAME);
-            if (writefile(path, 0, 0, maxrow, maxcol) < 0)
-                error("Couldn't save current spreadsheet, Sorry");
-        }
-    }
 }
 
 static void settcattr(void) {

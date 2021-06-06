@@ -31,6 +31,7 @@ static void syncref(struct enode *e);
 static void unspecial(FILE *f, char *str, int delim);
 static struct ent *deldata1(void);
 static void deldata2(struct ent *obuf);
+static int any_locked_cells(int r1, int c1, int r2, int c2);
 
 #define DEFCOLDELIM ':'
 
@@ -2164,8 +2165,7 @@ void syncref(struct enode *e)
 }
 
 /* mark a row as hidden */
-void hiderow(int arg)
-{
+void hiderow(int arg) {
     int r1 = currow;
     int r2 = r1 + arg - 1;
 
@@ -2246,7 +2246,7 @@ FILE *openfile(char *fname, size_t fnamesiz, int *rpid, int *rfd)
     FILE *f;
     char *efname;
 
-    while (*fname && (*fname == ' ')) { /* Skip leading blanks */
+    while (*fname == ' ') { /* Skip leading blanks */
         fname++;
         fnamesiz--;
     }
@@ -2259,8 +2259,8 @@ FILE *openfile(char *fname, size_t fnamesiz, int *rpid, int *rfd)
         efname = findhome(fname, fnamesiz);
         if (dobackups && rfd == NULL && !backup_file(efname) &&
             (yn_ask("Could not create backup copy.  Save anyway?: (y,n)") != 1))
-                return 0;
-        return (fopen(efname, rfd == NULL ? "w" : "r"));
+            return 0;
+        return fopen(efname, rfd == NULL ? "w" : "r");
     }
 
 #if defined(MSDOS)
@@ -2676,8 +2676,7 @@ int writefile(const char *fname, int r0, int c0, int rn, int cn)
     return 0;
 }
 
-int readfile(const char *fname, int eraseflg)
-{
+int readfile(const char *fname, int eraseflg) {
     FILE *f;
     char save[PATHLEN];
     int tempautolabel;
@@ -3371,4 +3370,24 @@ int any_locked_cells(int r1, int c1, int r2, int c2) {
         }
     }
     return 0;
+}
+
+void sc_set_locale(int set) {
+    dpoint = '.';
+    thsep = ',';
+    FullUpdate++;
+
+    if (set) {
+#ifdef USELOCALE
+        struct lconv *locstruct;
+        char *loc = setlocale(LC_ALL, "");
+        if (loc != NULL) {
+            locstruct = localeconv();
+            dpoint = locstruct->decimal_point[0];
+            thsep = locstruct->thousands_sep[0];
+        }
+#else
+        error("Locale support not available");
+#endif
+    }
 }

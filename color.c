@@ -20,11 +20,10 @@ struct colorpair *cpairs[8];
 static struct crange *color_base;
 
 int are_colors(void) {
-    return (color_base != 0);
+    return color_base != NULL;
 }
 
-void initcolor(int colornum)
-{
+void initcolor(int colornum) {
     if (!colornum) {
         int i;
 
@@ -97,8 +96,7 @@ void initcolor(int colornum)
         color_set(1, NULL);
 }
 
-void change_color(int pair, struct enode *e)
-{
+void change_color(int pair, struct enode *e) {
     int v;
 
     if ((--pair) < 0 || pair > 7) {
@@ -106,7 +104,7 @@ void change_color(int pair, struct enode *e)
         return;
     }
 
-    v = (int) eval(e);
+    v = (int)eval(e);
 
     if (!cpairs[pair])
         cpairs[pair] = scxmalloc(sizeof(struct colorpair));
@@ -120,8 +118,7 @@ void change_color(int pair, struct enode *e)
     FullUpdate++;
 }
 
-void add_crange(struct ent *r_left, struct ent *r_right, int pair)
-{
+void add_crange(struct ent *r_left, struct ent *r_right, int pair) {
     struct crange *r;
     int minr, minc, maxr, maxc;
 
@@ -131,23 +128,22 @@ void add_crange(struct ent *r_left, struct ent *r_right, int pair)
     maxc = r_left->col > r_right->col ? r_left->col : r_right->col;
 
     if (!pair) {
-        if (color_base) {
-            for (r = color_base; r; r = r->r_next) {
-                if (    (r->r_left->row == r_left->row) &&
-                        (r->r_left->col == r_left->col) &&
-                        (r->r_right->row == r_right->row) &&
-                        (r->r_right->col == r_right->col)) {
-                    if (r->r_next)
-                        r->r_next->r_prev = r->r_prev;
-                    if (r->r_prev)
-                        r->r_prev->r_next = r->r_next;
-                    else
-                        color_base = r->r_next;
-                    scxfree(r);
-                    modflg++;
-                    FullUpdate++;
-                    return;
-                }
+        for (r = color_base; r; r = r->r_next) {
+            if ((r->r_left->row == r_left->row) &&
+                (r->r_left->col == r_left->col) &&
+                (r->r_right->row == r_right->row) &&
+                (r->r_right->col == r_right->col))
+            {
+                if (r->r_next)
+                    r->r_next->r_prev = r->r_prev;
+                if (r->r_prev)
+                    r->r_prev->r_next = r->r_next;
+                else
+                    color_base = r->r_next;
+                scxfree(r);
+                modflg++;
+                FullUpdate++;
+                return;
             }
         }
         error("Color range not defined");
@@ -161,8 +157,8 @@ void add_crange(struct ent *r_left, struct ent *r_right, int pair)
 
     r->r_next = color_base;
     r->r_prev = NULL;
-    if (color_base)
-        color_base->r_prev = r;
+    if (r->r_next)
+        r->r_next->r_prev = r;
     color_base = r;
 
     modflg++;
@@ -171,34 +167,28 @@ void add_crange(struct ent *r_left, struct ent *r_right, int pair)
 
 void clean_crange(void) {
     struct crange *cr;
-    struct crange *nextcr;
 
     cr = color_base;
     color_base = NULL;
-
     while (cr) {
-        nextcr = cr->r_next;
+        struct crange *nextcr = cr->r_next;
         scxfree(cr);
         cr = nextcr;
     }
 }
 
-struct crange *find_crange(int row, int col)
-{
+struct crange *find_crange(int row, int col) {
     struct crange *r;
 
-    if (color_base) {
-        for (r = color_base; r; r = r->r_next) {
-            if ((r->r_left->row <= row) && (r->r_left->col <= col) &&
-                (r->r_right->row >= row) && (r->r_right->col >= col))
-                return r;
-        }
+    for (r = color_base; r; r = r->r_next) {
+        if ((r->r_left->row <= row) && (r->r_left->col <= col) &&
+            (r->r_right->row >= row) && (r->r_right->col >= col))
+            break;
     }
-    return 0;
+    return r;
 }
 
-void sync_cranges(void)
-{
+void sync_cranges(void) {
     struct crange *cr;
 
     cr = color_base;
@@ -209,8 +199,7 @@ void sync_cranges(void)
     }
 }
 
-void write_cranges(FILE *f)
-{
+void write_cranges(FILE *f) {
     struct crange *r;
     struct crange *nextr;
 
@@ -221,14 +210,12 @@ void write_cranges(FILE *f)
                 v_name(r->r_left->row, r->r_left->col),
                 v_name(r->r_right->row, r->r_right->col),
                 r->r_color);
-
         r = r->r_prev;
     }
 }
 
-void write_colors(FILE *f, int indent)
-{
-    int i, c = 0;
+void write_colors(FILE *f, int indent) {
+    int i, count = 0;
 
     for (i = 0; i < 8; i++) {
         if (cpairs[i] && cpairs[i]->expr) {
@@ -237,14 +224,13 @@ void write_colors(FILE *f, int indent)
             decompile(cpairs[i]->expr, 0);
             fprintf(f, "%*s%s\n", indent, "", line);
             if (brokenpipe) return;
-            c++;
+            count++;
         }
     }
-    if (indent && c) fprintf(f, "\n");
+    if (indent && count) fprintf(f, "\n");
 }
 
-void list_colors(FILE *f)
-{
+void list_colors(FILE *f) {
     struct crange *r;
     struct crange *nextr;
 
@@ -257,8 +243,8 @@ void list_colors(FILE *f)
         return;
     }
 
-    fprintf(f, "  %-30s %s\n","Range", "Color");
-    if (!brokenpipe) fprintf(f, "  %-30s %s\n","-----", "-----");
+    fprintf(f, "  %-30s %s\n", "Range", "Color");
+    if (!brokenpipe) fprintf(f, "  %-30s %s\n", "-----", "-----");
 
     for (r = nextr = color_base; nextr; r = nextr, nextr = r->r_next)
         continue;
@@ -270,8 +256,7 @@ void list_colors(FILE *f)
     }
 }
 
-void fix_colors(int row1, int col1, int row2, int col2, int delta1, int delta2)
-{
+void fix_colors(int row1, int col1, int row2, int col2, int delta1, int delta2) {
     int r1, c1, r2, c2;
     struct crange *cr, *ncr;
     struct frange *fr;
@@ -297,8 +282,8 @@ void fix_colors(int row1, int col1, int row2, int col2, int delta1, int delta2)
             }
 
             if (r1 > r2 || c1 > c2 ||
-              (row1 >= 0 && row2 >= 0 && row1 <= r1 && row2 >= r2) ||
-              (col1 >= 0 && col2 >= 0 && col1 <= c1 && col2 >= c2)) {
+                (row1 >= 0 && row2 >= 0 && row1 <= r1 && row2 >= r2) ||
+                (col1 >= 0 && col2 >= 0 && col1 <= c1 && col2 >= c2)) {
                 /* the 0 means delete color range */
                 add_crange(cr->r_left, cr->r_right, 0);
             } else {
@@ -306,5 +291,19 @@ void fix_colors(int row1, int col1, int row2, int col2, int delta1, int delta2)
                 cr->r_right = lookat(r2, c2);
             }
         }
+    }
+}
+
+void sc_setcolor(int set) {
+    color = set;
+    if (usecurses && has_colors()) {
+        if (set) {
+            color_set(1, NULL);
+            bkgd(COLOR_PAIR(1) | ' ');
+        } else {
+            color_set(0, NULL);
+            bkgd(COLOR_PAIR(0) | ' ');
+        }
+        FullUpdate++;
     }
 }

@@ -375,7 +375,9 @@ struct go_save {
 #define GROWCOL         4       /* add columns */
 #define GROWBOTH        6       /* grow both */
 
-/* The table data is organised as:
+extern const char *progname;
+
+/* The table data is organized as:
    `tbl`: a pointer to an array of `maxrows` pointers to rows
    each row pointer points to an array of `maxcols` pointers to cells
    these cell pointers can be NULL or point to an allocated `ent` structure
@@ -442,24 +444,23 @@ extern char *texext;
 extern int Vopt;
 extern struct go_save gs;
 
-extern FILE *openfile(char *, size_t, int *, int *);
-extern char *coltoa(int col);
+extern FILE *openfile(char *fname, size_t fnamesiz, int *rpid, int *rfd);
+extern char *findhome(char *fname, size_t fnamesiz);
 extern char *findplugin(char *ext, char type);
-extern char *findhome(char *, size_t);
+extern char *coltoa(int col);
+extern char *v_name(int row, int col);
 extern char *r_name(int r1, int c1, int r2, int c2);
 extern void *scxmalloc(size_t n);
 extern void *scxrealloc(void *ptr, size_t n);
 extern char *scxdup(const char *s);
 extern void scxfree(void *p);
 extern char *seval(struct enode *se);
-extern char *v_name(int row, int col);
 extern double eval(struct enode *e);
-extern int any_locked_cells(int r1, int c1, int r2, int c2);
 extern int are_colors(void);
 extern int are_frames(void);
 extern int are_ranges(void);
 extern int atocol(char *string, int len);
-extern int creadfile(const char *save, int  eraseflg);
+extern int creadfile(const char *save, int eraseflg);
 extern int cwritefilec(const char *fname, int r0, int c0, int rn, int cn);
 extern bool engformat(int fmt, int width, int lprecision, double val,
                       char *buf, int buflen);
@@ -509,8 +510,7 @@ extern void closecol(int arg);
 extern void closefile(FILE *f, int pid, int rfd);
 extern void closerow(int r, int numrow);
 extern void colshow_op(void);
-extern void copy(struct ent *dv1, struct ent *dv2, struct ent *v1,
-                 struct ent *v2);
+extern void copy(struct ent *dv1, struct ent *dv2, struct ent *v1, struct ent *v2);
 extern void copyent(struct ent *n, struct ent *p,
                     int dr, int dc, int r1, int c1, int r2, int c2, int transpose);
 extern void decompile(struct enode *e, int priority);
@@ -518,7 +518,6 @@ extern void deleterow(int arg);
 extern void del_range(struct ent *left, struct ent *right);
 extern void del_abbr(const char *abbrev);
 extern void deraw(int ClearLastLine);
-extern void diesave(void);
 extern void doend(int rowinc, int colinc);
 extern void doformat(int c1, int c2, int w, int p, int r);
 extern void dupcol(void);
@@ -620,6 +619,8 @@ extern void yyerror(const char *err);
 extern int yylex(void);
 extern int yyparse(void);
 extern int backup_file(char *path);
+extern void sc_set_locale(int set);
+extern void sc_setcolor(int set);
 
 extern int modflg;
 #if !defined(VMS) && !defined(MSDOS) && defined(CRYPT_PATH)
@@ -660,13 +661,12 @@ extern int loading;
 extern int getrcqual;
 extern int tbl_style;
 extern int rndtoeven;
-extern const char *progname;
 #ifdef TRACE
 extern FILE *ftrace;
 #endif
 extern int numeric_field;
 extern int craction;
-extern int  pagesize;  /* If nonzero, use instead of 1/2 screen height */
+extern int pagesize;  /* If nonzero, use instead of 1/2 screen height */
 extern int rowlimit;
 extern int collimit;
 
