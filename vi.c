@@ -130,7 +130,8 @@ void write_line(int c)
     int ps;
 
     CLEAR_LINE;
-    if (c != ctl('i')) completethis = NULL;
+    if (c != ctl('i'))
+        completethis = NULL;
     if (mode == EDIT_MODE) {
         nosavedot = 0;
         switch (c) {
@@ -590,15 +591,13 @@ void edit_mode(void) {
     linelim = back_line(1);
 }
 
-void insert_mode(void)
-{
+void insert_mode(void) {
     mode_ind = 'i';
     mode = INSERT_MODE;
     istart = linelim;
 }
 
-static void search_mode(char sind)
-{
+static void search_mode(char sind) {
     if (search_ind == ' ') {
         /*
          * This back and forth movement through the history is just a quick

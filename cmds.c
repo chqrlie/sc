@@ -925,120 +925,109 @@ int get_rcqual(int ch)
     int c;
 
     error("%sow/column:  r: row  c: column%s",
-
 #ifdef KEY_IC
-          (ch == KEY_IC)          ? "Insert r" :
+          (ch == KEY_IC)  ? "Insert r" :
 #endif
-          (ch == 'i')             ? "Insert r" :
-          (ch == 'o')             ? "Open r" :
-          (ch == 'a')             ? "Append r" :
-          (ch == 'd')             ? "Delete r" :
-          (ch == 'y')             ? "Yank r" :
-          (ch == 'p')             ? "Pull r" :
-          (ch == 'v')             ? "Values r" :
-          (ch == 'Z')             ? "Zap r" :
-          (ch == 's')             ? "Show r" : "R",
+          (ch == 'i')     ? "Insert r" :
+          (ch == 'o')     ? "Open r" :
+          (ch == 'a')     ? "Append r" :
+          (ch == 'd')     ? "Delete r" :
+          (ch == 'y')     ? "Yank r" :
+          (ch == 'p')     ? "Pull r" :
+          (ch == 'v')     ? "Values r" :
+          (ch == 'Z')     ? "Zap r" :
+          (ch == 's')     ? "Show r" : "R",
 
-          (ch == 'p')             ? "  p: paste  m: merge  x: xchg  <MORE>" :
-          (ch == 'Z')             ? "  Z: save/exit" : "");
+          (ch == 'p')     ? "  p: paste  m: merge  x: xchg  <MORE>" :
+          (ch == 'Z')     ? "  Z: save/exit" : "");
 
     refresh();
 
     switch (c = nmgetch()) {
-        case 'r':       return ('r');
+    case 'r':       return 'r';
+    case 'c':       return 'c';
+    case 'p':       return (ch == 'p') ? 'p' : 0;
+    case 'm':       return (ch == 'p') ? 'm' : 0;
+    case 'x':       return (ch == 'p') ? 'x' : 0;
+    case 't':       return (ch == 'p') ? 't' : 0;
+    case 'f':       return (ch == 'p') ? 'f' : 0;
+    case 'C':       return (ch == 'p') ? 'C' : 0;
+    case '.':       return (ch == 'p') ? '.' : 0;
+    case 'Z':       return (ch == 'Z') ? 'Z' : 0;
+    case ESC:
+    case ctl('g'):  return ESC;
 
-        case 'c':       return ('c');
+    case 'd':       if (ch == 'd') {
+                        ungetch('x');
+                        return ESC;
+                    } else
+                        return 0;
 
-        case 'p':       return ((ch == 'p') ? 'p' : 0);
+    case 'y':       if (ch == 'y') {
+                        yankr(lookat(currow, curcol),
+                              lookat(currow, curcol));
+                        return ESC;
+                    } else
+                        return 0;
 
-        case 'm':       return ((ch == 'p') ? 'm' : 0);
+    case 'v':       if (ch == 'v') {
+                        valueize_area(currow, curcol, currow, curcol);
+                        modflg++;
+                        return ESC;
+                    } else
+                        return 0;
 
-        case 'x':       return ((ch == 'p') ? 'x' : 0);
+    case KEY_UP:
+    case KEY_DOWN:
+    case KEY_PPAGE:
+    case KEY_NPAGE:
+    case 'j':
+    case 'k':
+    case 'J':
+    case 'K':
+    case ctl('f'):
+    case ctl('b'):
+    case ctl('n'):
+    case ctl('p'):  if (ch == 'd')
+                        snprintf(line, sizeof line, "deleterow [range] ");
+                    else if (ch == 'y')
+                        snprintf(line, sizeof line, "yankrow [range] ");
+                    else if (ch == 'Z')
+                        snprintf(line, sizeof line, "hide [range] ");
+                    else
+                        return 0;
+                    edit_mode();
+                    write_line('A');
+                    startshow();
+                    showrange = SHOWROWS;
+                    showsr = currow;
+                    ungetch(c);
+                    return ESC;
 
-        case 't':       return ((ch == 'p') ? 't' : 0);
+    case KEY_BACKSPACE:
+    case KEY_LEFT:
+    case KEY_RIGHT:
+    case ' ':
+    case 'h':
+    case 'l':
+    case 'H':
+    case 'L':       if (ch == 'd')
+                        snprintf(line, sizeof line, "deletecol [range] ");
+                    else if (ch == 'y')
+                        snprintf(line, sizeof line, "yankcol [range] ");
+                    else if (ch == 'Z')
+                        snprintf(line, sizeof line, "hide [range] ");
+                    else
+                        return 0;
+                    edit_mode();
+                    write_line('A');
+                    startshow();
+                    showrange = SHOWCOLS;
+                    showsc = curcol;
+                    ungetch(c);
+                    return ESC;
 
-        case 'f':       return ((ch == 'p') ? 'f' : 0);
-
-        case 'C':       return ((ch == 'p') ? 'C' : 0);
-
-        case '.':       return ((ch == 'p') ? '.' : 0);
-
-        case 'Z':       return ((ch == 'Z') ? 'Z' : 0);
-
-        case ESC:
-        case ctl('g'):  return (ESC);
-
-        case 'd':       if (ch == 'd') {
-                            ungetch('x');
-                            return (ESC);
-                        } else
-                            return 0;
-
-        case 'y':       if (ch == 'y') {
-                            yankr(lookat(currow, curcol),
-                                    lookat(currow, curcol));
-                            return (ESC);
-                        } else
-                            return 0;
-
-        case 'v':       if (ch == 'v') {
-                            valueize_area(currow, curcol, currow, curcol);
-                            modflg++;
-                            return (ESC);
-                        } else
-                            return 0;
-
-        case KEY_UP:
-        case KEY_DOWN:
-        case KEY_PPAGE:
-        case KEY_NPAGE:
-        case 'j':
-        case 'k':
-        case 'J':
-        case 'K':
-        case ctl('f'):
-        case ctl('b'):
-        case ctl('n'):
-        case ctl('p'):  if (ch == 'd')
-                            snprintf(line, sizeof line, "deleterow [range] ");
-                        else if (ch == 'y')
-                            snprintf(line, sizeof line, "yankrow [range] ");
-                        else if (ch == 'Z')
-                            snprintf(line, sizeof line, "hide [range] ");
-                        else
-                            return 0;
-                        edit_mode();
-                        write_line('A');
-                        startshow();
-                        showrange = SHOWROWS;
-                        showsr = currow;
-                        ungetch(c);
-                        return (ESC);
-
-        case KEY_BACKSPACE:
-        case KEY_LEFT:
-        case KEY_RIGHT:
-        case ' ':
-        case 'h':
-        case 'l':
-        case 'H':
-        case 'L':       if (ch == 'd')
-                            snprintf(line, sizeof line, "deletecol [range] ");
-                        else if (ch == 'y')
-                            snprintf(line, sizeof line, "yankcol [range] ");
-                        else if (ch == 'Z')
-                            snprintf(line, sizeof line, "hide [range] ");
-                        else
-                            return 0;
-                        edit_mode();
-                        write_line('A');
-                        startshow();
-                        showrange = SHOWCOLS;
-                        showsc = curcol;
-                        ungetch(c);
-                        return (ESC);
-
-        default:        return 0;
+    default:        return 0;
     }
     /*NOTREACHED*/
 }
