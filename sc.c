@@ -229,15 +229,8 @@ void fatal(const char *str) {
 
 int main(int argc, char **argv)
 {
-    int inloop = 1;
     int c;
-    int edistate = -1;
-    int narg;
-    int nedistate;
-    int running;
     const char *revi;
-    int anychanged = FALSE;
-    int tempx, tempy;       /* Temp versions of curx, cury */
 
     /*
      * Keep command line options around until the file is read so the
@@ -540,6 +533,19 @@ int main(int argc, char **argv)
         write_fd(stdout, 0, 0, maxrow, maxcol);
         return 0;
     }
+
+    return vi_interaction();
+}
+
+int vi_interaction(void) {
+    int inloop = 1;
+    int c;
+    int narg;
+    int edistate = -1;
+    int nedistate;
+    int running;
+    int anychanged = FALSE;
+    int tempx, tempy;       /* Temp versions of curx, cury */
 
     modflg = 0;
     cellassign = 0;

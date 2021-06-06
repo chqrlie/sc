@@ -731,6 +731,7 @@ extern void gototop(void);
 extern void gotobottom(void);
 extern void mouseon(void);
 extern void mouseoff(void);
+extern int vi_interaction(void);
 
 #if defined BSD42 || defined SYSIII
 
