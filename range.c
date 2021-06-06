@@ -13,7 +13,6 @@
 #include <ctype.h>
 #include <unistd.h>
 #include <limits.h>
-#include "compat.h"
 #include "sc.h"
 
 static void sync_enode(struct enode *e);

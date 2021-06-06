@@ -21,7 +21,6 @@
 #include <unistd.h>
 #endif
 
-#include "compat.h"
 #include "sc.h"
 
 #ifdef VMS
@@ -1196,8 +1195,7 @@ void startdisp(void)
 #endif
 }
 
-void stopdisp(void)
-{
+void stopdisp(void) {
 #ifndef MSDOS
     if (usecurses) {
 #endif
@@ -1246,7 +1244,7 @@ void goraw(void) {
 #else
         cbreak();
         nonl();
-        noecho ();
+        noecho();
 #endif
         kbd_again();
         if (color && has_colors())
@@ -1278,3 +1276,24 @@ void deraw(int ClearLastLine)
 }
 
 #endif /* VMS */
+
+void mouseon(void) {
+#ifdef NCURSES_MOUSE_VERSION
+    mousemask(BUTTON1_CLICKED
+# if NCURSES_MOUSE_VERSION >= 2
+              | BUTTON4_PRESSED | BUTTON5_PRESSED
+# endif
+              , NULL);
+# if NCURSES_MOUSE_VERSION < 2
+    error("Warning: NCURSES_MOUSE_VERSION < 2");
+# endif
+#else
+    error("Error: NCURSES_MOUSE_VERSION undefined");
+#endif
+}
+
+void mouseoff(void) {
+#if NCURSES_MOUSE_VERSION >= 2
+    mousemask(0, NULL);
+#endif
+}

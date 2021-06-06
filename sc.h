@@ -18,6 +18,7 @@
 #include <unistd.h>
 #endif
 
+#include "compat.h"
 #include "config.h"
 
 #if (defined(__GNUC__) || defined(__TINYC__))
@@ -384,7 +385,6 @@ struct go_save {
 extern struct ent ***tbl;       /* data table ref. in vmtbl.c and ATBL() */
 
 extern char curfile[PATHLEN];
-extern int uarg;                /* universal numeric prefix argument */
 extern int strow, stcol;
 extern int currow, curcol;
 extern int gmyrow, gmycol;      /* globals used for @myrow, @mycol cmds */
@@ -466,9 +466,7 @@ extern bool engformat(int fmt, int width, int lprecision, double val,
 extern int etype(struct enode *e);
 extern int find_range_name(const char *name, int len, struct range **rng);
 struct range *find_range_coords(struct ent *lmatch, struct ent *rmatch);
-extern bool format(char *fmt, int lprecision, double val, char *buf,
-                   size_t buflen);
-extern int get_rcqual(int ch);
+extern bool format(char *fmt, int lprecision, double val, char *buf, size_t buflen);
 extern int growtbl(int rowcol, int toprow, int topcol);
 extern int locked_cell(int r, int c);
 extern int modcheck(const char *endstr);
@@ -530,7 +528,6 @@ extern void dostat(int fd);
 extern void dotick(int tick);
 extern void editexp(int row, int col);
 extern void editfmt(int row, int col);
-extern void edit_mode(void);
 extern void edits(int row, int col);
 extern void editv(int row, int col);
 extern void efree(struct enode *e);
@@ -546,7 +543,6 @@ extern void fix_frames(int row1, int col1, int row2, int col2,
 extern void fix_ranges(int row1, int col1, int row2, int col2,
                        int delta1, int delta2);
 extern void flush_saved(void);
-extern void formatcol(int arg);
 extern void format_cell(struct ent *v1, struct ent *v2, char *s);
 extern void forwcol(int arg);
 extern void forwrow(int arg);
@@ -565,8 +561,6 @@ extern void hidecol(int arg);
 extern void hiderow(int arg);
 extern void initcolor(int colornum);
 extern void initkbd(void);
-extern void ins_string(const char *s);
-extern void insert_mode(void);
 extern void insertcol(int arg, int delta);
 extern void insertrow(int arg, int delta);
 extern void kbd_again(void);
@@ -580,7 +574,6 @@ extern void move_area(int dr, int dc, int sr, int sc, int er, int ec);
 extern void mover(struct ent *d, struct ent *v1, struct ent *v2);
 extern void moveto(int row, int col, int lastrow, int lastcol,
                    int cornrow, int corncol);
-extern void toggle_navigate_mode(void);
 extern void num_search(double n, int firstrow, int firstcol, int lastrow,
                        int lastcol, int errsearch);
 extern void printfile(char *fname, int r0, int c0, int rn, int cn);
@@ -594,7 +587,6 @@ extern void setauto(int i);
 extern void setiterations(int i);
 extern void setorder(int i);
 extern void showcol(int c1, int c2);
-extern void showdr(void);
 extern void showrow(int r1, int r2);
 extern void showstring(char *string, int dirflush, int hasvalue, int row,
                        int col, int *nextcolp, int mxcol, int *fieldlenp, int r, int c,
@@ -602,7 +594,6 @@ extern void showstring(char *string, int dirflush, int hasvalue, int row,
 extern void signals(void);
 extern void slet(struct ent *v, struct enode *se, int flushdir);
 extern void sortrange(struct ent *left, struct ent *right, char *criteria);
-extern void startshow(void);
 extern void startdisp(void);
 extern void stopdisp(void);
 extern void str_search(char *s, int firstrow, int firstcol, int lastrow,
@@ -623,7 +614,6 @@ extern void write_cranges(FILE *f);
 extern void write_fd(FILE *f, int r0, int c0, int rn, int cn);
 extern void write_franges(FILE *f);
 extern void write_hist(void);
-extern void write_line(int c);
 extern void write_ranges(FILE *f);
 extern void yank_area(int sr, int sc, int er, int ec);
 extern void yyerror(const char *err);
@@ -679,9 +669,6 @@ extern int craction;
 extern int  pagesize;  /* If nonzero, use instead of 1/2 screen height */
 extern int rowlimit;
 extern int collimit;
-#ifdef NCURSES_MOUSE_VERSION
-extern MEVENT mevent;
-#endif
 
 extern char revmsg[80];
 extern int showneed;   /* Causes cells needing values to be highlighted */
@@ -703,7 +690,7 @@ extern void yankcol(int);
 extern void yankrow(int);
 extern void list_frames(FILE *);
 extern void yankr(struct ent *, struct ent *);
-extern void dogetkey(void);
+extern void dogetkey(int fd);
 extern void doseval(struct enode *, int, int, int);
 extern void doeval(struct enode *, char *, int, int, int);
 extern void getrange(char *, int);
@@ -711,7 +698,6 @@ extern void getframe(int);
 extern void add_abbr(char *);
 extern void repaint(int, int, int, int, int);
 extern void update(int);
-extern void doshell(void);
 #ifdef SIGVOID
 #define sigret_t void
 #else
@@ -724,14 +710,10 @@ extern sigret_t nopipe(int);
 #ifdef SIGWINCH
 extern sigret_t winchg(int);
 #endif
-extern void gohome(void);
-extern void leftlimit(void);
-extern void rightlimit(void);
-extern void gototop(void);
-extern void gotobottom(void);
 extern void mouseon(void);
 extern void mouseoff(void);
-extern int vi_interaction(void);
+extern void vi_interaction(void);
+extern void vi_select_range(const char *arg);
 
 #if defined BSD42 || defined SYSIII
 

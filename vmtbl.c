@@ -13,7 +13,6 @@
 
 #include <unistd.h>
 #include <limits.h>
-#include "compat.h"
 #include "sc.h"
 
 /*
@@ -21,8 +20,7 @@
  * current size if we can.
  */
 
-void checkbounds(int *rowp, int *colp)
-{
+void checkbounds(int *rowp, int *colp) {
     if (*rowp < 0)
         *rowp = 0;
     else if (*rowp >= maxrows) {
@@ -64,8 +62,7 @@ static const char nowider[] = "The table can't be any wider";
  * toprow &&/|| topcol tell us a better guess of how big to become.
  * we return TRUE if we could grow, FALSE if not....
  */
-int growtbl(int rowcol, int toprow, int topcol)
-{
+int growtbl(int rowcol, int toprow, int topcol) {
     int newrows, newcols, row, col;
     struct ent **rowptr;
 

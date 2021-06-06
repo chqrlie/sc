@@ -14,7 +14,6 @@
 #include <ctype.h>
 #include <unistd.h>
 #include <limits.h>
-#include "compat.h"
 #include "sc.h"
 
 static struct abbrev *abbr_base;

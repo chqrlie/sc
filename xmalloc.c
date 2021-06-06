@@ -5,7 +5,6 @@
 
 #include <stdlib.h>
 #include <limits.h>
-#include "compat.h"
 #include "sc.h"
 
 #define MAGIC   (double)1234567890.12344

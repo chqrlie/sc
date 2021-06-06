@@ -273,7 +273,7 @@ YTAB=y.tab
 
 #########################################
 # For SCO Unix V rel. 3.2.0
-#       -compile using rcc, cc does not cope with gram.c
+#       -compile using rcc, cc does not cope with y.tab.c
 #       -edit /usr/include/curses.h, rcc does not understand #error
 #       -link: make CC=cc, rcc's loader gets unresolved __cclass, __range
 #               (rather strange,?)
@@ -367,21 +367,17 @@ $(name):$(PAR)  $(OBJS)
 #$(name):	$(OBJS)
 #	link ${_LDFLAGS} ${OBJS},$(name),,${LDADD};
 
-gram.c:	gram.y
+$(YTAB).c: gram.y
 	$(YACC) -d gram.y
-	mv $(YTAB).c gram.c
 
 $(YTAB).h: gram.y
 
-p$(name): psc.c $O/pvmtbl.o $O/xmalloc.o $O/version.o
-	$(CC) $(_CFLAGS) -o $@ ${_LDFLAGS} psc.c $O/pvmtbl.o $O/xmalloc.o $O/version.o ${PSCLIB}
-
-$O/pvmtbl.o: pvmtbl.c sc.h
-	$(CC) $(_CFLAGS) -o $@ -c pvmtbl.c
+p$(name): $O/psc.o $O/xmalloc.o $O/version.o
+	$(CC) $(_CFLAGS) -o $@ ${_LDFLAGS} $O/psc.o $O/xmalloc.o $O/version.o ${PSCLIB}
 
 # Alternative link for MS-DOS (NB: MSC 5.1 has no getopt.c)
-#p$(name):	$O/psc.o $O/pvmtbl.o $O/xmalloc.o $O/getopt.o
-#	link ${_LDFLAGS} $O/psc.o $O/pvmtbl.o $O/xmalloc.o $O/getopt.o,p$(name);
+#p$(name): $O/psc.o $O/xmalloc.o $O/getopt.o
+#	link ${_LDFLAGS} $O/psc.o $O/xmalloc.o $O/getopt.o,p$(name);
 
 $(name)qref: help.c sc.h
 	$(CC) $(_CFLAGS) -o $@ $(_LDFLAGS) -DQREF $(QREF_FMT) -DSCNAME=\"$(NAME)\" help.c
@@ -390,7 +386,7 @@ $O/qhelp.o: help.c sc.h
 	$(CC) $(_CFLAGS) -o $@ ${CRYPT} -c help.c
 
 # Alternative link for MS-DOS
-#$(name)qref:	help.c sc.h
+#$(name)qref: help.c sc.h
 #	$(CC) -AL -O -Foqhelp.o -c -DQREF -DSCNAME=\"$(name)\" help.c
 #	link ${_LDFLAGS} qhelp.o,$(name)qref;
 
@@ -420,8 +416,8 @@ experres.h: gram.y eres.sed
 statres.h: gram.y sres.sed
 	sed < gram.y > statres.h -f sres.sed
 
-$O/gram.o: gram.c $(YTAB).h sc.h
-	$(CC) $(_CFLAGS) -o $@ ${USELOCALE} -c gram.c
+$O/gram.o: $(YTAB).c $(YTAB).h sc.h
+	$(CC) $(_CFLAGS) -o $@ ${USELOCALE} -c $(YTAB).c
 
 $O/help.o: help.c sc.h
 	$(CC) $(_CFLAGS) -o $@ ${CRYPT} -c help.c
@@ -429,7 +425,7 @@ $O/help.o: help.c sc.h
 $O/interp.o: interp.c sc.h
 	$(CC) $(_CFLAGS) -o $@ ${FLOAT_STORE} ${IEEE_MATH} ${SIGVOID} ${RINT} ${REGEX} ${FMOD} -c interp.c
 
-$O/lex.o: $(YTAB).h $O/gram.o lex.c sc.h experres.h statres.h
+$O/lex.o: $(YTAB).h $(YTAB).c lex.c sc.h experres.h statres.h
 	$(CC) $(_CFLAGS) -o $@ ${SIMPLE} ${IEEE_MATH} ${LIBRARY} ${SIGVOID} ${NO_NOTIMEOUT} -c lex.c
 
 $O/pipe.o: pipe.c sc.h
@@ -459,14 +455,16 @@ $O/vmtbl.o: vmtbl.c sc.h
 $O/xmalloc.o: xmalloc.c sc.h
 	$(CC) $(_CFLAGS) -o $@ -c xmalloc.c
 
+$O/psc.o: psc.c sc.h
+	$(CC) $(_CFLAGS) -o $@ -c psc.c
+
 $O/compat.o: compat.c sc.h
 	$(CC) $(_CFLAGS) -o $@ -c compat.c
 
 # other stuff
 
 clean:
-	rm -rf $O
-	rm -f *.o *res.h $(YTAB).h gram.c y.output tags debug core
+	rm -rf $O *.o *res.h $(YTAB).h $(YTAB).c y.output tags debug core
 
 distclean: clean
 	rm -f $(name) p$(name) $(name)qref x$(name) Makefile config.log
@@ -478,10 +476,10 @@ shar: ${SRC} ${DOCS}
 sshar: ${SRC}
 	shar -c -m 1000000 -f shar ${SRC}
 
-lint: sc.h sc.c lex.c gram.c interp.c cmds.c color.c crypt.c frame.c pipe.c \
+lint: sc.h sc.c lex.c $(YTAB).c interp.c cmds.c color.c crypt.c frame.c pipe.c \
 	range.c help.c vi.c version.c xmalloc.c format.c vmtbl.c
 	lint ${LINTFLAGS} $(_CFLAGS) ${SIMPLE} sc.c \
-	    lex.c gram.c interp.c cmds.c color.c crypt.c frame.c pipe.c \
+	    lex.c $(YTAB).c interp.c cmds.c color.c crypt.c frame.c pipe.c \
 	    range.c help.c vi.c version.c xmalloc.c format.c vmtbl.c \
 	    $(LDADD)
 	make lintqref
@@ -489,8 +487,8 @@ lint: sc.h sc.c lex.c gram.c interp.c cmds.c color.c crypt.c frame.c pipe.c \
 lintqref: help.c
 	lint ${LINTFLAGS} $(_CFLAGS) ${SIMPLE} -DQREF help.c
 
-lintpsc: psc.c pvmtbl.c
-	lint ${LINTFLAGS} $(_CFLAGS) ${SIMPLE} psc.c pvmtbl.c
+lintpsc: psc.c
+	lint ${LINTFLAGS} $(_CFLAGS) ${SIMPLE} psc.c
 
 .SUFFIXES: .doc .1
 

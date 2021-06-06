@@ -10,7 +10,6 @@ x
 # targets
 .obj
 experres.h
-gram.c
 psc
 psc.1
 sc
@@ -21,3 +20,4 @@ statres.h
 xsc
 xsc.1
 y.tab.h
+y.tab.c

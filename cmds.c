@@ -25,11 +25,10 @@
 #include <unistd.h>
 #endif
 #include <limits.h>
-#include "compat.h"
 #include "sc.h"
 
-void syncref(struct enode *e);
-void unspecial(FILE *f, char *str, int delim);
+static void syncref(struct enode *e);
+static void unspecial(FILE *f, char *str, int delim);
 static struct ent *deldata1(void);
 static void deldata2(struct ent *obuf);
 
@@ -38,6 +37,75 @@ static void deldata2(struct ent *obuf);
 int macrofd;
 int cslop;
 static struct impexfilt *filt = NULL; /* root of list of impex filters */
+
+/* return a pointer to a cell's [struct ent *], creating if needed */
+struct ent *lookat(int row, int col) {
+    struct ent **pp;
+    struct ent *p;
+
+    checkbounds(&row, &col);
+    pp = ATBL(tbl, row, col);
+    if (*pp == NULL) {
+        if ((p = freeents) != NULL) {
+            freeents = p->next;
+            p->flags &= ~IS_CLEARED;
+            p->flags |= MAY_SYNC;
+        } else {
+            p = scxmalloc(sizeof(struct ent));
+        }
+        if (row > maxrow) maxrow = row;
+        if (col > maxcol) maxcol = col;
+        p->label = NULL;
+        p->row = row;
+        p->col = col;
+        p->nrow = -1;
+        p->ncol = -1;
+        p->flags = MAY_SYNC;
+        p->expr = (struct enode *)0;
+        p->v = 0.0;
+        p->format = NULL;
+        p->cellerror = CELLOK;
+        p->next = NULL;
+        *pp = p;
+    }
+    return *pp;
+}
+
+/*
+ * This structure is used to keep ent structs around before they
+ * are deleted to allow the sync_refs routine a chance to fix the
+ * variable references.
+ * We also use it as a last-deleted buffer for the 'p' command.
+ */
+void free_ent(struct ent *p, int unlock) {
+    p->next = delbuf[dbidx];
+    delbuf[dbidx] = p;
+    p->flags |= IS_DELETED;
+    if (unlock)
+        p->flags &= ~IS_LOCKED;
+}
+
+/* free deleted cells */
+void flush_saved(void) {
+    struct ent *p;
+    struct ent *q;
+
+    if (dbidx < 0)
+        return;
+
+    if ((p = delbuf[dbidx])) {
+        scxfree(delbuffmt[dbidx]);
+        delbuffmt[dbidx] = NULL;
+    }
+    while (p) {
+        clearent(p);
+        q = p->next;
+        p->next = freeents;     /* put this ent on the front of freeents */
+        freeents = p;
+        p = q;
+    }
+    delbuf[dbidx--] = NULL;
+}
 
 /* copy the current row (currow) and place the cursor in the new row */
 void duprow(void) {
@@ -524,8 +592,7 @@ void yankcol(int arg) {
 
 /* ignorelock is used when sorting so that locked cells can still be sorted */
 
-void erase_area(int sr, int sc, int er, int ec, int ignorelock)
-{
+void erase_area(int sr, int sc, int er, int ec, int ignorelock) {
     int r, c;
     struct ent **pp;
 
@@ -570,8 +637,7 @@ void erase_area(int sr, int sc, int er, int ec, int ignorelock)
     }
 }
 
-void yank_area(int sr, int sc, int er, int ec)
-{
+void yank_area(int sr, int sc, int er, int ec) {
     int r, c;
 
     if (sr > er) {
@@ -600,8 +666,7 @@ void yank_area(int sr, int sc, int er, int ec)
     curcol = c;
 }
 
-void move_area(int dr, int dc, int sr, int sc, int er, int ec)
-{
+void move_area(int dr, int dc, int sr, int sc, int er, int ec) {
     struct ent *p;
     struct ent **pp;
     int deltar, deltac;
@@ -658,8 +723,7 @@ void move_area(int dr, int dc, int sr, int sc, int er, int ec)
  * deletes the expression associated w/ a cell and turns it into a constant
  * containing whatever was on the screen
  */
-void valueize_area(int sr, int sc, int er, int ec)
-{
+void valueize_area(int sr, int sc, int er, int ec) {
     int r, c;
     struct ent *p;
 
@@ -693,8 +757,7 @@ void valueize_area(int sr, int sc, int er, int ec)
     }
 }
 
-void pullcells(int to_insert)
-{
+void pullcells(int to_insert) {
     struct ent *obuf;
     struct ent *p, *n;
     struct ent **pp;
@@ -893,8 +956,7 @@ void colshow_op(void) {
     }
 }
 
-void rowshow_op(void)
-{
+void rowshow_op(void) {
     int i, j;
     for (i = 0; i < maxrows; i++) {
         if (row_hidden[i])
@@ -913,128 +975,8 @@ void rowshow_op(void)
     }
 }
 
-/*
- * Given a row/column command letter, emit a small menu, then read a qualifier
- * character for a row/column command and convert it to 'r' (row), 'c'
- * (column), or 0 (unknown).  If ch is 'p', three extra qualifiers, 'm', 'x',
- * and 't', are allowed.  If ch is 'Z', an extra qualifier 'Z' is allowed.
- */
-
-int get_rcqual(int ch)
-{
-    int c;
-
-    error("%sow/column:  r: row  c: column%s",
-#ifdef KEY_IC
-          (ch == KEY_IC)  ? "Insert r" :
-#endif
-          (ch == 'i')     ? "Insert r" :
-          (ch == 'o')     ? "Open r" :
-          (ch == 'a')     ? "Append r" :
-          (ch == 'd')     ? "Delete r" :
-          (ch == 'y')     ? "Yank r" :
-          (ch == 'p')     ? "Pull r" :
-          (ch == 'v')     ? "Values r" :
-          (ch == 'Z')     ? "Zap r" :
-          (ch == 's')     ? "Show r" : "R",
-
-          (ch == 'p')     ? "  p: paste  m: merge  x: xchg  <MORE>" :
-          (ch == 'Z')     ? "  Z: save/exit" : "");
-
-    refresh();
-
-    switch (c = nmgetch()) {
-    case 'r':       return 'r';
-    case 'c':       return 'c';
-    case 'p':       return (ch == 'p') ? 'p' : 0;
-    case 'm':       return (ch == 'p') ? 'm' : 0;
-    case 'x':       return (ch == 'p') ? 'x' : 0;
-    case 't':       return (ch == 'p') ? 't' : 0;
-    case 'f':       return (ch == 'p') ? 'f' : 0;
-    case 'C':       return (ch == 'p') ? 'C' : 0;
-    case '.':       return (ch == 'p') ? '.' : 0;
-    case 'Z':       return (ch == 'Z') ? 'Z' : 0;
-    case ESC:
-    case ctl('g'):  return ESC;
-
-    case 'd':       if (ch == 'd') {
-                        ungetch('x');
-                        return ESC;
-                    } else
-                        return 0;
-
-    case 'y':       if (ch == 'y') {
-                        yankr(lookat(currow, curcol),
-                              lookat(currow, curcol));
-                        return ESC;
-                    } else
-                        return 0;
-
-    case 'v':       if (ch == 'v') {
-                        valueize_area(currow, curcol, currow, curcol);
-                        modflg++;
-                        return ESC;
-                    } else
-                        return 0;
-
-    case KEY_UP:
-    case KEY_DOWN:
-    case KEY_PPAGE:
-    case KEY_NPAGE:
-    case 'j':
-    case 'k':
-    case 'J':
-    case 'K':
-    case ctl('f'):
-    case ctl('b'):
-    case ctl('n'):
-    case ctl('p'):  if (ch == 'd')
-                        snprintf(line, sizeof line, "deleterow [range] ");
-                    else if (ch == 'y')
-                        snprintf(line, sizeof line, "yankrow [range] ");
-                    else if (ch == 'Z')
-                        snprintf(line, sizeof line, "hide [range] ");
-                    else
-                        return 0;
-                    edit_mode();
-                    write_line('A');
-                    startshow();
-                    showrange = SHOWROWS;
-                    showsr = currow;
-                    ungetch(c);
-                    return ESC;
-
-    case KEY_BACKSPACE:
-    case KEY_LEFT:
-    case KEY_RIGHT:
-    case ' ':
-    case 'h':
-    case 'l':
-    case 'H':
-    case 'L':       if (ch == 'd')
-                        snprintf(line, sizeof line, "deletecol [range] ");
-                    else if (ch == 'y')
-                        snprintf(line, sizeof line, "yankcol [range] ");
-                    else if (ch == 'Z')
-                        snprintf(line, sizeof line, "hide [range] ");
-                    else
-                        return 0;
-                    edit_mode();
-                    write_line('A');
-                    startshow();
-                    showrange = SHOWCOLS;
-                    showsc = curcol;
-                    ungetch(c);
-                    return ESC;
-
-    default:        return 0;
-    }
-    /*NOTREACHED*/
-}
-
 /* delete numrow rows, starting with rs */
-void closerow(int rs, int numrow)
-{
+void closerow(int rs, int numrow) {
     struct ent **pp;
     int r, c, i;
     struct ent **tmprow;
@@ -1123,8 +1065,7 @@ void closerow(int rs, int numrow)
 }
 
 /* delete group of columns (1 or more) */
-void closecol(int arg)
-{
+void closecol(int arg) {
     int r, c, i;
     int cs = maxcol - curcol + 1;
     struct ent **pp;
@@ -1266,8 +1207,7 @@ void closecol(int arg)
     modflg++;
 }
 
-void doend(int rowinc, int colinc)
-{
+void doend(int rowinc, int colinc) {
     struct ent *p;
     int r, c;
 
@@ -1348,8 +1288,7 @@ void doend(int rowinc, int colinc)
 }
 
 /* Modified 9/17/90 THA to handle more formats */
-void doformat(int c1, int c2, int w, int p, int r)
-{
+void doformat(int c1, int c2, int w, int p, int r) {
     int i;
     int crows = 0;
     int ccols = c2;
@@ -1389,136 +1328,6 @@ void doformat(int c1, int c2, int w, int p, int r)
 
     FullUpdate++;
     modflg++;
-}
-
-void formatcol(int arg) {
-    int c, i;
-    int mf = modflg;
-    int *oldformat;
-
-    error("Current format is %d %d %d",
-            fwidth[curcol], precision[curcol],
-            realfmt[curcol]);
-    refresh();
-    oldformat = scxmalloc(arg*3*sizeof(int));
-    for (i = 0; i < arg; i++) {
-        oldformat[i * 3 + 0] = fwidth[i + curcol];
-        oldformat[i * 3 + 1] = precision[i + curcol];
-        oldformat[i * 3 + 2] = realfmt[i + curcol];
-    }
-    c = nmgetch();
-    while (c >= 0 && c != ctl('m') && c != 'q' && c != ESC &&
-            c != ctl('g') && linelim < 0) {
-        if (c >= '0' && c <= '9')
-            for (i = curcol; i < curcol + arg; i++)
-                realfmt[i] = c - '0';
-        else
-            switch (c) {
-                case KEY_LEFT:
-                case '<':
-                case 'h':
-                    for (i = curcol; i < curcol + arg; i++) {
-                        fwidth[i]--;
-                        if (fwidth[i] < 1)
-                            fwidth[i] = 1;
-                    }
-                    rowsinrange = 1;
-                    colsinrange = fwidth[curcol];
-                    modflg++;
-                    break;
-                case KEY_RIGHT:
-                case '>':
-                case 'l':
-                    for (i = curcol; i < curcol + arg; i++) {
-                        fwidth[i]++;
-                        if (fwidth[i] > COLS - rescol - 2)
-                            fwidth[i] = COLS - rescol - 2;
-                    }
-                    rowsinrange = 1;
-                    colsinrange = fwidth[curcol];
-                    modflg++;
-                    break;
-                case KEY_DOWN:
-                case '-':
-                case 'j':
-                    for (i = curcol; i < curcol + arg; i++) {
-                        precision[i]--;
-                        if (precision[i] < 0)
-                            precision[i] = 0;
-                    }
-                    modflg++;
-                    break;
-                case KEY_UP:
-                case '+':
-                case 'k':
-                    for (i = curcol; i < curcol + arg; i++)
-                        precision[i]++;
-                    modflg++;
-                    break;
-                case ' ':
-                    if (arg == 1) {
-                        snprintf(line, sizeof line,
-                                 "format [for column] %s ",
-                                 coltoa(curcol));
-                    } else {
-                        snprintf(line, sizeof line,
-                                 "format [for columns] %s:%s ",
-                                 coltoa(curcol), coltoa(curcol+arg-1));
-                    }
-                    linelim = strlen(line);
-                    insert_mode();
-                    error("Current format is %d %d %d",
-                          fwidth[curcol], precision[curcol], realfmt[curcol]);
-                    continue;
-                case '=':
-                    error("Define format type (0-9):");
-                    refresh();
-                    if ((c = nmgetch()) >= '0' && c <= '9') {
-                        if (colformat[c - '0']) {
-                            snprintf(line, sizeof line,
-                                     "format %c = \"%s\"", c, colformat[c - '0']);
-                            edit_mode();
-                            linelim = strlen(line) - 1;
-                        } else {
-                            snprintf(line, sizeof line, "format %c = \"", c);
-                            insert_mode();
-                            linelim = strlen(line);
-                        }
-                        CLEAR_LINE;
-                    } else {
-                        error("Invalid format type");
-                        c = -1;
-                    }
-                    continue;
-                case ctl('l'):
-                    FullUpdate++;
-                    clearok(stdscr, 1);
-                    break;
-                default:
-                    break;
-            }
-        error("Current format is %d %d %d",
-                fwidth[curcol], precision[curcol],
-                realfmt[curcol]);
-        FullUpdate++;
-        update(1);
-        refresh();
-        if (linelim < 0) {
-            if ((c = nmgetch()) == ESC || c == ctl('g') || c == 'q') {
-                for (i = 0; i < arg; i++) {
-                    fwidth[i + curcol] = oldformat[i * 3 + 0];
-                    precision[i + curcol] = oldformat[i * 3 + 1];
-                    realfmt[i + curcol] = oldformat[i * 3 + 2];
-                }
-                modflg = mf;
-                FullUpdate++;
-                update(1);
-            }
-        }
-    }
-    scxfree(oldformat);
-    if (c >= 0)
-        CLEAR_LINE;
 }
 
 void ljustify(int sr, int sc, int er, int ec) {
@@ -2150,8 +1959,7 @@ void tblprintfile(char *fname, int r0, int c0, int rn, int cn)
 }
 
 /* unspecial (backquote) things that are special chars in a table */
-void unspecial(FILE *f, char *str, int delim)
-{
+static void unspecial(FILE *f, char *str, int delim) {
     if (*str == '\\') str++; /* delete wheeling string operator, OK? */
     while (*str) {
         if (((tbl_style == LATEX) || (tbl_style == SLATEX) ||
@@ -2307,8 +2115,7 @@ struct enode *copye(struct enode *e, int Rdelta, int Cdelta, int r1, int c1,
  * be hanging around before the call, but not referenced by an entry
  * in tbl.  Thus the free_ent calls in sc.c
  */
-void sync_refs(void)
-{
+void sync_refs(void) {
     int i, j;
     struct ent *p;
     sync_ranges();
@@ -2538,7 +2345,7 @@ void closefile(FILE *f, int pid, int rfd)
 #  else
                 cbreak();
                 nonl();
-                noecho ();
+                noecho();
 #  endif
                 kbd_again();
 # endif /* VMS */
@@ -3371,8 +3178,7 @@ int etype(struct enode *e)
 }
 
 /* return 1 if yes given, 0 otherwise */
-int yn_ask(const char *msg)
-{
+int yn_ask(const char *msg) {
     char ch;
 
     move(0, 0);
@@ -3393,8 +3199,7 @@ int yn_ask(const char *msg)
 #if !defined(MSDOS) && !defined(VMS)
 #include <pwd.h>
 #endif
-char *findhome(char *path, size_t pathsiz)
-{
+char *findhome(char *path, size_t pathsiz) {
     static const char *HomeDir = NULL;
 
     if (*path == '~') {
@@ -3437,8 +3242,7 @@ char *findhome(char *path, size_t pathsiz)
  * [path/]file~
  * return 1 if we were successful, 0 otherwise
  */
-int backup_file(char *path)
-{
+int backup_file(char *path) {
     struct stat statbuf;
     struct utimbuf timebuf;
     char fname[PATHLEN];
@@ -3486,10 +3290,11 @@ int backup_file(char *path)
         chown(tpath, statbuf.st_uid, statbuf.st_gid);
 
 #ifdef sequent
-        while ((count = read(infd, buf, statbuf.st_blksize)) > 0) {
+        while ((count = read(infd, buf, statbuf.st_blksize)) > 0)
 #else
-        while ((count = read(infd, buf, sizeof(buf))) > 0) {
+        while ((count = read(infd, buf, sizeof(buf))) > 0)
 #endif
+        {
             if (write(outfd, buf, count) != count) {
                 count = -1;
                 break;
@@ -3506,5 +3311,64 @@ int backup_file(char *path)
         return (count < 0) ? 0 : 1;
     } else if (errno == ENOENT)
         return 1;
+    return 0;
+}
+
+/* set the calculation order */
+void setorder(int i) {
+    if (i == BYROWS || i == BYCOLS)
+        calc_order = i;
+}
+
+void setauto(int i) {
+    autocalc = i;
+}
+
+/* check if tbl was modified and ask to save */
+int modcheck(const char *endstr) {
+    int yn_ans;
+
+    if (modflg && curfile[0]) {
+        char lin[100];
+
+        snprintf(lin, sizeof lin, "File \"%s\" is modified, save%s? ", curfile, endstr);
+        if ((yn_ans = yn_ask(lin)) < 0)
+            return 1;
+        else
+        if (yn_ans == 1) {
+            if (writefile(curfile, 0, 0, maxrow, maxcol) < 0)
+                return 1;
+        }
+    } else if (modflg) {
+        if ((yn_ans = yn_ask("Do you want a chance to save the data? ")) < 0)
+            return 1;
+        else
+            return yn_ans;
+    }
+    return 0;
+}
+
+/* Returns 1 if cell is locked, 0 otherwise */
+int locked_cell(int r, int c) {
+    struct ent *p = *ATBL(tbl, r, c);
+    if (p && (p->flags & IS_LOCKED)) {
+        error("Cell %s%d is locked", coltoa(c), r) ;
+        return 1;
+    }
+    return 0;
+}
+
+/* Check if area contains locked cells */
+int any_locked_cells(int r1, int c1, int r2, int c2) {
+    int r, c;
+    struct ent *p;
+
+    for (r = r1; r <= r2; r++) {
+        for (c = c1; c <= c2; c++) {
+            p = *ATBL(tbl, r, c);
+            if (p && (p->flags & IS_LOCKED))
+                return 1;
+        }
+    }
     return 0;
 }

@@ -35,7 +35,6 @@
 #ifdef REGCOMP
 #include <regex.h>
 #endif
-#include "compat.h"
 #include "sc.h"
 #ifdef RE_COMP
 extern char *re_comp(char *s);
@@ -2496,8 +2495,7 @@ void label(struct ent *v, const char *s, int flushdir)
     }
 }
 
-char *coltoa(int col)
-{
+char *coltoa(int col) {
     static unsigned int bufn;
     static char buf[4][4];
     char *rname = buf[bufn++ & 3];

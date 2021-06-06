@@ -25,16 +25,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-#ifdef HAVE_STDBOOL_H
-# include <stdbool.h>
-#else
-# if !HAVE__BOOL
-#  define _Bool int
-# endif
-# define bool _Bool
-# define true 1
-# define false 0
-#endif
 #include <limits.h>
 #include <string.h>
 #include <errno.h>
@@ -49,25 +39,25 @@
 
 #define PRINTF_CMD_ERR(x) ": Writing command \"" x "\": %s\n"
 
-char *coltoa(int col);
 const char *progname;
-int getrow(char *p);
-int getcol(char *p);
-static int scan(void);
 
+struct ent ***tbl;
 int *fwidth;
 int *precision;
-int maxcols;
 int *realfmt;
+int maxcols;
+int curcol;
+int currow;
+
+static int scan(void);
+static int getrow(const char *p);
+static int getcol(const char *p);
 
 static int curlen;
-int curcol;
 static int coff;
-int currow;
 static int roff;
 static int first;
 static int effr, effc;
-static int exit_status = EXIT_SUCCESS;
 
 /* option flags reset */
 static int colfirst = FALSE;
@@ -81,9 +71,8 @@ static char delim1 = ' ';
 static char delim2 = '\t';
 static int strip_delim = TRUE;
 static int drop_format = FALSE;
-static int strnums      = FALSE;
-static int plainnums    = FALSE;
-
+static int strnums = FALSE;
+static int plainnums = FALSE;
 static char token[1000];
 
 void fatal(const char *str) {
@@ -98,8 +87,8 @@ void error(const char *fmt, ...) {
     va_end(ap);
 }
 
-int main(int argc, char **argv)
-{
+int main(int argc, char **argv) {
+    int exit_status = EXIT_SUCCESS;
     int c;
     int i, j;
     char *p;
@@ -151,9 +140,9 @@ int main(int argc, char **argv)
     }
 
     if (optind < argc) {
-            fprintf(stderr, "%s: %d more argument(s) than expected\n",
+        fprintf(stderr, "%s: %d more argument(s) than expected\n",
                 progname, argc - optind);
-            exit(EXIT_FAILURE);
+        exit(EXIT_FAILURE);
     }
 
     /* setup the spreadsheet arrays */
@@ -174,10 +163,10 @@ int main(int argc, char **argv)
         case END:
             if (drop_format) exit(exit_status);
 
-            for (i = 0; i<maxcols; i++) {
+            for (i = 0; i < maxcols; i++) {
                 if (fwidth[i]) {
                     if (printf("format %s %d %d %d\n", coltoa(i),
-                               fwidth[i]+1, precision[i], REFMTFIX) < 0)
+                               fwidth[i] + 1, precision[i], REFMTFIX) < 0)
                     {
                         fprintf(stderr, "%s: Column %d" PRINTF_CMD_ERR("format"),
                                 progname, i, strerror(errno));
@@ -247,7 +236,7 @@ int main(int argc, char **argv)
             {
                 const char *cmd = leftadj ? "leftstring" : "rightstring";
 
-                if (printf("%s %s%d = \"%s\"\n", cmd, coltoa(effc),effr,token) < 0) {
+                if (printf("%s %s%d = \"%s\"\n", cmd, coltoa(effc), effr, token) < 0) {
                     fprintf(stderr, "%s: Writing command \"%s\": %s\n", progname,
                             cmd, strerror(errno));
                     exit_status = EXIT_FAILURE;
@@ -372,57 +361,97 @@ static int scan(void) {
 }
 
 /* turns [A-Z][A-Z] into a number */
-int getcol(char *p)
-{
-    int col;
-
-    col = 0;
+static int getcol(const char *p) {
+    int col = 0;
     if (!p)
         return 0;
     while (*p && !isalphachar(*p))
         p++;
     if (!*p)
         return 0;
-    col = toupperchar(*p) - 'A';
-    if (isalphachar(*++p))
-        col = (col + 1) * 26 + (toupperchar(*p) - 'A');
+    col = toupperchar(*p++) - 'A';
+    if (isalphachar(*p))
+        col = (col + 1) * 26 + (toupperchar(*p++) - 'A');
     return col;
 }
 
 /* given a string turn it into a row number */
-int getrow(char *p)
-{
+static int getrow(const char *p) {
     int row = 0;
     if (!p)
         return 0;
     while (*p && !isdigitchar(*p))
         p++;
-    while (isdigitchar(*p)) {
-        row = row * 10 + *p - '0';
-        p++;
-    }
+    while (isdigitchar(*p))
+        row = row * 10 + *p++ - '0';
     return row;
 }
 
 /* turns a column number into [A-Z][A-Z] */
-char *coltoa(int col)
-{
-    static unsigned int bufn;
-    static char buf[4][4];
-    char *rname = buf[bufn++ & 3];
+char *coltoa(int col) {
+    static char rname[8];
     char *p = rname;
-
-    if (col < 0 || col > 27 * 26) { /* A-Z, AA-ZZ */
-        fprintf(stderr,"coltoa: invalid col: %d", col);
-        exit_status = EXIT_FAILURE;
-    }
 
     if (col > 25) {
         *p++ = col / 26 + 'A' - 1;
         col %= 26;
     }
-
     *p++ = col + 'A';
     *p = '\0';
     return rname;
+}
+
+/* scxrealloc will just scxmalloc if oldptr is == NULL */
+#define GROWALLOC(newptr, oldptr, nelem, type, msg) \
+    do { type *newptr = scxrealloc(oldptr, (nelem) * sizeof(type)); \
+       if (newptr == NULL) { \
+           error(msg); \
+           return FALSE; \
+       } \
+       oldptr = newptr; \
+    } while (0)
+
+static const char nowider[] = "The table can't be any wider";
+
+/*
+ * grow the main && auxiliary tables (reset maxrows/maxcols as needed)
+ * toprow &&/|| topcol tell us a better guess of how big to become.
+ * we return TRUE if we could grow, FALSE if not....
+ */
+int growtbl(int rowcol, int toprow, int topcol) {
+    int newcols;
+
+    (void)toprow; /* unused */
+    newcols = maxcols;
+    if (rowcol == GROWNEW) {
+        newcols = MINCOLS;
+        maxcols = topcol = 0;
+    }
+    if (rowcol & GROWCOL) {
+        if ((rowcol == GROWCOL) && ((maxcols == ABSMAXCOLS) || (topcol >= ABSMAXCOLS))) {
+            error(nowider);
+            return FALSE;
+        }
+
+        if (topcol > maxcols)
+            newcols = GROWAMT + topcol;
+        else
+            newcols += GROWAMT;
+
+        if (newcols > ABSMAXCOLS)
+            newcols = ABSMAXCOLS;
+    }
+
+    if ((rowcol == GROWCOL) || (rowcol == GROWBOTH) || (rowcol == GROWNEW)) {
+        GROWALLOC(fwidth2, fwidth, newcols, int, nowider);
+        GROWALLOC(precision2, precision, newcols, int, nowider);
+        GROWALLOC(realfmt2, realfmt, newcols, int, nowider);
+
+        memset(fwidth + maxcols, 0, (newcols - maxcols) * sizeof(*fwidth));
+        memset(precision + maxcols, 0, (newcols - maxcols) * sizeof(*precision));
+        memset(realfmt + maxcols, 0, (newcols - maxcols) * sizeof(*realfmt));
+    }
+
+    maxcols = newcols;
+    return TRUE;
 }

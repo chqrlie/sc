@@ -5,8 +5,7 @@
  *
  * $Revision: 7.16 $
  *
- * bool
- * format(fmt, precision, num, buf, buflen)
+ * bool format(fmt, precision, num, buf, buflen)
  *  char *fmt;
  *  double num;
  *  char buf[];
@@ -95,7 +94,6 @@
 #include <time.h>
 #include <limits.h>
 #include <math.h>
-#include "compat.h"
 #include "sc.h"
 
 #define EOS     '\0'
@@ -111,8 +109,7 @@ char *colformat[COLFORMATS];
 
 /*****************************************************************************/
 
-bool format(char *fmt, int lprecision, double val, char *buf, size_t buflen)
-{
+bool format(char *fmt, int lprecision, double val, char *buf, size_t buflen) {
     char *cp;
     char *tmp, *tp;
     bool comma = false, negative = false;
@@ -320,9 +317,9 @@ bool format(char *fmt, int lprecision, double val, char *buf, size_t buflen)
 /*****************************************************************************/
 
 static char *fmt_int(char *val,      /* integer part of the value to be formatted */
-                     char *fmt,          /* integer part of the format */
-                     bool comma,         /* true if we should comma-ify the value */
-                     bool negative)      /* true if the value is actually negative */
+                     char *fmt,      /* integer part of the format */
+                     bool comma,     /* true if we should comma-ify the value */
+                     bool negative)  /* true if the value is actually negative */
 {
     int digit, f, v;
     int thousands = 0;
@@ -489,8 +486,7 @@ static void reverse(char *buf)
 #define REFMTLDATE      4
 #endif
 
-bool engformat(int fmt, int width, int lprecision, double val, char *buf, int buflen)
-{
+bool engformat(int fmt, int width, int lprecision, double val, char *buf, int buflen) {
 
     static const char *engmult[] = {
         "-18", "-15", "-12", "-09", "-06", "-03",

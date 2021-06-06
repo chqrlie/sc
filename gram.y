@@ -26,7 +26,6 @@
 #include <unistd.h>
 #endif
 
-#include "compat.h"
 #include "sc.h"
 
 #define ENULL (struct enode *)0
@@ -979,7 +978,7 @@ command:        S_LET var_or_range '=' e
                                         { doquery($2, NULL, $4); }
         |       S_QUERY                 { doquery(NULL, NULL, macrofd); }
         |       S_QUERY '|' NUMBER      { doquery(NULL, NULL, $3); }
-        |       S_GETKEY                { dogetkey(); }
+        |       S_GETKEY                { dogetkey(macrofd); }
         |       S_ERROR STRING          { error("%s", $2); }
         |       S_STATUS                { dostat(macrofd); }
         |       S_STATUS '|' NUMBER     { dostat($3); }

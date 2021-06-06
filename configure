@@ -459,6 +459,10 @@ curses_mk_compat_h () {
 #else
 # include <curses.h>
 
+# ifndef bool
+#  define bool unsigned char
+# endif
+
 # ifndef false
 #  define false 0
 # endif
@@ -642,7 +646,7 @@ check_curses_wch
 check_curses_keyname
 check_isfinite
 check_sc_attr_get
-check_stdbool_h
+#check_stdbool_h
 
 gen_mk
 rm -f $TMPNAM*

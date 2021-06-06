@@ -11,11 +11,9 @@
 #include <time.h>
 #include <string.h>
 #include <limits.h>
-#include "compat.h"
 #include "sc.h"
 
-void getnum(int r0, int c0, int rn, int cn, int fd)
-{
+void getnum(int r0, int c0, int rn, int cn, int fd) {
     int r, c;
 
     for (r = r0; r <= rn; r++) {
@@ -43,8 +41,7 @@ void getnum(int r0, int c0, int rn, int cn, int fd)
     linelim = -1;
 }
 
-void fgetnum(int r0, int c0, int rn, int cn, int fd)
-{
+void fgetnum(int r0, int c0, int rn, int cn, int fd) {
     int r, c;
 
     for (r = r0; r <= rn; r++) {
@@ -52,27 +49,27 @@ void fgetnum(int r0, int c0, int rn, int cn, int fd)
             struct ent *p = *ATBL(tbl, r, c);
             *line = '\0';
             if (p) {
-                if (p->cellerror)
+                if (p->cellerror) {
                     snprintf(line, sizeof line, "%s", p->cellerror == CELLERROR ?
-                            "ERROR" : "INVALID");
-                else if (p->flags & IS_VALID) {
+                             "ERROR" : "INVALID");
+                } else
+                if (p->flags & IS_VALID) {
                     if (p->format) {
-                        if (*(p->format) == ctl('d')) {
-                            time_t i = (time_t) (p->v);
-                            strftime(line, sizeof(line), (p->format)+1,
-                                localtime(&i));
-                        } else
+                        if (*p->format == ctl('d')) {
+                            time_t i = (time_t)(p->v);
+                            strftime(line, sizeof(line), p->format + 1,
+                                     localtime(&i));
+                        } else {
                             format(p->format, precision[c], p->v, line,
-                                    sizeof(line));
-                    } else
+                                   sizeof(line));
+                        }
+                    } else {
                         engformat(realfmt[c], fwidth[c], precision[c],
-                                p->v, line, sizeof(line));
+                                  p->v, line, sizeof(line));
+                    }
                 }
             }
-            if (c < cn)
-                strlcat(line, "\t", sizeof line);
-            else
-                strlcat(line, "\n", sizeof line);
+            strlcat(line, (c < cn) ? "\t" : "\n", sizeof line);
             write(fd, line, strlen(line));
             if (brokenpipe) {
                 linelim = -1;
@@ -83,8 +80,7 @@ void fgetnum(int r0, int c0, int rn, int cn, int fd)
     linelim = -1;
 }
 
-void getstring(int r0, int c0, int rn, int cn, int fd)
-{
+void getstring(int r0, int c0, int rn, int cn, int fd) {
     int r, c;
 
     for (r = r0; r <= rn; r++) {
@@ -93,10 +89,7 @@ void getstring(int r0, int c0, int rn, int cn, int fd)
             *line = '\0';
             if (p && p->label)
                 snprintf(line, sizeof line, "%s", p->label);
-            if (c < cn)
-                strlcat(line, "\t", sizeof line);
-            else
-                strlcat(line, "\n", sizeof line);
+            strlcat(line, (c < cn) ? "\t" : "\n", sizeof line);
             write(fd, line, strlen(line));
             if (brokenpipe) {
                 linelim = -1;
@@ -107,8 +100,7 @@ void getstring(int r0, int c0, int rn, int cn, int fd)
     linelim = -1;
 }
 
-void getexp(int r0, int c0, int rn, int cn, int fd)
-{
+void getexp(int r0, int c0, int rn, int cn, int fd) {
     int r, c;
 
     for (r = r0; r <= rn; r++) {
@@ -121,10 +113,7 @@ void getexp(int r0, int c0, int rn, int cn, int fd)
                 if (*line == '?')
                     *line = '\0';
             }
-            if (c < cn)
-                strlcat(line, "\t", sizeof line);
-            else
-                strlcat(line, "\n", sizeof line);
+            strlcat(line, (c < cn) ? "\t" : "\n", sizeof line);
             write(fd, line, strlen(line));
             if (brokenpipe) {
                 linelim = -1;
@@ -135,15 +124,13 @@ void getexp(int r0, int c0, int rn, int cn, int fd)
     linelim = -1;
 }
 
-void getformat(int col, int fd)
-{
+void getformat(int col, int fd) {
     snprintf(line, sizeof line, "%d %d %d\n", fwidth[col], precision[col], realfmt[col]);
     write(fd, line, strlen(line));
     linelim = -1;
 }
 
-void getfmt(int r0, int c0, int rn, int cn, int fd)
-{
+void getfmt(int r0, int c0, int rn, int cn, int fd) {
     int r, c;
 
     for (r = r0; r <= rn; r++) {
@@ -152,10 +139,7 @@ void getfmt(int r0, int c0, int rn, int cn, int fd)
             *line = '\0';
             if (p && p->format)
                 snprintf(line, sizeof line, "%s", p->format);
-            if (c < cn)
-                strlcat(line, "\t", sizeof line);
-            else
-                strlcat(line, "\n", sizeof line);
+            strlcat(line, (c < cn) ? "\t" : "\n", sizeof line);
             write(fd, line, strlen(line));
             if (brokenpipe) {
                 linelim = -1;
@@ -166,8 +150,7 @@ void getfmt(int r0, int c0, int rn, int cn, int fd)
     linelim = -1;
 }
 
-void getframe(int fd)
-{
+void getframe(int fd) {
     struct frange *fr;
 
     *line = '\0';
@@ -183,8 +166,7 @@ void getframe(int fd)
     linelim = -1;
 }
 
-void getrange(char *name, int fd)
-{
+void getrange(char *name, int fd) {
     struct range *r;
 
     *line = '\0';
@@ -197,10 +179,10 @@ void getrange(char *name, int fd)
         if (r->r_is_range) {
             int len = strlen(line);
             snprintf(line + len, sizeof(line) - len, ":%s%s%s%d",
-                    r->r_right.vf & FIX_COL ? "$" : "",
-                    coltoa(r->r_right.vp->col),
-                    r->r_right.vf & FIX_ROW ? "$" : "",
-                    r->r_right.vp->row);
+                     r->r_right.vf & FIX_COL ? "$" : "",
+                     coltoa(r->r_right.vp->col),
+                     r->r_right.vf & FIX_ROW ? "$" : "",
+                     r->r_right.vp->row);
         }
         /************************************************/
         /*                                              */
@@ -222,8 +204,7 @@ void getrange(char *name, int fd)
     linelim = -1;
 }
 
-void doeval(struct enode *e, char *fmt, int row, int col, int fd)
-{
+void doeval(struct enode *e, char *fmt, int row, int col, int fd) {
     double v;
 
     gmyrow = row;
@@ -234,10 +215,12 @@ void doeval(struct enode *e, char *fmt, int row, int col, int fd)
         if (*fmt == ctl('d')) {
             time_t tv = v;
             strftime(line, FBUFLEN, fmt + 1, localtime(&tv));
-        } else
+        } else {
             format(fmt, precision[col], v, line, FBUFLEN);
-    } else
+        }
+    } else {
         snprintf(line, sizeof line, "%.15g", v);
+    }
     strlcat(line, "\n", sizeof line);
     write(fd, line, strlen(line));
     linelim = -1;
@@ -246,8 +229,7 @@ void doeval(struct enode *e, char *fmt, int row, int col, int fd)
     scxfree(fmt);
 }
 
-void doseval(struct enode *e, int row, int col, int fd)
-{
+void doseval(struct enode *e, int row, int col, int fd) {
     char *s;
 
     gmyrow = row;
@@ -263,8 +245,7 @@ void doseval(struct enode *e, int row, int col, int fd)
     scxfree(s);
 }
 
-void doquery(char *s, char *data, int fd)
-{
+void doquery(char *s, char *data, int fd) {
     goraw();
     query(s, data);
     deraw(0);
@@ -281,7 +262,7 @@ void doquery(char *s, char *data, int fd)
     scxfree(s);
 }
 
-void dogetkey(void) {
+void dogetkey(int fd) {
     int c, len;
 
     goraw();
@@ -310,11 +291,10 @@ void dogetkey(void) {
         len = strlen(line + 1) + 1;
     }
 
-    write(macrofd, line, len);
+    write(fd, line, len);
 }
 
-void dostat(int fd)
-{
+void dostat(int fd) {
     char *p = line;
     if (modflg)                 *p++ = 'm';
     if (isatty(STDIN_FILENO))   *p++ = 'i';

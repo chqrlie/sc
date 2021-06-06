@@ -16,7 +16,6 @@
 #if defined(REGCOMP)
 #include <regex.h>
 #endif
-#include "compat.h"
 #include "sc.h"
 
 #if defined(RE_COMP)
@@ -30,6 +29,7 @@ char *regex();
 
 static inline int iswordchar(char c) { return isalnumchar(c) || c == '_'; }
 
+static void write_line(int c);
 static void append_line(void);
 static void back_hist(void);
 static int back_line(int arg);
@@ -40,11 +40,13 @@ static void col_0(void);
 static void cr_line(void);
 static void del_in_line(int arg, int back_null);
 static void del_to_end(void);
+static void ins_string(const char *s);
 static void ins_in_line(int c);
 static void doabbrev(void);
 static void dogoto(void);
 static void dotab(void);
 static void dotcmd(void);
+static void doshell(void);
 static int find_char(int arg, int n);
 static void for_hist(void);
 static int for_line(int arg, int stop_null);
@@ -52,7 +54,6 @@ static int for_word(int arg, int end_word, int big_word, int stop_null);
 static int istart;
 static void last_col(void);
 static void match_paren(void);
-static void readhistfile(FILE *fp);
 static void rep_char(void);
 static void replace_in_line(int c);
 static void replace_mode(void);
@@ -69,22 +70,34 @@ static void yank_cmd(int delete, int change);
 static void yank_chars(int first, int last, int delete);
 static int get_motion(int change);
 static int vigetch(void);
-#ifdef NCURSES_MOUSE_VERSION
-static void mouse_set_pos(int);
-#endif
+static void scroll_down(void);
+static void scroll_up(int);
+static int get_rcqual(int ch);
+static void formatcol(int arg);
+static void edit_mode(void);
+static void insert_mode(void);
+static void toggle_navigate_mode(void);
+static void startshow(void);
+static void showdr(void);
+static void gotobottom(void);
+static void gototop(void);
+static void gohome(void);
+static void leftlimit(void);
+static void rightlimit(void);
+
+static int uarg = 1;        /* universal numeric prefix argument */
 
 static char *completethis = NULL;
-static int search_dir;             /* Search direction:  forward = 0; back = 1 */
+static int search_dir;      /* Search direction:  forward = 0; back = 1 */
 char histfile[PATHLEN] = "~/.sc_history";
 
 /* values for mode below */
 
-#define INSERT_MODE     0       /* Insert mode */
-#define EDIT_MODE       1       /* Edit mode */
-#define REP_MODE        2       /* Replace mode */
-#define SEARCH_MODE     3       /* Get arguments for '/' command */
-#define NAVIGATE_MODE   4       /* Navigate the spreadsheet while editing
-                                        a line */
+#define INSERT_MODE     0   /* Insert mode */
+#define EDIT_MODE       1   /* Edit mode */
+#define REP_MODE        2   /* Replace mode */
+#define SEARCH_MODE     3   /* Get arguments for '/' command */
+#define NAVIGATE_MODE   4   /* Navigate the spreadsheet while editing a line */
 
 #define DOTLEN          200
 
@@ -122,8 +135,1578 @@ static int findfunc = '\0';
 static int findchar = 1;
 static int finddir = 0;
 
-void write_line(int c)
-{
+#ifdef NCURSES_MOUSE_VERSION
+static MEVENT mevent;
+static void mouse_set_pos(int);
+static int mouse_sel_cell(int);
+#endif
+
+void vi_interaction(void) {
+    int inloop = 1;
+    int c;
+    int narg;
+    int edistate = -1;
+    int nedistate;
+    int running;
+    int anychanged = FALSE;
+    int tempx, tempy;       /* Temp versions of curx, cury */
+
+    modflg = 0;
+    cellassign = 0;
+#ifdef VENIX
+    setbuf(stdin, NULL);
+#endif
+
+    uarg = 1;
+    while (inloop) {
+        struct ent *p;
+        int ps;
+
+        running = 1;
+        while (running) {
+            nedistate = -1;
+            narg = 1;
+            if (edistate < 0 && linelim < 0 && autocalc && (changed || FullUpdate)) {
+                EvalAll();
+                if (changed)    /* if EvalAll changed or was before */
+                    anychanged = TRUE;
+                changed = 0;
+            } else {            /* any cells change? */
+                if (changed)
+                    anychanged = TRUE;
+            }
+
+            update(anychanged);
+            anychanged = FALSE;
+#ifndef SYSV3   /* HP/Ux 3.1 this may not be wanted */
+            refresh(); /* 5.3 does a refresh in getch */
+#endif
+            c = nmgetch();
+            getyx(stdscr, tempy, tempx);
+            move(1, 0);
+            clrtoeol();
+            move(tempy, tempx);
+            seenerr = 0;
+            showneed = 0;   /* reset after each update */
+            showexpr = 0;
+            shownote = 0;
+
+            if (ISCTL(c) || c == DEL || c == KEY_END || c == KEY_BACKSPACE) {
+                switch (c) {
+#ifdef SIGTSTP
+                case ctl('z'):
+                    deraw(1);
+                    kill(0, SIGTSTP); /* Nail process group */
+                    /* the pc stops here */
+                    goraw();
+                    break;
+#endif
+                case ctl('r'):
+                    showneed = 1;
+                case ctl('l'):
+                    FullUpdate++;
+                    clearok(stdscr,1);
+                    break;
+                case ctl('x'):
+                    FullUpdate++;
+                    showexpr = 1;
+                    clearok(stdscr,1);
+                    break;
+                default:
+                    error ("No such command (^%c)", c + 0100);
+                    break;
+                case ctl('b'):
+                    // XXX: hidden row issue
+                    ps = pagesize ? pagesize : (LINES - RESROW - framerows) / 2;
+                    backrow(uarg * ps);
+                    strow = strow - uarg * ps;
+                    if (strow < 0) strow = 0;
+                    FullUpdate++;
+                    break;
+                case ctl('c'):
+                    running = 0;
+                    break;
+
+                case KEY_END:
+                case ctl('e'):
+                    if (linelim < 0 || mode_ind == 'v') {
+                        switch (c = nmgetch()) {
+                        case KEY_UP:
+                        case ctl('p'): case 'k':    doend(-1, 0);   break;
+
+                        case KEY_DOWN:
+                        case ctl('n'): case 'j':    doend( 1, 0);   break;
+
+                        case KEY_LEFT:
+                        case KEY_BACKSPACE:
+                        case ctl('h'): case 'h':    doend( 0,-1);   break;
+
+                        case KEY_RIGHT:
+                        case ' ':
+                        case ctl('i'): case 'l':    doend( 0, 1);   break;
+
+                        case ctl('e'):
+                        case ctl('y'):
+                            while (c == ctl('e') || c == ctl('y')) {
+                                int x = uarg;
+
+                                while (uarg) {
+                                    if (c == ctl('e')) {
+                                        scroll_down();
+                                    } else {
+                                        // XXX: Passing x seems incorrect
+                                        scroll_up(x);
+                                    }
+                                    uarg--;
+                                }
+                                FullUpdate++;
+                                update(0);
+                                uarg = 1;
+                                c = nmgetch();
+                            }
+                            ungetch(c);
+                            break;
+
+                        case ESC:
+                        case ctl('g'):
+                            break;
+
+                        default:
+                            error("Invalid ^E command");
+                            break;
+                        }
+                    } else {
+                        write_line(ctl('e'));
+                    }
+                    break;
+
+                case ctl('y'):
+                    while (c == ctl('e') || c == ctl('y')) {
+                        int x = uarg;
+
+                        while (uarg) {
+                            if (c == ctl('e')) {
+                                scroll_down();
+                            } else {
+                                // XXX: Passing x seems incorrect
+                                scroll_up(x);
+                            }
+                            uarg--;
+                        }
+                        FullUpdate++;
+                        update(0);
+                        uarg = 1;
+                        c = nmgetch();
+                    }
+                    ungetch(c);
+                    break;
+
+                case ctl('f'):
+                    // XXX: hidden row issue
+                    ps = pagesize ? pagesize : (LINES - RESROW - framerows)/2;
+                    forwrow(uarg * ps);
+                    strow = strow + (uarg * ps);
+                    FullUpdate++;
+                    break;
+
+                case ctl('g'):
+                    showrange = 0;
+                    linelim = -1;
+                    move(1, 0);
+                    clrtoeol();
+                    break;
+
+                case ESC:       /* ctl('[') */
+                    write_line(ESC);
+                    break;
+
+                case ctl('d'):
+                    write_line(ctl('d'));
+                    break;
+
+                case KEY_BACKSPACE:
+                case DEL:
+                case ctl('h'):
+                    if (linelim < 0) {  /* not editing line */
+                        backcol(uarg);   /* treat like ^B    */
+                        break;
+                    }
+                    write_line(ctl('h'));
+                    break;
+
+                case ctl('i'):          /* tab */
+                    if (linelim < 0) {  /* not editing line */
+                        forwcol(uarg);
+                        break;
+                    }
+                    write_line(ctl('i'));
+                    break;
+
+                case ctl('m'):
+                case ctl('j'):
+                    write_line(ctl('m'));
+                    break;
+
+                case ctl('n'):
+                    c = craction;
+                    if (numeric_field) {
+                        craction = 0;
+                        write_line(ctl('m'));
+                        numeric_field = 0;
+                    }
+                    craction = c;
+                    if (linelim < 0) {
+                        forwrow(uarg);
+                        break;
+                    }
+                    write_line(ctl('n'));
+                    break;
+
+                case ctl('p'):
+                    c = craction;
+                    if (numeric_field) {
+                        craction = 0;
+                        write_line(ctl('m'));
+                        numeric_field = 0;
+                    }
+                    craction = c;
+                    if (linelim < 0) {
+                        backrow(uarg);
+                        break;
+                    }
+                    write_line(ctl('p'));
+                    break;
+
+                case ctl('q'):
+                    break;      /* ignore flow control */
+
+                case ctl('s'):
+                    break;      /* ignore flow control */
+
+                case ctl('t'):
+#if !defined(VMS) && !defined(MSDOS) && defined(CRYPT_PATH)
+                    error("Toggle: a:auto,c:cell,e:ext funcs,n:numeric,t:top,x:encrypt,$:pre-scale,<MORE>");
+#else                           /* no encryption available */
+                    error("Toggle: a:auto,c:cell,e:ext funcs,n:numeric,t:top,$:pre-scale,<MORE>");
+#endif
+                    if (braille) move(1, 0);
+                    refresh();
+
+                    switch (nmgetch()) {
+                    case 'a': case 'A':
+                    case 'm': case 'M':
+                        autocalc ^= 1;
+                        error("Automatic recalculation %sabled.",
+                              autocalc ? "en" : "dis");
+                        break;
+                    case 'o': case 'O':
+                        optimize ^= 1;
+                        error("%sptimize expressions upon entry.",
+                              optimize ? "O" : "Do not o");
+                        break;
+                    case 'n':
+                        numeric = (!numeric);
+                        error("Numeric input %sabled.",
+                              numeric ? "en" : "dis");
+                        break;
+                    case 't': case 'T':
+                        showtop = (!showtop);
+                        error("Top line %sabled.",
+                              showtop ? "en" : "dis");
+                        break;
+                    case 'c':
+                        showcell = !showcell;
+                        repaint(lastmx, lastmy, fwidth[sc_lastcol], 0, 0);
+                        error("Cell highlighting %sabled.",
+                              showcell ? "en" : "dis");
+                        --modflg;   /* negate the modflg++ */
+                        break;
+                    case 'b':
+                        braille ^= 1;
+                        error("Braille enhancement %sabled.",
+                              braille ? "en" : "dis");
+                        --modflg;   /* negate the modflg++ */
+                        break;
+                    case 's':
+                        cslop ^= 1;
+                        error("Color slop %sabled.",
+                              cslop ? "en" : "dis");
+                        break;
+                    case 'C':
+                        color = !color;
+                        if (has_colors()) {
+                            if (color) {
+                                attron(COLOR_PAIR(1));
+                                bkgd(COLOR_PAIR(1) | ' ');
+                            } else {
+                                attron(COLOR_PAIR(0));
+                                bkgd(COLOR_PAIR(0) | ' ');
+                            }
+                        }
+                        error("Color %sabled.", color ? "en" : "dis");
+                        break;
+                    case 'N':
+                        colorneg = !colorneg;
+                        error("Color changing of negative numbers %sabled.",
+                              colorneg ? "en" : "dis");
+                        break;
+                    case 'E':
+                        colorerr = !colorerr;
+                        error("Color changing of cells with errors %sabled.",
+                              colorerr ? "en" : "dis");
+                        break;
+                    case 'x': case 'X':
+#if defined(VMS) || defined(MSDOS) || !defined(CRYPT_PATH)
+                        error("Encryption not available.");
+#else
+                        Crypt = (! Crypt);
+                        error("Encryption %sabled.", Crypt? "en" : "dis");
+#endif
+                        break;
+                    case 'l': case 'L':
+                        autolabel = (!autolabel);
+                        error("Autolabel %sabled.",
+                              autolabel? "en" : "dis");
+                        break;
+                    case '$':
+                        if (prescale == 1.0) {
+                            error("Prescale enabled.");
+                            prescale = 0.01;
+                        } else {
+                            prescale = 1.0;
+                            error("Prescale disabled.");
+                        }
+                        break;
+                    case 'e':
+                        extfunc = (!extfunc);
+                        error("External functions %sabled.",
+                              extfunc? "en" : "dis");
+                        break;
+                    case ESC:
+                    case ctl('g'):
+                        CLEAR_LINE;
+                        --modflg;   /* negate the modflg++ */
+                        break;
+                    case 'r': case 'R':
+                        error("Which direction after return key?");
+                        switch (nmgetch()) {
+                        case ctl('m'):
+                            craction = 0;
+                            error("No action after new line");
+                            break;
+                        case 'j':
+                        case ctl('n'):
+                        case KEY_DOWN:
+                            craction = CRROWS;
+                            error("Down row after new line");
+                            break;
+                        case 'l':
+                        case ' ':
+                        case KEY_RIGHT:
+                            craction = CRCOLS;
+                            error("Right column after new line");
+                            break;
+                        case ESC:
+                        case ctl('g'):
+                            CLEAR_LINE;
+                            break;
+                        default:
+                            error("Not a valid direction");
+                        }
+                        break;
+                    case 'i': case 'I':
+                        autoinsert = !autoinsert;
+                        error("Autoinsert %sabled.",
+                              autoinsert? "en" : "dis");
+                        break;
+                    case 'w': case 'W':
+                        autowrap = (!autowrap);
+                        error("Autowrap %sabled.",
+                              autowrap? "en" : "dis");
+                        break;
+                    case 'z': case 'Z':
+                        rowlimit = currow;
+                        collimit = curcol;
+                        error("Row and column limits set");
+                        break;
+                    default:
+                        error("Invalid toggle command");
+                        --modflg;   /* negate the modflg++ */
+                    }
+                    FullUpdate++;
+                    modflg++;
+                    break;
+
+                case ctl('u'):
+                    narg = uarg * 4;
+                    nedistate = 1;
+                    break;
+
+                case ctl('v'):  /* switch to navigate mode, or if already *
+                                 * in navigate mode, insert variable name */
+                    if (linelim >= 0)
+                        write_line(ctl('v'));
+                    break;
+
+                case ctl('w'):  /* insert variable expression */
+                    if (linelim >= 0)  {
+                        static char *temp = NULL, *temp1 = NULL;
+                        static unsigned templen = 0;
+                        int templim;
+
+                        /* scxrealloc will scxmalloc if needed */
+                        if (strlen(line) + 1 > templen) {
+                            templen = strlen(line) + 40;
+
+                            temp = scxrealloc(temp, templen);
+                            temp1= scxrealloc(temp1, templen);
+                        }
+                        strlcpy(temp, line, templen);
+                        templim = linelim;
+                        linelim = 0;            /* reset line to empty  */
+                        editexp(currow, curcol);
+                        strlcpy(temp1, line, templen);
+                        strlcpy(line, temp, sizeof line);
+                        linelim = templim;
+                        ins_string(temp1);
+                    }
+                    break;
+
+                case ctl('a'):
+                    if (linelim >= 0) {
+                        write_line(c);
+                    } else {
+                        remember(0);
+                        currow = 0;
+                        curcol = 0;
+                        rowsinrange = 1;
+                        colsinrange = fwidth[curcol];
+                        remember(1);
+                        FullUpdate++;
+                    }
+                    break;
+                case '\035':    /* ^] */
+                    if (linelim >= 0)
+                        write_line(c);
+                    break;
+                } /* End of the control char switch stmt */
+            } else
+            if (ISBYTE(c) && isdigit(c) &&
+                ((!numeric && linelim < 0) ||
+                 (linelim >= 0 && (mode_ind == 'e' || mode_ind == 'v')) ||
+                 edistate >= 0))
+            {
+                /* we got a leading number */
+                if (edistate != 0) {
+                    /* First char of the count */
+                    if (c == '0') {    /* just a '0' goes to left col */
+                        if (linelim >= 0)
+                            write_line(c);
+                        else
+                            leftlimit();
+                    } else {
+                        nedistate = 0;
+                        narg = c - '0';
+                    }
+                } else {
+                    /* Succeeding count chars */
+                    nedistate = 0;
+                    narg = uarg * 10 + (c - '0');
+                }
+            } else
+            if (c == KEY_F(1) && !fkey[c - KEY_F0 - 1]) {
+                deraw(1);
+                system("man sc");
+                goraw();
+                clear();
+            } else
+            if (linelim >= 0) {
+                /* Editing line */
+                switch (c) {
+                case ')':
+                case ',':
+                    if (showrange)
+                        showdr();
+                    break;
+                default:
+                    break;
+                }
+                write_line(c);
+
+            } else
+            if (!numeric && ( c == '+' || c == '-' )) {
+                /* increment/decrement ops */
+                p = *ATBL(tbl, currow, curcol);
+                if (!p || !(p->flags & IS_VALID)) {
+                    if (c == '+') {
+                        editv(currow, curcol);
+                        linelim = strlen(line);
+                        insert_mode();
+                        write_line(ctl('v'));
+                    }
+                    continue;
+                }
+                if (p->expr && !(p->flags & IS_STREXPR)) {
+                    error("Can't increment/decrement a formula\n");
+                    continue;
+                }
+                FullUpdate++;
+                modflg++;
+                if (c == '+')
+                    p->v += (double)uarg;
+                else
+                    p->v -= (double)uarg;
+            } else
+            if (c > KEY_F0 && c <= KEY_F(FKEYS)) {
+                /* a function key was pressed */
+                if (fkey[c - KEY_F0 - 1]) {
+                    char *tpp;
+
+                    insert_mode();
+                    strlcpy(line, fkey[c - KEY_F0 - 1], sizeof line);
+                    linelim = 0;
+                    for (tpp = line; *tpp != '\0'; tpp++)
+                        if (*tpp == '\\' && *(tpp + 1) == '"')
+                            memmove(tpp, tpp + 1, strlen(tpp));
+                    for (tpp = line; *tpp != '\0'; tpp++) {
+                        char mycell[9];
+                        size_t l;
+                        l = strlcpy(mycell, coltoa(curcol), sizeof mycell);
+                        snprintf(mycell + l, sizeof(mycell) - l, "%d", currow);
+                        if (*tpp == '$' && *(tpp + 1) == '$') {
+                            memmove(tpp + strlen(mycell), tpp + 2, strlen(tpp + 1));
+                            memcpy(tpp, mycell, strlen(mycell));
+                            tpp += strlen(mycell);
+                        }
+                    }
+                    write_line(ctl('m'));
+                }
+            } else {
+                /* switch on a normal command character */
+                switch (c) {
+                case ':':
+                    if (linelim >= 0)
+                        write_line(':');
+                    break;      /* Be nice to vi users */
+
+                case '@':
+                    EvalAll();
+                    changed = 0;
+                    anychanged = TRUE;
+                    break;
+
+                case '0': case '1': case '2': case '3': case '4':
+                case '5': case '6': case '7': case '8': case '9':
+                case '.':
+                    if (locked_cell(currow, curcol))
+                        break;
+                    /* set mark 0 */
+                    savedrow[27] = currow;
+                    savedcol[27] = curcol;
+                    savedstrow[27] = strow;
+                    savedstcol[27] = stcol;
+
+                    numeric_field = 1;
+                    snprintf(line, sizeof line, "let %s = %c",
+                             v_name(currow, curcol), c);
+                    linelim = strlen(line);
+                    insert_mode();
+                    break;
+
+                case '+':
+                case '-':
+                    if (!locked_cell(currow, curcol)) {
+                        p = lookat(currow, curcol);
+                        /* set mark 0 */
+                        savedrow[27] = currow;
+                        savedcol[27] = curcol;
+                        savedstrow[27] = strow;
+                        savedstcol[27] = stcol;
+
+                        numeric_field = 1;
+                        editv(currow, curcol);
+                        linelim = strlen(line);
+                        insert_mode();
+                        if (c == '-' || (p->flags & IS_VALID))
+                            write_line(c);
+                        else
+                            write_line(ctl('v'));
+                    }
+                    break;
+
+                case '=':
+                    if (locked_cell(currow, curcol))
+                        break;
+                    /* set mark 0 */
+                    savedrow[27] = currow;
+                    savedcol[27] = curcol;
+                    savedstrow[27] = strow;
+                    savedstcol[27] = stcol;
+
+                    snprintf(line, sizeof line, "let %s = ", v_name(currow, curcol));
+                    linelim = strlen(line);
+                    insert_mode();
+                    break;
+
+                case '!':
+                    doshell();
+                    break;
+
+                /*
+                 * Range commands:
+                 */
+
+                case 'r':
+                    error("Range: x:erase v:value c:copy f:fill d:def l:lock U:unlock S:show u:undef F:fmt");
+                    if (braille) move(1, 0);
+                    refresh();
+
+                    c = nmgetch();
+                    CLEAR_LINE;
+                    switch (c) {
+                    case 'l':
+                        snprintf(line, sizeof line, "lock [range] ");
+                        linelim = strlen(line);
+                        insert_mode();
+                        startshow();
+                        break;
+                    case 'U':
+                        snprintf(line, sizeof line, "unlock [range] ");
+                        linelim = strlen(line);
+                        insert_mode();
+                        startshow();
+                        break;
+                    case 'c':
+                        snprintf(line, sizeof line, "copy [dest_range src_range] ");
+                        linelim = strlen(line);
+                        insert_mode();
+                        startshow();
+                        break;
+                    case 'm':
+                        snprintf(line, sizeof line, "move [destination src_range] %s ",
+                                 v_name(currow, curcol));
+                        linelim = strlen(line);
+                        insert_mode();
+                        write_line(ctl('v'));
+                        break;
+                    case 'x':
+                        snprintf(line, sizeof line, "erase [range] ");
+                        linelim = strlen(line);
+                        insert_mode();
+                        startshow();
+                        break;
+                    case 'y':
+                        snprintf(line, sizeof line, "yank [range] ");
+                        linelim = strlen(line);
+                        insert_mode();
+                        startshow();
+                        break;
+                    case 'v':
+                        snprintf(line, sizeof line, "value [range] ");
+                        linelim = strlen(line);
+                        insert_mode();
+                        startshow();
+                        break;
+                    case 'f':
+                        snprintf(line, sizeof line, "fill [range start inc] ");
+                        linelim = strlen(line);
+                        insert_mode();
+                        startshow();
+                        break;
+                    case 'd':
+                        snprintf(line, sizeof line, "define [string range] \"");
+                        linelim = strlen(line);
+                        insert_mode();
+                        break;
+                    case 'u':
+                        snprintf(line, sizeof line, "undefine [range] ");
+                        linelim = strlen(line);
+                        insert_mode();
+                        break;
+                    case 'r':
+                        error("frame (top/bottom/left/right/all/unframe)");
+                        if (braille) move(1, 0);
+                        refresh();
+                        linelim = 0;
+                        c = nmgetch();
+                        CLEAR_LINE;
+                        switch (c) {
+                        case 't':
+                            snprintf(line, sizeof line, "frametop [<outrange> rows] ");
+                            break;
+                        case 'b':
+                            snprintf(line, sizeof line, "framebottom [<outrange> rows] ");
+                            break;
+                        case 'l':
+                            snprintf(line, sizeof line, "frameleft [<outrange> cols] ");
+                            break;
+                        case 'r':
+                            snprintf(line, sizeof line, "frameright [<outrange> cols] ");
+                            break;
+                        case 'a':
+                            snprintf(line, sizeof line, "frame [<outrange> inrange] ");
+                            break;
+                        case 'u':
+                            snprintf(line, sizeof line, "unframe [<range>] ");
+                            break;
+                        case ESC:
+                        case ctl('g'):
+                            linelim = -1;
+                            break;
+                        default:
+                            error("Invalid frame command");
+                            linelim = -1;
+                            break;
+                        }
+                        if (linelim == 0) {
+                            linelim = strlen(line);
+                            insert_mode();
+                        }
+                        if (c == 'a' || c == 'u')
+                            startshow();
+                        break;
+                    case 's':
+                        snprintf(line, sizeof line, "sort [range \"criteria\"] ");
+                        linelim = strlen(line);
+                        insert_mode();
+                        startshow();
+                        break;
+                    case 'C':
+                        snprintf(line, sizeof line, "color [range color#] ");
+                        linelim = strlen(line);
+                        insert_mode();
+                        startshow();
+                        break;
+                    case 'S':
+                        /* Show color definitions and various types of
+                         * ranges
+                         */
+                        if (!are_ranges() && !are_frames() && !are_colors()) {
+                            error("Nothing to show");
+                        } else {
+                            FILE *f;
+                            int pid;
+                            char px[MAXCMD];
+                            const char *pager;
+
+                            strlcpy(px, "| ", sizeof px);
+                            if (!(pager = getenv("PAGER")))
+                                pager = DFLT_PAGER;
+                            strlcat(px, pager, sizeof px);
+                            f = openfile(px, sizeof px, &pid, NULL);
+                            if (!f) {
+                                error("Can't open pipe to %s", pager);
+                                break;
+                            }
+                            fprintf(f, "Named Ranges:\n=============\n\n");
+                            if (!brokenpipe) list_ranges(f);
+                            if (!brokenpipe)
+                                fprintf(f, "\n\nFrames:\n=======\n\n");
+                            if (!brokenpipe) list_frames(f);
+                            if (!brokenpipe)
+                                fprintf(f, "\n\nColors:\n=======\n\n");
+                            if (!brokenpipe) list_colors(f);
+                            closefile(f, pid, 0);
+                        }
+                        break;
+                    case 'F':
+                        snprintf(line, sizeof line, "fmt [range \"format\"] ");
+                        linelim = strlen(line);
+                        insert_mode();
+                        startshow();
+                        break;
+                    case '{':
+                        snprintf(line, sizeof line, "leftjustify [range] ");
+                        linelim = strlen(line);
+                        insert_mode();
+                        startshow();
+                        break;
+                    case '}':
+                        snprintf(line, sizeof line, "rightjustify [range] ");
+                        linelim = strlen(line);
+                        insert_mode();
+                        startshow();
+                        break;
+                    case '|':
+                        snprintf(line, sizeof line, "center [range] ");
+                        linelim = strlen(line);
+                        insert_mode();
+                        startshow();
+                        break;
+                    case ESC:
+                    case ctl('g'):
+                        break;
+                    default:
+                        error("Invalid region command");
+                        break;
+                    }
+                    break;
+
+                case '~':
+                    snprintf(line, sizeof line, "abbrev \"");
+                    linelim = strlen(line);
+                    insert_mode();
+                    break;
+
+                case '"':
+                    error("Select buffer (a-z or 0-9):");
+                    if ((c = nmgetch()) == ESC || c == ctl('g')) {
+                        CLEAR_LINE;
+                    } else if (c >= '0' && c <= '9') {
+                        qbuf = c - '0' + (DELBUFSIZE - 10);
+                        CLEAR_LINE;
+                    } else if (c >= 'a' && c <= 'z') {
+                        qbuf = c - 'a' + (DELBUFSIZE - 36);
+                        CLEAR_LINE;
+                    } else if (c == '"') {
+                        qbuf = 0;
+                        CLEAR_LINE;
+                    } else {
+                        error("Invalid buffer");
+                    }
+                    break;
+
+                    /*
+                     * Row/column commands:
+                     */
+
+                case KEY_IC:
+                case 'i':
+                case 'o':
+                case 'a':
+                case 'd':
+                case 'y':
+                case 'p':
+                case 'v':
+                case 's':
+                case 'Z':
+                    {
+                        int rcqual;
+
+                        if (!(rcqual = get_rcqual(c))) {
+                            error("Invalid row/column command");
+                            break;
+                        }
+
+                        CLEAR_LINE;     /* clear line */
+
+                        if (rcqual == ESC || rcqual == ctl('g'))
+                            break;
+
+                        switch (c) {
+                        case 'i':
+                            if (rcqual == 'r')      insertrow(uarg, 0);
+                            else                    insertcol(uarg, 0);
+                            break;
+
+                        case 'o':
+                            if (rcqual == 'r')      insertrow(uarg, 1);
+                            else                    insertcol(uarg, 1);
+                            break;
+
+                        case 'a':
+                            if (rcqual == 'r')      while (uarg--) duprow();
+                            else                    while (uarg--) dupcol();
+                            break;
+
+                        case 'd':
+                            if (rcqual == 'r')      deleterow(uarg);
+                            else                    closecol(uarg);
+                            break;
+
+                        case 'y':
+                            if (rcqual == 'r')      yankrow(uarg);
+                            else                    yankcol(uarg);
+                            break;
+
+                        case 'p':
+                            if (rcqual == '.') {
+                                snprintf(line, sizeof line, "pullcopy ");
+                                linelim = strlen(line);
+                                insert_mode();
+                                startshow();
+                                break;
+                            }
+                            while (uarg--)           pullcells(rcqual);
+                            break;
+
+                            /*
+                             * turn an area starting at currow/curcol into
+                             * constants vs expressions - not reversable
+                             */
+                        case 'v':
+                            if (rcqual == 'r') {
+                                struct frange *fr;
+
+                                if ((fr = find_frange(currow, curcol)))
+                                    valueize_area(currow, fr->or_left->col,
+                                                  currow + uarg - 1,
+                                                  fr->or_right->col);
+                                else
+                                    valueize_area(currow, 0,
+                                                  currow + uarg - 1, maxcol);
+                            } else
+                                valueize_area(0, curcol,
+                                              maxrow, curcol + uarg - 1);
+                            modflg++;
+                            break;
+
+                        case 'Z':
+                            switch (rcqual) {
+                            case 'r':   hiderow(uarg);           break;
+                            case 'c':   hidecol(uarg);           break;
+                            case 'Z':   if (modflg && curfile[0]) {
+                                            writefile(curfile, 0, 0,
+                                                      maxrow, maxcol);
+                                            running = 0;
+                                        } else if (modflg) {
+                                            error("No file name.");
+                                        } else
+                                            running = 0;
+                                        break;
+                            }
+                            break;
+
+                        case 's':
+                            /* special case; no repeat count */
+
+                            if (rcqual == 'r')      rowshow_op();
+                            else                    colshow_op();
+                            break;
+                        }
+                        break;
+                    }
+
+                case '$':
+                    rightlimit();
+                    break;
+                case '#':
+                    gotobottom();
+                    break;
+                case 'w':
+                    while (--uarg >= 0) {
+                        do {
+                            if (curcol < maxcols - 1)
+                                curcol++;
+                            else {
+                                if (currow < maxrows - 1) {
+                                    while (++currow < maxrows - 1 && row_hidden[currow])
+                                        continue;
+                                    curcol = 0;
+                                } else {
+                                    error("At end of table");
+                                    break;
+                                }
+                            }
+                        } while (col_hidden[curcol] || !VALID_CELL(p, currow, curcol));
+                    }
+                    rowsinrange = 1;
+                    colsinrange = fwidth[curcol];
+                    break;
+                case 'b':
+                    while (--uarg >= 0) {
+                        do {
+                            if (curcol)
+                                curcol--;
+                            else {
+                                if (currow) {
+                                    while (--currow && row_hidden[currow])
+                                        continue;
+                                    curcol = maxcols - 1;
+                                } else {
+                                    error("At start of table");
+                                    break;
+                                }
+                            }
+                        } while (col_hidden[curcol] || !VALID_CELL(p, currow, curcol));
+                    }
+                    rowsinrange = 1;
+                    colsinrange = fwidth[curcol];
+                    break;
+                case '^':
+                    gototop();
+                    break;
+#ifdef KEY_HELP
+                case KEY_HELP:
+#endif
+                case '?':
+                    help();
+                    break;
+                case '\\':
+                    if (!locked_cell(currow, curcol)) {
+                        /* set mark 0 */
+                        savedrow[27] = currow;
+                        savedcol[27] = curcol;
+                        savedstrow[27] = strow;
+                        savedstcol[27] = stcol;
+
+                        snprintf(line, sizeof line, "label %s = \"",
+                                 v_name(currow, curcol));
+                        linelim = strlen(line);
+                        insert_mode();
+                    }
+                    break;
+
+                case '<':
+                    if (!locked_cell(currow, curcol)) {
+                        /* set mark 0 */
+                        savedrow[27] = currow;
+                        savedcol[27] = curcol;
+                        savedstrow[27] = strow;
+                        savedstcol[27] = stcol;
+
+                        snprintf(line, sizeof line, "leftstring %s = \"",
+                                 v_name(currow, curcol));
+                        linelim = strlen(line);
+                        insert_mode();
+                    }
+                    break;
+
+                case '>':
+                    if (!locked_cell(currow, curcol)) {
+                        /* set mark 0 */
+                        savedrow[27] = currow;
+                        savedcol[27] = curcol;
+                        savedstrow[27] = strow;
+                        savedstcol[27] = stcol;
+
+                       snprintf(line, sizeof line, "rightstring %s = \"",
+                                v_name(currow, curcol));
+                       linelim = strlen(line);
+                       insert_mode();
+                    }
+                    break;
+                case '{':
+                    p = *ATBL(tbl, currow, curcol);
+                    if (p && p->label)
+                        ljustify(currow, curcol, currow, curcol);
+                    else
+                        error("Nothing to justify");
+                    break;
+                case '}':
+                    p = *ATBL(tbl, currow, curcol);
+                    if (p && p->label)
+                        rjustify(currow, curcol, currow, curcol);
+                    else
+                        error("Nothing to justify");
+                    break;
+                case '|':
+                    p = *ATBL(tbl, currow, curcol);
+                    if (p && p->label)
+                        center(currow, curcol, currow, curcol);
+                    else
+                        error("Nothing to center");
+                    break;
+                case 'e':
+                    if (!locked_cell(currow, curcol)) {
+                        p = lookat(currow, curcol);
+
+                        /* set mark 0 */
+                        savedrow[27] = currow;
+                        savedcol[27] = curcol;
+                        savedstrow[27] = strow;
+                        savedstcol[27] = stcol;
+
+                        editv(currow, curcol);
+                        if (!(p->flags & IS_VALID)) {
+                            linelim = strlen(line);
+                            insert_mode();
+                        } else
+                            edit_mode();
+                    }
+                    break;
+                case 'E':
+                    if (!locked_cell(currow, curcol)) {
+                        /* set mark 0 */
+                        savedrow[27] = currow;
+                        savedcol[27] = curcol;
+                        savedstrow[27] = strow;
+                        savedstcol[27] = stcol;
+
+                        edits(currow, curcol);
+                        edit_mode();
+                    }
+                    break;
+                case 'f':
+                    formatcol(uarg);
+                    break;
+                case 'F':
+                    p = *ATBL(tbl, currow, curcol);
+                    if (p && p->format) {
+                        snprintf(line, sizeof line, "fmt [format] %s \"%s",
+                                 v_name(currow, curcol), p->format);
+                        edit_mode();
+                        linelim = strlen(line) - 1;
+                    } else {
+                        snprintf(line, sizeof line, "fmt [format] %s \"",
+                                 v_name(currow, curcol));
+                        insert_mode();
+                        linelim = strlen(line);
+                    }
+                    break;
+                case 'C': {
+                    if (braille) {
+                        braillealt ^= 1;
+                        break;
+                    }
+                    error("Color number to set (1-8)?");
+                    if ((c = nmgetch()) == ESC || c == ctl('g')) {
+                        CLEAR_LINE;
+                        break;
+                    }
+                    if ((c -= ('1' - 1)) < 1 || c > 8) {
+                        error("Invalid color number.");
+                        break;
+                    }
+                    CLEAR_LINE;
+                    snprintf(line, sizeof line, "color %d = ", c);
+                    linelim = strlen(line);
+                    if (cpairs[c - 1] && cpairs[c - 1]->expr) {
+                        decompile(cpairs[c - 1]->expr, 0);
+                        edit_mode();
+                    } else {
+                        insert_mode();
+                    }
+                    break;
+                }
+#ifdef KEY_FIND
+                case KEY_FIND:
+#endif
+                case 'g':
+                    snprintf(line, sizeof line, "goto [v] ");
+                    linelim = strlen(line);
+                    insert_mode();
+                    break;
+                case 'n':
+                    go_last();
+                    break;
+                case 'P':
+                    snprintf(line, sizeof line, "put [\"dest\" range] \"");
+
+                    /* See the comments under "case 'W':" below for an
+                     * explanation of the logic here.
+                     */
+                    // XXX: clean this ugly mess!
+                    curfile[strlen(curfile) + 1] = '\0';
+                    if (strrchr(curfile, '.') != NULL) {
+                        size_t l;
+                        if (!strcmp((strrchr(curfile, '.')), ".sc")) {
+                            *strrchr(curfile, '.') = '\0';
+                            l = strlen(curfile) + 3;
+                            strlcpy(curfile + l, ".", sizeof(curfile) - l);
+                        } else if (scext != NULL &&
+                                !strcmp((strrchr(curfile, '.') + 1), scext)) {
+                            *strrchr(curfile, '.') = '\0';
+                            l = strlen(curfile) + strlen(scext) + 1;
+                            strlcpy(curfile + l, ".", sizeof(curfile) - l);
+                        }
+                    }
+                    if (*curfile) {
+                        error("Default path is \"%s.%s\"",
+                              curfile, scext == NULL ? "sc" : scext);
+                    }
+                    c = *(curfile + strlen(curfile) + strlen(curfile + strlen(curfile) + 1));
+                    *(curfile + strlen(curfile) +
+                            strlen(curfile + strlen(curfile) + 1)) = '\0';
+                    curfile[strlen(curfile)] = c;
+                    linelim = strlen(line);
+                    insert_mode();
+                    break;
+                case 'M':
+                    snprintf(line, sizeof line, "merge [\"source\"] \"");
+                    linelim = strlen(line);
+                    insert_mode();
+                    break;
+                case 'R':
+                    if (mdir)
+                        snprintf(line, sizeof line, "merge [\"macro_file\"] \"%s", mdir);
+                    else
+                        snprintf(line, sizeof line, "merge [\"macro_file\"] \"");
+                    linelim = strlen(line);
+                    insert_mode();
+                    break;
+                case 'D':
+                    snprintf(line, sizeof line, "mdir [\"macro_directory\"] \"");
+                    linelim = strlen(line);
+                    insert_mode();
+                    break;
+                case 'A':
+                    if (autorun)
+                        snprintf(line, sizeof line,"autorun [\"macro_file\"] \"%s", autorun);
+                    else
+                        snprintf(line, sizeof line, "autorun [\"macro_file\"] \"");
+                    linelim = strlen(line);
+                    insert_mode();
+                    break;
+                case 'G':
+                    snprintf(line, sizeof line, "get [\"source\"] \"");
+                    if (*curfile)
+                        error("Default file is \"%s\"", curfile);
+                    linelim = strlen(line);
+                    insert_mode();
+                    break;
+                case 'W':
+                    snprintf(line, sizeof line, "write [\"dest\" range] \"");
+
+                    // XXX: clean this ugly mess!
+
+                    /* First, append an extra null byte to curfile.  Then, if curfile ends in
+                     * ".sc" (or '.' followed by the string in scext), move the '.' to the
+                     * end and replace it with a null byte.  This results in two consecutive
+                     * null-terminated strings, the first being curfile with the ".sc" (or '.'
+                     * and scext) removed, if present, and the second being either "sc." (or
+                     * scext and '.') or "", depending on whether the ".sc" (or '.' and scext)
+                     * was present or not.
+                     */
+                    curfile[strlen(curfile) + 1] = '\0';
+                    if (strrchr(curfile, '.') != NULL) {
+                        size_t l;
+                        if (!strcmp((strrchr(curfile, '.')), ".sc")) {
+                            *strrchr(curfile, '.') = '\0';
+                            l = strlen(curfile) + 3;
+                            strlcpy(curfile + l, ".\0", sizeof(curfile) - l);
+                        } else if (scext != NULL &&
+                                !strcmp((strrchr(curfile, '.') + 1), scext)) {
+                            *strrchr(curfile, '.') = '\0';
+                            l = strlen(curfile) + strlen(scext) + 1;
+                            strlcpy(curfile + l, ".\0", sizeof(curfile) - l);
+                        }
+                    }
+
+                    /* Now append ".asc" (or '.' and the value of ascext) to the possibly
+                     * truncated curfile.
+                     */
+                    if (*curfile) {
+                        error("Default file is \"%s.%s\"", curfile,
+                                ascext == NULL ? "asc" : ascext);
+                    }
+                    /* Now swap the '.' and null bytes again.  If there is no '.', swap a
+                     * null byte with itself.  This may seem convoluted, but it works well,
+                     * and obviates the need for a 1024 byte temporary buffer. - CRM
+                     */
+                    c = *(curfile + strlen(curfile) +
+                          strlen(curfile + strlen(curfile) + 1));
+                    *(curfile + strlen(curfile) +
+                            strlen(curfile + strlen(curfile) + 1)) = '\0';
+                    curfile[strlen(curfile)] = c;
+                    linelim = strlen(line);
+                    insert_mode();
+                    break;
+                case 'S':       /* set options */
+                    snprintf(line, sizeof line, "set ");
+                    error("Options:byrows,bycols,iterations=n,tblstyle=(0|tbl|latex|slatex|tex|frame),<MORE>");
+                    linelim = strlen(line);
+                    insert_mode();
+                    break;
+                case 'T':       /* tbl output */
+                    snprintf(line, sizeof line, "tbl [\"dest\" range] \"");
+
+                    /* See the comments under "case 'W':" above for an explanation of the
+                     * logic here.
+                     */
+                    // XXX: clean this ugly mess!
+                    curfile[strlen(curfile) + 1] = '\0';
+                    if (strrchr(curfile, '.') != NULL) {
+                        size_t l;
+                        if (!strcmp((strrchr(curfile, '.')), ".sc")) {
+                            *strrchr(curfile, '.') = '\0';
+                            l = strlen(curfile) + 3;
+                            strlcpy(curfile + l, ".\0", sizeof(curfile) - l);
+                        } else if (scext != NULL &&
+                                !strcmp((strrchr(curfile, '.') + 1), scext)) {
+                            *strrchr(curfile, '.') = '\0';
+                            l = strlen(curfile) + strlen(scext) + 1;
+                            strlcpy(curfile + l, ".\0", sizeof(curfile) - 1);
+                        }
+                    }
+                    if (*curfile && tbl_style == 0) {
+                        error("Default file is \"%s.%s\"", curfile,
+                                tbl0ext == NULL ? "cln" : tbl0ext);
+                    } else if (*curfile && tbl_style == TBL) {
+                        error("Default file is \"%s.%s\"", curfile,
+                                tblext == NULL ? "tbl" : tblext);
+                    } else if (*curfile && tbl_style == LATEX) {
+                        error("Default file is \"%s.%s\"", curfile,
+                                latexext == NULL ? "lat" : latexext);
+                    } else if (*curfile && tbl_style == SLATEX) {
+                        error("Default file is \"%s.%s\"", curfile,
+                                slatexext == NULL ? "stx" : slatexext);
+                    } else if (*curfile && tbl_style == TEX) {
+                        error("Default file is \"%s.%s\"", curfile,
+                                texext == NULL ? "tex" : texext);
+                    }
+                    c = *(curfile + strlen(curfile) +
+                          strlen(curfile + strlen(curfile) + 1));
+                    *(curfile + strlen(curfile) +
+                            strlen(curfile + strlen(curfile) + 1)) = '\0';
+                    curfile[strlen(curfile)] = c;
+                    linelim = strlen(line);
+                    insert_mode();
+                    break;
+#ifdef KEY_DC
+                case KEY_DC:
+#endif
+                case 'x':
+                    if (calc_order == BYROWS) {
+                        eraser(lookat(currow, curcol),
+                                lookat(currow, curcol + uarg - 1));
+                    } else {
+                        eraser(lookat(currow, curcol),
+                               lookat(currow + uarg - 1, curcol));
+                    }
+                    break;
+                case 'Q':
+                case 'q':
+                    running = 0;
+                    break;
+                case KEY_LEFT:
+                case 'h':
+                    backcol(uarg);
+                    break;
+                case KEY_DOWN:
+                case 'j':
+                    forwrow(uarg);
+                    break;
+                case KEY_UP:
+                case 'k':
+                    backrow(uarg);
+                    break;
+                case 'H':
+                    backcol(curcol - stcol + 2);
+                    break;
+#ifdef KEY_NPAGE
+                case KEY_NPAGE:                 /* next page */
+#endif
+                case 'J':
+                    ps = pagesize ? pagesize : (LINES - RESROW - framerows)/2;
+                    forwrow(uarg * ps);
+                    strow = strow + uarg * ps;
+                    FullUpdate++;
+                    break;
+#ifdef  KEY_PPAGE
+                case KEY_PPAGE:                 /* previous page */
+#endif
+                case 'K':
+                    ps = pagesize ? pagesize : (LINES - RESROW - framerows)/2;
+                    backrow(uarg * ps);
+                    strow = strow - uarg * ps;
+                    if (strow < 0) strow = 0;
+                    FullUpdate++;
+                    break;
+#ifdef KEY_HOME
+                case KEY_HOME:
+                    gohome();
+                    break;
+#endif
+                case 'L':
+                    forwcol(lcols - (curcol - stcol) + 1);
+                    break;
+                case KEY_RIGHT:
+                case ' ':
+                case 'l':
+                    forwcol(uarg);
+                    break;
+                case 'm':
+                    markcell();
+                    break;
+                case 'c':
+                    error("Copy marked cell:");
+                    if ((c = nmgetch()) == ESC || c == ctl('g')) {
+                        CLEAR_LINE;
+                        break;
+                    }
+                    if (c == '.') {
+                        copy(NULL, NULL, lookat(currow, curcol), NULL);
+                        snprintf(line, sizeof line, "copy [dest_range src_range] ");
+                        linelim = strlen(line);
+                        insert_mode();
+                        startshow();
+                        break;
+                    }
+                    if (c == '`' || c == '\'')
+                        c = 0;
+                    else
+                    if (!(((c -= ('a' - 1)) > 0 && c < 27) ||
+                          ((c += ('a' - '0' + 26)) > 26 && c < 37)))
+                    {
+                        error("Invalid mark (must be a-z, 0-9, ` or \')");
+                        break;
+                    }
+                    if (savedrow[c] == -1) {
+                        error("Mark not set");
+                        break;
+                    }
+                    CLEAR_LINE;
+                    {
+                        int c1;
+                        struct ent *n;
+
+                        p = *ATBL(tbl, savedrow[c], savedcol[c]);
+                        for (c1 = curcol; uarg-- && c1 < maxcols; c1++) {
+                            if ((n = *ATBL(tbl, currow, c1))) {
+                                if (n->flags & IS_LOCKED)
+                                    continue;
+                                if (!p) {
+                                    clearent(n);
+                                    continue;
+                                }
+                            } else {
+                                if (!p) break;
+                                n = lookat(currow, c1);
+                            }
+                            copyent(n, p, currow - savedrow[c],
+                                    c1 - savedcol[c], 0, 0, maxrow, maxcol, 0);
+                            n->flags |= IS_CHANGED;
+                        }
+
+                        FullUpdate++;
+                        modflg++;
+                        break;
+                    }
+                case '`':
+                case '\'':
+                    dotick(c);
+                    break;
+                case '*':
+                    error("Note: Add/Delete/Show/*(go to note)?");
+                    if ((c = nmgetch()) == ESC || c == ctl('g')) {
+                        CLEAR_LINE;
+                        break;
+                    }
+                    if (c == 'a' || c == 'A') {
+                        snprintf(line, sizeof line, "addnote [target range] %s ",
+                                 v_name(currow, curcol));
+                        linelim = strlen(line);
+                        insert_mode();
+                        write_line(ctl('v'));
+                        CLEAR_LINE;
+                        FullUpdate++;
+                        break;
+                    }
+                    if (c == 'd' || c == 'D') {
+                        p = lookat(currow, curcol);
+                        p->nrow = p->ncol = -1;
+                        p->flags |= IS_CHANGED;
+                        CLEAR_LINE;
+                        modflg++;
+                        FullUpdate++;
+                        break;
+                    }
+                    if (c == 's' || c == 'S') {
+                        FullUpdate++;
+                        shownote = 1;
+                        clearok(stdscr,1);
+                        error("Highlighted cells have attached notes.");
+                        break;
+                    }
+                    if (c == '*') {
+                        gotonote();
+                        CLEAR_LINE;
+                        break;
+                    }
+                    error("Invalid command");
+                    break;
+                case 'z':
+                    switch (c = nmgetch()) {
+                    case ctl('m'):
+                        strow = currow;
+                        FullUpdate++;
+                        clearok(stdscr,1);
+                        break;
+                    case '.':
+                        strow = -1;
+                        FullUpdate++;
+                        clearok(stdscr,1);
+                        break;
+                    case '|':
+                        stcol = -1;
+                        FullUpdate++;
+                        clearok(stdscr,1);
+                        break;
+                    case 'c':
+                        /* Force centering of current cell (or range, if
+                         * we've just jumped to a new range with the goto
+                         * command).
+                         */
+                        strow = -1;
+                        stcol = -1;
+                        FullUpdate++;
+                        clearok(stdscr,1);
+                        break;
+                    default:
+                        break;
+                    }
+                    break;
+#ifdef KEY_RESIZE
+                case KEY_RESIZE:
+#ifndef SIGWINCH
+                    winchg();
+#endif
+                    break;
+#endif
+#ifdef NCURSES_MOUSE_VERSION
+                case KEY_MOUSE:
+                    if (getmouse(&mevent) != OK)
+                        break;
+                    if (mevent.bstate & BUTTON1_CLICKED) {
+                        mouse_sel_cell(0);
+                        update(0);
+                    } else if (mevent.bstate & BUTTON1_PRESSED) {
+                        mouse_sel_cell(1);
+                    } else if (mevent.bstate & BUTTON1_RELEASED) {
+                        if (!mouse_sel_cell(2))
+                            update(0);
+                    }
+# if NCURSES_MOUSE_VERSION >= 2
+                    else if (mevent.bstate & BUTTON4_PRESSED) {
+                        scroll_up(1);
+                        FullUpdate++;
+                        update(0);
+                    } else if (mevent.bstate & BUTTON5_PRESSED) {
+                        scroll_down();
+                        FullUpdate++;
+                        update(0);
+                    }
+# endif
+                    break;
+#endif
+                default:
+                    if ((toascii(c)) != c) {
+                        error("Weird character, decimal %d\n", (int)c);
+                    } else {
+                        error("No such command (%c)", c);
+                    }
+                    break;
+                }
+            }
+            edistate = nedistate;
+            uarg = narg;
+        }                           /* while (running) */
+        inloop = modcheck(" before exiting");
+    }                           /*  while (inloop) */
+}
+
+static void scroll_down(void) {
+    strow++;
+    // XXX: check maximum row?
+    while (row_hidden[strow])
+        strow++;
+    if (currow < strow)
+        currow = strow;
+}
+
+static void scroll_up(int x) {
+    if (strow)
+        strow--;
+    while (strow && row_hidden[strow])
+        strow--;
+    forwrow(x);
+    if (currow >= lastendrow)
+        backrow(1);
+    backrow(x);
+}
+
+static void write_line(int c) {
     struct frange *fr;
     struct crange *cr;
     struct ent *p;
@@ -582,7 +2165,7 @@ void write_line(int c)
     }
 }
 
-void edit_mode(void) {
+static void edit_mode(void) {
     mode_ind = 'e';
     mode = EDIT_MODE;
     if (linelim < 0)    /* -1 says stop editing, ...so we still aren't */
@@ -591,7 +2174,7 @@ void edit_mode(void) {
     linelim = back_line(1);
 }
 
-void insert_mode(void) {
+static void insert_mode(void) {
     mode_ind = 'i';
     mode = INSERT_MODE;
     istart = linelim;
@@ -622,8 +2205,7 @@ static void replace_mode(void) {
     mode = REP_MODE;
 }
 
-void toggle_navigate_mode(void)
-{
+static void toggle_navigate_mode(void) {
     static char prev_mode = NAVIGATE_MODE;
     int limtmp;
 
@@ -655,7 +2237,7 @@ void toggle_navigate_mode(void)
     }
 }
 
-void dotab(void) {
+static void dotab(void) {
     static struct range *firstmatch;
     static struct range *lastmatch;
     static struct range *nextmatch;
@@ -696,8 +2278,7 @@ void dotab(void) {
 }
 
 /* show the current range (see ^I), we are moving around to define a range */
-void startshow(void)
-{
+static void startshow(void) {
     showrange = 1;
     showsr = currow;
     showsc = curcol;
@@ -705,8 +2286,7 @@ void startshow(void)
 }
 
 /* insert the range we defined by moving around the screen, see startshow() */
-void showdr(void)
-{
+static void showdr(void) {
     int minsr, minsc, maxsr, maxsc;
     char r[12];
     struct frange *fr = find_frange(currow, curcol);
@@ -745,8 +2325,7 @@ void showdr(void)
 }
 
 /* dot command functions.  Saves info so we can redo on a '.' command */
-static void savedot(int c)
-{
+static void savedot(int c) {
     if (do_dot || nosavedot || (c == '\n'))
         return;
 
@@ -802,8 +2381,7 @@ static int vigetch(void) {
 }
 
 /* saves the current line for possible use by an undo cmd */
-static void u_save(int c)
-{
+static void u_save(int c) {
     if (strlen(line) + 1 > undolen) {
         undolen = strlen(line) + 40;
         undo_line = scxrealloc(undo_line, undolen);
@@ -863,8 +2441,7 @@ static void stop_edit(void) {
  * the null at the end of the line instead of stopping at the
  * the last character of the line.
  */
-static int for_line(int a, int stop_null)
-{
+static int for_line(int a, int stop_null) {
     ssize_t cpos = linelim;
 
     if (linelim < 0)
@@ -884,8 +2461,7 @@ static int for_line(int a, int stop_null)
  * beginning-of-word.
  */
 
-static int for_word(int a, int end_word, int big_word, int stop_null)
-{
+static int for_word(int a, int end_word, int big_word, int stop_null) {
     int c;
     ssize_t cpos;
 
@@ -927,16 +2503,14 @@ static int for_word(int a, int end_word, int big_word, int stop_null)
     return cpos;
 }
 
-static int back_line(int a)
-{
+static int back_line(int a) {
     if (linelim > a)
         return linelim - a;
     else
         return 0;
 }
 
-static int back_word(int a, int big_word)
-{
+static int back_word(int a, int big_word) {
     int c;
     int cpos;
 
@@ -981,8 +2555,7 @@ static int back_word(int a, int big_word)
 /* If back_null is set, back up if the deletion leaves you at the null
  * line terminator.  Otherwise, don't.
  */
-static void del_in_line(int a, int back_null)
-{
+static void del_in_line(int a, int back_null) {
     int len, i;
 
     if (linelim >= 0) {
@@ -1000,8 +2573,7 @@ static void del_in_line(int a, int back_null)
         --linelim;
 }
 
-static void ins_in_line(int c)
-{
+static void ins_in_line(int c) {
     int i, len;
     static int inabbr;
 
@@ -1025,8 +2597,7 @@ static void ins_in_line(int c)
     }
 }
 
-void ins_string(const char *s)
-{
+static void ins_string(const char *s) {
     while (*s)
         ins_in_line(*s++);
 }
@@ -1114,8 +2685,7 @@ static void rep_char(void) {
     }
 }
 
-static void replace_in_line(int c)
-{
+static void replace_in_line(int c) {
     int len;
 
     if (c < 256) {
@@ -1150,8 +2720,7 @@ static void back_space(void) {
  * `ce', just as in vi.  Setting change to 0 causes `w' to act as usual.
  */
 
-static int get_motion(int change)
-{
+static int get_motion(int change) {
     int c;
     int arg2 = 0;
 
@@ -1191,8 +2760,7 @@ static int get_motion(int change)
     }
 }
 
-static void yank_cmd(int delete, int change)
-{
+static void yank_cmd(int delete, int change) {
     int cpos;
 
     if ((cpos = get_motion(change)) == -1) {
@@ -1202,8 +2770,7 @@ static void yank_cmd(int delete, int change)
     yank_chars(cpos, linelim, delete);
 }
 
-static void yank_chars(int first, int last, int delete)
-{
+static void yank_chars(int first, int last, int delete) {
     if (first == last)
         return;
 
@@ -1315,8 +2882,7 @@ static void cr_line(void) {
     }
 }
 
-void doshell(void)
-{
+static void doshell(void) {
     /*
     *  "! command"  executes command
     *  "!"      forks a shell
@@ -1497,8 +3063,7 @@ static void search_hist(void) {
     search_ind = ' ';
 }
 
-static void search_again(bool reverse)
-{
+static void search_again(bool reverse) {
     int prev_match;
     int found_it = 0;
 #if !defined(REGCOMP) && !defined(RE_COMP) && !defined(REGCMP)
@@ -1584,8 +3149,17 @@ static void search_again(bool reverse)
 }
 
 #if !defined(MSDOS)
-void write_hist(void)
-{
+static void readhistfile(FILE *fp) {
+    if (!*histfile)
+        return;
+    while (fgets(line, FBUFLEN, fp)) {
+        line[strlen(line)-1] = '\0'; /* chop the \n */
+        save_hist();
+    }
+}
+
+// XXX: move out of vi.c
+void write_hist(void) {
     int i;
     FILE *fp, *tmpfp = NULL;
 
@@ -1627,26 +3201,13 @@ void write_hist(void)
     }
 }
 
-static void readhistfile(FILE *fp)
-{
-    if (!*histfile)
-        return;
-    while (fgets(line, FBUFLEN, fp)) {
-        line[strlen(line)-1] = '\0'; /* chop the \n */
-        save_hist();
-    }
-}
-
-void read_hist(void)
-{
+void read_hist(void) {
     FILE *fp;
 
     if (!*histfile)
         return;
 
-    if (findhome(histfile, sizeof histfile) && (fp = fopen(histfile, "r"))
-        != NULL)
-    {
+    if (findhome(histfile, sizeof histfile) && (fp = fopen(histfile, "r")) != NULL) {
         readhistfile(fp);
 
         if (fclose(fp) == EOF) {
@@ -1696,8 +3257,7 @@ static int find_char(int a, int n) {
     return i;
 }
 
-static int to_char(int a, int n)
-{
+static int to_char(int a, int n) {
     int i;
     int tmp = linelim;
 
@@ -1742,12 +3302,12 @@ static void match_paren(void) {
  * cell has changed since the last remember(0), save the remembered location
  * for the `, ', and c comands.
  */
-void remember(int save)
-{
+// XXX: move out of vi.c
+void remember(int save) {
     static int remrow, remcol, remstrow, remstcol;
 
     if (save && (currow != remrow || curcol != remcol ||
-            strow != remstrow || stcol != remstcol)) {
+                 strow != remstrow || stcol != remstcol)) {
         savedrow[0] = remrow;
         savedcol[0] = remcol;
         savedstrow[0] = remstrow;
@@ -1760,7 +3320,7 @@ void remember(int save)
     }
 }
 
-void gohome(void) {
+static void gohome(void) {
     struct frange *fr;
 
     remember(0);
@@ -1791,7 +3351,7 @@ void gohome(void) {
     FullUpdate++;
 }
 
-void leftlimit(void) {
+static void leftlimit(void) {
     struct frange *fr;
 
     remember(0);
@@ -1813,7 +3373,7 @@ void leftlimit(void) {
     remember(1);
 }
 
-void rightlimit(void) {
+static void rightlimit(void) {
     struct ent *p;
     struct frange *fr;
 
@@ -1847,7 +3407,7 @@ void rightlimit(void) {
     remember(1);
 }
 
-void gototop(void) {
+static void gototop(void) {
     struct frange *fr;
 
     remember(0);
@@ -1869,7 +3429,7 @@ void gototop(void) {
     remember(1);
 }
 
-void gotobottom(void) {
+static void gotobottom(void) {
     struct ent *p;
     struct frange *fr;
 
@@ -1943,8 +3503,7 @@ static void dogoto(void) {
         toggle_navigate_mode();
 }
 
-void query(const char *s, char *data)
-{
+void query(const char *s, char *data) {
     int c;
 
     insert_mode();
@@ -1962,27 +3521,59 @@ void query(const char *s, char *data)
     while (linelim >= 0) {
         update(0);
         switch (c = nmgetch()) {
-            case ctl('m'):
-                CLEAR_LINE;
-                return;
-            case ctl('g'):
-                line[0] = '\0';
-                linelim = -1;
-                CLEAR_LINE;
-                update(0);
-                return;
-            case ctl('l'):
-                FullUpdate++;
-                clearok(stdscr,1);
-                update(1);
-                break;
-            default:
-                write_line(c);
+        case ctl('m'):
+            CLEAR_LINE;
+            return;
+        case ctl('g'):
+            line[0] = '\0';
+            linelim = -1;
+            CLEAR_LINE;
+            update(0);
+            return;
+        case ctl('l'):
+            FullUpdate++;
+            clearok(stdscr,1);
+            update(1);
+            break;
+        default:
+            write_line(c);
+            break;
         }
     }
 }
 
 #ifdef NCURSES_MOUSE_VERSION
+static int mouse_sel_cell(int mmode) { /* 0: set, 1: save, 2: cmp and set */
+    int i, y, x, tx, ty;
+    static int x1, y1;
+    if ((y = mevent.y - RESROW) < 0 || (x = mevent.x - rescol) < 0)
+        return 1;
+    for (ty = strow, i = y; ; ty++) {
+        if (row_hidden[ty])
+            continue;
+        if (--i < 0)
+            break;
+    }
+    for (tx = stcol, i = x; ; tx++) {
+        if (col_hidden[tx])
+            continue;
+        if ((i -= fwidth[tx]) < 0)
+            break;
+    }
+    switch (mmode) {
+    case 1:
+        y1 = ty; x1 = tx;
+        break;
+    case 2:
+        if (y1 != ty || x1 != tx)
+            break;
+    default:
+        currow = ty; curcol = tx;
+        return 0;
+    }
+    return 1;
+}
+
 static void mouse_set_pos(int m) {
     static int x0;
     switch (m) {
@@ -1997,3 +3588,305 @@ static void mouse_set_pos(int m) {
     }
 }
 #endif
+
+/*
+ * Given a row/column command letter, emit a small menu, then read a qualifier
+ * character for a row/column command and convert it to 'r' (row), 'c'
+ * (column), or 0 (unknown).  If ch is 'p', three extra qualifiers, 'm', 'x',
+ * and 't', are allowed.  If ch is 'Z', an extra qualifier 'Z' is allowed.
+ */
+
+static int get_rcqual(int ch) {
+    int c;
+
+    error("%sow/column:  r: row  c: column%s",
+#ifdef KEY_IC
+          (ch == KEY_IC)  ? "Insert r" :
+#endif
+          (ch == 'i')     ? "Insert r" :
+          (ch == 'o')     ? "Open r" :
+          (ch == 'a')     ? "Append r" :
+          (ch == 'd')     ? "Delete r" :
+          (ch == 'y')     ? "Yank r" :
+          (ch == 'p')     ? "Pull r" :
+          (ch == 'v')     ? "Values r" :
+          (ch == 'Z')     ? "Zap r" :
+          (ch == 's')     ? "Show r" : "R",
+
+          (ch == 'p')     ? "  p: paste  m: merge  x: xchg  <MORE>" :
+          (ch == 'Z')     ? "  Z: save/exit" : "");
+
+    refresh();
+
+    switch (c = nmgetch()) {
+    case 'r':       return 'r';
+    case 'c':       return 'c';
+    case 'p':       return (ch == 'p') ? 'p' : 0;
+    case 'm':       return (ch == 'p') ? 'm' : 0;
+    case 'x':       return (ch == 'p') ? 'x' : 0;
+    case 't':       return (ch == 'p') ? 't' : 0;
+    case 'f':       return (ch == 'p') ? 'f' : 0;
+    case 'C':       return (ch == 'p') ? 'C' : 0;
+    case '.':       return (ch == 'p') ? '.' : 0;
+    case 'Z':       return (ch == 'Z') ? 'Z' : 0;
+    case ESC:
+    case ctl('g'):  return ESC;
+
+    case 'd':       if (ch == 'd') {
+                        ungetch('x');
+                        return ESC;
+                    } else
+                        return 0;
+
+    case 'y':       if (ch == 'y') {
+                        yankr(lookat(currow, curcol),
+                              lookat(currow, curcol));
+                        return ESC;
+                    } else
+                        return 0;
+
+    case 'v':       if (ch == 'v') {
+                        valueize_area(currow, curcol, currow, curcol);
+                        modflg++;
+                        return ESC;
+                    } else
+                        return 0;
+
+    case KEY_UP:
+    case KEY_DOWN:
+    case KEY_PPAGE:
+    case KEY_NPAGE:
+    case 'j':
+    case 'k':
+    case 'J':
+    case 'K':
+    case ctl('f'):
+    case ctl('b'):
+    case ctl('n'):
+    case ctl('p'):  if (ch == 'd')
+                        snprintf(line, sizeof line, "deleterow [range] ");
+                    else if (ch == 'y')
+                        snprintf(line, sizeof line, "yankrow [range] ");
+                    else if (ch == 'Z')
+                        snprintf(line, sizeof line, "hide [range] ");
+                    else
+                        return 0;
+                    edit_mode();
+                    write_line('A');
+                    startshow();
+                    showrange = SHOWROWS;
+                    showsr = currow;
+                    ungetch(c);
+                    return ESC;
+
+    case KEY_BACKSPACE:
+    case KEY_LEFT:
+    case KEY_RIGHT:
+    case ' ':
+    case 'h':
+    case 'l':
+    case 'H':
+    case 'L':       if (ch == 'd')
+                        snprintf(line, sizeof line, "deletecol [range] ");
+                    else if (ch == 'y')
+                        snprintf(line, sizeof line, "yankcol [range] ");
+                    else if (ch == 'Z')
+                        snprintf(line, sizeof line, "hide [range] ");
+                    else
+                        return 0;
+                    edit_mode();
+                    write_line('A');
+                    startshow();
+                    showrange = SHOWCOLS;
+                    showsc = curcol;
+                    ungetch(c);
+                    return ESC;
+
+    default:        return 0;
+    }
+    /*NOTREACHED*/
+}
+
+static void formatcol(int arg) {
+    int c, i;
+    int mf = modflg;
+    int *oldformat;
+
+    error("Current format is %d %d %d",
+          fwidth[curcol], precision[curcol],
+          realfmt[curcol]);
+    refresh();
+    oldformat = scxmalloc(arg*3*sizeof(int));
+    for (i = 0; i < arg; i++) {
+        oldformat[i * 3 + 0] = fwidth[i + curcol];
+        oldformat[i * 3 + 1] = precision[i + curcol];
+        oldformat[i * 3 + 2] = realfmt[i + curcol];
+    }
+    c = nmgetch();
+    while (c >= 0 && c != ctl('m') && c != 'q' && c != ESC &&
+           c != ctl('g') && linelim < 0) {
+        if (c >= '0' && c <= '9') {
+            for (i = curcol; i < curcol + arg; i++)
+                realfmt[i] = c - '0';
+        } else {
+            switch (c) {
+            case KEY_LEFT:
+            case '<':
+            case 'h':
+                for (i = curcol; i < curcol + arg; i++) {
+                    fwidth[i]--;
+                    if (fwidth[i] < 1)
+                        fwidth[i] = 1;
+                }
+                rowsinrange = 1;
+                colsinrange = fwidth[curcol];
+                modflg++;
+                break;
+            case KEY_RIGHT:
+            case '>':
+            case 'l':
+                for (i = curcol; i < curcol + arg; i++) {
+                    fwidth[i]++;
+                    if (fwidth[i] > COLS - rescol - 2)
+                        fwidth[i] = COLS - rescol - 2;
+                }
+                rowsinrange = 1;
+                colsinrange = fwidth[curcol];
+                modflg++;
+                break;
+            case KEY_DOWN:
+            case '-':
+            case 'j':
+                for (i = curcol; i < curcol + arg; i++) {
+                    precision[i]--;
+                    if (precision[i] < 0)
+                        precision[i] = 0;
+                }
+                modflg++;
+                break;
+            case KEY_UP:
+            case '+':
+            case 'k':
+                for (i = curcol; i < curcol + arg; i++)
+                    precision[i]++;
+                modflg++;
+                break;
+            case ' ':
+                if (arg == 1) {
+                    snprintf(line, sizeof line,
+                             "format [for column] %s ",
+                             coltoa(curcol));
+                } else {
+                    snprintf(line, sizeof line,
+                             "format [for columns] %s:%s ",
+                             coltoa(curcol), coltoa(curcol+arg-1));
+                }
+                linelim = strlen(line);
+                insert_mode();
+                error("Current format is %d %d %d",
+                      fwidth[curcol], precision[curcol], realfmt[curcol]);
+                continue;
+            case '=':
+                error("Define format type (0-9):");
+                refresh();
+                if ((c = nmgetch()) >= '0' && c <= '9') {
+                    if (colformat[c - '0']) {
+                        snprintf(line, sizeof line,
+                                 "format %c = \"%s\"", c, colformat[c - '0']);
+                        edit_mode();
+                        linelim = strlen(line) - 1;
+                    } else {
+                        snprintf(line, sizeof line, "format %c = \"", c);
+                        insert_mode();
+                        linelim = strlen(line);
+                    }
+                    CLEAR_LINE;
+                } else {
+                    error("Invalid format type");
+                    c = -1;
+                }
+                continue;
+            case ctl('l'):
+                FullUpdate++;
+                clearok(stdscr, 1);
+                break;
+            default:
+                break;
+            }
+        }
+        error("Current format is %d %d %d",
+              fwidth[curcol], precision[curcol],
+              realfmt[curcol]);
+        FullUpdate++;
+        update(1);
+        refresh();
+        if (linelim < 0) {
+            if ((c = nmgetch()) == ESC || c == ctl('g') || c == 'q') {
+                for (i = 0; i < arg; i++) {
+                    fwidth[i + curcol] = oldformat[i * 3 + 0];
+                    precision[i + curcol] = oldformat[i * 3 + 1];
+                    realfmt[i + curcol] = oldformat[i * 3 + 2];
+                }
+                modflg = mf;
+                FullUpdate++;
+                update(1);
+            }
+        }
+    }
+    scxfree(oldformat);
+    if (c >= 0)
+        CLEAR_LINE;
+}
+
+/* called from main() for -P/ option */
+void vi_select_range(const char *arg) {
+    int c;
+
+    linelim = 0;
+    *line = '\0';
+    if (mode_ind != 'v')
+        write_line(ctl('v'));
+
+    error("Select range:");
+    update(1);
+    while (!linelim) {
+        switch (c = nmgetch()) {
+        case '.':
+        case ':':
+        case ctl('i'):
+            if (!showrange) {
+                write_line(c);
+                break;
+            }
+            /* else drop through */
+        case ctl('m'):
+            strlcpy(line, "put ", sizeof line);
+            linelim = 4;
+            write_line('.');
+            if (showrange)
+                write_line('.');
+            strlcat(line, arg, sizeof line);
+            linelim = strlen(line);
+            break;
+        case ESC:
+        case ctl('g'):
+        case 'q':
+            linelim = -1;
+            break;
+        case ctl('l'):
+            FullUpdate++;
+            clearok(stdscr, 1);
+            break;
+        default:
+            write_line(c);
+            break;
+        }
+        /* goto switches to insert mode when done, so we
+         * have to switch back.
+         */
+        if (mode_ind == 'i')
+            write_line(ctl('v'));
+        CLEAR_LINE;
+        update(1);
+    }
+}

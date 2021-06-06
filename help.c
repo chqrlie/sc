@@ -12,7 +12,6 @@ static const char * const header = " Quick Reference";
 static const char * const revision = "$Revision: 7.16 $";
 #else
 #include <limits.h>
-#include "compat.h"
 #include "sc.h"
 #endif /* QREF */
 

@@ -13,7 +13,6 @@
 #include <unistd.h>
 #include <string.h>
 #include <errno.h>
-#include "compat.h"
 #include "sc.h"
 
 int Crypt = 0;

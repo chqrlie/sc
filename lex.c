@@ -31,7 +31,6 @@
 #include <ctype.h>
 #include <unistd.h>
 #include <limits.h>
-#include "compat.h"
 #include "sc.h"
 
 static sigret_t fpe_trap(int);
@@ -62,7 +61,7 @@ extern YYSTYPE yylval;
 static jmp_buf wakeup;
 static jmp_buf fpe_buf;
 
-bool sc_decimal = FALSE;
+bool sc_decimal = false;
 
 static sigret_t fpe_trap(int signo)
 {
@@ -477,7 +476,7 @@ void initkbd(void)
 
     if (!(ktmp = getenv("TERM"))) {
         (void) fprintf(stderr, "TERM environment variable not set\n");
-        exit (1);
+        exit(1);
     }
     if (tgetent(buf, ktmp) <= 0)
         return;
