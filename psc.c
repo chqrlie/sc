@@ -18,9 +18,6 @@
  *  Adjustments: Jeff Buhrt, Eric Putz and Chuck Martin
  */
 
-#include "config.h"
-#include "version.h"
-
 #include <ctype.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -30,6 +27,7 @@
 #include <errno.h>
 #include <stdarg.h>
 #include "sc.h"
+#include "version.h"
 
 #define END     0
 #define NUM     1
@@ -38,6 +36,11 @@
 #define EOL     4
 
 #define PRINTF_CMD_ERR(x) ": Writing command \"" x "\": %s\n"
+
+#ifndef FALSE
+#define FALSE 0
+#define TRUE 1
+#endif
 
 const char *progname;
 
@@ -52,6 +55,9 @@ int currow;
 static int scan(void);
 static int getrow(const char *p);
 static int getcol(const char *p);
+
+int growtbl(int rowcol, int toprow, int topcol);
+char *coltoa(int col);
 
 static int curlen;
 static int coff;
@@ -83,7 +89,7 @@ void fatal(const char *str) {
 void error(const char *fmt, ...) {
     va_list ap;
     va_start(ap, fmt);
-    vfprintf(stderr, fmt, ap);
+    ((int (*)(FILE *, const char *, va_list))vfprintf)(stderr, fmt, ap);
     va_end(ap);
 }
 
