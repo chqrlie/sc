@@ -210,7 +210,7 @@ int yylex(void)
             return FNUMBER;
         }
 
-        if (*p=='.' && dateflag) {  /* .'s in dates are returned as tokens. */
+        if (*p == '.' && dateflag) {  /* .'s in dates are returned as tokens. */
             ret = *p++;
             dateflag--;
         } else {
@@ -256,27 +256,22 @@ int yylex(void)
                 else
                     sc_decimal = TRUE;
             } else {
-                /* A NUMBER must hold at least MAXROW and MAXCOL */
-                /* This is consistent with a short row and col in struct ent */
-                if (v > (double)32767 || v < (double)-32768) {
+                temp = (int)v;
+                if ((double)temp == v) {
+                    /* A NUMBER is an integer in the range of `int`. */
+                    /* it can be used for row numbers */
+                    ret = NUMBER;
+                    yylval.ival = temp;
+                } else {
                     ret = FNUMBER;
                     yylval.fval = v;
-                } else {
-                    temp = (int)v;
-                    if ((double)temp != v) {
-                        ret = FNUMBER;
-                        yylval.fval = v;
-                    } else {
-                        ret = NUMBER;
-                        yylval.ival = temp;
-                    }
                 }
             }
         }
         signal(SIGFPE, sig_save);
-    } else if (*p=='"') {
+    } else if (*p == '"') {
         char *ptr;
-        ptr = p+1;      /* "string" or "string\"quoted\"" */
+        ptr = p + 1;      /* "string" or "string\"quoted\"" */
         while (*ptr && ((*ptr != '"') || (*(ptr-1) == '\\')))
             ptr++;
         ptr = scxmalloc(ptr-p);
@@ -289,8 +284,8 @@ int yylex(void)
         if (*p)
             p++;
         ret = STRING;
-    } else if (*p=='[') {
-        while (*p && *p!=']')
+    } else if (*p == '[') {
+        while (*p && *p != ']')
             p++;
         if (*p)
             p++;
@@ -381,8 +376,7 @@ int nmgetch(void)
    and this method of reading would collide (the screen was not updated
    when continuing from screen mode in the debugger).
 */
-int nmgetch(void)
-{
+int nmgetch(void) {
     short c;
     static int key_id = 0;
     int status;
@@ -390,15 +384,16 @@ int nmgetch(void)
 
     if (VMS_read_raw) {
         VMScheck(smg$read_keystroke (&stdkb->_id, &c, 0, 0, 0));
-    } else
+    } else {
         c = getchar();
+    }
 
     switch (c) {
-        case SMG$K_TRM_LEFT:  c = KEY_LEFT;  break;
-        case SMG$K_TRM_RIGHT: c = KEY_RIGHT; break;
-        case SMG$K_TRM_UP:    c = ctl('p');  break;
-        case SMG$K_TRM_DOWN:  c = ctl('n');  break;
-        default:   c = c & A_CHARTEXT;
+    case SMG$K_TRM_LEFT:  c = KEY_LEFT;  break;
+    case SMG$K_TRM_RIGHT: c = KEY_RIGHT; break;
+    case SMG$K_TRM_UP:    c = ctl('p');  break;
+    case SMG$K_TRM_DOWN:  c = ctl('n');  break;
+    default:   c = c & A_CHARTEXT;
     }
     return c;
 }
@@ -422,10 +417,11 @@ VMS_MSG (int status)
         if (SYS$GETMSG(status, &length, &errdesc, 1, 0) == SS$_NORMAL) {
             errstr[length] = '\0';
             snprintf(buf, sizeof buf, "<0x%x> %s", status,
-                errdesc.dsc$a_pointer);
+                     errdesc.dsc$a_pointer);
             err_out(buf);
-        } else
+        } else {
             err_out("System error");
+        }
     }
 }
 # endif /* VMS */

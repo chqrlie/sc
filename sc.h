@@ -142,13 +142,12 @@ struct ent {
     double v;                   /* v && label are set in EvalAll() */
     char *label;
     struct enode *expr;         /* cell's contents */
-    short flags;
-    short row, col;
-    short nrow, ncol;           /* link to note */
-    short nlastrow, nlastcol;
-    struct ent *next;           /* next deleted ent (pulled, deleted cells) */
     char *format;               /* printf format for this cell */
-    char cellerror;             /* error in a cell? */
+    char cellerror;             /* error in a cell? (should pack with flags) */
+    short flags;
+    short col, ncol, nlastcol;  /* the cell col/row */
+    int row, nrow, nlastrow;    /* ncol/nrow: link to note */
+    struct ent *next;           /* next deleted ent (pulled, deleted cells) */
 };
 
 #define FIX_ROW 1
@@ -316,7 +315,7 @@ struct go_save {
 #define CYAN (OP_BASE + 75)
 #define WHITE (OP_BASE + 76)
 
-/* flag values */
+/* flag values (9 bits) */
 #define IS_VALID     0001
 #define IS_CHANGED   0002
 #define IS_STREXPR   0004

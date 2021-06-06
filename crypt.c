@@ -68,9 +68,11 @@ void creadfile(const char *save, int eraseflg)
     }
 
     loading++;
-    while (fgets(line, sizeof(line), f)) {
+    while (fgets(line, sizeof line, f)) {
+        if (line[0] == '#')
+            continue;
         linelim = 0;
-        if (line[0] != '#') yyparse();
+         yyparse();
     }
     --loading;
     if (fclose(f) == EOF) {

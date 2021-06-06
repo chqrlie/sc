@@ -2781,8 +2781,11 @@ int readfile(const char *fname, int eraseflg) {
             line[0] = ' ';
         }
 #endif /* MSDOS */
+        // XXX: should skip initial blanks
+        if (line[0] == '#')  /* skip comments */
+            continue;
         linelim = 0;
-        if (line[0] != '#') yyparse();
+        yyparse();
     }
     macrofd = savefd;
     --loading;

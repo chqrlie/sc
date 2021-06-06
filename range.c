@@ -22,11 +22,10 @@ static void fix_enode(struct enode *e, int row1, int col1, int row2, int col2,
 static struct range *rng_base;
 
 int are_ranges(void) {
-    return (rng_base != 0);
+    return rng_base != NULL;
 }
 
-void add_range(char *name, struct ent_ptr left, struct ent_ptr right, int is_range)
-{
+void add_range(char *name, struct ent_ptr left, struct ent_ptr right, int is_range) {
     struct range *r;
     char *p;
     int minr, minc, maxr, maxc;
@@ -200,8 +199,7 @@ struct range *find_range_coords(struct ent *lmatch, struct ent *rmatch) {
     return r;
 }
 
-void sync_ranges(void)
-{
+void sync_ranges(void) {
     int i, j;
     struct range *r;
     struct ent *p;
@@ -218,8 +216,7 @@ void sync_ranges(void)
     sync_cranges();
 }
 
-static void sync_enode(struct enode *e)
-{
+static void sync_enode(struct enode *e) {
     if (e) {
         if ((e->op & REDUCE)) {
             e->e.r.left.vp = lookat(e->e.r.left.vp->row, e->e.r.left.vp->col);
@@ -231,8 +228,7 @@ static void sync_enode(struct enode *e)
     }
 }
 
-void write_ranges(FILE *f)
-{
+void write_ranges(FILE *f) {
     struct range *r;
     struct range *nextr;
 
@@ -257,8 +253,7 @@ void write_ranges(FILE *f)
     }
 }
 
-void list_ranges(FILE *f)
-{
+void list_ranges(FILE *f) {
     struct range *r;
     struct range *nextr;
 
@@ -327,8 +322,7 @@ char *r_name(int r1, int c1, int r2, int c2) {
     }
 }
 
-void fix_ranges(int row1, int col1, int row2, int col2, int delta1, int delta2)
-{
+void fix_ranges(int row1, int col1, int row2, int col2, int delta1, int delta2) {
     int r1, r2, c1, c2, i, j;
     struct range *r;
     struct frange *fr;

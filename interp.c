@@ -2523,8 +2523,7 @@ static void out_char(int c) {
     }
 }
 
-static void out_var(struct ent_ptr v)
-{
+static void out_var(struct ent_ptr v) {
     struct range *r;
 
     if (!v.vp || (v.vp->flags & IS_DELETED)) {

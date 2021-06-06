@@ -1,6 +1,6 @@
 # TODO
 
-* move all vi stuff to vi.c
+* implement virtual space: jagged 2D matrix
 * add emacs keybinding stuff
 * add emacs macro language
 * add emacs command completion
@@ -33,3 +33,6 @@
 	formatted or unformatted data in a file or list of files which will
 	output the whole row in which a given number or string is found,
 	formatted as with the write command.
+
+DONE:
+* move all vi stuff to vi.c

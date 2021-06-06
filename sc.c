@@ -87,7 +87,7 @@ char revmsg[80];
 char dpoint = '.';   /* decimal point */
 char thsep = ',';    /* thousands separator */
 
-ssize_t linelim = -1;
+ssize_t linelim = -1;  /* position in line for writing and parsing */
 
 int showtop   = 1;     /* Causes current cell value display in top line  */
 int showcell  = 1;     /* Causes current cell to be highlighted          */
