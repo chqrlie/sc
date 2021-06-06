@@ -18,6 +18,7 @@
 #endif
 #include "compat.h"
 #include "sc.h"
+
 #if defined(RE_COMP)
 extern char *re_comp(char *s);
 extern char *re_exec(char *s);
@@ -27,7 +28,7 @@ char *regcmp();
 char *regex();
 #endif
 
-static int iswordchar(char c) { return isalnumchar(c) || c == '_'; }
+static inline int iswordchar(char c) { return isalnumchar(c) || c == '_'; }
 
 static void append_line(void);
 static void back_hist(void);
@@ -39,15 +40,16 @@ static void col_0(void);
 static void cr_line(void);
 static void del_in_line(int arg, int back_null);
 static void del_to_end(void);
+static void ins_in_line(int c);
 static void doabbrev(void);
 static void dogoto(void);
 static void dotab(void);
 static void dotcmd(void);
-static int  find_char(int arg, int n);
+static int find_char(int arg, int n);
 static void for_hist(void);
-static int  for_line(int arg, int stop_null);
-static int  for_word(int arg, int end_word, int big_word, int stop_null);
-static int  istart;
+static int for_line(int arg, int stop_null);
+static int for_word(int arg, int end_word, int big_word, int stop_null);
+static int istart;
 static void last_col(void);
 static void match_paren(void);
 static void readhistfile(FILE *fp);
@@ -61,20 +63,16 @@ static void search_again(bool reverse);
 static void search_hist(void);
 static void search_mode(char sind);
 static void stop_edit(void);
-static int  to_char(int arg, int n);
+static int to_char(int arg, int n);
 static void u_save(int c);
 static void yank_cmd(int delete, int change);
 static void yank_chars(int first, int last, int delete);
-static int get_motion(int);
-int vigetch(void);
+static int get_motion(int change);
+static int vigetch(void);
 #ifdef NCURSES_MOUSE_VERSION
-void mouse_set_pos(int);
+static void mouse_set_pos(int);
 #endif
 
-extern int framerows;           /* Rows in current frame */
-extern char mode_ind;           /* Mode indicator */
-extern char search_ind;         /* Search indicator */
-extern int lcols;               /* Spreadsheet Column the cursor was in last */
 static char *completethis = NULL;
 static int search_dir;             /* Search direction:  forward = 0; back = 1 */
 char histfile[PATHLEN] = "~/.sc_history";
@@ -128,6 +126,8 @@ void write_line(int c)
 {
     struct frange *fr;
     struct crange *cr;
+    struct ent *p;
+    int ps;
 
     CLEAR_LINE;
     if (c != ctl('i')) completethis = NULL;
@@ -135,20 +135,20 @@ void write_line(int c)
         nosavedot = 0;
         switch (c) {
         case KEY_BACKSPACE:
-        case (ctl('h')):        linelim = back_line(arg);               break;
-        case (ctl('i')):        dotab();                                break;
-        case (ctl('m')):        if (search_ind != ' ')
-                                    search_hist();
-                                else
-                                    cr_line();
-                                break;
+        case ctl('h'):  linelim = back_line(uarg);                      break;
+        case ctl('i'):  dotab();                                        break;
+        case ctl('m'):  if (search_ind != ' ')
+                            search_hist();
+                        else
+                            cr_line();
+                        break;
         case 'v':
-        case (ctl('v')):        toggle_navigate_mode();                 break;
+        case ctl('v'):  toggle_navigate_mode();                         break;
         case ESC:       stop_edit();                                    break;
         case '+':       for_hist();                                     break;
         case '-':       back_hist();                                    break;
         case KEY_END:
-        case (ctl('e')):
+        case ctl('e'):
         case '$':       last_col();                                     break;
         case '.':       dotcmd();                                       break;
         case '!':       doshell();                                      break;
@@ -158,21 +158,21 @@ void write_line(int c)
                             break;
                         findchar = 0;
                         if (findfunc == 'f')
-                            linelim = find_char(arg, finddir);
+                            linelim = find_char(uarg, finddir);
                         else
-                            linelim = to_char(arg, finddir);
-                                                                        break;
+                            linelim = to_char(uarg, finddir);
+                                                                       break;
         case ',':       if (findfunc)
                             ungetch(findchar);
                         else
                             break;
                         findchar = 0;
                         if (findfunc == 'f')
-                            linelim = find_char(arg, -(finddir));
+                            linelim = find_char(uarg, -(finddir));
                         else
-                            linelim = to_char(arg, -(finddir));
+                            linelim = to_char(uarg, -(finddir));
                                                                         break;
-        case '~':       u_save(c); change_case(arg);                    break;
+        case '~':       u_save(c); change_case(uarg);                   break;
         case '%':       match_paren();                                  break;
 #ifdef KEY_FIND
         case KEY_FIND:
@@ -180,14 +180,14 @@ void write_line(int c)
         case '?':
         case '/':       search_mode(c);                                 break;
         case KEY_HOME:
-        case (ctl('a')):
+        case ctl('a'):
         case '0':       col_0();                                        break;
         case 'A':       u_save(c); last_col(); append_line();           break;
-        case 'B':       linelim = back_word(arg, 1);                    break;
+        case 'B':       linelim = back_word(uarg, 1);                   break;
         case 'C':       u_save(c); del_to_end(); append_line();         break;
         case 'D':       u_save(c); del_to_end();                        break;
-        case 'E':       linelim = for_word(arg, 1, 1, 0);               break;
-        case 'F':       linelim = find_char(arg, -1);                   break;
+        case 'E':       linelim = for_word(uarg, 1, 1, 0);              break;
+        case 'F':       linelim = find_char(uarg, -1);                  break;
         case 'G':       if (histp > 0) histp = lasthist; for_hist();    break;
         case 'I':       u_save(c); col_0(); insert_mode();              break;
         case 'N':       search_again(true);                             break;
@@ -195,19 +195,19 @@ void write_line(int c)
                         ins_string(putbuf);
                         linelim = back_line(1);                         break;
         case 'R':       u_save(c); replace_mode();                      break;
-        case 'T':       linelim = to_char(arg, -1);                     break;
-        case 'W':       linelim = for_word(arg, 0, 1, 0);               break;
+        case 'T':       linelim = to_char(uarg, -1);                    break;
+        case 'W':       linelim = for_word(uarg, 0, 1, 0);              break;
         case 'X':       u_save(c); back_space();                        break;
         case 'Y':       yank_chars(linelim, strlen(line), 0);           break;
         case 'a':       u_save(c); append_line();                       break;
-        case 'b':       linelim = back_word(arg, 0);                    break;
+        case 'b':       linelim = back_word(uarg, 0);                   break;
         case 'c':       u_save(c); yank_cmd(1, 1); insert_mode();       break;
         case 'd':       u_save(c); yank_cmd(1, 0);                      break;
-        case 'e':       linelim = for_word(arg, 1, 0, 0);               break;
-        case 'f':       linelim = find_char(arg, 1);                    break;
+        case 'e':       linelim = for_word(uarg, 1, 0, 0);              break;
+        case 'f':       linelim = find_char(uarg, 1);                   break;
         case KEY_LEFT:
-        case (ctl('b')):
-        case 'h':       linelim = back_line(arg);                       break;
+        case ctl('b'):
+        case 'h':       linelim = back_line(uarg);                      break;
         case KEY_IC:
         case 'i':       u_save(c); insert_mode();                       break;
         case KEY_DOWN:
@@ -215,9 +215,9 @@ void write_line(int c)
         case KEY_UP:
         case 'k':       back_hist();                                    break;
         case KEY_RIGHT:
-        case (ctl('f')):
+        case ctl('f'):
         case ' ':
-        case 'l':       linelim = for_line(arg, 0);                     break;
+        case 'l':       linelim = for_line(uarg, 0);                    break;
         case 'n':       search_again(false);                            break;
         case 'p':       u_save(c);
                         linelim = for_line(1, 1);
@@ -225,12 +225,12 @@ void write_line(int c)
                         linelim = back_line(1);                         break;
         case 'q':       stop_edit();                                    break;
         case 'r':       u_save(c); rep_char();                          break;
-        case 's':       u_save(c); del_in_line(arg, 0); insert_mode();  break;
-        case 't':       linelim = to_char(arg, 1);                      break;
+        case 's':       u_save(c); del_in_line(uarg, 0); insert_mode(); break;
+        case 't':       linelim = to_char(uarg, 1);                     break;
         case 'u':       restore_it();                                   break;
-        case 'w':       linelim = for_word(arg, 0, 0, 0);               break;
+        case 'w':       linelim = for_word(uarg, 0, 0, 0);              break;
         case KEY_DC:
-        case 'x':       u_save(c); del_in_line(arg, 1);                 break;
+        case 'x':       u_save(c); del_in_line(uarg, 1);                break;
         case 'y':       yank_cmd(0, 0);                                 break;
 #ifdef NCURSES_MOUSE_VERSION
         case KEY_MOUSE:
@@ -248,18 +248,18 @@ void write_line(int c)
             break;
         }
     } else if (mode == INSERT_MODE) {
-        if (c == (ctl('m')))
+        if (c == ctl('m'))
             savedot(ESC);
         else
             savedot(c);
         switch (c) {
         case KEY_BACKSPACE:
-        case (ctl('h')):        back_space();                           break;
-        case (ctl('i')):        dotab();                                break;
-        case (ctl('m')):        cr_line();                              break;
-        case (ctl('v')):        toggle_navigate_mode();                 break;
+        case ctl('h'):        back_space();                           break;
+        case ctl('i'):        dotab();                                break;
+        case ctl('m'):        cr_line();                              break;
+        case ctl('v'):        toggle_navigate_mode();                 break;
         case KEY_LEFT:
-        case (ctl('b')):        if (numeric_field) {
+        case ctl('b'):        if (numeric_field) {
                                     if (linelim > 0 &&
                                             (size_t)linelim == strlen(line) &&
                                             (line[linelim - 1] == '+' ||
@@ -274,11 +274,11 @@ void write_line(int c)
                                         backcol(1);
                                     }
                                 } else {
-                                    linelim = back_line(arg);
+                                    linelim = back_line(uarg);
                                     istart = linelim;
                                 }   break;
         case KEY_RIGHT:
-        case (ctl('f')):        if (numeric_field) {
+        case ctl('f'):          if (numeric_field) {
                                     if (linelim > 0 &&
                                             (size_t)linelim == strlen(line) &&
                                             (line[linelim - 1] == '+' ||
@@ -293,11 +293,11 @@ void write_line(int c)
                                         forwcol(1);
                                     }
                                 } else {
-                                    linelim = for_line(arg, 1);
+                                    linelim = for_line(uarg, 1);
                                     istart = linelim;
                                 }   break;
         case KEY_DOWN:
-        case (ctl('n')):        if (numeric_field) {
+        case ctl('n'):          if (numeric_field) {
                                     if (linelim > 0 &&
                                             (size_t)linelim == strlen(line) &&
                                             (line[linelim - 1] == '+' ||
@@ -316,7 +316,7 @@ void write_line(int c)
                                     istart = linelim;
                                 }   break;
         case KEY_UP:
-        case (ctl('p')):        if (numeric_field) {
+        case ctl('p'):          if (numeric_field) {
                                     if (linelim > 0 &&
                                             (size_t)linelim == strlen(line) &&
                                             (line[linelim - 1] == '+' ||
@@ -335,9 +335,9 @@ void write_line(int c)
                                     istart = linelim;
                                 }   break;
         case KEY_HOME:
-        case (ctl('a')):        col_0();                                break;
+        case ctl('a'):          col_0();                                break;
         case KEY_END:
-        case (ctl('e')):        last_col();                             break;
+        case ctl('e'):          last_col();                             break;
         case ESC:               ins_in_line(0);
                                 edit_mode();                            break;
         /* '\035' is ^], which expands abbreviations without inserting another
@@ -361,8 +361,8 @@ void write_line(int c)
     } else if (mode == SEARCH_MODE) {
         switch (c) {
         case KEY_BACKSPACE:
-        case (ctl('h')):        back_space();                           break;
-        case (ctl('m')):        search_hist();                          break;
+        case ctl('h'):          back_space();                           break;
+        case ctl('m'):          search_hist();                          break;
         case ESC:               ins_in_line(0);
                                 edit_mode();                            break;
         /* '\035' is ^], which expands abbreviations without inserting another
@@ -375,14 +375,14 @@ void write_line(int c)
         savedot(c);
         switch (c) {
         case KEY_BACKSPACE:
-        case (ctl('h')):        if (linelim >= 0 &&
-                                  (size_t)linelim > strlen(undo_line))
+        case ctl('h'):          if (linelim >= 0 &&
+                                    (size_t)linelim > strlen(undo_line))
                                     back_space();
                                 else {
                                     linelim = back_line(1);
                                     *(line+linelim) = *(undo_line+linelim);
                                 }                                       break;
-        case (ctl('m')):        cr_line();                              break;
+        case ctl('m'):          cr_line();                              break;
         case ESC:               edit_mode();                            break;
         default:                replace_in_line(c);                     break;
         }
@@ -390,7 +390,7 @@ void write_line(int c)
         switch (c) {
         case '.':
         case ':':
-        case (ctl('i')):        if (!showrange) {
+        case ctl('i'):          if (!showrange) {
                                     toggle_navigate_mode();
                                     startshow();
                                 } else if ((size_t)linelim == strlen(line) &&
@@ -410,7 +410,7 @@ void write_line(int c)
                                     ins_in_line(' ');
                                     toggle_navigate_mode();
                                 } else {
-                                    forwcol(arg);
+                                    forwcol(uarg);
                                 }                                       break;
         case '+':
         case '-':               if (!showrange) {
@@ -431,17 +431,17 @@ void write_line(int c)
                                     ins_in_line(')');
                                     ins_in_line(c);
                                 }                                       break;
-        case (ctl('m')):        if (!showrange) {
+        case ctl('m'):          if (!showrange) {
                                     ins_string(v_name(currow, curcol));
                                     toggle_navigate_mode();
                                 } else {
                                     toggle_navigate_mode();
                                     cr_line();
                                 }                                       break;
-        case 'v':       {   /* insert variable value */
-                                    struct ent *p = *ATBL(tbl, currow, curcol);
+        case 'v':               {   /* insert variable value */
                                     char temp[100];
 
+                                    p = *ATBL(tbl, currow, curcol);
                                     if (p && (p->flags & IS_VALID)) {
                                         snprintf(temp, sizeof temp, "%.*f",
                                                 precision[curcol], p->v);
@@ -477,51 +477,41 @@ void write_line(int c)
                                     showrange = 0;
                                 }                                       break;
         case KEY_LEFT:
-        case 'h':               backcol(arg);                           break;
+        case 'h':               backcol(uarg);                          break;
         case KEY_RIGHT:
-        case 'l':               forwcol(arg);                           break;
+        case 'l':               forwcol(uarg);                          break;
         case KEY_DOWN:
-        case (ctl('n')):
-        case 'j':               forwrow(arg);                           break;
+        case ctl('n'):
+        case 'j':               forwrow(uarg);                          break;
         case KEY_UP:
-        case (ctl('p')):
-        case 'k':               backrow(arg);                           break;
+        case ctl('p'):
+        case 'k':               backrow(uarg);                          break;
         case 'q':
         case ctl('g'):
-        case (ctl('v')):
+        case ctl('v'):
         case ESC:               toggle_navigate_mode();
                                 showrange = 0;                          break;
         case 'H':               backcol(curcol - stcol + 2);
                                                                         break;
-        case KEY_NPAGE:                 /* next page */
-        case (ctl('f')):
-        case 'J':
-                                {
-                                int ps;
-
-                                ps = pagesize ? pagesize :
+        case KEY_NPAGE:         /* next page */
+        case ctl('f'):
+        case 'J':               ps = pagesize ? pagesize :
                                     (LINES - RESROW - framerows)/2;
-                                forwrow(arg * ps);
-                                strow = strow + (arg * ps);
+                                forwrow(uarg * ps);
+                                strow = strow + (uarg * ps);
                                 FullUpdate++;
-                                }
                                                                         break;
-        case KEY_PPAGE:                 /* previous page */
-        case (ctl('b')):
-        case 'K':
-                                {
-                                int ps;
-
-                                ps = pagesize ? pagesize :
+        case KEY_PPAGE:         /* previous page */
+        case ctl('b'):
+        case 'K':               ps = pagesize ? pagesize :
                                     (LINES - RESROW - framerows)/2;
-                                backrow(arg * ps);
-                                strow = strow - (arg * ps);
+                                backrow(uarg * ps);
+                                strow = strow - (uarg * ps);
                                 if (strow < 0) strow = 0;
                                 FullUpdate++;
-                                }
                                                                         break;
         case 'L':               forwcol(lcols - (curcol - stcol) + 1);  break;
-        case (ctl('a')):
+        case ctl('a'):
         case KEY_HOME:          gohome();                               break;
         case '0':               leftlimit();                            break;
         case '$':               rightlimit();                           break;
@@ -543,55 +533,47 @@ void write_line(int c)
         case '*':               if (nmgetch() == '*') gotonote();       break;
         case 'g':               dogoto();                               break;
         case 'n':               go_last();                              break;
-        case 'w':               {
-                                struct ent *p;
 
-                                while (--arg>=0) {
+        case 'w':               while (--uarg >= 0) {
                                     do {
                                         if (curcol < maxcols - 1)
                                             curcol++;
                                         else {
                                             if (currow < maxrows - 1) {
-                                                while(++currow < maxrows - 1 &&
-                                                        row_hidden[currow])
-                                                    ;
+                                                while (++currow < maxrows - 1 && row_hidden[currow])
+                                                    continue;
                                                 curcol = 0;
                                             } else {
                                                 error("At end of table");
                                                 break;
                                             }
                                         }
-                                    } while(col_hidden[curcol] ||
-                                            !VALID_CELL(p, currow, curcol));
+                                    } while (col_hidden[curcol] || !VALID_CELL(p, currow, curcol));
                                 }
                                 rowsinrange = 1;
                                 colsinrange = fwidth[curcol];
                                 break;
-                                }
-        case 'b':               {
-                                struct ent *p;
 
-                                while (--arg>=0) {
+        case 'b':               while (--uarg >= 0) {
                                     do {
                                         if (curcol)
                                             curcol--;
                                         else {
                                             if (currow) {
-                                                while(--currow && row_hidden[currow])
-                                                    ;
+                                                while (--currow && row_hidden[currow])
+                                                    continue;
                                                 curcol = maxcols - 1;
                                             } else {
                                                 error("At start of table");
                                                 break;
                                             }
                                         }
-                                    } while (col_hidden[curcol] ||
-                                            !VALID_CELL(p, currow, curcol));
+                                    } while (col_hidden[curcol] || !VALID_CELL(p, currow, curcol));
                                 }
                                 rowsinrange = 1;
                                 colsinrange = fwidth[curcol];
                                 break;
-                                }
+
         case 'C':               if (braille)
                                     braillealt ^= 1;
                                 break;
@@ -724,7 +706,6 @@ void startshow(void)
 }
 
 /* insert the range we defined by moving around the screen, see startshow() */
-
 void showdr(void)
 {
     int minsr, minsc, maxsr, maxsc;
@@ -765,17 +746,16 @@ void showdr(void)
 }
 
 /* dot command functions.  Saves info so we can redo on a '.' command */
-
 static void savedot(int c)
 {
     if (do_dot || nosavedot || (c == '\n'))
         return;
 
-    if (doti == 0) dotarg = arg;
+    if (doti == 0) dotarg = uarg;
     if (doti < DOTLEN-1) {
         if (c > 255) {
             if (doti < DOTLEN-2) {
-                dotb[doti++] = c/256;
+                dotb[doti++] = c / 256;
                 c %= 256;
             } else
                 return;
@@ -793,10 +773,10 @@ static void dotcmd(void) {
         return;
     do_dot = 1;
     doti = 0;
-    if (arg == 1)
-        arg = dotarg;
+    if (uarg == 1)
+        uarg = dotarg;
     else
-        dotarg = arg;
+        dotarg = uarg;
     while (dotb[doti] != '\0') {
         if ((c = dotb[doti++]) < 4)
             c = c * 256 + dotb[doti++];
@@ -808,7 +788,7 @@ static void dotcmd(void) {
     dotcalled = 0;
 }
 
-int vigetch(void) {
+static int vigetch(void) {
     if (do_dot) {
         if (dotb[doti] != '\0') {
             return dotb[doti++];
@@ -929,7 +909,7 @@ static int for_word(int a, int end_word, int big_word, int stop_null)
             while ((c = line[cpos]) && c != ' ')
                 cpos++;
         else if (iswordchar(line[cpos])) {
-            while (iswordchar(c))
+            while (iswordchar(line[cpos]))
                 cpos++;
         } else {
             while ((c = line[cpos]) != '\0' && !iswordchar(c) && c != ' ')
@@ -1021,7 +1001,7 @@ static void del_in_line(int a, int back_null)
         --linelim;
 }
 
-void ins_in_line(int c)
+static void ins_in_line(int c)
 {
     int i, len;
     static int inabbr;
@@ -1052,7 +1032,7 @@ void ins_string(const char *s)
         ins_in_line(*s++);
 }
 
-void doabbrev(void) {
+static void doabbrev(void) {
     int len, pos;
     struct abbrev *a;
     struct abbrev *prev;
@@ -1187,27 +1167,27 @@ static int get_motion(int change)
     }
     if (!arg2)
         arg2++;
-    arg *= arg2;
+    uarg *= arg2;
     if (!nosavedot) {
         savedot(c);
-        dotarg = arg;
+        dotarg = uarg;
     }
     switch (c) {
     case '$':   return strlen(line);
-    case 'b':   return back_word(arg, 0);
-    case 'B':   return back_word(arg, 1);
-    case 'c':   return (change ? -1 : linelim);
-    case 'd':   return (!change ? -1 : linelim);
-    case 'e':   return for_word(arg, 1, 0, 1) + 1;
-    case 'E':   return for_word(arg, 1, 1, 1) + 1;
-    case 'f':   return ((c = find_char(arg, 1)) == linelim ? c : c + 1);
-    case 'F':   return find_char(arg, -1);
-    case 'h':   return back_line(arg);
-    case 'l':   return for_line(arg, 1);
-    case 't':   return ((c = to_char(arg, 1)) == linelim ? c : c + 1);
-    case 'T':   return to_char(arg, -1);
-    case 'w':   return for_word(arg, change, 0, 1) + change;
-    case 'W':   return for_word(arg, change, 1, 1) + change;
+    case 'b':   return back_word(uarg, 0);
+    case 'B':   return back_word(uarg, 1);
+    case 'c':   return change ? -1 : linelim;
+    case 'd':   return !change ? -1 : linelim;
+    case 'e':   return for_word(uarg, 1, 0, 1) + 1;
+    case 'E':   return for_word(uarg, 1, 1, 1) + 1;
+    case 'f':   return ((c = find_char(uarg, 1)) == linelim) ? c : c + 1;
+    case 'F':   return find_char(uarg, -1);
+    case 'h':   return back_line(uarg);
+    case 'l':   return for_line(uarg, 1);
+    case 't':   return ((c = to_char(uarg, 1)) == linelim) ? c : c + 1;
+    case 'T':   return to_char(uarg, -1);
+    case 'w':   return for_word(uarg, change, 0, 1) + change;
+    case 'W':   return for_word(uarg, change, 1, 1) + change;
     default:    return linelim;
     }
 }
@@ -1225,14 +1205,10 @@ static void yank_cmd(int delete, int change)
 
 static void yank_chars(int first, int last, int delete)
 {
-    int temp;
-
     if (first == last)
         return;
 
-    if (last < first) {
-        temp = last; last = first; first = temp;
-    }
+    if (last < first) { int temp = last; last = first; first = temp; }
 
     linelim = first;
     strlcpy(putbuf, line + first, last - first);
@@ -1412,7 +1388,7 @@ static void save_hist(void) {
         if (history[lasthist].len < strlen(line) + 1) {
             history[lasthist].len = strlen(line) + 40;
             history[lasthist].histline = scxrealloc(history[lasthist].histline,
-                    history[lasthist].len);
+                                                    history[lasthist].len);
         }
         strlcpy(history[lasthist].histline, line, history[lasthist].len);
         histsessionnew++;
@@ -1639,18 +1615,17 @@ void write_hist(void)
     }
 
     /* now write to whole lot out to the proper save file */
-    if (findhome(histfile, sizeof histfile) && (fp = fopen(histfile, "w"))
-        != NULL) {
-            for (i = 1; i <= endhist; i++) {
-                lasthist = lasthist % endhist + 1;
-                if (history[lasthist].len > 40)
-                    fprintf(fp, "%s\n", history[lasthist].histline);
-            }
-
-            if (fclose(fp) == EOF) {
-                error("fclose(%s): %s", histfile, strerror(errno));
-            }
+    if (findhome(histfile, sizeof histfile) && (fp = fopen(histfile, "w")) != NULL) {
+        for (i = 1; i <= endhist; i++) {
+            lasthist = lasthist % endhist + 1;
+            if (history[lasthist].len > 40)
+                fprintf(fp, "%s\n", history[lasthist].histline);
         }
+
+        if (fclose(fp) == EOF) {
+            error("fclose(%s): %s", histfile, strerror(errno));
+        }
+    }
 }
 
 static void readhistfile(FILE *fp)
@@ -2009,7 +1984,7 @@ void query(const char *s, char *data)
 }
 
 #ifdef NCURSES_MOUSE_VERSION
-void mouse_set_pos(int m) {
+static void mouse_set_pos(int m) {
     static int x0;
     switch (m) {
     case 1:

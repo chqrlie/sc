@@ -33,23 +33,11 @@ void unspecial(FILE *f, char *str, int delim);
 static struct ent *deldata1(void);
 static void deldata2(struct ent *obuf);
 
-/* a linked list of free [struct enodes]'s, uses .e.o.left as the pointer */
-extern struct enode *freeenodes;
-
 #define DEFCOLDELIM ':'
 
-extern char *scext;
-extern char *ascext;
-extern char *tbl0ext;
-extern char *tblext;
-extern char *latexext;
-extern char *slatexext;
-extern char *texext;
-extern int  Vopt;
-extern struct go_save gs;
 int macrofd;
 int cslop;
-struct impexfilt *filt = NULL; /* root of list of impex filters */
+static struct impexfilt *filt = NULL; /* root of list of impex filters */
 
 /* copy the current row (currow) and place the cursor in the new row */
 void duprow(void) {
@@ -1267,7 +1255,7 @@ void closecol(int arg)
     /* Update note links. */
     for (r = 0; r <= maxrow; r++) {
         for (c = 0; c <= maxcol; c++) {
-            struct ent *p = *ATBL(tbl, r, c);
+            p = *ATBL(tbl, r, c);
             if (p) {
                 if (p->ncol >= curcol && p->ncol < curcol + arg)
                     p->ncol = curcol;
@@ -1401,8 +1389,11 @@ void doformat(int c1, int c2, int w, int p, int r)
         return;
     }
 
-    for (i = c1; i <= c2; i++)
-        fwidth[i] = w, precision[i] = p, realfmt[i] = r;
+    for (i = c1; i <= c2; i++) {
+        fwidth[i] = w;
+        precision[i] = p;
+        realfmt[i] = r;
+    }
 
     rowsinrange = 1;
     colsinrange = fwidth[curcol];
@@ -1703,7 +1694,7 @@ void printfile(char *fname, int r0, int c0, int rn, int cn)
     static char *pline = NULL;          /* only malloc once, malloc is slow */
     static unsigned fbufs_allocated = 0;
     int plinelim;
-    int pid;
+    int pid = -1;
     unsigned int fieldlen, nextcol;
     long namelen;
     int row, col;
@@ -3168,8 +3159,10 @@ void backrow(int arg)
     while (--arg>=0) {
         if (currow)
             currow--;
-        else
-            {error("At row zero"); break;}
+        else {
+            error("At row zero");
+            break;
+        }
         while (row_hidden[currow] && currow)
             currow--;
     }

@@ -60,14 +60,12 @@ struct go_save gs;
 #define ISVALID(r,c)    ((r)>=0 && (r)<maxrows && (c)>=0 && (c)<maxcols)
 
 static jmp_buf fpe_save;
-int exprerr;        /* Set by eval() and seval() if expression errors */
+static int exprerr;        /* Set by eval() and seval() if expression errors */
 double prescale = 1.0; /* Prescale for constants in let() */
 int extfunc  = 0;   /* Enable/disable external functions */
 int loading = 0;    /* Set when readfile() is active */
 int gmyrow, gmycol; /* globals used to implement @myrow, @mycol cmds */
-int rowoffset = 0, coloffset = 0;   /* row & col offsets for range functions */
-
-extern bool decimal;    /* Set if there was a decimal point in the number */
+static int rowoffset = 0, coloffset = 0;   /* row & col offsets for range functions */
 
 /* a linked list of free [struct enodes]'s, uses .e.o.left as the pointer */
 struct enode *freeenodes = NULL;
@@ -809,8 +807,8 @@ double eval(struct enode *e)
         maxc = e->e.o.left->e.r.right.vp->col;
         minr = e->e.o.left->e.r.left.vp->row;
         minc = e->e.o.left->e.r.left.vp->col;
-        if (minr > maxr) r = maxr, maxr = minr, minr = r;
-        if (minc > maxc) c = maxc, maxc = minc, minc = c;
+        if (minr > maxr) { r = maxr; maxr = minr; minr = r; }
+        if (minc > maxc) { c = maxc; maxc = minc; minc = c; }
         switch (e->op) {
         case LOOKUP:
             return dolookup(e->e.o.right, minr, minc, maxr, maxc, 1, minc == maxc);
@@ -847,8 +845,8 @@ double eval(struct enode *e)
             maxc = e->e.r.right.vp->col;
             minr = e->e.r.left.vp->row;
             minc = e->e.r.left.vp->col;
-            if (minr > maxr) r = maxr, maxr = minr, minr = r;
-            if (minc > maxc) c = maxc, maxc = minc, minc = c;
+            if (minr > maxr) { r = maxr; maxr = minr; minr = r; }
+            if (minc > maxc) { c = maxc; maxc = minc; minc = c; }
             switch (e->op) {
             case REDUCE | 'R': return maxr - minr + 1;
             case REDUCE | 'C': return maxc - minc + 1;
@@ -1282,8 +1280,8 @@ char *seval(struct enode *se)
                         maxc = se->e.o.left->e.r.right.vp->col;
                         minr = se->e.o.left->e.r.left.vp->row;
                         minc = se->e.o.left->e.r.left.vp->col;
-                        if (minr > maxr) r = maxr, maxr = minr, minr = r;
-                        if (minc > maxc) c = maxc, maxc = minc, minc = c;
+                        if (minr > maxr) { r = maxr; maxr = minr; minr = r; }
+                        if (minc > maxc) { c = maxc; maxc = minc; minc = c; }
                         return dostindex(minr, minc, maxr, maxc, se->e.o.right);
                     }
     case EXT:       return doext(se);
@@ -1535,8 +1533,8 @@ void copy(struct ent *dv1, struct ent *dv2, struct ent *v1, struct ent *v2)
         mindc = dv1->col;
         maxdr = dv2->row;
         maxdc = dv2->col;
-        if (mindr > maxdr) r = maxdr, maxdr = mindr, mindr = r;
-        if (mindc > maxdc) c = maxdc, maxdc = mindc, mindc = c;
+        if (mindr > maxdr) { r = maxdr; maxdr = mindr; mindr = r; }
+        if (mindc > maxdc) { c = maxdc; maxdc = mindc; mindc = c; }
     } else {
         if (showrange) {
             showrange = 0;
@@ -1560,8 +1558,8 @@ void copy(struct ent *dv1, struct ent *dv2, struct ent *v1, struct ent *v2)
         minsc = v1->col;
         maxsr = v2->row;
         maxsc = v2->col;
-        if (minsr > maxsr) r = maxsr, maxsr = minsr, minsr = r;
-        if (minsc > maxsc) c = maxsc, maxsc = minsc, minsc = c;
+        if (minsr > maxsr) { r = maxsr; maxsr = minsr; minsr = r; }
+        if (minsc > maxsc) { c = maxsc; maxsc = minsc; minsc = c; }
     } else if (dv1 == NULL || v2 != NULL) {
         if (qbuf && delbuf[qbuf]) {
             delbuf[++dbidx] = delbuf[qbuf];
@@ -2102,8 +2100,8 @@ void fill(struct ent *v1, struct ent *v2, double start, double inc)
     maxc = v2->col;
     minr = v1->row;
     minc = v1->col;
-    if (minr > maxr) r = maxr, maxr = minr, minr = r;
-    if (minc > maxc) c = maxc, maxc = minc, minc = c;
+    if (minr > maxr) { r = maxr; maxr = minr; minr = r; }
+    if (minc > maxc) { c = maxc; maxc = minc; minc = c; }
     checkbounds(&maxr, &maxc);
     if (minr < 0) minr = 0;
     if (minc < 0) minc = 0;
@@ -2152,8 +2150,8 @@ void lock_cells(struct ent *v1, struct ent *v2)
     maxc = v2->col;
     minr = v1->row;
     minc = v1->col;
-    if (minr > maxr) r = maxr, maxr = minr, minr = r;
-    if (minc > maxc) c = maxc, maxc = minc, minc = c;
+    if (minr > maxr) { r = maxr; maxr = minr; minr = r; }
+    if (minc > maxc) { c = maxc; maxc = minc; minc = c; }
     checkbounds(&maxr, &maxc);
     if (minr < 0) minr = 0;
     if (minc < 0) minc = 0;
@@ -2179,8 +2177,8 @@ void unlock_cells(struct ent *v1, struct ent *v2)
     maxc = v2->col;
     minr = v1->row;
     minc = v1->col;
-    if (minr > maxr) r = maxr, maxr = minr, minr = r;
-    if (minc > maxc) c = maxc, maxc = minc, minc = c;
+    if (minr > maxr) { r = maxr; maxr = minr; minr = r; }
+    if (minc > maxc) { c = maxc; maxc = minc; minc = c; }
     checkbounds(&maxr, &maxc);
     if (minr < 0) minr = 0;
     if (minc < 0) minc = 0;
@@ -2232,9 +2230,9 @@ void let(struct ent *v, struct enode *e)
 
     if (isconstant) {
         /* prescale input unless it has a decimal */
-        if (!loading && !decimal && (prescale < 0.9999999))
+        if (!loading && !sc_decimal && (prescale < 0.9999999))
             val *= prescale;
-        decimal = FALSE;
+        sc_decimal = FALSE;
 
         v->v = val;
 
@@ -2352,8 +2350,8 @@ void format_cell(struct ent *v1, struct ent *v2, char *s)
     maxc = v2->col;
     minr = v1->row;
     minc = v1->col;
-    if (minr > maxr) r = maxr, maxr = minr, minr = r;
-    if (minc > maxc) c = maxc, maxc = minc, minc = c;
+    if (minr > maxr) { r = maxr; maxr = minr; minr = r; }
+    if (minc > maxc) { c = maxc; maxc = minc; minc = c; }
     checkbounds(&maxr, &maxc);
     if (minr < 0) minr = 0;
     if (minc < 0) minc = 0;
@@ -2471,10 +2469,14 @@ void label(struct ent *v, const char *s, int flushdir)
     if (v) {
         if (flushdir == 0 && (v->flags & IS_VALID)) {
             struct ent *tv;
-            if (v->col > 0 && ((tv = lookat(v->row, v->col - 1))->flags & IS_VALID) == 0)
-                v = tv, flushdir = 1;
-            else if (((tv = lookat(v->row, v->col + 1))->flags & IS_VALID) == 0)
-                v = tv, flushdir = -1;
+            if (v->col > 0 && ((tv = lookat(v->row, v->col - 1))->flags & IS_VALID) == 0) {
+                v = tv;
+                flushdir = 1;
+            }
+            else if (((tv = lookat(v->row, v->col + 1))->flags & IS_VALID) == 0) {
+                v = tv;
+                flushdir = -1;
+            }
             else flushdir = -1;
         }
         scxfree(v->label);

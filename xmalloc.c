@@ -17,7 +17,7 @@ void *scxmalloc(size_t n)
     if ((ptr = malloc(n + sizeof(double))) == NULL)
         fatal("scxmalloc: no memory");
     *((double *)ptr) = MAGIC;              /* magic number */
-    return ptr + sizeof(double);
+    return (unsigned char *)ptr + sizeof(double);
 }
 
 /* we make sure realloc will do a malloc if needed */
@@ -26,14 +26,14 @@ void *scxrealloc(void *ptr, size_t n)
     if (ptr == NULL)
         return scxmalloc(n);
 
-    ptr -= sizeof(double);
+    ptr = (unsigned char *)ptr - sizeof(double);
     if (*((double *)ptr) != MAGIC)
         fatal("scxrealloc: storage not scxmalloc'ed");
 
     if ((ptr = realloc(ptr, n + sizeof(double))) == NULL)
         fatal("scxmalloc: no memory");
     *((double *)ptr) = MAGIC;              /* magic number */
-    return ptr + sizeof(double);
+    return (unsigned char*)ptr + sizeof(double);
 }
 
 char *scxdup(const char *s) {
@@ -44,7 +44,7 @@ char *scxdup(const char *s) {
 void scxfree(void *p)
 {
     if (p != NULL) {
-        p -= sizeof(double);
+        p = (unsigned char*)p - sizeof(double);
         if (*((double *)p) != MAGIC)
             fatal("scxfree: storage not malloc'ed");
         free(p);

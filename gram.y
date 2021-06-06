@@ -30,6 +30,9 @@
 #include "sc.h"
 
 #define ENULL (struct enode *)0
+
+extern int yychar;
+extern int yynerrs;
 %}
 
 %union {

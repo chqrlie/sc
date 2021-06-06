@@ -34,7 +34,7 @@
 #include "compat.h"
 #include "sc.h"
 
-static void fpe_trap(int);
+static sigret_t fpe_trap(int);
 
 #ifdef VMS
 # include "gram_tab.h"
@@ -47,7 +47,6 @@ typedef union {
     struct range_s rval;
 } YYSTYPE;
 extern YYSTYPE yylval;
-extern int VMS_read_raw;   /*sigh*/
 #else   /* VMS */
 # if defined(MSDOS)
 #  include "y_tab.h"
@@ -60,13 +59,12 @@ extern int VMS_read_raw;   /*sigh*/
 extern YYSTYPE yylval;
 #endif /* hpux */
 
-jmp_buf wakeup;
-jmp_buf fpe_buf;
+static jmp_buf wakeup;
+static jmp_buf fpe_buf;
 
-bool decimal = FALSE;
+bool sc_decimal = FALSE;
 
-static void
-fpe_trap(int signo)
+static sigret_t fpe_trap(int signo)
 {
     (void)signo;
 #if defined(i386) && !defined(M_XENIX)
@@ -83,23 +81,27 @@ fpe_trap(int signo)
     longjmp(fpe_buf, 1);
 }
 
+sigret_t time_out(int signo) {
+    (void)signo;
+    longjmp(wakeup, 1);
+}
+
 struct key {
     const char *key;
     int val;
 };
 
-struct key experres[] = {
+static struct key experres[] = {
 #include "experres.h"
     { 0, 0 }
 };
 
-struct key statres[] = {
+static struct key statres[] = {
 #include "statres.h"
     { 0, 0 }
 };
 
-int
-yylex(void)
+int yylex(void)
 {
     char *p = line + linelim;
     int ret = -1;
@@ -253,7 +255,7 @@ yylex(void)
                 if (!isfinite(yylval.fval))
                     ret = K_ERR;
                 else
-                    decimal = TRUE;
+                    sc_decimal = TRUE;
             } else {
                 /* A NUMBER must hold at least MAXROW and MAXCOL */
                 /* This is consistent with a short row and col in struct ent */
@@ -309,8 +311,7 @@ yylex(void)
 * in the plugin directories.  Perhaps should test for it being executable
 */
 
-int
-plugin_exists(char *name, size_t len, char *path)
+int plugin_exists(char *name, size_t len, char *path)
 {
 #ifndef MSDOS
     struct stat sb;
@@ -355,7 +356,6 @@ int atocol(char *string, int len)
     return col;
 }
 
-
 #ifdef SIMPLE
 
 void initkbd(void) {}
@@ -390,9 +390,9 @@ int nmgetch(void)
 #  define VMScheck(a) {if (~(status = (a)) & 1) VMS_MSG (status);}
 
     if (VMS_read_raw) {
-      VMScheck(smg$read_keystroke (&stdkb->_id, &c, 0, 0, 0));
+        VMScheck(smg$read_keystroke (&stdkb->_id, &c, 0, 0, 0));
     } else
-       c = getchar();
+        c = getchar();
 
     switch (c) {
         case SMG$K_TRM_LEFT:  c = KEY_LEFT;  break;
@@ -524,8 +524,7 @@ void initkbd(void)
 #  endif
 }
 
-void
-kbd_again(void)
+void kbd_again(void)
 {
     if (ks)
         tputs(ks, 1, charout);
@@ -535,8 +534,7 @@ kbd_again(void)
 #  endif
 }
 
-void
-resetkbd(void)
+void resetkbd(void)
 {
     if (ke)
         tputs(ke, 1, charout);
@@ -611,8 +609,7 @@ int nmgetch(void) {
 
 # endif /* if defined(BSD42) || defined (SYSIII) || defined(BSD43) */
 
-void
-initkbd(void)
+void initkbd(void)
 {
     keypad(stdscr, TRUE);
 #ifndef NONOTIMEOUT
@@ -620,8 +617,7 @@ initkbd(void)
 #endif
 }
 
-void
-kbd_again(void)
+void kbd_again(void)
 {
     keypad(stdscr, TRUE);
 #ifndef NONOTIMEOUT
@@ -677,8 +673,3 @@ int nmgetch(void) {
 }
 
 #endif /* SIMPLE */
-
-sigret_t time_out(int signo) {
-    (void)signo;
-    longjmp(wakeup, 1);
-}

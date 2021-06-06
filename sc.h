@@ -335,6 +335,19 @@ struct go_save {
 #define ESC 033
 #define DEL 0177
 
+/*
+ * there seems to be some question about what to do w/ the iscntrl
+ * some BSD systems are reportedly broken as well...
+ *
+ * CG: to settle this issue once and for all, we cannot use
+ * iscntrl() with an argument outside the range EOF..0xFF.
+ * Furthermore `ctl(c)` and ESC and DEL are defined explicitly
+ * so let's define ISCTL(c) consistently and test for DEL explicitly
+ * wherever it is required.
+ */
+#define ISCTL(c)  (!((c) & ~0x1F))
+#define ISBYTE(c) (!((c) & ~0xFF))
+
 /* calculation order */
 #define BYCOLS 1
 #define BYROWS 2
@@ -368,21 +381,21 @@ struct go_save {
    This design is suboptimal in terms of memory space and implies much
    dreaded three star programming.
  */
-extern struct ent ***tbl;      /* data table ref. in vmtbl.c and ATBL() */
+extern struct ent ***tbl;       /* data table ref. in vmtbl.c and ATBL() */
 
 extern char curfile[PATHLEN];
-extern int arg;
+extern int uarg;                /* universal numeric prefix argument */
 extern int strow, stcol;
 extern int currow, curcol;
-extern int gmyrow, gmycol;     /* globals used for @myrow, @mycol cmds */
-extern int rescol;             /* columns reserved for row numbers */
+extern int gmyrow, gmycol;      /* globals used for @myrow, @mycol cmds */
+extern int rescol;              /* columns reserved for row numbers */
 extern int savedrow[37], savedcol[37];
 extern int savedstrow[37], savedstcol[37];
 extern int FullUpdate;
 extern int maxrow, maxcol;
-extern int maxrows, maxcols;   /* # cells currently allocated */
-extern int rowsinrange;        /* Number of rows in target range of a goto */
-extern int colsinrange;        /* Number of cols in target range of a goto */
+extern int maxrows, maxcols;    /* # cells currently allocated */
+extern int rowsinrange;         /* Number of rows in target range of a goto */
+extern int colsinrange;         /* Number of cols in target range of a goto */
 extern int *fwidth;
 extern int *precision;
 extern int *realfmt;
@@ -395,25 +408,39 @@ extern int changed;
 extern struct ent *delbuf[DELBUFSIZE];
 extern char *delbuffmt[DELBUFSIZE];
 extern int dbidx;
-extern int qbuf;               /* buffer no. specified by `"' command */
+extern int qbuf;                /* buffer no. specified by `"' command */
 extern int showsc, showsr;
-extern int showrange;          /* Causes ranges to be highlighted */
+extern int showrange;           /* Causes ranges to be highlighted */
 extern int cellassign;
 extern int macrofd;
 extern int cslop;
 extern int usecurses;
-extern int brokenpipe;         /* Set to true if SIGPIPE is received */
-extern char dpoint;    /* country-dependent decimal point from locale */
-extern char thsep;     /* country-dependent thousands separator from locale */
+extern int brokenpipe;          /* Set to true if SIGPIPE is received */
+extern char dpoint;     /* country-dependent decimal point from locale */
+extern char thsep;      /* country-dependent thousands separator from locale */
 extern char histfile[PATHLEN];
-extern int lastmx, lastmy;     /* Screen address of the cursor */
-extern int lastcol, lcols;     /* Spreadsheet Column the cursor was in last */
-extern int lastendrow;         /* Last bottom row of screen */
-extern struct frange *lastfr;  /* Last framed range we were in */
-extern int framerows;          /* Rows in current frame */
-extern int framecols;          /* Columns in current frame */
-extern char mode_ind;          /* Mode indicator */
+extern int lastmx, lastmy;      /* Screen address of the cursor */
+extern int sc_lastrow;          /* Spreadsheet Row the cursor was in last */
+extern int sc_lastcol, lcols;   /* Spreadsheet Column the cursor was in last */
+extern int lastendrow;          /* Last bottom row of screen */
+extern struct frange *lastfr;   /* Last framed range we were in */
+extern int framerows;           /* Rows in current frame */
+extern int framecols;           /* Columns in current frame */
+extern char search_ind;         /* Search indicator */
+extern char mode_ind;           /* Mode indicator */
 extern int seenerr;
+/* a linked list of free [struct enodes]'s, uses .e.o.left as the next pointer */
+extern struct enode *freeenodes;
+extern bool sc_decimal;     /* Set if there was a decimal point in the number */
+extern char *scext;
+extern char *ascext;
+extern char *tbl0ext;
+extern char *tblext;
+extern char *latexext;
+extern char *slatexext;
+extern char *texext;
+extern int Vopt;
+extern struct go_save gs;
 
 extern FILE *openfile(char *, size_t, int *, int *);
 extern char *coltoa(int col);
@@ -538,7 +565,6 @@ extern void hidecol(int arg);
 extern void hiderow(int arg);
 extern void initcolor(int colornum);
 extern void initkbd(void);
-extern void ins_in_line(int c);
 extern void ins_string(const char *s);
 extern void insert_mode(void);
 extern void insertcol(int arg, int delta);
@@ -656,42 +682,55 @@ extern int collimit;
 #ifdef NCURSES_MOUSE_VERSION
 extern MEVENT mevent;
 #endif
-void gotonote(void);
-void center(int, int, int, int);
-void rjustify(int, int, int, int);
-void ljustify(int, int, int, int);
-void yankcol(int);
-void yankrow(int);
-void list_frames(FILE *);
-void yankr(struct ent *, struct ent *);
-void dogetkey(void);
-void doseval(struct enode *, int, int, int);
-void doeval(struct enode *, char *, int, int, int);
-void getrange(char *, int);
-void getframe(int);
-void add_abbr(char *);
-void repaint(int, int, int, int, int);
-void update(int);
-void doshell(void);
+
+extern char revmsg[80];
+extern int showneed;   /* Causes cells needing values to be highlighted */
+extern int showexpr;   /* Causes cell exprs to be displayed, highlighted */
+extern int shownote;   /* Causes cells with attached notes to be highlighted */
+#ifdef RIGHT_CBUG
+extern int wasforw;    /* Causes screen to be redisplay if on lastcol */
+#endif
+extern struct go_save gs;
+#ifdef VMS
+extern int VMS_read_raw;   /*sigh*/
+#endif
+
+extern void gotonote(void);
+extern void center(int, int, int, int);
+extern void rjustify(int, int, int, int);
+extern void ljustify(int, int, int, int);
+extern void yankcol(int);
+extern void yankrow(int);
+extern void list_frames(FILE *);
+extern void yankr(struct ent *, struct ent *);
+extern void dogetkey(void);
+extern void doseval(struct enode *, int, int, int);
+extern void doeval(struct enode *, char *, int, int, int);
+extern void getrange(char *, int);
+extern void getframe(int);
+extern void add_abbr(char *);
+extern void repaint(int, int, int, int, int);
+extern void update(int);
+extern void doshell(void);
 #ifdef SIGVOID
 #define sigret_t void
 #else
 #define sigret_t int
 #endif
-sigret_t doquit(int);
-sigret_t time_out(int);
-sigret_t dump_me(int);
-sigret_t nopipe(int);
+extern sigret_t doquit(int);
+extern sigret_t time_out(int);
+extern sigret_t dump_me(int);
+extern sigret_t nopipe(int);
 #ifdef SIGWINCH
-sigret_t winchg(int);
+extern sigret_t winchg(int);
 #endif
-void gohome(void);
-void leftlimit(void);
-void rightlimit(void);
-void gototop(void);
-void gotobottom(void);
-void mouseon(void);
-void mouseoff(void);
+extern void gohome(void);
+extern void leftlimit(void);
+extern void rightlimit(void);
+extern void gototop(void);
+extern void gotobottom(void);
+extern void mouseon(void);
+extern void mouseoff(void);
 
 #if defined BSD42 || defined SYSIII
 

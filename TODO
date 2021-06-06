@@ -1,5 +1,6 @@
 # TODO
 
+* move all vi stuff to vi.c
 * add emacs keybinding stuff
 * add emacs macro language
 * add emacs command completion

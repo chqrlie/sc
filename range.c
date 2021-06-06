@@ -383,8 +383,8 @@ static void fix_enode(struct enode *e, int row1, int col1, int row2, int col2,
             c1 = e->e.r.left.vp->col;
             r2 = e->e.r.right.vp->row;
             c2 = e->e.r.right.vp->col;
-            if (r1>r2) r = r2, r2 = r1, r1 = r;
-            if (c1>c2) c = c2, c2 = c1, c1 = c;
+            if (r1 > r2) { r = r2; r2 = r1; r1 = r; }
+            if (c1 > c2) { c = c2; c2 = c1; c1 = c; }
 
             if (!(fr && (c1 < fr->or_left->col || c1 > fr->or_right->col))) {
                 if (r1 != r2 && r1 >= row1 && r1 <= row2) r1 = row2 - delta1;

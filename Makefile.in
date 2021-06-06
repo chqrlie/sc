@@ -100,10 +100,13 @@ SAVE=-DSAVENAME=\"$(NAME).SAVE\"
 # path to crypt, do not define if you don't have crypt
 # most systems
 #CRYPT=-DCRYPT_PATH=\"/bin/crypt\"
+#CRYPT_OBJ=$O/crypt.o
 # BSD
 # CRYPT=-DCRYPT_PATH=\"/usr/bin/crypt\"
+#CRYPT_OBJ=$O/crypt.o
 # other people?
 #CRYPT=-DCRYPT_PATH=\"/usr/local/bin/crypt\"
+#CRYPT_OBJ=$O/crypt.o
 
 # If you get errors about fmod being undefined when you try to
 # compile, then define NO_FMOD (most likely BSD4.3 and Mt Xinu).
@@ -317,12 +320,18 @@ YTAB=y.tab
 #LDADD=-lm -lpdcurses
 
 #########################################
-CFLAGS += -Wall -Wextra -Werror -Wwrite-strings -Wchar-subscripts
-CFLAGS += -Wredundant-decls -Wmissing-declarations -Wundef -Wsign-compare
-CFLAGS += -Wunused -Wno-unused-parameter -Wuninitialized
-CFLAGS += -Wformat-nonliteral -Wmissing-format-attribute -Wstrict-prototypes
-CFLAGS += -Wnested-externs -Wdeclaration-after-statement
-_CFLAGS= $(CFLAGS) $(INCDIR_CURSES) $(DEFINES) $(__CDBG) $(__CLDBG) \
+WARNINGS := -Wall -Wextra -Weverything -Werror
+WARNINGS += -Wno-padded -Wno-shorten-64-to-32 -Wno-missing-prototypes
+WARNINGS += -Wno-vla -Wno-missing-noreturn -Wno-sign-conversion -Wno-conversion
+WARNINGS += -Wwrite-strings -Wno-reserved-id-macro -Wno-bad-function-cast
+WARNINGS += -Wno-unused-macros -Wchar-subscripts -Wno-float-equal
+WARNINGS += -Wno-unreachable-code -Wno-unreachable-code-break
+WARNINGS += -Wredundant-decls -Wmissing-declarations -Wundef -Wsign-compare
+WARNINGS += -Wunused -Wno-unused-parameter -Wuninitialized
+WARNINGS += -Wformat-nonliteral -Wmissing-format-attribute -Wstrict-prototypes
+WARNINGS += -Wnested-externs -Wdeclaration-after-statement
+
+_CFLAGS= $(CFLAGS) $(WARNINGS) $(INCDIR_CURSES) $(DEFINES) $(__CDBG) $(__CLDBG) \
 	#-DTRACE='"/tmp/trace.txt"'
 _LDFLAGS=$(LDFLAGS) $(__CLDBG) -s
 LDADD=-lm $(LIBDIR_CURSES) $(LIB_CURSES)
@@ -334,15 +343,19 @@ SRC=Makefile abbrev.c cmds.c color.c crypt.c eres.sed frame.c format.c gram.y \
 
 # The objects
 O:=.obj
-OBJS=$O/abbrev.o $O/cmds.o $O/color.o $O/crypt.o $O/format.o $O/frame.o $O/gram.o $O/help.o $O/interp.o \
+OBJS=$O/abbrev.o $O/cmds.o $O/color.o $(CRYPT_OBJ) $O/format.o $O/frame.o $O/gram.o $O/help.o $O/interp.o \
 	$O/lex.o $O/pipe.o $O/range.o $O/sc.o $O/screen.o $O/sort.o $O/version.o $O/vi.o $O/vmtbl.o \
 	$O/xmalloc.o $O/compat.o
 
 # The documents in the Archive
 DOCS=CHANGES README sc.doc psc.doc tutorial.sc VMS_NOTES torev build.com
 
-all:	$O $(name) p$(name) $(name)qref $(name).1 p$(name).1 $(name)qref.1 \
+all:	Makefile $O $(name) p$(name) $(name)qref $(name).1 p$(name).1 $(name)qref.1 \
 	x$(name) x$(name).1
+
+Makefile: Makefile.in configure
+	./configure
+	exit 1
 
 $O:
 	mkdir -p $O

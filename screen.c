@@ -25,7 +25,6 @@
 #include "sc.h"
 
 #ifdef VMS
-extern int VMS_read_raw;   /*sigh*/
     VMS_read_raw = 1;
 #endif
 
@@ -33,40 +32,32 @@ extern int VMS_read_raw;   /*sigh*/
                 /* nl/nonl bug fix */
 #undef nl
 #undef nonl
-#define nl()     (_tty.sg_flags |= CRMOD,_pfast = _rawmode,stty(_tty_ch, &_tty))
+#define nl()     (_tty.sg_flags |= CRMOD, _pfast = _rawmode, stty(_tty_ch, &_tty))
 #define nonl()   (_tty.sg_flags &= ~CRMOD, _pfast = TRUE, stty(_tty_ch, &_tty))
 #endif
 
-char under_cursor = ' '; /* Data under the < cursor */
+static char under_cursor = ' '; /* Data under the < cursor */
 char mode_ind = 'i';
 char search_ind = ' ';
-extern char revmsg[80];
 
-int lines, cols;
-int rows, lcols;
+static int lines, cols, rows;
+int lcols;
 int lastmx, lastmy; /* Screen address of the cursor */
-int lastrow = -1;   /* Spreadsheet Row the cursor was in last */
-int lastcol = -1;   /* Spreadsheet Column the cursor was in last */
+int sc_lastrow = -1;   /* Spreadsheet Row the cursor was in last */
+int sc_lastcol = -1;   /* Spreadsheet Column the cursor was in last */
 int lastendrow = -1;        /* Last bottom row of screen */
-int lastftoprows = 0;       /* Rows in top of frame cursor was in last */
-int lastfbottomrows = 0;    /* Rows in bottom of frame cursor was in last */
-int lastfleftcols = 0;      /* Columns in left side of frame cursor was
+static int lastftoprows = 0;       /* Rows in top of frame cursor was in last */
+static int lastfbottomrows = 0;    /* Rows in bottom of frame cursor was in last */
+static int lastfleftcols = 0;      /* Columns in left side of frame cursor was
                                     in last */
-int lastfrightcols = 0;
+static int lastfrightcols = 0;
 struct frange *lastfr = 0;     /* Last framed range we were in */
-bool frTooLarge = 0; /* If set, either too many rows or too many columns
+static bool frTooLarge = 0; /* If set, either too many rows or too many columns
                         exist in frame to allow room for the scrolling
                         portion of the framed range */
 int framerows;      /* Rows in current frame */
 int framecols;      /* Columns in current frame */
 int rescol = 4;     /* Columns reserved for row numbers */
-extern int showneed;   /* Causes cells needing values to be highlighted */
-extern int showexpr;   /* Causes cell exprs to be displayed, highlighted */
-extern int shownote;   /* Causes cells with attached notes to be highlighted */
-#ifdef RIGHT_CBUG
-extern int wasforw;    /* Causes screen to be redisplay if on lastcol */
-#endif
-extern struct go_save gs;
 
 //# define error if (isatty(fileno(stdout)) && !move(1,0) && !clrtoeol()) printw
 void error(const char *fmt, ...) {
@@ -88,7 +79,7 @@ void error(const char *fmt, ...) {
  * standout last time in update()?
  *      At this point we will let curses do work
  */
-int standlast = FALSE;
+static int standlast = FALSE;
 
 void update(int anychanged)          /* did any cell really change in value? */
 {
@@ -170,13 +161,13 @@ void update(int anychanged)          /* did any cell really change in value? */
                     FullUpdate++;
                 }
             }
-            if (fr == lastfr && currow == lastrow)
+            if (fr == lastfr && currow == sc_lastrow)
                 fbottomrows = lastfbottomrows;
             else if (currow < fr->ir_right->row)
                 fbottomrows = fr->or_right->row - fr->ir_right->row;
             else
                 fbottomrows = fr->or_right->row - currow;
-            if (fr == lastfr && curcol == lastcol)
+            if (fr == lastfr && curcol == sc_lastcol)
                 frightcols = lastfrightcols;
             else if (curcol < fr->ir_right->col)
                 frightcols = fr->or_right->col - fr->ir_right->col;
@@ -217,10 +208,10 @@ void update(int anychanged)          /* did any cell really change in value? */
     }
 
     /*
-     * Place the cursor on the screen.  Set col, curcol, stcol, lastcol as
+     * Place the cursor on the screen.  Set col, curcol, stcol, sc_lastcol as
      * needed.  If strow and stcol are negative, centering is forced.
      */
-    if ((curcol != lastcol) || FullUpdate) {
+    if ((curcol != sc_lastcol) || FullUpdate) {
         while (col_hidden[curcol])   /* You can't hide the last row or col */
             curcol++;
         if (fwidth[curcol] > cols - rescol - 2) {
@@ -374,7 +365,7 @@ void update(int anychanged)          /* did any cell really change in value? */
     }
 
     /* Now - same process on the rows as the columns */
-    if ((currow != lastrow) || FullUpdate) {
+    if ((currow != sc_lastrow) || FullUpdate) {
         while (row_hidden[currow])   /* You can't hide the last row or col */
             currow++;
         if (strow >= 0 && strow <= currow) {
@@ -520,9 +511,9 @@ void update(int anychanged)          /* did any cell really change in value? */
     /* Get rid of cursor standout on the cell at previous cursor position */
     if (!FullUpdate) {
         if (showcell) {
-            p = *ATBL(tbl, lastrow, lastcol);
+            p = *ATBL(tbl, sc_lastrow, sc_lastcol);
             if (color && has_colors()) {
-                if ((cr = find_crange(lastrow, lastcol)))
+                if ((cr = find_crange(sc_lastrow, sc_lastcol)))
                     color_set(cr->r_color, NULL);
                 else
                     color_set(1, NULL);
@@ -537,21 +528,21 @@ void update(int anychanged)          /* did any cell really change in value? */
                         color_set(3, NULL);
                 }
             }
-            repaint(lastmx, lastmy, fwidth[lastcol], 0, A_STANDOUT);
+            repaint(lastmx, lastmy, fwidth[sc_lastcol], 0, A_STANDOUT);
         }
 
-        move(lastmy, lastmx+fwidth[lastcol]);
+        move(lastmy, lastmx+fwidth[sc_lastcol]);
 
         if ((inch() & A_CHARTEXT) == '<')
             addch(under_cursor | (inch() & A_ATTRIBUTES));
 
-        repaint(lastmx, RESROW - 1, fwidth[lastcol], A_STANDOUT, 0);
+        repaint(lastmx, RESROW - 1, fwidth[sc_lastcol], A_STANDOUT, 0);
         repaint(0, lastmy, rescol - 1, A_STANDOUT, 0);
         if (color && has_colors())
             color_set(1, NULL);
     }
-    lastrow = currow;
-    lastcol = curcol;
+    sc_lastrow = currow;
+    sc_lastcol = curcol;
     lastendrow = strow + rows;
 
     /* where is the the cursor now? */
@@ -936,15 +927,15 @@ void update(int anychanged)          /* did any cell really change in value? */
                     color_set(3, NULL);
             }
         }
-        repaint(lastmx, lastmy, fwidth[lastcol], A_STANDOUT, 0);
+        repaint(lastmx, lastmy, fwidth[sc_lastcol], A_STANDOUT, 0);
         if (color && has_colors())
             color_set(1, NULL);
     }
 
-    repaint(lastmx, RESROW - 1, fwidth[lastcol], 0, A_STANDOUT);
+    repaint(lastmx, RESROW - 1, fwidth[sc_lastcol], 0, A_STANDOUT);
     repaint(0, lastmy, rescol - 1, 0, A_STANDOUT);
 
-    move(lastmy, lastmx+fwidth[lastcol]);
+    move(lastmy, lastmx+fwidth[sc_lastcol]);
     under_cursor = (inch() & A_CHARTEXT);
     if (!showcell)
         addch('<' | (inch() & A_ATTRIBUTES));
@@ -1052,7 +1043,7 @@ void update(int anychanged)          /* did any cell really change in value? */
         else if (showcell)
             move(lines - 1, cols - 1);
         else
-            move(lastmy, lastmx+fwidth[lastcol]);
+            move(lastmy, lastmx + fwidth[sc_lastcol]);
     }
 
     if (color && has_colors())
@@ -1073,7 +1064,7 @@ void update(int anychanged)          /* did any cell really change in value? */
         else if (showcell)
             move(lines - 1, cols - 1);
         else
-            move(lastmy, lastmx+fwidth[lastcol]);
+            move(lastmy, lastmx + fwidth[sc_lastcol]);
     }
 
     if (color && has_colors())
@@ -1092,7 +1083,7 @@ void update(int anychanged)          /* did any cell really change in value? */
         else if (showcell)
             move(lines - 1, cols - 1);
         else
-            move(lastmy, lastmx + fwidth[lastcol]);
+            move(lastmy, lastmx + fwidth[sc_lastcol]);
     }
 
     FullUpdate = FALSE;
