@@ -320,6 +320,15 @@ YTAB=y.tab
 #LDADD=-lm -lpdcurses
 
 #########################################
+# Use this for OS/X
+CC=clang
+CFLAGS= -O2
+LDFLAGS=
+#__CDBG=-g -O0
+#__CLDBG=-g
+# define as O:=. for debug build
+O:=.obj
+#YACC=bison
 WARNINGS := -Wall -Wextra -Weverything -Werror
 WARNINGS += -Wno-padded -Wno-shorten-64-to-32 -Wno-missing-prototypes
 WARNINGS += -Wno-vla -Wno-missing-noreturn -Wno-sign-conversion -Wno-conversion
@@ -331,9 +340,10 @@ WARNINGS += -Wunused -Wno-unused-parameter -Wuninitialized
 WARNINGS += -Wformat-nonliteral -Wmissing-format-attribute -Wstrict-prototypes
 WARNINGS += -Wnested-externs -Wdeclaration-after-statement
 
+#########################################
 _CFLAGS= $(CFLAGS) $(WARNINGS) $(INCDIR_CURSES) $(DEFINES) $(__CDBG) $(__CLDBG) \
 	#-DTRACE='"/tmp/trace.txt"'
-_LDFLAGS=$(LDFLAGS) $(__CLDBG) -s
+_LDFLAGS=$(LDFLAGS) $(__CLDBG)
 LDADD=-lm $(LIBDIR_CURSES) $(LIB_CURSES)
 
 # All of the source files
@@ -342,7 +352,6 @@ SRC=Makefile abbrev.c cmds.c color.c crypt.c eres.sed frame.c format.c gram.y \
 	sres.sed version.c vi.c vmtbl.c xmalloc.c
 
 # The objects
-O:=.obj
 OBJS=$O/abbrev.o $O/cmds.o $O/color.o $(CRYPT_OBJ) $O/format.o $O/frame.o $O/gram.o $O/help.o $O/interp.o \
 	$O/lex.o $O/pipe.o $O/range.o $O/sc.o $O/screen.o $O/sort.o $O/version.o $O/vi.o $O/vmtbl.o \
 	$O/xmalloc.o $O/compat.o
@@ -354,11 +363,11 @@ all:	Makefile $O $(name) p$(name) $(name)qref $(name).1 p$(name).1 $(name)qref.1
 	x$(name) x$(name).1
 
 Makefile: Makefile.in configure
-	./configure
-	exit 1
+	-./configure
+	make clean all
 
-$O:
-	mkdir -p $O
+.obj:
+	mkdir -p $@
 
 $(name):$(PAR)  $(OBJS)
 	$(CC) $(_CFLAGS) -o $@ ${_LDFLAGS} ${OBJS} $(RPATH_CURSES) ${LDADD}
@@ -464,7 +473,7 @@ $O/compat.o: compat.c sc.h
 # other stuff
 
 clean:
-	rm -rf $O *.o *res.h $(YTAB).h $(YTAB).c y.output tags debug core
+	rm -rf .obj *.o *res.h $(YTAB).h $(YTAB).c y.output tags debug core
 
 distclean: clean
 	rm -f $(name) p$(name) $(name)qref x$(name) Makefile config.log

@@ -690,6 +690,12 @@ void update(int anychanged)          /* did any cell really change in value? */
         int fieldlen;
         int nextcol;
 
+#if 0
+        if (row < 0 || row >= maxrows) {
+            fprintf(stderr, "invalid row: %d\n", row);
+            continue;
+        }
+#endif
         if (row_hidden[row])
             continue;
         if (ftoprows && strow >= fr->or_left->row && r == RESROW + ftrows)
@@ -708,15 +714,19 @@ void update(int anychanged)          /* did any cell really change in value? */
                     col < fr->or_right->col - frightcols + 1) {
                 col = fr->or_right->col - frightcols + 1;
             }
-            p = *ATBL(tbl, row, col);
-
             nextcol = col + 1;
-            if (col_hidden[col]) {
-                fieldlen = 0;
+            fieldlen = 0;
+#if 0
+            if (col < 0 || col >= maxcols) {
+                fprintf(stderr, "invalid cell: %d.%d\n", col, row);
                 continue;
             }
-
+#endif
+            if (col_hidden[col])
+                continue;
             fieldlen = fwidth[col];
+
+            p = *ATBL(tbl, row, col);
 
             /*
              * Set standout if:
