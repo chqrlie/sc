@@ -80,8 +80,7 @@ void error(const char *fmt, ...) {
  */
 static int standlast = FALSE;
 
-void update(int anychanged)          /* did any cell really change in value? */
-{
+void update(int anychanged) {          /* did any cell really change in value? */
     int row, col;
     struct ent *p;
     int mxrow, mxcol;
@@ -262,7 +261,8 @@ void update(int anychanged)          /* did any cell really change in value? */
                 while (col + fwidth[i] > cols - 2) {
                     lcols--;
                     col -= fwidth[stcol];
-                    while (col_hidden[++stcol]) /**/ ;
+                    while (col_hidden[++stcol])
+                        continue;
                     FullUpdate++;
                     c++;
                 }
@@ -408,7 +408,8 @@ void update(int anychanged)          /* did any cell really change in value? */
                 if (row >= lines) {
                     rows--;
                     row--;
-                    while (row_hidden[++strow]) /**/;
+                    while (row_hidden[++strow])
+                        continue;
                     FullUpdate++;
                     c++;
                 }
@@ -417,7 +418,8 @@ void update(int anychanged)          /* did any cell really change in value? */
             if (!frTooLarge && fr && currow <= strow + rows &&
                     fr->ir_left->row >= strow + rows) {
                 while (strow + rows < fr->ir_left->row) {
-                    while (row_hidden[++strow]) /**/;
+                    while (row_hidden[++strow])
+                        continue;
                 }
             } else if (c && currow > lastendrow)
                 strow = -1;
@@ -450,7 +452,7 @@ void update(int anychanged)          /* did any cell really change in value? */
                  */
                 rowsinrange = (rowsinrange > lines - RESROW - ftrows - fbrows ?
                         lines - RESROW - ftrows - fbrows : rowsinrange);
-                row = (lines - RESROW - ftrows - fbrows - rowsinrange)/2;
+                row = (lines - RESROW - ftrows - fbrows - rowsinrange) / 2;
                 strow = currow;
                 for (i = currow - 1;
                         i >= (fr ? fr->or_left->row + ftoprows : 0) &&
@@ -530,7 +532,7 @@ void update(int anychanged)          /* did any cell really change in value? */
             repaint(lastmx, lastmy, fwidth[sc_lastcol], 0, A_STANDOUT);
         }
 
-        move(lastmy, lastmx+fwidth[sc_lastcol]);
+        move(lastmy, lastmx + fwidth[sc_lastcol]);
 
         if ((inch() & A_CHARTEXT) == '<')
             addch(under_cursor | (inch() & A_ATTRIBUTES));
@@ -546,33 +548,33 @@ void update(int anychanged)          /* did any cell really change in value? */
 
     /* where is the the cursor now? */
     lastmy =  RESROW;
-    if (fr && strow >= fr->or_left->row)
+    if (fr && strow >= fr->or_left->row) {
         if (strow < fr->ir_left->row)
             row = fr->or_left->row;
         else {
             row = strow;
             lastmy += ftrows;
         }
-    else
+    } else
         row = strow;
-    for (; row < currow; row++)
+    for (; row < currow; row++) {
         if (!row_hidden[row])
             lastmy++;
-
+    }
     lastmx = rescol;
-    if (fr && stcol >= fr->or_left->col)
+    if (fr && stcol >= fr->or_left->col) {
         if (stcol < fr->ir_left->col)
             col = fr->or_left->col;
         else {
             col = stcol;
             lastmx += flcols;
         }
-    else
+    } else
         col = stcol;
-    for (; col < curcol; col++)
+    for (; col < curcol; col++) {
         if (!col_hidden[col])
             lastmx += fwidth[col];
-
+    }
     if (color && has_colors())
         color_set(1, NULL);
 
@@ -581,12 +583,13 @@ void update(int anychanged)          /* did any cell really change in value? */
         clrtobot();
         standout();
 
+        /* display the row numbers */
+        // XXX: this loop is a mess
         for (row = RESROW, i = (ftoprows && strow >= fr->or_left->row ?
                 fr->or_left->row : strow);
                 i <= mxrow; i++) {
-            if (ftoprows && strow >= fr->or_left->row &&
-                    row == RESROW + ftrows)
-                i = (strow < i ? i : strow);
+            if (ftoprows && strow >= fr->or_left->row && row == RESROW + ftrows)
+                i = strow < i ? i : strow;
             if (fbottomrows && row == lines - fbrows)
                 i = fr->or_right->row - fbottomrows + 1;
             if (row_hidden[i])
@@ -601,30 +604,38 @@ void update(int anychanged)          /* did any cell really change in value? */
             wasforw = 0;
         }
 #endif
+        /* display the column headings */
         move(2, 0);
         printw("%*s", rescol, " ");
 
-        for (col = rescol, i = (fleftcols && stcol >= fr->or_left->col ?
-                fr->or_left->col : stcol);
-                i <= mxcol; i++) {
-            int k;
-            if (fleftcols && stcol >= fr->or_left->col &&
-                    col == rescol + flcols)
-                i = (stcol < i ? i : stcol);
-            if (frightcols && col + fwidth[i] >= cols - 1 - frcols &&
-                    i < fr->or_right->col - frightcols + 1)
+        col = rescol;
+        for (i = (fleftcols && stcol >= fr->or_left->col) ? fr->or_left->col : stcol;
+             i <= mxcol;
+             i++)
+        {
+            char *colname;
+            int len, width;
+
+            if (fleftcols && stcol >= fr->or_left->col && col == rescol + flcols)
+                i = stcol < i ? i : stcol;
+            if (frightcols && col + fwidth[i] >= cols - 1 - frcols && i < fr->or_right->col - frightcols + 1)
                 i = fr->or_right->col - frightcols + 1;
             if (col_hidden[i])
                 continue;
             move(2, col);
-            k = (fwidth[i] - strlen(coltoa(i)))/2;
-            if (fwidth[i] == 1)
-                printw("%1s", coltoa(i%26));
-            else if (braille)
-                printw("%-*s", fwidth[i], coltoa(i));
-            else
-                printw("%*s%-*s", k, "", fwidth[i]-k, coltoa(i));
-            col += fwidth[i];
+            colname = coltoa(i);
+            len = strlen(colname);
+            width = fwidth[i];
+            if (width <= len) {
+                printw("%s", colname + len - fwidth[i]);
+            } else
+            if (braille) {
+                printw("%-*s", width, colname);
+            } else {
+                int k = (width - len) / 2;
+                printw("%*s%-*s", k, "", width - k, colname);
+            }
+            col += width;
         }
         standend();
     }
@@ -649,13 +660,8 @@ void update(int anychanged)          /* did any cell really change in value? */
             maxsc = showsc > curcol ? showsc : curcol;
 
             if (showtop && !message) {
-                char r_[6];
-
-                strlcpy(r_, coltoa(minsc), sizeof r_);
-                strlcat(r_, ":", sizeof r_);
-                strlcat(r_, coltoa(maxsc), sizeof r_);
                 clrtoeol();
-                printw("Default range:  %s", r_);
+                printw("Default range:  %s:%s", coltoa(minsc), coltoa(maxsc));
             }
         } else {
             minsr = showsr < currow ? showsr : currow;
@@ -665,8 +671,7 @@ void update(int anychanged)          /* did any cell really change in value? */
 
             if (showtop && !message) {
                 clrtoeol();
-                printw("Default range:  %s",
-                              r_name(minsr, minsc, maxsr, maxsc));
+                printw("Default range:  %s", r_name(minsr, minsc, maxsr, maxsc));
             }
         }
     } else if (braille && braillealt && !message && mode_ind == 'v') {
@@ -677,163 +682,189 @@ void update(int anychanged)          /* did any cell really change in value? */
     /* Repaint the visible screen */
     if (showrange || anychanged || FullUpdate || standlast) {
         /* may be reset in loop, if not next time we will do a FullUpdate */
-      if (standlast) {
-        FullUpdate = TRUE;
-        standlast = FALSE;
-      }
-
-      for (row = (ftoprows && strow >= fr->or_left->row ?
-                  fr->or_left->row : strow), r = RESROW;
-            row <= mxrow; row++) {
-        int c = rescol;
-        int do_stand = 0;
-        int fieldlen;
-        int nextcol;
-
-#if 0
-        if (row < 0 || row >= maxrows) {
-            fprintf(stderr, "invalid row: %d\n", row);
-            continue;
+        if (standlast) {
+            FullUpdate = TRUE;
+            standlast = FALSE;
         }
-#endif
-        if (row_hidden[row])
-            continue;
-        if (ftoprows && strow >= fr->or_left->row && r == RESROW + ftrows)
-            row = (strow < row ? row : strow);
-        if (fbottomrows && r == lines - fbrows)
-            row = fr->or_right->row - fbottomrows + 1;
-        for (col = (fleftcols && stcol >= fr->or_left->col ?
-                fr->or_left->col : stcol);
-                col <= mxcol;
-                col = nextcol, c += fieldlen)
+
+        for (row = (ftoprows && strow >= fr->or_left->row ?
+                    fr->or_left->row : strow), r = RESROW;
+             row <= mxrow;
+             row++)
         {
-            if (fleftcols && stcol >= fr->or_left->col && c == rescol + flcols) {
-                col = (stcol < col ? col : stcol);
-            }
-            if (frightcols && c + fwidth[col] >= cols - 1 - frcols &&
-                    col < fr->or_right->col - frightcols + 1) {
-                col = fr->or_right->col - frightcols + 1;
-            }
-            nextcol = col + 1;
-            fieldlen = 0;
+            int c = rescol;
+            int do_stand = 0;
+            int fieldlen;
+            int nextcol;
+
 #if 0
-            if (col < 0 || col >= maxcols) {
-                fprintf(stderr, "invalid cell: %d.%d\n", col, row);
+            if (row < 0 || row >= maxrows) {
+                fprintf(stderr, "invalid row: %d\n", row);
                 continue;
             }
 #endif
-            if (col_hidden[col])
+            if (row_hidden[row])
                 continue;
-            fieldlen = fwidth[col];
+            if (ftoprows && strow >= fr->or_left->row && r == RESROW + ftrows)
+                row = (strow < row ? row : strow);
+            if (fbottomrows && r == lines - fbrows)
+                row = fr->or_right->row - fbottomrows + 1;
+            for (col = (fleftcols && stcol >= fr->or_left->col ? fr->or_left->col : stcol);
+                 col <= mxcol;
+                 col = nextcol, c += fieldlen)
+            {
+                if (fleftcols && stcol >= fr->or_left->col && c == rescol + flcols) {
+                    col = (stcol < col ? col : stcol);
+                }
+                if (frightcols && c + fwidth[col] >= cols - 1 - frcols && col < fr->or_right->col - frightcols + 1) {
+                    col = fr->or_right->col - frightcols + 1;
+                }
+                nextcol = col + 1;
+                fieldlen = 0;
+#if 0
+                if (col < 0 || col >= maxcols) {
+                    fprintf(stderr, "invalid cell: %d.%d\n", col, row);
+                    continue;
+                }
+#endif
+                if (col_hidden[col])
+                    continue;
+                fieldlen = fwidth[col];
 
-            p = *ATBL(tbl, row, col);
+                p = *ATBL(tbl, row, col);
 
-            /*
-             * Set standout if:
-             *
-             * - showing ranges, and not showing cells which need to be filled
-             *   in, and not showing cell expressions, and in a range, OR
-             *
-             * - showing cells which need to be filled in and this one is
-             *   of that type (has a value and doesn't have an expression,
-             *   or it is a string expression), OR
-             *
-             * - showing cells which have expressions and this one does.
-             */
-            if ((showrange && (!showneed) && (!showexpr)
+                /*
+                 * Set standout if:
+                 *
+                 * - showing ranges, and not showing cells which need to be filled
+                 *   in, and not showing cell expressions, and in a range, OR
+                 *
+                 * - showing cells which need to be filled in and this one is
+                 *   of that type (has a value and doesn't have an expression,
+                 *   or it is a string expression), OR
+                 *
+                 * - showing cells which have expressions and this one does.
+                 */
+                if ((showrange && (!showneed) && (!showexpr)
                         && (row >= minsr) && (row <= maxsr)
                         && (col >= minsc) && (col <= maxsc))
                     || (showneed && p && (p->flags & IS_VALID) &&
                         ((p->flags & IS_STREXPR) || !(p->expr)))
                     || (showexpr && p && (p->expr))
-                    || (shownote && p && (p->nrow >= 0))) {
-
-                move(r, c);
-                standout();
-                if (color && has_colors() && (cr = find_crange(row, col)))
-                    color_set(cr->r_color, NULL);
-                standlast++;
-                if (!p) {     /* no cell, but standing out */
-                    printw("%*s", fwidth[col], " ");
-                    standend();
-                    if (color && has_colors())
-                        color_set(1, NULL);
-                    continue;
-                } else
-                    do_stand = 1;
-            } else
-                do_stand = 0;
-
-            if ((cr = find_crange(row, col)) && color && has_colors())
-                color_set(cr->r_color, NULL);
-
-            if (p && ((p->flags & IS_CHANGED) || FullUpdate || do_stand)) {
-                if (do_stand) {
-                    p->flags |= IS_CHANGED;
-                } else {
+                    || (shownote && p && (p->nrow >= 0)))
+                {
                     move(r, c);
-                    p->flags &= ~IS_CHANGED;
-                }
-
-                /*
-                 * Show expression; takes priority over other displays:
-                 */
-
-                if (p->cellerror) {
-                    if (color && colorerr && has_colors())
-                        color_set(3, NULL);
-                    printw("%*.*s", fwidth[col], fwidth[col],
-                           p->cellerror == CELLERROR ? "ERROR" : "INVALID");
+                    standout();
+                    if (color && has_colors() && (cr = find_crange(row, col)))
+                        color_set(cr->r_color, NULL);
+                    standlast++;
+                    if (!p) {     /* no cell, but standing out */
+                        printw("%*s", fwidth[col], "");
+                        standend();
+                        if (color && has_colors())
+                            color_set(1, NULL);
+                        continue;
+                    } else
+                        do_stand = 1;
                 } else
-                if (showexpr && (p->expr)) {
-                    linelim = 0;
-                    editexp(row, col);          /* set line to expr */
-                    linelim = -1;
-                    showstring(line, /* leftflush = */ 1, /* hasvalue = */ 0,
-                               row, col, &nextcol, mxcol, &fieldlen, r, c,
-                               fr, frightcols, flcols, frcols);
-                } else {
+                    do_stand = 0;
+
+                if ((cr = find_crange(row, col)) && color && has_colors())
+                    color_set(cr->r_color, NULL);
+
+                if (p && ((p->flags & IS_CHANGED) || FullUpdate || do_stand)) {
+                    if (do_stand) {
+                        p->flags |= IS_CHANGED;
+                    } else {
+                        move(r, c);
+                        p->flags &= ~IS_CHANGED;
+                    }
+
                     /*
-                     * Show cell's numeric value:
+                     * Show expression; takes priority over other displays:
                      */
 
-                    if (p->flags & IS_VALID) {
-                        char field[FBUFLEN];
-                        char *cfmt;
-                        int note;
+                    if (p->cellerror) {
+                        if (color && colorerr && has_colors())
+                            color_set(3, NULL);
+                        printw("%*.*s", fwidth[col], fwidth[col],
+                               p->cellerror == CELLERROR ? "ERROR" : "INVALID");
+                    } else
+                    if (showexpr && p->expr) {
+                        linelim = 0;
+                        decompile(p->expr, 0);   /* set line to expr */
+                        linelim = -1;
+                        showstring(line, /* leftflush = */ 1, /* hasvalue = */ 0,
+                                   row, col, &nextcol, mxcol, &fieldlen, r, c,
+                                   fr, frightcols, flcols, frcols);
+                    } else {
+                        /*
+                         * Show cell's numeric value:
+                         */
 
-                        *field = '\0';
-                        note = p->nrow >= 0 ? 1 : 0;
-                        cfmt = p->format ? p->format :
-                            (realfmt[col] >= 0 && realfmt[col] < COLFORMATS &&
-                            colformat[realfmt[col]]) ?
-                            colformat[realfmt[col]] : NULL;
-                        if (color && has_colors() && colorneg && p->v < 0) {
-                            if (cr)
-                                color_set(((cr->r_color) % CPAIRS) + 1, NULL);
-                            else
-                                color_set(2, NULL);
-                        }
-                        if (cfmt) {
-                            if (*cfmt == ctl('d')) {
-                                time_t v = (time_t) (p->v);
-                                strftime(field, sizeof(field),
-                                        cfmt + 1, localtime(&v));
-                            } else
-                                format(cfmt, precision[col], p->v,
-                                        field, sizeof(field));
-                        } else {
-                            engformat(realfmt[col], fwidth[col] - note,
-                                      precision[col], p->v,
-                                      field, sizeof(field));
-                        }
-                        if ((ssize_t)strlen(field) > fwidth[col]) {
-                            for (i = 0; i < fwidth[col]; i++) {
+                        if (p->flags & IS_VALID) {
+                            char field[FBUFLEN];
+                            char *cfmt;
+                            int note;
+
+                            *field = '\0';
+                            note = p->nrow >= 0 ? 1 : 0;
+                            cfmt = p->format ? p->format :
+                                (realfmt[col] >= 0 && realfmt[col] < COLFORMATS &&
+                                 colformat[realfmt[col]]) ?
+                                colformat[realfmt[col]] : NULL;
+                            if (color && has_colors() && colorneg && p->v < 0) {
+                                if (cr)
+                                    color_set(((cr->r_color) % CPAIRS) + 1, NULL);
+                                else
+                                    color_set(2, NULL);
+                            }
+                            if (cfmt) {
+                                if (*cfmt == ctl('d')) {
+                                    time_t v = (time_t) (p->v);
+                                    strftime(field, sizeof(field),
+                                             cfmt + 1, localtime(&v));
+                                } else
+                                    format(cfmt, precision[col], p->v,
+                                           field, sizeof(field));
+                            } else {
+                                engformat(realfmt[col], fwidth[col] - note,
+                                          precision[col], p->v,
+                                          field, sizeof(field));
+                            }
+                            if ((ssize_t)strlen(field) > fwidth[col]) {
+                                for (i = 0; i < fwidth[col]; i++) {
+                                    if (note) {
+#ifndef NO_ATTR_GET
+                                        attr_t attr;
+                                        short curcolor = 0;
+                                        if (!i && color && has_colors()) {
+                                            /* silence warning */
+                                            attr_t *attrp = &attr;
+                                            short *curcolorp = &curcolor;
+                                            attr_get(attrp, curcolorp, NULL);
+                                            color_set(4, NULL);
+                                        }
+#endif
+                                        addch('*');
+                                        i++;
+#ifndef NO_ATTR_GET
+                                        if (!i && color && has_colors())
+                                            color_set(curcolor, NULL);
+#endif
+                                    }
+                                    addch('*');
+                                }
+                            } else {
+                                if (cfmt && *cfmt != ctl('d')) {
+                                    for (i = 0; i < fwidth[col] - (ssize_t)strlen(field) - note; i++)
+                                        addch(' ');
+                                }
                                 if (note) {
 #ifndef NO_ATTR_GET
                                     attr_t attr;
                                     short curcolor = 0;
-                                    if (!i && color && has_colors()) {
+                                    if (color && has_colors()) {
                                         /* silence warning */
                                         attr_t *attrp = &attr;
                                         short *curcolorp = &curcolor;
@@ -842,79 +873,53 @@ void update(int anychanged)          /* did any cell really change in value? */
                                     }
 #endif
                                     addch('*');
-                                    i++;
 #ifndef NO_ATTR_GET
-                                    if (!i && color && has_colors())
+                                    if (color && has_colors())
                                         color_set(curcolor, NULL);
 #endif
                                 }
-                                addch('*');
-                            }
-                        } else {
-                            if (cfmt && *cfmt != ctl('d')) {
-                                for (i = 0; i < fwidth[col] - (ssize_t)strlen(field) - note; i++)
-                                    addch(' ');
-                            }
-                            if (note) {
-#ifndef NO_ATTR_GET
-                                attr_t attr;
-                                short curcolor = 0;
-                                if (color && has_colors()) {
-                                    /* silence warning */
-                                    attr_t *attrp = &attr;
-                                    short *curcolorp = &curcolor;
-                                    attr_get(attrp, curcolorp, NULL);
-                                    color_set(4, NULL);
+                                addstr(field);
+                                if (cfmt && *cfmt == ctl('d')) {
+                                    for (i = 0; i < fwidth[col] - (ssize_t)strlen(field) - note; i++)
+                                        addch(' ');
                                 }
-#endif
-                                addch('*');
-#ifndef NO_ATTR_GET
-                                if (color && has_colors())
-                                    color_set(curcolor, NULL);
-#endif
-                            }
-                            addstr(field);
-                            if (cfmt && *cfmt == ctl('d')) {
-                                for (i = 0; i < fwidth[col] - (ssize_t)strlen(field) - note; i++)
-                                    addch(' ');
                             }
                         }
-                    }
 
-                    /*
-                     * Show cell's label string:
-                     */
+                        /*
+                         * Show cell's label string:
+                         */
 
-                    if (p->label) {
-                        showstring(p->label,
-                                   p->flags & (IS_LEFTFLUSH | IS_LABEL),
-                                   p->flags & IS_VALID,
-                                   row, col, &nextcol, mxcol, &fieldlen,
-                                   r, c, fr, frightcols, flcols, frcols);
-                    } else      /* repaint a blank cell: */
-                    if ((((do_stand || !FullUpdate) &&
-                            (p->flags & IS_CHANGED)) ||
-                            (color && has_colors() &&
-                            cr && cr->r_color != 1)) &&
-                            !(p->flags & IS_VALID) && !p->label) {
-                        printw("%*s", fwidth[col], " ");
-                    }
-                } /* else */
-            } else
-            if (!p && color && has_colors() && cr && cr->r_color != 1) {
-                move(r, c);
-                color_set(cr->r_color, NULL);
-                printw("%*s", fwidth[col], " ");
+                        if (p->label) {
+                            showstring(p->label,
+                                       p->flags & (IS_LEFTFLUSH | IS_LABEL),
+                                       p->flags & IS_VALID,
+                                       row, col, &nextcol, mxcol, &fieldlen,
+                                       r, c, fr, frightcols, flcols, frcols);
+                        } else      /* repaint a blank cell: */
+                        if ((((do_stand || !FullUpdate) &&
+                              (p->flags & IS_CHANGED)) ||
+                             (color && has_colors() && cr && cr->r_color != 1)) &&
+                            !(p->flags & IS_VALID) && !p->label)
+                        {
+                            printw("%*s", fwidth[col], " ");
+                        }
+                    } /* else */
+                } else
+                if (!p && color && has_colors() && cr && cr->r_color != 1) {
+                    move(r, c);
+                    color_set(cr->r_color, NULL);
+                    printw("%*s", fwidth[col], " ");
+                }
+                if (color && has_colors())
+                    color_set(1, NULL);
+                if (do_stand) {
+                    standend();
+                    do_stand = 0;
+                }
             }
-            if (color && has_colors())
-                color_set(1, NULL);
-            if (do_stand) {
-                standend();
-                do_stand = 0;
-            }
+            r++;
         }
-        r++;
-      }
     }
 
     /* place 'cursor marker' */
@@ -982,7 +987,7 @@ void update(int anychanged)          /* did any cell really change in value? */
                                         p1->nlastrow, p1->nlastcol));
 
             /* show the current cell's format */
-            if ((p1) && p1->format)
+            if (p1 && p1->format)
                 printw("(%s) ", p1->format);
             else
                 printw("(%d %d %d) ", fwidth[curcol], precision[curcol],
@@ -992,7 +997,7 @@ void update(int anychanged)          /* did any cell really change in value? */
                 if (p1->expr) {
                     /* has expr of some type */
                     linelim = 0;
-                    editexp(currow, curcol);    /* set line to expr */
+                    decompile(p1->expr, 0);   /* set line to expr */
                     linelim = -1;
                 }
 
@@ -1000,7 +1005,7 @@ void update(int anychanged)          /* did any cell really change in value? */
                  * Display string part of cell:
                  */
 
-                if ((p1->expr) && (p1->flags & IS_STREXPR)) {
+                if (p1->expr && (p1->flags & IS_STREXPR)) {
                     if (p1->flags & IS_LABEL)
                         addstr("|{");
                     else
@@ -1008,8 +1013,8 @@ void update(int anychanged)          /* did any cell really change in value? */
                     addstr(line);
                     addstr("} ");        /* and this '}' is for vi % */
                     printed = 1;
-
-                } else if (p1->label) {
+                } else
+                if (p1->label) {
                     /* has constant label only */
                     if (p1->flags & IS_LABEL)
                         addstr("|\"");

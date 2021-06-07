@@ -2794,8 +2794,7 @@ void editfmt(int row, int col)
     }
 }
 
-void editv(int row, int col)
-{
+void editv(int row, int col) {
     struct ent *p = lookat(row, col);
 
     snprintf(line, sizeof line, "let %s = ", v_name(row, col));
@@ -2805,20 +2804,18 @@ void editv(int row, int col)
             snprintf(line + linelim, sizeof(line) - linelim, "%.15g", p->v);
             linelim += strlen(line + linelim);
         } else {
-            editexp(row, col);
+            decompile(p->expr, 0);
         }
     }
 }
 
-void editexp(int row, int col)
-{
+void editexp(int row, int col) {
     struct ent *p = lookat(row, col);
 
     decompile(p->expr, 0);
 }
 
-void edits(int row, int col)
-{
+void edits(int row, int col) {
     struct ent *p = lookat(row, col);
 
     snprintf(line, sizeof line, "%s %s = ",
@@ -2827,7 +2824,7 @@ void edits(int row, int col)
              v_name(row, col));
     linelim = strlen(line);
     if ((p->flags & IS_STREXPR) && p->expr) {
-        editexp(row, col);
+        decompile(p->expr, 0);
     } else if (p->label) {
         // XXX: incorrect if p->label contains embedded `"`
         snprintf(line + linelim, sizeof(line) - linelim, "\"%s\"", p->label);

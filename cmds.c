@@ -3026,15 +3026,15 @@ void dotick(int tick)
     FullUpdate++;
 }
 
-void gotonote(void)
-{
+void gotonote(void) {
     struct ent *p;
 
     p = lookat(currow, curcol);
     if (p->nrow == -1) {
         error("No note attached");
-    } else
+    } else {
         moveto(p->nrow, p->ncol, p->nlastrow, p->nlastcol, -1, -1);
+    }
 }
 
 /*

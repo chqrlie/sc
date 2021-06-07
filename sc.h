@@ -146,7 +146,7 @@ struct ent {
     char cellerror;             /* error in a cell? (should pack with flags) */
     short flags;
     short col, ncol, nlastcol;  /* the cell col/row */
-    int row, nrow, nlastrow;    /* ncol/nrow: link to note */
+    int row, nrow, nlastrow;    /* ncol/nrow:nlastcol/nlastrow link to note */
     struct ent *next;           /* next deleted ent (pulled, deleted cells) */
 };
 
