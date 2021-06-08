@@ -187,7 +187,7 @@ int main(int argc, char **argv) {
     }
 #endif
 
-    while ((c = getopt(argc, argv, "axmoncrCReP:W:vqM")) != EOF) {
+    while ((c = getopt(argc, argv, "axmoncrCReP:W:vqMh?")) != EOF) {
         switch (c) {
         case 'a':
             skipautorun = 1;
@@ -239,7 +239,24 @@ int main(int argc, char **argv) {
             Mopt = 1;
             break;
         default:
-            exit(1);
+            printf("usage: sc [-acemnoqrvxCMR] [-P RANGE/ADDRESS] [-W RANGE]\n"
+                   "options:\n"
+                   "  -a   Do not run the autorun macro, if present in the file.\n"
+                   "  -c   Set recalculation in column order.\n"
+                   "  -e   Enable round-to-even (banker's rounding).\n"
+                   "  -m   Disable automatic recalculation.\n"
+                   "  -n   Enable quick numeric entry mode.\n"
+                   "  -o   Enable automatic optimization of expressions.\n"
+                   "  -q   Quit after loading all files.\n"
+                   "  -r   Set recalculation in row order (default option).\n"
+                   "  -v   Output expression values when piping data out via -P option.\n"
+                   "  -x   Use crypt to encrypt and decrypt data files.\n"
+                   "  -C   Set automatic newline action to increment the column.\n"
+                   "  -M   Process mouse events.\n"
+                   "  -R   Set automatic newline action to increment the row.\n"
+                   "  -P   Pipe a range to standard output.\n"
+                   "  -W   Write a range to standard output.\n");
+            return 1;
         }
     }
 
