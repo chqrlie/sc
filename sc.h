@@ -443,6 +443,22 @@ extern char *texext;
 extern int Vopt;
 extern struct go_save gs;
 
+/* styles */
+extern struct colorpair *cpairs[CPAIRS + 1];
+extern int are_colors(void);
+extern void change_color(int pair, struct enode *e);
+extern void initcolor(int colornum);
+extern void list_colors(FILE *f);
+extern void write_colors(FILE *f, int indent);
+extern void sc_setcolor(int set);
+#define STYLE_NONE      0
+#define STYLE_CELL      1
+#define STYLE_NEG       2
+#define STYLE_ERROR     3
+#define STYLE_NOTE      4
+#define STYLE_FRAME     5
+#define STYLE_FRAME_CUR 6
+
 extern FILE *openfile(char *fname, size_t fnamesiz, int *rpid, int *rfd);
 extern char *findhome(char *fname, size_t fnamesiz);
 extern char *findplugin(char *ext, char type);
@@ -455,7 +471,6 @@ extern char *scxdup(const char *s);
 extern void scxfree(void *p);
 extern char *seval(struct enode *se);
 extern double eval(struct enode *e);
-extern int are_colors(void);
 extern int are_frames(void);
 extern int are_ranges(void);
 extern int atocol(char *string, int len);
@@ -476,7 +491,6 @@ extern int readfile(const char *fname, int eraseflg);
 extern int writefile(const char *fname, int r0, int c0, int rn, int cn);
 extern int yn_ask(const char *msg);
 extern struct abbrev *find_abbr(const char *abbrev, int len, struct abbrev **prev);
-extern struct colorpair *cpairs[8];
 extern struct enode *copye(struct enode *e, int Rdelta, int Cdelta,
                            int r1, int c1, int r2, int c2, int transpose);
 extern struct enode *new(int op, struct enode *a1, struct enode *a2);
@@ -499,7 +513,6 @@ extern void add_range(char *name, struct ent_ptr left, struct ent_ptr right,
 extern void addplugin(char *ext, char *plugin, char type);
 extern void backcol(int arg);
 extern void backrow(int arg);
-extern void change_color(int pair, struct enode *e);
 extern void checkbounds(int *rowp, int *colp);
 extern void clearent(struct ent *v);
 extern void clean_crange(void);
@@ -557,14 +570,12 @@ extern void hide_col(int arg);
 extern void hide_row(int arg);
 extern void hidecol(int arg);
 extern void hiderow(int arg);
-extern void initcolor(int colornum);
 extern void initkbd(void);
 extern void insertcol(int arg, int delta);
 extern void insertrow(int arg, int delta);
 extern void kbd_again(void);
 extern void label(struct ent *v, const char *s, int flushdir);
 extern void let(struct ent *v, struct enode *e);
-extern void list_colors(FILE *f);
 extern void list_ranges(FILE *f);
 extern void lock_cells(struct ent *v1, struct ent *v2);
 extern void markcell(void);
@@ -607,7 +618,6 @@ extern void valueize_area(int sr, int sc, int er, int ec);
 extern void write_abbrevs(FILE *f);
 extern void write_cells(FILE *f, int r0, int c0, int rn, int cn,
                         int dr, int dc);
-extern void write_colors(FILE *f, int indent);
 extern void write_cranges(FILE *f);
 extern void write_fd(FILE *f, int r0, int c0, int rn, int cn);
 extern void write_franges(FILE *f);
@@ -619,7 +629,6 @@ extern int yylex(void);
 extern int yyparse(void);
 extern int backup_file(char *path);
 extern void sc_set_locale(int set);
-extern void sc_setcolor(int set);
 
 extern int modflg;
 #if !defined(VMS) && !defined(MSDOS) && defined(CRYPT_PATH)

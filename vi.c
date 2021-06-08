@@ -1254,15 +1254,15 @@ void vi_interaction(void) {
                         CLEAR_LINE;
                         break;
                     }
-                    if ((c -= ('1' - 1)) < 1 || c > 8) {
+                    if ((c -= '0') < 1 || c > CPAIRS) {
                         error("Invalid color number.");
                         break;
                     }
                     CLEAR_LINE;
                     snprintf(line, sizeof line, "color %d = ", c);
                     linelim = strlen(line);
-                    if (cpairs[c - 1] && cpairs[c - 1]->expr) {
-                        decompile(cpairs[c - 1]->expr, 0);
+                    if (cpairs[c] && cpairs[c]->expr) {
+                        decompile(cpairs[c]->expr, 0);
                         edit_mode();
                     } else {
                         insert_mode();

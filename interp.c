@@ -1337,18 +1337,19 @@ void EvalAll(void) {
         error("Still changing after %d iterations", repct - 1);
 
     if (usecurses && color && has_colors()) {
-        for (pair = 0; pair < 8; pair++) {
+        for (pair = 1; pair <= CPAIRS; pair++) {
             cellerror = CELLOK;
             if (cpairs[pair] && cpairs[pair]->expr) {
                 v = (int)eval(cpairs[pair]->expr);
+                // XXX: should ignore value if cellerror
                 cpairs[pair]->fg = v & 7;
                 cpairs[pair]->bg = (v >> 3) & 7;
-                init_pair(pair + 1, cpairs[pair]->fg, cpairs[pair]->bg);
+                init_pair(pair, cpairs[pair]->fg, cpairs[pair]->bg);
             }
             /* Can't see to fix the problem if color 1 has an error, so
              * turn off color in that case.
              */
-            if (pair == 0 && cellerror) {
+            if (pair == 1 && cellerror) {
                 color = 0;
                 attron(COLOR_PAIR(0));
                 color_set(0, NULL);

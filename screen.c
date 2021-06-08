@@ -547,7 +547,7 @@ void update(int anychanged) {          /* did any cell really change in value? *
     lastendrow = strow + rows;
 
     /* where is the the cursor now? */
-    lastmy =  RESROW;
+    lastmy = RESROW;
     if (fr && strow >= fr->or_left->row) {
         if (strow < fr->ir_left->row)
             row = fr->or_left->row;
@@ -1115,8 +1115,7 @@ void yyerror(const char *err)
 struct termio tmio;
 #endif
 
-void startdisp(void)
-{
+void startdisp(void) {
 #ifdef sun
     int  fd;
     fd = dup(0);
@@ -1139,9 +1138,10 @@ void startdisp(void)
 #endif
         initscr();
         start_color();
-        for (i = 0; i < 8; i++)
+        for (i = 1; i <= CPAIRS; i++) {
             if (cpairs[i])
-                init_pair(i + 1, cpairs[i]->fg, cpairs[i]->bg);
+                init_pair(i, cpairs[i]->fg, cpairs[i]->bg);
+        }
         if (color && has_colors())
             bkgdset(COLOR_PAIR(1) | ' ');
 #ifdef sun
