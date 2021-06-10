@@ -134,6 +134,7 @@ static char putbuf[FBUFLEN];
 static int findfunc = '\0';
 static int findchar = 1;
 static int finddir = 0;
+static int numeric_field = 0; /* Started the line editing with a number */
 
 #ifdef NCURSES_MOUSE_VERSION
 static MEVENT mevent;
@@ -415,8 +416,9 @@ void vi_interaction(void) {
                               showtop ? "en" : "dis");
                         break;
                     case 'c':
+                        repaint_cursor(-showcell);
                         showcell = !showcell;
-                        repaint(lastmx, lastmy, fwidth[sc_lastcol], 0, 0);
+                        repaint_cursor(showcell);
                         error("Cell highlighting %sabled.",
                               showcell ? "en" : "dis");
                         --modflg;   /* negate the modflg++ */

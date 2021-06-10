@@ -27,8 +27,7 @@
     VMS_read_raw = 1;
 #endif
 
-#ifdef BROKENCURSES
-                /* nl/nonl bug fix */
+#ifdef BROKENCURSES    /* nl/nonl bug fix */
 #undef nl
 #undef nonl
 #define nl()     (_tty.sg_flags |= CRMOD, _pfast = _rawmode, stty(_tty_ch, &_tty))
@@ -41,9 +40,8 @@ char search_ind = ' ';
 
 static int lines, cols, rows;
 int lcols;
-int lastmx, lastmy; /* Screen address of the cursor */
-int sc_lastrow = -1;   /* Spreadsheet Row the cursor was in last */
-int sc_lastcol = -1;   /* Spreadsheet Column the cursor was in last */
+static int lastmx, lastmy; /* Screen address of the cursor */
+static int sc_lastrow, sc_lastcol; /* Spreadsheet row/col the cursor was in last */
 int lastendrow = -1;        /* Last bottom row of screen */
 static int lastftoprows = 0;       /* Rows in top of frame cursor was in last */
 static int lastfbottomrows = 0;    /* Rows in bottom of frame cursor was in last */
@@ -54,21 +52,38 @@ struct frange *lastfr = 0;     /* Last framed range we were in */
 static bool frTooLarge = 0; /* If set, either too many rows or too many columns
                         exist in frame to allow room for the scrolling
                         portion of the framed range */
+#ifdef RIGHT_CBUG
+static int wasforw = FALSE;  /* Causes screen to be redisplay if on lastcol */
+#endif
 int framerows;      /* Rows in current frame */
 int framecols;      /* Columns in current frame */
 int rescol = 4;     /* Columns reserved for row numbers */
 
-//# define error if (isatty(fileno(stdout)) && !move(1,0) && !clrtoeol()) printw
+static void repaint(int x, int y, int len, int attron, int attroff);
+
 void error(const char *fmt, ...) {
     char buf[256];
     va_list ap;
 
+    select_style(STYLE_CELL, 0);
     if (isatty(fileno(stdout)) && !move(1,0) && !clrtoeol()) {
         va_start(ap, fmt);
         // Prevent warning: format string is not a string literal [-Werror,-Wformat-nonliteral]
         ((int (*)(char *, size_t, const char *, va_list))vsnprintf)(buf, sizeof buf, fmt, ap);
         va_end(ap);
         addstr(buf);
+    }
+}
+
+void select_style(int n, int rev) {
+    if (rev) {
+        if (rev > 0)
+            standout();
+        else
+            standend();
+    }
+    if (color && has_colors()) {
+        color_set(n, NULL);
     }
 }
 
@@ -511,36 +526,18 @@ void update(int anychanged) {          /* did any cell really change in value? *
 
     /* Get rid of cursor standout on the cell at previous cursor position */
     if (!FullUpdate) {
-        if (showcell) {
-            p = *ATBL(tbl, sc_lastrow, sc_lastcol);
-            if (color && has_colors()) {
-                if ((cr = find_crange(sc_lastrow, sc_lastcol)))
-                    color_set(cr->r_color, NULL);
-                else
-                    color_set(1, NULL);
-                if (p) {
-                    if (colorneg && (p->flags & IS_VALID) && p->v < 0) {
-                        if (cr)
-                            color_set(((cr->r_color) % CPAIRS) + 1, NULL);
-                        else
-                            color_set(2, NULL);
-                    } else
-                    if (colorerr && p->cellerror)
-                        color_set(3, NULL);
-                }
-            }
-            repaint(lastmx, lastmy, fwidth[sc_lastcol], 0, A_STANDOUT);
-        }
+        repaint_cursor(-showcell);
 
+        // XXX: check this stuff
         move(lastmy, lastmx + fwidth[sc_lastcol]);
-
         if ((inch() & A_CHARTEXT) == '<')
             addch(under_cursor | (inch() & A_ATTRIBUTES));
 
-        repaint(lastmx, RESROW - 1, fwidth[sc_lastcol], A_STANDOUT, 0);
-        repaint(0, lastmy, rescol - 1, A_STANDOUT, 0);
-        if (color && has_colors())
-            color_set(1, NULL);
+        /* remove the frame cursor */
+        select_style(STYLE_FRAME, 0);
+        repaint(lastmx, RESROW - 1, fwidth[sc_lastcol], 0/*A_STANDOUT*/, A_COLOR);
+        repaint(0, lastmy, rescol - 1, 0/*A_STANDOUT*/, A_COLOR);
+        select_style(STYLE_CELL, 0);
     }
     sc_lastrow = currow;
     sc_lastcol = curcol;
@@ -575,13 +572,11 @@ void update(int anychanged) {          /* did any cell really change in value? *
         if (!col_hidden[col])
             lastmx += fwidth[col];
     }
-    if (color && has_colors())
-        color_set(1, NULL);
+    select_style(STYLE_CELL, 0);
 
     if (FullUpdate || standlast) {
         move(2, 0);
         clrtobot();
-        standout();
 
         /* display the row numbers */
         // XXX: this loop is a mess
@@ -595,18 +590,24 @@ void update(int anychanged) {          /* did any cell really change in value? *
             if (row_hidden[i])
                 continue;
             move(row, 0);
-            printw("%*d", rescol - 1, i);
+            if (i == currow)
+                select_style(STYLE_FRAME_CUR, 0);
+            else
+                select_style(STYLE_FRAME, 0);
+            printw("%-*d", rescol - 1, i);
             row++;
         }
 #ifdef RIGHT_CBUG
         if (wasforw) {
+            select_style(STYLE_CELL, 0);
             clearok(stdscr, TRUE);
             wasforw = 0;
         }
 #endif
         /* display the column headings */
+        select_style(STYLE_FRAME, 0);
         move(2, 0);
-        printw("%*s", rescol, " ");
+        printw("%*s", rescol, "");
 
         col = rescol;
         for (i = (fleftcols && stcol >= fr->or_left->col) ? fr->or_left->col : stcol;
@@ -622,6 +623,10 @@ void update(int anychanged) {          /* did any cell really change in value? *
                 i = fr->or_right->col - frightcols + 1;
             if (col_hidden[i])
                 continue;
+            if (i == curcol)
+                select_style(STYLE_FRAME_CUR, 0);
+            else
+                select_style(STYLE_FRAME, 0);
             move(2, col);
             colname = coltoa(i);
             len = strlen(colname);
@@ -637,7 +642,7 @@ void update(int anychanged) {          /* did any cell really change in value? *
             }
             col += width;
         }
-        standend();
+        select_style(STYLE_CELL, 0);
     }
 
     move(1, 0);
@@ -733,6 +738,7 @@ void update(int anychanged) {          /* did any cell really change in value? *
 
                 p = *ATBL(tbl, row, col);
 
+                select_style(STYLE_CELL, 0);
                 /*
                  * Set standout if:
                  *
@@ -754,23 +760,23 @@ void update(int anychanged) {          /* did any cell really change in value? *
                     || (shownote && p && (p->nrow >= 0)))
                 {
                     move(r, c);
-                    standout();
-                    if (color && has_colors() && (cr = find_crange(row, col)))
-                        color_set(cr->r_color, NULL);
+                    //standout();
+                    if ((cr = find_crange(row, col)))
+                        select_style(cr->r_color, 0);
+                    else
+                        select_style(STYLE_RANGE, 0);
                     standlast++;
                     if (!p) {     /* no cell, but standing out */
                         printw("%*s", fwidth[col], "");
-                        standend();
-                        if (color && has_colors())
-                            color_set(1, NULL);
+                        select_style(STYLE_CELL, -1);
                         continue;
                     } else
                         do_stand = 1;
                 } else
                     do_stand = 0;
 
-                if ((cr = find_crange(row, col)) && color && has_colors())
-                    color_set(cr->r_color, NULL);
+                if ((cr = find_crange(row, col)))
+                    select_style(cr->r_color, 0);
 
                 if (p && ((p->flags & IS_CHANGED) || FullUpdate || do_stand)) {
                     if (do_stand) {
@@ -785,8 +791,8 @@ void update(int anychanged) {          /* did any cell really change in value? *
                      */
 
                     if (p->cellerror) {
-                        if (color && colorerr && has_colors())
-                            color_set(3, NULL);
+                        if (colorerr)
+                            select_style(STYLE_ERROR, 0);
                         printw("%*.*s", fwidth[col], fwidth[col],
                                p->cellerror == CELLERROR ? "ERROR" : "INVALID");
                     } else
@@ -813,11 +819,11 @@ void update(int anychanged) {          /* did any cell really change in value? *
                                 (realfmt[col] >= 0 && realfmt[col] < COLFORMATS &&
                                  colformat[realfmt[col]]) ?
                                 colformat[realfmt[col]] : NULL;
-                            if (color && has_colors() && colorneg && p->v < 0) {
+                            if (colorneg && p->v < 0) {
                                 if (cr)
-                                    color_set(((cr->r_color) % CPAIRS) + 1, NULL);
+                                    select_style(((cr->r_color) % CPAIRS) + 1, 0);
                                 else
-                                    color_set(2, NULL);
+                                    select_style(STYLE_NEG, 0);
                             }
                             if (cfmt) {
                                 if (*cfmt == ctl('d')) {
@@ -843,14 +849,14 @@ void update(int anychanged) {          /* did any cell really change in value? *
                                             attr_t *attrp = &attr;
                                             short *curcolorp = &curcolor;
                                             attr_get(attrp, curcolorp, NULL);
-                                            color_set(4, NULL);
+                                            select_style(STYLE_NOTE, 0);
                                         }
 #endif
                                         addch('*');
                                         i++;
 #ifndef NO_ATTR_GET
-                                        if (!i && color && has_colors())
-                                            color_set(curcolor, NULL);
+                                        if (!i)
+                                            select_style(curcolor, 0);
 #endif
                                     }
                                     addch('*');
@@ -869,13 +875,12 @@ void update(int anychanged) {          /* did any cell really change in value? *
                                         attr_t *attrp = &attr;
                                         short *curcolorp = &curcolor;
                                         attr_get(attrp, curcolorp, NULL);
-                                        color_set(4, NULL);
+                                        select_style(STYLE_NOTE, 0);
                                     }
 #endif
                                     addch('*');
 #ifndef NO_ATTR_GET
-                                    if (color && has_colors())
-                                        color_set(curcolor, NULL);
+                                    select_style(curcolor, 0);
 #endif
                                 }
                                 addstr(field);
@@ -897,24 +902,22 @@ void update(int anychanged) {          /* did any cell really change in value? *
                                        row, col, &nextcol, mxcol, &fieldlen,
                                        r, c, fr, frightcols, flcols, frcols);
                         } else      /* repaint a blank cell: */
-                        if ((((do_stand || !FullUpdate) &&
-                              (p->flags & IS_CHANGED)) ||
-                             (color && has_colors() && cr && cr->r_color != 1)) &&
+                        if ((((do_stand || !FullUpdate) && (p->flags & IS_CHANGED)) ||
+                             (cr && cr->r_color != 1)) &&
                             !(p->flags & IS_VALID) && !p->label)
                         {
-                            printw("%*s", fwidth[col], " ");
+                            printw("%*s", fwidth[col], "");
                         }
                     } /* else */
                 } else
-                if (!p && color && has_colors() && cr && cr->r_color != 1) {
+                if (!p && cr && cr->r_color != 1) {
                     move(r, c);
-                    color_set(cr->r_color, NULL);
-                    printw("%*s", fwidth[col], " ");
+                    select_style(cr->r_color, 0);
+                    printw("%*s", fwidth[col], "");
                 }
-                if (color && has_colors())
-                    color_set(1, NULL);
+                select_style(STYLE_CELL, 0);
                 if (do_stand) {
-                    standend();
+                    //standend();
                     do_stand = 0;
                 }
             }
@@ -923,33 +926,17 @@ void update(int anychanged) {          /* did any cell really change in value? *
     }
 
     /* place 'cursor marker' */
-    if (showcell && (!showneed) && (!showexpr) && (!shownote)) {
-        move(lastmy, lastmx);
-        p = *ATBL(tbl, currow, curcol);
-        if (color && has_colors()) {
-            if ((cr = find_crange(currow, curcol)))
-                color_set(cr->r_color, NULL);
-            else
-                color_set(1, NULL);
-            if (p) {
-                if (colorneg && (p->flags & IS_VALID) && p->v < 0) {
-                    if (cr)
-                        color_set(((cr->r_color) % CPAIRS) + 1, NULL);
-                    else
-                        color_set(2, NULL);
-                } else if (colorerr && p->cellerror)
-                    color_set(3, NULL);
-            }
-        }
-        repaint(lastmx, lastmy, fwidth[sc_lastcol], A_STANDOUT, 0);
-        if (color && has_colors())
-            color_set(1, NULL);
+    if (showcell && !showneed && !showexpr && !shownote) {
+        repaint_cursor(showcell);
     }
 
-    repaint(lastmx, RESROW - 1, fwidth[sc_lastcol], 0, A_STANDOUT);
-    repaint(0, lastmy, rescol - 1, 0, A_STANDOUT);
+    /* highlite the frame cursor */
+    select_style(STYLE_FRAME_CUR, 0);
+    repaint(lastmx, RESROW - 1, fwidth[sc_lastcol], 0, A_COLOR | A_STANDOUT);
+    repaint(0, lastmy, rescol - 1, 0, A_COLOR | A_STANDOUT);
+    select_style(STYLE_CELL, 0);
 
-    move(lastmy, lastmx+fwidth[sc_lastcol]);
+    move(lastmy, lastmx + fwidth[sc_lastcol]);
     under_cursor = (inch() & A_CHARTEXT);
     if (!showcell)
         addch('<' | (inch() & A_ATTRIBUTES));
@@ -1060,8 +1047,7 @@ void update(int anychanged) {          /* did any cell really change in value? *
             move(lastmy, lastmx + fwidth[sc_lastcol]);
     }
 
-    if (color && has_colors())
-        color_set(1, NULL);
+    select_style(STYLE_CELL, 0);
 
     if (revmsg[0]) {
         move(0, 0);
@@ -1085,20 +1071,49 @@ void update(int anychanged) {          /* did any cell really change in value? *
 }
 
 /* redraw what is under the cursor from curses' idea of the screen */
-void repaint(int x, int y, int len, int attron, int attroff)
-{
+static void repaint(int x, int y, int len, int attron, int attroff) {
     while (len-- > 0) {
         move(y, x);
-        addch((inch() | attron) & ~attroff);
+        addch((inch() & ~attroff) | attron);
         x++;
+    }
+}
+
+void repaint_cursor(int set) {
+    int row = sc_lastrow;
+    int col = sc_lastcol;
+    int width = fwidth[col];
+    struct ent *p;
+    struct crange *cr;
+    int style = STYLE_CELL;
+
+    if (set) {
+        p = *ATBL(tbl, row, col);
+        if ((cr = find_crange(row, col)))
+            style = cr->r_color;
+        if (p) {
+            if (colorneg && (p->flags & IS_VALID) && p->v < 0) {
+                if (cr)
+                    style = cr->r_color % CPAIRS + 1;
+                else
+                    style = STYLE_NEG;
+            } else
+            if (colorerr && p->cellerror)
+                style = STYLE_ERROR;
+        }
+        select_style(style, 0);
+
+        if (set < 0)
+            repaint(lastmx, lastmy, width, 0, A_STANDOUT);
+        else
+            repaint(lastmx, lastmy, width, A_STANDOUT, 0);
     }
 }
 
 int seenerr;
 
 /* error routine for yacc (gram.y) */
-void yyerror(const char *err)
-{
+void yyerror(const char *err) {
     if (usecurses) {
         if (seenerr) return;
         seenerr++;
@@ -1218,8 +1233,7 @@ void goraw(void) {
     }
 }
 
-void deraw(int ClearLastLine)
-{
+void deraw(int ClearLastLine) {
     if (usecurses) {
         if (ClearLastLine) {
             if (color && has_colors())
@@ -1250,8 +1264,7 @@ void goraw(void) {
 }
 
 /* clean up curses */
-void deraw(int ClearLastLine)
-{
+void deraw(int ClearLastLine) {
     if (usecurses) {
         if (ClearLastLine) {
             if (color && has_colors())
@@ -1292,4 +1305,19 @@ void mouseoff(void) {
 #if NCURSES_MOUSE_VERSION >= 2
     mousemask(0, NULL);
 #endif
+}
+
+void sc_setcolor(int set) {
+    color = set;
+    if (usecurses && has_colors()) {
+        if (set) {
+            select_style(STYLE_CELL, 0);
+            bkgd(COLOR_PAIR(1) | ' ');
+        } else {
+            //select_style(STYLE_NONE, 0);
+            color_set(0, NULL);
+            bkgd(COLOR_PAIR(0) | ' ');
+        }
+        FullUpdate++;
+    }
 }

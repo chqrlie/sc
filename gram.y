@@ -702,10 +702,7 @@ command:        S_LET var_or_range '=' e
                                               add_frange(cfr->or_left,
                                                          cfr->or_right,
                                                          NULL, NULL, 0, 0, 0, 0); }
-        |       S_COLOR NUMBER '='      { if ($2 > 0 && $2 < 9)
-                                              initcolor($2);
-                                          else
-                                              error("Invalid color number"); }
+        |       S_COLOR NUMBER '='      { initcolor($2); }
         |       S_COLOR NUMBER '=' e    { change_color($2, $4); }
         |       S_COLOR range NUMBER    { add_crange($2.left.vp, $2.right.vp, $3); }
         |       S_SET setlist           { modflg++; }

@@ -1,4 +1,3 @@
-
 /*      SC      A Spreadsheet Calculator
  *              Color manipulation routines
  *
@@ -23,77 +22,64 @@ int are_colors(void) {
     return color_base != NULL;
 }
 
-void initcolor(int colornum) {
-    if (!colornum) {
-        int i;
+struct rgb_color {
+    unsigned char r, g, b, a;
+};
 
-        // XXX: why allocate these instead of using an array of structs?
-        for (i = 1; i <= CPAIRS; i++)
-            cpairs[i] = scxmalloc(sizeof(struct colorpair));
-    }
+struct sc_style {
+    unsigned short fg, bg;
+    unsigned char so, i, b, u;
+    struct rgb_color fg_rgb, bg_rgb;
+#define STYLE_DEF(fg, bg) { fg, bg, 0, 0, 0, 0, { 0, 0, 0, 0 }, { 0, 0, 0, 0 }}
+};
 
-    /* default colors */
-    if (!colornum || colornum == 1) {
-        cpairs[1]->fg = COLOR_WHITE;
-        cpairs[1]->bg = COLOR_BLUE;
-        cpairs[1]->expr = NULL;
-        init_pair(1, cpairs[1]->fg, cpairs[1]->bg);
-    }
+static struct sc_style const default_style[1+CPAIRS] = {
+    STYLE_DEF(COLOR_WHITE, COLOR_BLACK),  /* 0: unused */
+#if 0  // default colors from SC */
+    STYLE_DEF(COLOR_WHITE, COLOR_BLUE),    /* 1: default cell color */
+    STYLE_DEF(COLOR_RED, COLOR_WHITE),     /* 2: negative numbers */
+    STYLE_DEF(COLOR_WHITE, COLOR_RED),     /* 3: cells with errors */
+    STYLE_DEF(COLOR_BLACK, COLOR_YELLOW),  /* 4: '*' marking cells with attached notes */
+    STYLE_DEF(COLOR_BLACK, COLOR_CYAN),    /* 5: the row and column number frame */
+    STYLE_DEF(COLOR_RED, COLOR_CYAN),      /* 6: the current col and row frame */
+    STYLE_DEF(COLOR_WHITE, COLOR_BLACK),
+    STYLE_DEF(COLOR_RED, COLOR_BLACK),
+#else  // default colors from 1-2-3 */
+    STYLE_DEF(COLOR_WHITE, COLOR_BLACK),   /* 1: default cell color */
+    STYLE_DEF(COLOR_RED, COLOR_BLACK),     /* 2: negative numbers */
+    STYLE_DEF(COLOR_WHITE, COLOR_RED),     /* 3: cells with errors */
+    STYLE_DEF(COLOR_YELLOW, COLOR_BLACK),  /* 4: '*' marking cells with attached notes */
+    STYLE_DEF(COLOR_BLACK, COLOR_CYAN),    /* 5: the row and column number frame */
+    STYLE_DEF(COLOR_WHITE, COLOR_BLUE),    /* 6: the current col and row frame */
+    STYLE_DEF(COLOR_WHITE, COLOR_BLACK),
+    STYLE_DEF(COLOR_RED, COLOR_BLACK),
+#endif
+};
 
-    /* default for negative numbers */
-    if (!colornum || colornum == 2) {
-        cpairs[2]->fg = COLOR_RED;
-        cpairs[2]->bg = COLOR_WHITE;
-        cpairs[2]->expr = NULL;
-        init_pair(2, cpairs[2]->fg, cpairs[2]->bg);
-    }
-
-    /* default for cells with errors */
-    if (!colornum || colornum == 3) {
-        cpairs[3]->fg = COLOR_WHITE;
-        cpairs[3]->bg = COLOR_RED;
-        cpairs[3]->expr = NULL;
-        init_pair(3, cpairs[3]->fg, cpairs[3]->bg);
-    }
-
-    /* default for '*' marking cells with attached notes */
-    if (!colornum || colornum == 4) {
-        cpairs[4]->fg = COLOR_BLACK;
-        cpairs[4]->bg = COLOR_YELLOW;
-        cpairs[4]->expr = NULL;
-        init_pair(4, cpairs[4]->fg, cpairs[4]->bg);
-    }
-
-    if (!colornum || colornum == 5) {
-        cpairs[5]->fg = COLOR_BLACK;
-        cpairs[5]->bg = COLOR_CYAN;
-        cpairs[5]->expr = NULL;
-        init_pair(5, cpairs[5]->fg, cpairs[5]->bg);
-    }
-
-    if (!colornum || colornum == 6) {
-        cpairs[6]->fg = COLOR_RED;
-        cpairs[6]->bg = COLOR_CYAN;
-        cpairs[6]->expr = NULL;
-        init_pair(6, cpairs[6]->fg, cpairs[6]->bg);
-    }
-
-    if (!colornum || colornum == 7) {
-        cpairs[7]->fg = COLOR_WHITE;
-        cpairs[7]->bg = COLOR_BLACK;
-        cpairs[7]->expr = NULL;
-        init_pair(7, cpairs[7]->fg, cpairs[7]->bg);
-    }
-
-    if (!colornum || colornum == 8) {
-        cpairs[8]->fg = COLOR_RED;
-        cpairs[8]->bg = COLOR_BLACK;
-        cpairs[8]->expr = NULL;
-        init_pair(8, cpairs[8]->fg, cpairs[8]->bg);
-    }
-
+int init_style(int n, int fg, int bg, struct enode *expr) {
+    if (n < 1 || n > CPAIRS)
+        return -1;
+    if (!cpairs[n])
+        cpairs[n] = scxmalloc(sizeof(struct colorpair));
+    cpairs[n]->fg = fg;
+    cpairs[n]->bg = bg;
+    cpairs[n]->expr = expr;
     if (color && has_colors())
-        color_set(1, NULL);
+        init_pair(n, fg, bg);
+    return 0;
+}
+
+void initcolor(int colornum) {
+    int i;
+    if (colornum < 0 || colornum > CPAIRS) {
+        error("Invalid color number %d", colornum);
+        return;
+    }
+    for (i = 1; i <= CPAIRS; i++) {
+        if (!colornum || i == colornum)
+            init_style(i, default_style[i].fg, default_style[i].bg, NULL);
+    }
+    select_style(STYLE_CELL, 0);
 }
 
 void change_color(int pair, struct enode *e) {
@@ -105,15 +91,7 @@ void change_color(int pair, struct enode *e) {
     }
 
     v = (int)eval(e);
-
-    if (!cpairs[pair])
-        cpairs[pair] = scxmalloc(sizeof(struct colorpair));
-    cpairs[pair]->fg = v & 7;
-    cpairs[pair]->bg = (v >> 3) & 7;
-    cpairs[pair]->expr = e;
-    if (color && has_colors())
-        init_pair(pair, cpairs[pair]->fg, cpairs[pair]->bg);
-
+    init_style(pair, v & 7, (v >> 3) & 7, e);
     modflg++;
     FullUpdate++;
 }
@@ -291,19 +269,5 @@ void fix_colors(int row1, int col1, int row2, int col2, int delta1, int delta2) 
                 cr->r_right = lookat(r2, c2);
             }
         }
-    }
-}
-
-void sc_setcolor(int set) {
-    color = set;
-    if (usecurses && has_colors()) {
-        if (set) {
-            color_set(1, NULL);
-            bkgd(COLOR_PAIR(1) | ' ');
-        } else {
-            color_set(0, NULL);
-            bkgd(COLOR_PAIR(0) | ' ');
-        }
-        FullUpdate++;
     }
 }

@@ -65,6 +65,9 @@ int extfunc  = 0;   /* Enable/disable external functions */
 int loading = 0;    /* Set when readfile() is active */
 int gmyrow, gmycol; /* globals used to implement @myrow, @mycol cmds */
 static int rowoffset = 0, coloffset = 0;   /* row & col offsets for range functions */
+int propagation = 10;   /* max number of times to try calculation */
+static int repct = 1;   /* Make repct a global variable so that the
+                           function @numiter can access it */
 
 /* a linked list of free [struct enodes]'s, uses .e.o.left as the pointer */
 struct enode *freeenodes = NULL;
@@ -1312,10 +1315,6 @@ char *seval(struct enode *se)
  * evaluation count expires.
  */
 
-int propagation = 10;   /* max number of times to try calculation */
-int repct = 1;          /* Make repct a global variable so that the
-                                function @numiter can access it */
-
 void setiterations(int i)
 {
     if (i < 1) {
@@ -1342,9 +1341,7 @@ void EvalAll(void) {
             if (cpairs[pair] && cpairs[pair]->expr) {
                 v = (int)eval(cpairs[pair]->expr);
                 // XXX: should ignore value if cellerror
-                cpairs[pair]->fg = v & 7;
-                cpairs[pair]->bg = (v >> 3) & 7;
-                init_pair(pair, cpairs[pair]->fg, cpairs[pair]->bg);
+                init_style(pair, v & 7, (v >> 3) & 7, cpairs[pair]->expr);
             }
             /* Can't see to fix the problem if color 1 has an error, so
              * turn off color in that case.

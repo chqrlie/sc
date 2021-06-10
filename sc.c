@@ -76,9 +76,6 @@ int scrc = 0;
 int showsc, showsr;     /* Starting cell for highlighted range */
 int usecurses = TRUE;   /* Use curses unless piping/redirection or using -q */
 int brokenpipe = FALSE; /* Set to true if SIGPIPE is received */
-#ifdef RIGHT_CBUG
-int wasforw = FALSE;
-#endif
 
 char curfile[PATHLEN];
 char revmsg[80];
@@ -113,10 +110,8 @@ int optimize  = 0;     /* Causes numeric expressions to be optimized */
 int tbl_style = 0;     /* headers for T command output */
 int rndtoeven = 0;
 int color     = 1;     /* Use color */ // XXX: should rename as use_color
-int colorneg  = 1;     /* Increment color number for cells with negative
-                          numbers */
+int colorneg  = 1;     /* Increment color number for cells with negative numbers */
 int colorerr  = 1;     /* Color cells with errors with color 3 */
-int numeric_field = 0; /* Started the line editing with a number */
 int craction = 0;      /* 1 for down, 2 for right */
 int pagesize = 0;      /* If nonzero, use instead of 1/2 screen height */
 int dobackups;         /* Copy current database file to backup file      */
@@ -136,7 +131,7 @@ int VMS_read_raw = 0;
 const char *progname;
 int Vopt;
 #ifdef TRACE
-FILE *ftrace;
+static FILE *ftrace;
 #endif
 
 int main(int argc, char **argv) {

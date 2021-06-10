@@ -420,9 +420,7 @@ extern int brokenpipe;          /* Set to true if SIGPIPE is received */
 extern char dpoint;     /* country-dependent decimal point from locale */
 extern char thsep;      /* country-dependent thousands separator from locale */
 extern char histfile[PATHLEN];
-extern int lastmx, lastmy;      /* Screen address of the cursor */
-extern int sc_lastrow;          /* Spreadsheet Row the cursor was in last */
-extern int sc_lastcol, lcols;   /* Spreadsheet Column the cursor was in last */
+extern int lcols;
 extern int lastendrow;          /* Last bottom row of screen */
 extern struct frange *lastfr;   /* Last framed range we were in */
 extern int framerows;           /* Rows in current frame */
@@ -458,6 +456,9 @@ extern void sc_setcolor(int set);
 #define STYLE_NOTE      4
 #define STYLE_FRAME     5
 #define STYLE_FRAME_CUR 6
+#define STYLE_RANGE     5
+extern int init_style(int n, int fg, int bg, struct enode *expr);
+extern void select_style(int style, int rev);
 
 extern FILE *openfile(char *fname, size_t fnamesiz, int *rpid, int *rfd);
 extern char *findhome(char *fname, size_t fnamesiz);
@@ -649,7 +650,6 @@ extern int scrc;
 extern double prescale;
 extern int extfunc;
 extern int propagation;
-extern int repct;
 extern int calc_order;
 extern int autocalc;
 extern int autolabel;
@@ -666,13 +666,8 @@ extern int braille;
 extern int braillealt;
 extern int dobackups;
 extern int loading;
-extern int getrcqual;
 extern int tbl_style;
 extern int rndtoeven;
-#ifdef TRACE
-extern FILE *ftrace;
-#endif
-extern int numeric_field;
 extern int craction;
 extern int pagesize;  /* If nonzero, use instead of 1/2 screen height */
 extern int rowlimit;
@@ -682,9 +677,6 @@ extern char revmsg[80];
 extern int showneed;   /* Causes cells needing values to be highlighted */
 extern int showexpr;   /* Causes cell exprs to be displayed, highlighted */
 extern int shownote;   /* Causes cells with attached notes to be highlighted */
-#ifdef RIGHT_CBUG
-extern int wasforw;    /* Causes screen to be redisplay if on lastcol */
-#endif
 extern struct go_save gs;
 #ifdef VMS
 extern int VMS_read_raw;   /*sigh*/
@@ -704,7 +696,7 @@ extern void doeval(struct enode *, char *, int, int, int);
 extern void getrange(char *, int);
 extern void getframe(int);
 extern void add_abbr(char *);
-extern void repaint(int, int, int, int, int);
+extern void repaint_cursor(int set);
 extern void update(int);
 #ifdef SIGVOID
 #define sigret_t void

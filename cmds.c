@@ -2854,11 +2854,11 @@ void erasedb(void) {
     rowlimit = collimit = -1;
     qbuf = 0;
 
-    autocalc = showcell = showtop = 1;
-    autoinsert = autowrap = optimize = numeric = extfunc = color = colorneg = colorerr = cslop = 0;
+    autocalc = showcell = showtop = color = colorneg = colorerr = 1;
+    autoinsert = autowrap = optimize = numeric = extfunc = cslop = 0;
     currow = curcol = strow = stcol = 0;
-    if (usecurses && has_colors())
-        color_set(0, NULL);
+    if (usecurses)
+        select_style(STYLE_NONE, 0);
     /* unset all marks */
     for (c = 1; c < 37; c++)
         savedrow[c] = savedcol[c] = savedstrow[c] = savedstcol[c] = -1;
