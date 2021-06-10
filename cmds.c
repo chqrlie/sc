@@ -157,8 +157,7 @@ void dupcol(void) {
 /* Insert 'arg' rows.  The row(s) will be inserted before currow if delta
  * is 0; after if it is 1.
  */
-void insertrow(int arg, int delta)
-{
+void insertrow(int arg, int delta) {
     int r, c, i;
     struct ent **tmprow;
     int lim = maxrow - currow + 1;
@@ -270,8 +269,7 @@ void insertrow(int arg, int delta)
 /* Insert 'arg' cols.  The col(s) will be inserted before curcol if delta
  * is 0; after if it is 1.
  */
-void insertcol(int arg, int delta)
-{
+void insertcol(int arg, int delta) {
     int r, c;
     struct ent **pp;
     int lim = maxcol - curcol - delta + 1;
@@ -349,8 +347,7 @@ void insertcol(int arg, int delta)
 }
 
 /* delete 'arg' rows starting at currow (deletes from currow downward) */
-void deleterow(int arg)
-{
+void deleterow(int arg) {
     int i;
     int rs = maxrow - currow + 1;
     struct frange *fr;
@@ -440,6 +437,21 @@ void deleterow(int arg)
             deldata2(obuf);
         }
     }
+}
+
+void deleterows(int r1, int r2) {
+    int r = currow, a;
+    if (r1 < r2) {
+        currow = r1;
+        a = r2 - r1 + 1;
+    } else {
+        currow = r2;
+        a = r1 - r2 + 1;
+    }
+    deleterow(a);
+    currow = r < currow ? r :
+        r < currow + a ? currow :
+        r - a;
 }
 
 static struct ent *deldata1(void) {
@@ -544,6 +556,19 @@ void yankrow(int arg) {
     delbuffmt[DELBUFSIZE - 10] = delbuffmt[dbidx];
 }
 
+void yankrows(int r1, int r2) {
+    int r = currow, a;
+    if (r1 < r2) {
+        currow = r1;
+        a = r2 - r1 + 1;
+    } else {
+        currow = r2;
+        a = r1 - r2 + 1;
+    }
+    yankrow(a);
+    currow = r;
+}
+
 void yankcol(int arg) {
     int cs = maxcol - curcol + 1;
     int i, qtmp;
@@ -589,6 +614,19 @@ void yankcol(int arg) {
     qbuf = 0;
     delbuf[DELBUFSIZE - 10] = delbuf[dbidx];
     delbuffmt[DELBUFSIZE - 10] = delbuffmt[dbidx];
+}
+
+void yankcols(int c1, int c2) {
+    int c = curcol, a;
+    if (c1 < c2) {
+        curcol = c1;
+        a = c2 - c1 + 1;
+    } else {
+        curcol = c2;
+        a = c1 - c2 + 1;
+    }
+    yankcol(a);
+    curcol = c;
 }
 
 /* ignorelock is used when sorting so that locked cells can still be sorted */
@@ -756,6 +794,7 @@ void valueize_area(int sr, int sc, int er, int ec) {
             }
         }
     }
+    modflg++;  // XXX: should be done only upon modification
 }
 
 void pullcells(int to_insert) {
@@ -1208,6 +1247,21 @@ void closecol(int arg) {
     modflg++;
 }
 
+void deletecols(int c1, int c2) {
+    int c = curcol, a;
+    if (c1 < c2) {
+        curcol = c1;
+        a = c2 - c1 + 1;
+    } else {
+        curcol = c2;
+        a = c1 - c2 + 1;
+    }
+    closecol(a);
+    curcol = c < curcol ? c :
+        c < curcol + a ? curcol :
+        c - a;
+}
+
 void doend(int rowinc, int colinc) {
     struct ent *p;
     int r, c;
@@ -1412,8 +1466,7 @@ void center(int sr, int sc, int er, int ec) {
     }
 }
 
-void print_options(FILE *f)
-{
+void print_options(FILE *f) {
     if (autocalc &&
         !autoinsert &&
         !autowrap &&
@@ -1487,8 +1540,7 @@ void print_options(FILE *f)
     fprintf(f, "\n");
 }
 
-void printfile(char *fname, int r0, int c0, int rn, int cn)
-{
+void printfile(char *fname, int r0, int c0, int rn, int cn) {
     FILE *f;
     static char *pline = NULL;          /* only malloc once, malloc is slow */
     static unsigned fbufs_allocated = 0;
@@ -1724,8 +1776,7 @@ void printfile(char *fname, int r0, int c0, int rn, int cn)
     if (fname) closefile(f, pid, 0);
 }
 
-void tblprintfile(char *fname, int r0, int c0, int rn, int cn)
-{
+void tblprintfile(char *fname, int r0, int c0, int rn, int cn) {
     FILE *f;
     int pid;
     long namelen;
@@ -2097,17 +2148,30 @@ struct enode *copye(struct enode *e, int Rdelta, int Cdelta, int r1, int c1,
                 break;
         }
         switch (ret->op) {
-            case SUM:
-            case PROD:
-            case AVG:
-            case COUNT:
-            case STDDEV:
-            case MAX:
-            case MIN:
-                range = temprange;
+        case SUM:
+        case PROD:
+        case AVG:
+        case COUNT:
+        case STDDEV:
+        case MAX:
+        case MIN:
+            range = temprange;
         }
     }
     return ret;
+}
+
+void docopy(void) {
+    if (showrange) {
+        showrange = 0;
+        copy(lookat(showsr, showsc),
+             lookat(currow, curcol),
+             NULL, NULL);
+    } else {
+        copy(lookat(currow, curcol),
+             lookat(currow, curcol),
+             NULL, NULL);
+    }
 }
 
 /*
@@ -2135,8 +2199,7 @@ void sync_refs(void) {
     }
 }
 
-void syncref(struct enode *e)
-{
+void syncref(struct enode *e) {
     if (e == NULL)
         return;
     else if (e->op & REDUCE) {
@@ -2185,9 +2248,23 @@ void hiderow(int arg) {
         row_hidden[r1++] = 1;
 }
 
+void hiderows(int r1, int r2) {
+    int r = currow, a;
+    if (r1 < r2) {
+        currow = r1;
+        a = r2 - r1 + 1;
+    } else {
+        currow = r2;
+        a = r1 - r2 + 1;
+    }
+    hiderow(a);
+    currow = r < currow ? r :
+        r < currow + a ? currow :
+        r - a;
+}
+
 /* mark a column as hidden */
-void hidecol(int arg)
-{
+void hidecol(int arg) {
     int c1 = curcol;
     int c2 = c1 + arg - 1;
     if (c1 < 0 || c1 > c2) {
@@ -2206,9 +2283,43 @@ void hidecol(int arg)
         col_hidden[c1++] = TRUE;
 }
 
+void hidecols(int c1, int c2) {
+    int c = curcol, a;
+    if (c1 < c2) {
+        curcol = c1;
+        a = c2 - c1 + 1;
+    } else {
+        curcol = c2;
+        a = c1 - c2 + 1;
+    }
+    hidecol(a);
+    curcol = c < curcol ? c :
+        c < curcol + a ? curcol : c - a;
+}
+
+void dohide(void) {
+    int a;
+    if (showrange == SHOWROWS) {
+        if (showsr < currow) {
+            int r = currow;
+            currow = showsr;
+            showsr = r;
+        }
+        a = showsr - currow + 1;
+        hiderow(a);
+    } else if (showrange == SHOWCOLS) {
+        if (showsc < curcol) {
+            int c = curcol;
+            curcol = showsc;
+            showsc = c;
+        }
+        a = showsc - curcol + 1;
+        hidecol(a);
+    }
+}
+
 /* mark a row as not-hidden */
-void showrow(int r1, int r2)
-{
+void showrow(int r1, int r2) {
     if (r1 < 0 || r1 > r2) {
         error ("Invalid range");
         return;
@@ -2223,8 +2334,7 @@ void showrow(int r1, int r2)
 }
 
 /* mark a column as not-hidden */
-void showcol(int c1, int c2)
-{
+void showcol(int c1, int c2) {
     if (c1 < 0 || c1 > c2) {
         error ("Invalid range");
         return;
@@ -2239,8 +2349,7 @@ void showcol(int c1, int c2)
 }
 
 /* Open the input or output file, setting up a pipe if needed */
-FILE *openfile(char *fname, size_t fnamesiz, int *rpid, int *rfd)
-{
+FILE *openfile(char *fname, size_t fnamesiz, int *rpid, int *rfd) {
     int pipefd[4];
     int pid;
     FILE *f;
@@ -2316,8 +2425,7 @@ FILE *openfile(char *fname, size_t fnamesiz, int *rpid, int *rfd)
 }
 
 /* close a file opened by openfile(), if process wait for return */
-void closefile(FILE *f, int pid, int rfd)
-{
+void closefile(FILE *f, int pid, int rfd) {
     int temp;
 
     if (fclose(f) == EOF) {
@@ -2410,8 +2518,7 @@ void copyent(struct ent *n, struct ent *p, int dr, int dc,
  * r(ead) or w(rite)
  */
 
-void addplugin(char *ext, char *plugin, char type)
-{
+void addplugin(char *ext, char *plugin, char type) {
     struct impexfilt *fp;
     char mesg[PATHLEN];
 
@@ -2435,8 +2542,7 @@ void addplugin(char *ext, char *plugin, char type)
     fp->next = NULL;
 }
 
-char *findplugin(char *ext, char type)
-{
+char *findplugin(char *ext, char type) {
     struct impexfilt *fp;
 
     fp = filt;
@@ -2454,8 +2560,7 @@ char *findplugin(char *ext, char type)
 }
 #endif
 
-void write_fd(FILE *f, int r0, int c0, int rn, int cn)
-{
+void write_fd(FILE *f, int r0, int c0, int rn, int cn) {
     int r, c;
 
     fprintf(f, "# This data file was generated by the Spreadsheet ");
@@ -2514,8 +2619,7 @@ void write_fd(FILE *f, int r0, int c0, int rn, int cn)
     fprintf(f, "goto %s %s\n", v_name(currow, curcol), v_name(strow, stcol));
 }
 
-void write_cells(FILE *f, int r0, int c0, int rn, int cn, int dr, int dc)
-{
+void write_cells(FILE *f, int r0, int c0, int rn, int cn, int dr, int dc) {
     int r, c, mf;
     int rs = 0;
     int cs = 0;
@@ -2564,8 +2668,7 @@ void write_cells(FILE *f, int r0, int c0, int rn, int cn, int dr, int dc)
     modflg = mf;
 }
 
-int writefile(const char *fname, int r0, int c0, int rn, int cn)
-{
+int writefile(const char *fname, int r0, int c0, int rn, int cn) {
     FILE *f;
     char save[PATHLEN];
     char tfname[PATHLEN];
@@ -2901,8 +3004,7 @@ void erasedb(void) {
 }
 
 /* moves curcol back one displayed column */
-void backcol(int arg)
-{
+void backcol(int arg) {
     while (--arg >= 0) {
         if (curcol)
             curcol--;
@@ -2916,8 +3018,7 @@ void backcol(int arg)
 }
 
 /* moves curcol forward one displayed column */
-void forwcol(int arg)
-{
+void forwcol(int arg) {
     while (--arg >= 0) {
         if (curcol < maxcols - 1)
             curcol++;
@@ -2934,8 +3035,7 @@ void forwcol(int arg)
 }
 
 /* moves currow forward one displayed row */
-void forwrow(int arg)
-{
+void forwrow(int arg) {
     while (--arg >= 0) {
         if (currow < maxrows - 1)
             currow++;
@@ -2952,8 +3052,7 @@ void forwrow(int arg)
 }
 
 /* moves currow backward one displayed row */
-void backrow(int arg)
-{
+void backrow(int arg) {
     while (--arg>=0) {
         if (currow)
             currow--;
@@ -2968,8 +3067,7 @@ void backrow(int arg)
     colsinrange = fwidth[curcol];
 }
 
-void markcell(void)
-{
+void markcell(void) {
     int c;
 
     error("Mark cell:");
@@ -2988,8 +3086,7 @@ void markcell(void)
     savedstcol[c] = stcol;
 }
 
-void dotick(int tick)
-{
+void dotick(int tick) {
     int c;
 
     remember(0);
@@ -3146,8 +3243,7 @@ void showstring(char *string,        /* to display */
     *fieldlenp = fieldlen;
 }
 
-int etype(struct enode *e)
-{
+int etype(struct enode *e) {
     if (e == NULL)
         return NUM;
     switch (e->op) {
@@ -3393,4 +3489,53 @@ void sc_set_locale(int set) {
         error("Locale support not available");
 #endif
     }
+}
+
+int doplugin(char *str) {
+    snprintf(line, sizeof line, "|%s", str);
+    scxfree(str);
+    return readfile(line, 0);
+}
+
+int doreadfile(char *str, int eraseflg) {
+    int res = readfile(str, eraseflg);
+    scxfree(str);
+    return res;
+}
+
+void domdir(char *str) {
+    scxfree(mdir);
+    mdir = NULL;
+    // XXX: memory leak
+    if (strlen(str))
+        mdir = str;
+    modflg++;
+}
+
+void doautorun(char *str) {
+    scxfree(autorun);
+    autorun = NULL;
+    // XXX: memory leak
+    if (strlen(str))
+        autorun = str;
+    modflg++;
+}
+
+void dofkey(int n, char *str) {
+    if (n > 0 && n <= FKEYS) {
+        scxfree(fkey[n - 1]);
+        fkey[n - 1] = NULL;
+        // XXX: memory leak
+        if (strlen(str))
+            fkey[n - 1] = str;
+        modflg++;
+    } else {
+        error("Invalid function key");
+        // XXX: memory leak
+    }
+}
+
+void dohistfile(char *str) {
+    strlcpy(histfile, str, sizeof histfile);
+    scxfree(str);
 }

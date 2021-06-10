@@ -1050,7 +1050,6 @@ void vi_interaction(void) {
                             } else
                                 valueize_area(0, curcol,
                                               maxrow, curcol + uarg - 1);
-                            modflg++;
                             break;
 
                         case 'Z':
@@ -3649,7 +3648,6 @@ static int get_rcqual(int ch) {
 
     case 'v':       if (ch == 'v') {
                         valueize_area(currow, curcol, currow, curcol);
-                        modflg++;
                         return ESC;
                     } else
                         return 0;

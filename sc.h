@@ -520,10 +520,13 @@ extern void clean_crange(void);
 extern void clean_frange(void);
 extern void clean_range(void);
 extern void closecol(int arg);
+extern void deletecols(int c1, int c2);
 extern void closefile(FILE *f, int pid, int rfd);
 extern void closerow(int r, int numrow);
+extern void deleterows(int r1, int r2);
 extern void colshow_op(void);
 extern void copy(struct ent *dv1, struct ent *dv2, struct ent *v1, struct ent *v2);
+extern void docopy(void);
 extern void copyent(struct ent *n, struct ent *p,
                     int dr, int dc, int r1, int c1, int r2, int c2, int transpose);
 extern void decompile(struct enode *e, int priority);
@@ -538,6 +541,12 @@ extern void duprow(void);
 extern void doquery(char *s, char *data, int fd);
 extern void dostat(int fd);
 extern void dotick(int tick);
+extern int doplugin(char *str); // frees str
+extern int doreadfile(char *fname, int eraseflg); // frees fname
+extern void domdir(char *str); // frees str
+extern void doautorun(char *str); // frees str
+extern void dofkey(int n, char *str); // frees str
+extern void dohistfile(char *str); // frees str
 extern void editexp(int row, int col);
 extern void editfmt(int row, int col);
 extern void edits(int row, int col);
@@ -567,15 +576,19 @@ extern void getstring(int r0, int c0, int rn, int cn, int fd);
 extern void go_last(void);
 extern void goraw(void);
 extern void help(void);
+extern void dohide(void);
 extern void hide_col(int arg);
-extern void hide_row(int arg);
 extern void hidecol(int arg);
+extern void hidecols(int c1, int c2);
+extern void hide_row(int arg);
 extern void hiderow(int arg);
+extern void hiderows(int c1, int c2);
 extern void initkbd(void);
 extern void insertcol(int arg, int delta);
 extern void insertrow(int arg, int delta);
 extern void kbd_again(void);
 extern void label(struct ent *v, const char *s, int flushdir);
+extern void unlet(struct ent *v);
 extern void let(struct ent *v, struct enode *e);
 extern void list_ranges(FILE *f);
 extern void lock_cells(struct ent *v1, struct ent *v2);
@@ -687,7 +700,9 @@ extern void center(int, int, int, int);
 extern void rjustify(int, int, int, int);
 extern void ljustify(int, int, int, int);
 extern void yankcol(int);
+extern void yankcols(int c1, int c2);
 extern void yankrow(int);
+extern void yankrows(int r1, int r2);
 extern void list_frames(FILE *);
 extern void yankr(struct ent *, struct ent *);
 extern void dogetkey(int fd);
