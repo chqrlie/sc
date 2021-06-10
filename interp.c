@@ -2332,38 +2332,6 @@ void format_cell(struct ent *v1, struct ent *v2, char *s) {
     }
 }
 
-void hide_row(int a) {
-    if (a < 0) {
-        error("Invalid Range");
-        return;
-    }
-    if (a >= maxrows - 1) {
-        if (!growtbl(GROWROW, a + 1, 0)) {
-            error("You can't hide the last row");
-            return;
-        }
-    }
-    FullUpdate++;
-    row_hidden[a] = TRUE;
-    // XXX: update currow?
-}
-
-void hide_col(int a) {
-    if (a < 0) {
-        error("Invalid Range");
-        return;
-    }
-    if (a >= maxcols - 1) {
-        if ((a >= ABSMAXCOLS - 1) || !growtbl(GROWCOL, 0, a + 1)) {
-            error("You can't hide the last col");
-            return;
-        }
-    }
-    FullUpdate++;
-    col_hidden[a] = TRUE;
-    // XXX: update curcol?
-}
-
 void clearent(struct ent *v) {
     if (!v)
         return;

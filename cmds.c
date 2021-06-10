@@ -501,7 +501,7 @@ static void deldata2(struct ent *obuf) {
         p->flags &= ~MAY_SYNC;
 }
 
-void yankrow(int arg) {
+static void yankrow(int arg) {
     int rs = maxrow - currow + 1;
     int i, qtmp;
     struct frange *fr;
@@ -569,7 +569,7 @@ void yankrows(int r1, int r2) {
     currow = r;
 }
 
-void yankcol(int arg) {
+static void yankcol(int arg) {
     int cs = maxcol - curcol + 1;
     int i, qtmp;
     struct ent *obuf = NULL;
@@ -1105,7 +1105,7 @@ void closerow(int rs, int numrow) {
 }
 
 /* delete group of columns (1 or more) */
-void closecol(int arg) {
+static void closecol(int arg) {
     int r, c, i;
     int cs = maxcol - curcol + 1;
     struct ent **pp;
@@ -2227,94 +2227,69 @@ void syncref(struct enode *e) {
     }
 }
 
-/* mark a row as hidden */
-void hiderow(int arg) {
-    int r1 = currow;
-    int r2 = r1 + arg - 1;
-
-    if (r1 < 0 || r1 > r2) {
+/* mark rows as hidden */
+void hiderows(int r1, int r2) {
+    int r, a;
+    if (r1 > r2) {
+        r = r2;
+        r2 = r1;
+        r1 = r;
+    }
+    if (r1 < 0) {
         error("Invalid range");
         return;
     }
-    if (r2 >= maxrows-1) {
-        if (!growtbl(GROWROW, arg+1, 0)) {
+    a = r2 - r1 + 1;
+    if (r2 > maxrows) {
+        if (!growtbl(GROWROW, a + 1, 0)) {
             error("You can't hide the last row");
             return;
         }
     }
+    for (r = r1; r <= r2; r++)
+        row_hidden[r] = 1;
+
+    if (currow >= r1)
+        currow = (currow <= r2) ? r2 + 1 : currow - a;
+
     FullUpdate++;
     modflg++;
-    while (r1 <= r2)
-        row_hidden[r1++] = 1;
 }
 
-void hiderows(int r1, int r2) {
-    int r = currow, a;
-    if (r1 < r2) {
-        currow = r1;
-        a = r2 - r1 + 1;
-    } else {
-        currow = r2;
-        a = r1 - r2 + 1;
+/* mark columns as hidden */
+void hidecols(int c1, int c2) {
+    int c, a;
+    if (c1 > c2) {
+        c = c1;
+        c1 = c2;
+        c2 = c;
     }
-    hiderow(a);
-    currow = r < currow ? r :
-        r < currow + a ? currow :
-        r - a;
-}
-
-/* mark a column as hidden */
-void hidecol(int arg) {
-    int c1 = curcol;
-    int c2 = c1 + arg - 1;
-    if (c1 < 0 || c1 > c2) {
-        error ("Invalid range");
+    a = c2 - c1 + 1;
+    if (c1 < 0) {
+        error("Invalid range");
         return;
     }
-    if (c2 >= maxcols-1) {
-        if ((arg >= ABSMAXCOLS-1) || !growtbl(GROWCOL, 0, arg+1)) {
+    if (c2 >= maxcols - 1) {
+        if ((a >= ABSMAXCOLS - 1) || !growtbl(GROWCOL, 0, a + 1)) {
             error("You can't hide the last col");
             return;
         }
     }
+    for (c = c1; c <= c2; c++)
+        col_hidden[c] = TRUE;
+
+    if (curcol >= c1)
+        curcol = (curcol <= c2) ? c2 + 1 : curcol - a;
+
     FullUpdate++;
     modflg++;
-    while (c1 <= c2)
-        col_hidden[c1++] = TRUE;
-}
-
-void hidecols(int c1, int c2) {
-    int c = curcol, a;
-    if (c1 < c2) {
-        curcol = c1;
-        a = c2 - c1 + 1;
-    } else {
-        curcol = c2;
-        a = c1 - c2 + 1;
-    }
-    hidecol(a);
-    curcol = c < curcol ? c :
-        c < curcol + a ? curcol : c - a;
 }
 
 void dohide(void) {
-    int a;
     if (showrange == SHOWROWS) {
-        if (showsr < currow) {
-            int r = currow;
-            currow = showsr;
-            showsr = r;
-        }
-        a = showsr - currow + 1;
-        hiderow(a);
+        hiderows(currow, showsr);
     } else if (showrange == SHOWCOLS) {
-        if (showsc < curcol) {
-            int c = curcol;
-            curcol = showsc;
-            showsc = c;
-        }
-        a = showsc - curcol + 1;
-        hidecol(a);
+        hiderows(curcol, showsc);
     }
 }
 
@@ -3492,9 +3467,10 @@ void sc_set_locale(int set) {
 }
 
 int doplugin(char *str) {
-    snprintf(line, sizeof line, "|%s", str);
+    char buf[PATHLEN];
+    snprintf(buf, sizeof buf, "|%s", str);
     scxfree(str);
-    return readfile(line, 0);
+    return readfile(buf, 0);
 }
 
 int doreadfile(char *str, int eraseflg) {

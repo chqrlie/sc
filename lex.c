@@ -453,8 +453,8 @@ struct ltchars old_chars, new_chars;
 
 char dont_use[] = {
     ctl('['), ctl('a'), ctl('b'), ctl('c'), ctl('e'), ctl('f'), ctl('g'),
-    ctl('h'), ctl('i'), ctl('j'),  ctl('l'), ctl('m'), ctl('n'), ctl('p'),
-    ctl('q'), ctl('r'), ctl('s'), ctl('t'), ctl('u'), ctl('v'),  ctl('w'),
+    ctl('h'), ctl('i'), ctl('j'), ctl('l'), ctl('m'), ctl('n'), ctl('p'),
+    ctl('q'), ctl('r'), ctl('s'), ctl('t'), ctl('u'), ctl('v'), ctl('w'),
     ctl('x'), ctl('z'), 0
 };
 
@@ -462,8 +462,7 @@ int charout(int c) {
     return putchar(c);
 }
 
-void initkbd(void)
-{
+void initkbd(void) {
     struct key_map *kp;
     int i, j;
     char *p = keyarea;
@@ -519,8 +518,7 @@ void initkbd(void)
 #  endif
 }
 
-void kbd_again(void)
-{
+void kbd_again(void) {
     if (ks)
         tputs(ks, 1, charout);
 
@@ -529,8 +527,7 @@ void kbd_again(void)
 #  endif
 }
 
-void resetkbd(void)
-{
+void resetkbd(void) {
     if (ke)
         tputs(ke, 1, charout);
 
@@ -604,24 +601,21 @@ int nmgetch(void) {
 
 # endif /* if defined(BSD42) || defined (SYSIII) || defined(BSD43) */
 
-void initkbd(void)
-{
+void initkbd(void) {
     keypad(stdscr, TRUE);
 #ifndef NONOTIMEOUT
     notimeout(stdscr,TRUE);
 #endif
 }
 
-void kbd_again(void)
-{
+void kbd_again(void) {
     keypad(stdscr, TRUE);
 #ifndef NONOTIMEOUT
     notimeout(stdscr,TRUE);
 #endif
 }
 
-void resetkbd(void)
-{
+void resetkbd(void) {
     keypad(stdscr, FALSE);
 #ifndef NONOTIMEOUT
     notimeout(stdscr, FALSE);

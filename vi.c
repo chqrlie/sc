@@ -144,7 +144,7 @@ static int mouse_sel_cell(int);
 
 void vi_interaction(void) {
     int inloop = 1;
-    int c;
+    int c, rcqual;
     int narg;
     int edistate = -1;
     int nedistate;
@@ -214,7 +214,7 @@ void vi_interaction(void) {
                     clearok(stdscr,1);
                     break;
                 default:
-                    error ("No such command (^%c)", c + 0100);
+                    error("No such command (^%c)", c + 0100);
                     break;
                 case ctl('b'):
                     // XXX: hidden row issue
@@ -304,7 +304,7 @@ void vi_interaction(void) {
 
                 case ctl('f'):
                     // XXX: hidden row issue
-                    ps = pagesize ? pagesize : (LINES - RESROW - framerows)/2;
+                    ps = pagesize ? pagesize : (LINES - RESROW - framerows) / 2;
                     forwrow(uarg * ps);
                     strow = strow + (uarg * ps);
                     FullUpdate++;
@@ -983,8 +983,6 @@ void vi_interaction(void) {
                 case 's':
                 case 'Z':
                     {
-                        int rcqual;
-
                         if (!(rcqual = get_rcqual(c))) {
                             error("Invalid row/column command");
                             break;
@@ -1012,13 +1010,13 @@ void vi_interaction(void) {
                             break;
 
                         case 'd':
-                            if (rcqual == 'r')      deleterow(uarg);
-                            else                    closecol(uarg);
+                            if (rcqual == 'r')      deleterows(currow, currow + uarg - 1);
+                            else                    deletecols(curcol, curcol + uarg - 1);
                             break;
 
                         case 'y':
-                            if (rcqual == 'r')      yankrow(uarg);
-                            else                    yankcol(uarg);
+                            if (rcqual == 'r')      yankrows(currow, currow + uarg - 1);
+                            else                    yankcols(curcol, curcol + uarg - 1);
                             break;
 
                         case 'p':
@@ -1029,7 +1027,8 @@ void vi_interaction(void) {
                                 startshow();
                                 break;
                             }
-                            while (uarg--)           pullcells(rcqual);
+                            while (uarg--)
+                                pullcells(rcqual);
                             break;
 
                             /*
@@ -1042,8 +1041,7 @@ void vi_interaction(void) {
 
                                 if ((fr = find_frange(currow, curcol)))
                                     valueize_area(currow, fr->or_left->col,
-                                                  currow + uarg - 1,
-                                                  fr->or_right->col);
+                                                  currow + uarg - 1, fr->or_right->col);
                                 else
                                     valueize_area(currow, 0,
                                                   currow + uarg - 1, maxcol);
@@ -1054,11 +1052,10 @@ void vi_interaction(void) {
 
                         case 'Z':
                             switch (rcqual) {
-                            case 'r':   hiderow(uarg);           break;
-                            case 'c':   hidecol(uarg);           break;
+                            case 'r':   hiderows(currow, currow + uarg - 1); break;
+                            case 'c':   hidecols(curcol, curcol + uarg - 1); break;
                             case 'Z':   if (modflg && curfile[0]) {
-                                            writefile(curfile, 0, 0,
-                                                      maxrow, maxcol);
+                                            writefile(curfile, 0, 0, maxrow, maxcol);
                                             running = 0;
                                         } else if (modflg) {
                                             error("No file name.");
@@ -1070,7 +1067,6 @@ void vi_interaction(void) {
 
                         case 's':
                             /* special case; no repeat count */
-
                             if (rcqual == 'r')      rowshow_op();
                             else                    colshow_op();
                             break;
@@ -1479,7 +1475,7 @@ void vi_interaction(void) {
                 case KEY_NPAGE:                 /* next page */
 #endif
                 case 'J':
-                    ps = pagesize ? pagesize : (LINES - RESROW - framerows)/2;
+                    ps = pagesize ? pagesize : (LINES - RESROW - framerows) / 2;
                     forwrow(uarg * ps);
                     strow = strow + uarg * ps;
                     FullUpdate++;
