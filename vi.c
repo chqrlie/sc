@@ -206,20 +206,24 @@ void vi_interaction(void) {
                     showneed = 1;
                 case ctl('l'):
                     FullUpdate++;
-                    clearok(stdscr,1);
+                    clearok(stdscr, 1);
                     break;
                 case ctl('x'):
                     FullUpdate++;
                     showexpr = 1;
-                    clearok(stdscr,1);
+                    clearok(stdscr, 1);
                     break;
                 default:
                     error("No such command (^%c)", c + 0100);
                     break;
                 case ctl('b'):
-                    // XXX: hidden row issue
+                    if (emacs_bindings) {
+                        backcol(uarg);
+                        break;
+                    }
                     ps = pagesize ? pagesize : (LINES - RESROW - framerows) / 2;
                     backrow(uarg * ps);
+                    // XXX: hidden row issue
                     strow = strow - uarg * ps;
                     if (strow < 0) strow = 0;
                     FullUpdate++;
@@ -303,9 +307,13 @@ void vi_interaction(void) {
                     break;
 
                 case ctl('f'):
-                    // XXX: hidden row issue
+                    if (emacs_bindings) {
+                        forwcol(uarg);
+                        break;
+                    }
                     ps = pagesize ? pagesize : (LINES - RESROW - framerows) / 2;
                     forwrow(uarg * ps);
+                    // XXX: hidden row issue
                     strow = strow + (uarg * ps);
                     FullUpdate++;
                     break;
@@ -379,9 +387,24 @@ void vi_interaction(void) {
                     break;
 
                 case ctl('q'):
+                    if (emacs_bindings) {
+                        // XXX: quoted insert: just a test for function keys
+                        error("Quote: ");
+                        for (;;) {
+                            c = nmgetch();
+                            error("Quote: %d (%#x)\n", c, c);
+                            if (c == ctl('q') || c == ctl('m'))
+                                break;
+                        }
+                        break;
+                    }
                     break;      /* ignore flow control */
 
                 case ctl('s'):
+                    if (emacs_bindings) {
+                        // XXX: search
+                        break;
+                    }
                     break;      /* ignore flow control */
 
                 case ctl('t'):
@@ -546,6 +569,13 @@ void vi_interaction(void) {
 
                 case ctl('v'):  /* switch to navigate mode, or if already *
                                  * in navigate mode, insert variable name */
+                    if (emacs_bindings) {
+                        ps = pagesize ? pagesize : (LINES - RESROW - framerows) / 2;
+                        forwrow(uarg * ps);
+                        strow = strow + uarg * ps;
+                        FullUpdate++;
+                        break;
+                    }
                     if (linelim >= 0)
                         write_line(ctl('v'));
                     break;
@@ -575,6 +605,11 @@ void vi_interaction(void) {
                     break;
 
                 case ctl('a'):
+                    if (emacs_bindings) {
+                        // XXX: goto beginning of row.
+                        //      repeated: goto A0
+                        break;
+                    }
                     if (linelim >= 0) {
                         write_line(c);
                     } else {
@@ -634,9 +669,8 @@ void vi_interaction(void) {
                     break;
                 }
                 write_line(c);
-
             } else
-            if (!numeric && ( c == '+' || c == '-' )) {
+            if (!numeric && (c == '+' || c == '-')) {
                 /* increment/decrement ops */
                 p = *ATBL(tbl, currow, curcol);
                 if (!p || !(p->flags & IS_VALID)) {
@@ -667,18 +701,19 @@ void vi_interaction(void) {
                     insert_mode();
                     strlcpy(line, fkey[c - KEY_F0 - 1], sizeof line);
                     linelim = 0;
-                    for (tpp = line; *tpp != '\0'; tpp++)
-                        if (*tpp == '\\' && *(tpp + 1) == '"')
-                            memmove(tpp, tpp + 1, strlen(tpp));
                     for (tpp = line; *tpp != '\0'; tpp++) {
-                        char mycell[9];
-                        size_t l;
-                        l = strlcpy(mycell, coltoa(curcol), sizeof mycell);
-                        snprintf(mycell + l, sizeof(mycell) - l, "%d", currow);
-                        if (*tpp == '$' && *(tpp + 1) == '$') {
-                            memmove(tpp + strlen(mycell), tpp + 2, strlen(tpp + 1));
-                            memcpy(tpp, mycell, strlen(mycell));
-                            tpp += strlen(mycell);
+                        if (*tpp == '\\' && tpp[1] == '"') {
+                            memmove(tpp, tpp + 1, strlen(tpp + 1) + 1);
+                        } else
+                        if (*tpp == '$' && tpp[1] == '$') {
+                            char mycell[16];
+                            size_t len;
+                            snprintf(mycell, sizeof(mycell), "%s%d", coltoa(curcol), currow);
+                            len = strlen(mycell);
+                            // XXX: should use protected version strlinsert()
+                            memmove(tpp + len, tpp + 2, strlen(tpp + 2) + 1);
+                            memcpy(tpp, mycell, len);
+                            tpp += len - 1;
                         }
                     }
                     write_line(ctl('m'));
@@ -1483,8 +1518,9 @@ void vi_interaction(void) {
 #ifdef  KEY_PPAGE
                 case KEY_PPAGE:                 /* previous page */
 #endif
+                case KEY_ALT('v'):
                 case 'K':
-                    ps = pagesize ? pagesize : (LINES - RESROW - framerows)/2;
+                    ps = pagesize ? pagesize : (LINES - RESROW - framerows) / 2;
                     backrow(uarg * ps);
                     strow = strow - uarg * ps;
                     if (strow < 0) strow = 0;
@@ -1522,10 +1558,11 @@ void vi_interaction(void) {
                     }
                     if (c == '`' || c == '\'')
                         c = 0;
-                    else
-                    if (!(((c -= ('a' - 1)) > 0 && c < 27) ||
-                          ((c += ('a' - '0' + 26)) > 26 && c < 37)))
-                    {
+                    else if (c >= 'a' && c <= 'z')
+                        c = c - 'a' + 1;
+                    else if (c >= '0' && c <= '9')
+                        c = c - '0' + 1 + 26;
+                    else {
                         error("Invalid mark (must be a-z, 0-9, ` or \')");
                         break;
                     }
@@ -1668,8 +1705,8 @@ void vi_interaction(void) {
                     break;
 #endif
                 default:
-                    if ((toascii(c)) != c) {
-                        error("Weird character, decimal %d\n", (int)c);
+                    if (c < 32 || c >= 127) {
+                        error("Unhandled key: %d (%#x)\n", c, c);
                     } else {
                         error("No such command (%c)", c);
                     }

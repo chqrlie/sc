@@ -3073,9 +3073,12 @@ void dotick(int tick) {
     }
     if (c == '`' || c == '\'')
         c = 0;
-    else if (!(((c -= ('a' - 1)) > 0 && c < 27) ||
-            ((c += ('a' - '0' + 26)) > 26 && c < 37))) {
-        error("Invalid mark (must be a-z, 0-9, ` or \')");
+    else if (c >= 'a' && c <= 'z')
+        c = c - 'a' + 1;
+    else if (c >= '0' && c <= '9')
+        c = c - '0' + 1 + 26;
+    else {
+        error("Invalid mark (must be a-z, 0-9, ` or ')");
         return;
     }
     if (savedrow[c] == -1) {

@@ -1132,15 +1132,13 @@ struct termio tmio;
 
 void startdisp(void) {
 #ifdef sun
-    int  fd;
-    fd = dup(0);
+    int fd = dup(0);
 #endif
-#ifndef MSDOS
     if (usecurses) {
-#endif
         int i;
 #ifdef TIOCGSIZE
-        {   struct ttysize size;
+        {
+            struct ttysize size;
             if (ioctl(0, TIOCGSIZE, &size) == 0) {
                 lines = size.ts_lines;
                 cols = size.ts_cols;
@@ -1149,7 +1147,7 @@ void startdisp(void) {
 #endif
 
 #ifdef XENIX2_3
-        ioctl(fileno(stdin), TCGETA, & tmio);
+        ioctl(fileno(stdin), TCGETA, &tmio);
 #endif
         initscr();
         start_color();
@@ -1182,7 +1180,7 @@ void startdisp(void) {
          * turn on scrolling for systems with SYSVr3.{1,2} (SYSVr3.0 has
          * this set as the default)
          */
-        idlok(stdscr,TRUE);
+        idlok(stdscr, TRUE);
 # else  /*
          * This seems to fix (with an empty spreadsheet):
          *      a) Redrawing the bottom half of the screen when you
@@ -1196,14 +1194,12 @@ void startdisp(void) {
          *       others move up even when they should not, check by
          *       noticing the rows become 2, 3, 40, 41, 42... (etc).
          */
-        idlok(stdscr,FALSE);
+        idlok(stdscr, FALSE);
 # endif
 #endif
 
         FullUpdate++;
-#ifndef MSDOS
     }
-#endif
 }
 
 void stopdisp(void) {

@@ -1,5 +1,6 @@
 # TODO
 
+* use strlinsert instead of unprotected memmove
 * implement virtual space: jagged 2D matrix
 * add emacs keybinding stuff
 * add emacs macro language

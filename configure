@@ -313,6 +313,27 @@ EOT
 	test_result && DEFS="$DEFS -DHAVE_RESETTERM"
 }
 
+check_escdelay () {
+	check_for 'ESCDELAY'
+
+	cat <<EOT >$TMPC
+#include "compat.h"
+int
+main() {
+	extern int ESCDELAY;
+	ESCDELAY = 0;
+	return 0;
+}
+EOT
+	gen_mk
+	cat <<EOT >>$OUTMK
+$TMPNAM: ${TMPNAM}.o
+	\$(CC) \$(_CFLAGS) \$(_LDFLAGS) \$(RPATH_CURSES) -o \$@ ${TMPNAM}.o \$(LDADD)
+EOT
+	compile
+	test_result && DEFS="$DEFS -DHAVE_ESCDELAY"
+}
+
 compile_curses () {
 	cat <<EOT >$TMPC
 #include "compat.h"
@@ -327,7 +348,10 @@ $TMPNAM: ${TMPNAM}.o
 	\$(CC) \$(_CFLAGS) \$(_LDFLAGS) \$(RPATH_CURSES) -o \$@ ${TMPNAM}.o \$(LDADD)
 EOT
 	compile
-	test_result 1
+	test_result 1 || return
+
+	check_escdelay
+	true
 }
 
 test_curses () {

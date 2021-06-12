@@ -470,7 +470,7 @@ void initkbd(void) {
     static char buf[1024]; /* Why do I have to do this again? */
 
     if (!(ktmp = getenv("TERM"))) {
-        (void) fprintf(stderr, "TERM environment variable not set\n");
+        fprintf(stderr, "TERM environment variable not set\n");
         exit(1);
     }
     if (tgetent(buf, ktmp) <= 0)
@@ -481,14 +481,14 @@ void initkbd(void) {
     km[2].k_str = tgetstr("ku", &p); km[2].k_val = ctl('p');
     km[3].k_str = tgetstr("kd", &p); km[3].k_val = ctl('n');
 
-    ktmp = tgetstr("ks",&p);
-    if (ktmp)  {
+    ktmp = tgetstr("ks", &p);
+    if (ktmp) {
         strlcpy(ks_buf, ktmp, sizeof ks_buf);
         ks = ks_buf;
         tputs(ks, 1, charout);
     }
-    ktmp = tgetstr("ke",&p);
-    if (ktmp)  {
+    ktmp = tgetstr("ke", &p);
+    if (ktmp) {
         strlcpy(ke_buf, ktmp, sizeof ke_buf);
         ke = ke_buf;
     }
@@ -498,14 +498,15 @@ void initkbd(void) {
 
     for (i = 0; i < N_KEY; i++) {
         kp = &km[i];
-        if (kp->k_str && (kp->k_str[1] == 0) && (kp->k_str[0] != kp->k_val))
-            for (j = 0; dont_use[j] != 0; j++)
+        if (kp->k_str && (kp->k_str[1] == 0) && (kp->k_str[0] != kp->k_val)) {
+            for (j = 0; dont_use[j] != 0; j++) {
                 if (kp->k_str[0] == dont_use[j]) {
                      kp->k_str = NULL;
                      break;
                 }
+            }
+        }
     }
-
 
 #  ifdef TIOCSLTC
     ioctl(fileno(stdin), TIOCGLTC, (char *)&old_chars);
@@ -585,7 +586,7 @@ int nmgetch(void) {
     }
 
     if (biggest) {
-        for (i = 0; i<biggest->k_index; i++)
+        for (i = 0; i < biggest->k_index; i++)
             dumpbuf[i] = biggest->k_str[i];
         if (!almost)
             dumpbuf[i++] = c;
@@ -602,6 +603,18 @@ int nmgetch(void) {
 # endif /* if defined(BSD42) || defined (SYSIII) || defined(BSD43) */
 
 void initkbd(void) {
+#ifdef HAVE_ESCDELAY
+    /*
+     * If ncurses exports the ESCDELAY variable, it should be set to
+     * a low value, or you'll experience a delay in processing escape
+     * sequences that are recognized by mc (e.g. Esc-Esc).  On the other
+     * hand, making ESCDELAY too small can result in some sequences
+     * (e.g. cursor arrows) being reported as separate keys under heavy
+     * processor load, and this can be a problem if mc hasn't learned
+     * them in the "Learn Keys" dialog.  The value is in milliseconds.
+     */
+    ESCDELAY = 100;
+#endif /* HAVE_ESCDELAY */
     keypad(stdscr, TRUE);
 #ifndef NONOTIMEOUT
     notimeout(stdscr,TRUE);
@@ -622,13 +635,31 @@ void resetkbd(void) {
 #endif
 }
 
+static int kbhit(void) {
+#if 0
+    /* this does not work because getch() already read pending input */
+    struct timeval tv;
+    fd_set fds;
+    tv.tv_sec = 0;
+    tv.tv_usec = 0;
+    FD_ZERO(&fds);
+    FD_SET(STDIN_FILENO, &fds); //STDIN_FILENO is 0
+    return (select(STDIN_FILENO+1, &fds, NULL, NULL, &tv) == 1 &&
+            FD_ISSET(STDIN_FILENO, &fds));
+#else
+    return 1;
+#endif
+}
+
 int nmgetch(void) {
     int c;
 
     c = getch();
     switch (c) {
 # ifdef KEY_SELECT
-        case KEY_SELECT:        c = 'm';        break;
+    case KEY_SELECT:
+        c = 'm';
+        break;
 # endif
 # ifdef KEY_C1
 /* This stuff works for a wyse wy75 in ANSI mode under 5.3.  Good luck. */
@@ -656,7 +687,17 @@ int nmgetch(void) {
  *
  */
 # endif
-        default:        break;
+    case 27:
+        // XXX: should check for available input from curses to distinguish
+        //      ESC hit by the user from alt and special keys
+        if (kbhit()) {
+            c = getch();
+            if (c != 27)
+                c = KEY_ALT(c);
+        }
+        break;
+    default:
+        break;
     }
     return c;
 }

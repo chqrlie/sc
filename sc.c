@@ -120,6 +120,7 @@ int rowlimit = -1;
 int collimit = -1;
 int rowsinrange = 1;
 int colsinrange = DEFWIDTH;
+int emacs_bindings = 1;      /* use emacs-like bindings */
 
 /* a linked list of free [struct ent]'s, uses .next as the pointer */
 struct ent *freeents = NULL;
@@ -496,32 +497,44 @@ sigret_t dump_me(int i) {
 }
 
 static void settcattr(void) {
-#ifdef VDSUSP
-    static struct termios tty;
-# ifdef _PC_VDISABLE
-    static long vdis;
+    struct termios tty;
+    long vdis = 255;
 
+#ifdef _PC_VDISABLE
     if ((vdis = fpathconf(STDIN_FILENO, _PC_VDISABLE)) == -1) {
         fprintf(stderr,
                 "fpathconf(STDIN, _PC_VDISABLE) failed: %s\n",
                 strerror(errno));
         vdis = 255;
     }
-# else
-#  define vdis 255
-# endif
+#endif
     if (tcgetattr(STDIN_FILENO, &tty) == -1) {
         fprintf(stderr, "tcgetattr STDIN failed: %s\n",
                 strerror(errno));
         return;
     }
+    //VINTR
+    tty.c_cc[VQUIT] = vdis;
+    tty.c_cc[VSTART] = vdis;
+    tty.c_cc[VSTOP] = vdis;
+#ifdef VLNEXT
+    tty.c_cc[VLNEXT] = vdis;
+#endif
+#ifdef VDISCARD
+    tty.c_cc[VDISCARD] = vdis;
+#endif
+#ifdef VSTATUS
+    tty.c_cc[VSTATUS] = vdis;
+#endif
+    tty.c_cc[VSUSP] = vdis;
+#ifdef VDSUSP
     tty.c_cc[VDSUSP] = vdis;
+#endif
     if (tcsetattr(STDIN_FILENO, TCSADRAIN, &tty) == -1) {
         fprintf(stderr, "tcsetattr STDIN failed: %s\n",
                 strerror(errno));
         return;
     }
-#endif /* VDSUSP */
 }
 
 void fatal(const char *str) {

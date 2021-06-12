@@ -74,7 +74,7 @@ static const char * const toggleoptions[] = {
 "          r    Newline action.  Toggle between no action, move down",
 "               after entry and move right after entry.",
 "          z    Set the newline action limits to the current row and column",
-"            (for r && z see also set rowlimit=n, collimit=n)",
+"               (for r && z see also set rowlimit=n, collimit=n)",
 NULL
 };
 

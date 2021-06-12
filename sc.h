@@ -428,6 +428,7 @@ extern int framecols;           /* Columns in current frame */
 extern char search_ind;         /* Search indicator */
 extern char mode_ind;           /* Mode indicator */
 extern int seenerr;
+extern int emacs_bindings;      /* use emacs-like bindings */
 /* a linked list of free [struct enodes]'s, uses .e.o.left as the next pointer */
 extern struct enode *freeenodes;
 extern bool sc_decimal;     /* Set if there was a decimal point in the number */
@@ -440,6 +441,10 @@ extern char *slatexext;
 extern char *texext;
 extern int Vopt;
 extern struct go_save gs;
+
+/* input */
+#define KEY_ALT(c)   ((c)|01000)
+extern int nmgetch(void);
 
 /* styles */
 extern struct colorpair *cpairs[CPAIRS + 1];
@@ -486,7 +491,6 @@ extern bool format(char *fmt, int lprecision, double val, char *buf, size_t bufl
 extern int growtbl(int rowcol, int toprow, int topcol);
 extern int locked_cell(int r, int c);
 extern int modcheck(const char *endstr);
-extern int nmgetch(void);
 extern int plugin_exists(char *name, size_t len, char *path);
 extern int readfile(const char *fname, int eraseflg);
 extern int writefile(const char *fname, int r0, int c0, int rn, int cn);
