@@ -4,11 +4,11 @@
  *              original by James Gosling, September 1982
  *              modifications by Mark Weiser and Bruce Israel,
  *                      University of Maryland
- *
  *              More mods Robert Bond, 12/86
  *              More mods by Alan Silverstein, 3-4/88, see list of changes.
- *              $Revision: 7.16 $
+ *              updated by Charlie Gordon: June, 2021
  *
+ *              $Revision: 8.1 $
  */
 
 #include <unistd.h>

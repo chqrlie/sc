@@ -4,12 +4,11 @@
  *              original by James Gosling, September 1982
  *              modified by Mark Weiser and Bruce Israel,
  *                      University of Maryland
- *
  *              more mods Robert Bond 12/86
- *
  *              More mods by Alan Silverstein, 3/88, see list of changes.
+ *              updated by Charlie Gordon: June, 2021
  *
- *              $Revision: 7.16 $
+ *              $Revision: 8.1 $
  */
 
 %{

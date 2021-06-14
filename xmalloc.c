@@ -1,6 +1,9 @@
-/*
- * A safer saner malloc, for careless programmers
- * $Revision: 7.16 $
+/*      SC      A Spreadsheet Calculator
+ *              A safer saner malloc, for careless programmers
+ *
+ *              updated by Charlie Gordon: June, 2021
+ *
+ * $Revision: 8.1 $
  */
 
 #include <stdlib.h>

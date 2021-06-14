@@ -2,14 +2,14 @@
  * Help functions for sc
  * R. Bond, 1988
  * J. Buhrt 1990
- * $Revision: 7.16 $
+ * $Revision: 8.1 $
  */
 
 #include <stdlib.h>
 #ifdef QREF
 #include <stdio.h>
 static const char * const header = " Quick Reference";
-static const char * const revision = "$Revision: 7.16 $";
+static const char * const revision = "$Revision: 8.1 $";
 #else
 #include <limits.h>
 #include "sc.h"

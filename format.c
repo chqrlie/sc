@@ -3,7 +3,7 @@
  * Mark Nagel <nagel@ics.uci.edu>
  * 20 July 1989
  *
- * $Revision: 7.16 $
+ * $Revision: 8.1 $
  *
  * bool format(fmt, precision, num, buf, buflen)
  *  char *fmt;

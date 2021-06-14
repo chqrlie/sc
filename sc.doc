@@ -16,9 +16,9 @@
 .\" - TPs use default indent except for function names, then 18.
 .\" - Smallify uppercase strings.
 .\" - Avoid passive voice and third person.
-.\" $Revision: 7.16 $
+.\" $Revision: 8.1 $
 .\"
-.TH PNAME 1 "April 14, 2016" "PNAME #REVISION#"
+.TH PNAME 1 "June 14, 2021" "PNAME #REVISION#"
 .SH NAME
 pname \- spreadsheet calculator
 .SH SYNOPSIS
@@ -4547,8 +4547,7 @@ Mark Weiser under the name
 The program was subsequently renamed
 .BR sc ,
 and further modified by numerous contributors,
-Jeff Buhrt
-of Proslink, Inc.
+Jeff Buhrt of Proslink, Inc.
 and Robert Bond of Sequent,
 prominent among them.
 Maintainer until 2002 had been
@@ -4579,6 +4578,7 @@ James P. Dugal,
 Paul Eggert,
 Andy Fyfe,
 Jack Goral,
+Charlie Gordon,
 Piercarlo "Peter" Grandi,
 Henk Hesselink,
 Jeffrey C Honig,
