@@ -6,8 +6,8 @@
  *                      University of Maryland
  *              R. Bond  12/86
  *              More mods by Alan Silverstein, 3-4/88, see list of changes.
- *              $Revision: 7.16 $
- *
+ *              updated by Charlie Gordon: June, 2021
+ *              $Revision: 8.1 $
  */
 
 #ifdef MSDOS
@@ -20,6 +20,7 @@
 
 #include "compat.h"
 #include "config.h"
+#include "util.h"
 
 #if (defined(__GNUC__) || defined(__TINYC__))
 /* make sure that the keyword is not disabled by glibc (TINYC case) */
@@ -96,7 +97,7 @@ typedef chtype attr_t;
 #endif
 
 #ifdef SYSV4
-size_t  strlen();
+size_t strlen();
 #endif
 
 #ifndef FALSE
@@ -467,7 +468,7 @@ extern void select_style(int style, int rev);
 
 extern FILE *openfile(char *fname, size_t fnamesiz, int *rpid, int *rfd);
 extern char *findhome(char *fname, size_t fnamesiz);
-extern char *findplugin(char *ext, char type);
+extern char *findplugin(const char *ext, char type);
 extern char *coltoa(int col);
 extern char *v_name(int row, int col);
 extern char *r_name(int r1, int c1, int r2, int c2);

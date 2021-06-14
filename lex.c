@@ -7,10 +7,9 @@
  *
  *              More mods Robert Bond, 12/86
  *              More mods by Alan Silverstein, 3/88, see list of changes.
- *              $Revision: 7.16 $
- *
+ *              updated by Charlie Gordon: June, 2021
+ *              $Revision: 8.1 $
  */
-
 
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -183,7 +182,7 @@ int yylex(void)
                     else
                         ret = VAR;
                 } else if ((path = scxmalloc(PATHLEN)) &&
-                        plugin_exists(tokenst, tokenl, path)) {
+                           plugin_exists(tokenst, tokenl, path)) {
                     strlcat(path, p, PATHLEN);
                     yylval.sval = path;
                     ret = PLUGIN;
@@ -305,24 +304,18 @@ int yylex(void)
 * in the plugin directories.  Perhaps should test for it being executable
 */
 
-int plugin_exists(char *name, size_t len, char *path)
-{
+int plugin_exists(char *name, size_t len, char *path) {
 #ifndef MSDOS
     struct stat sb;
-    static char *homedir;
+    char *homedir;
 
     if ((homedir = getenv("HOME"))) {
-        if (strlcpy(path, homedir, len) >= len
-          || strlcat(path, "/.sc/plugins/", len) >= len
-          || strlcat(path, name, len) >= len)
+        if (snprintf(path, len, "%s/.sc/plugins/%s", homedir, name) >= (int)len)
             return 0;
-        if (!stat(path, &sb))
-            return 1;
+    } else {
+        if (snprintf(path, len, "%s/plugins/%s", LIBDIR, name) >= (int)len)
+            return 0;
     }
-    if (strlcpy(path, LIBDIR, len) >= len
-      || strlcat(path, "/plugins/", len) >= len
-      || strlcat(path, name, len) >= len)
-        return 0;
     if (!stat(path, &sb))
         return 1;
 #endif

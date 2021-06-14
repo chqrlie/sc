@@ -3,8 +3,9 @@
  *
  *              Chuck Martin <nrocinu@myrealbox.com>
  *              Original Version Created:  June, 2000
+ *              updated by Charlie Gordon: June, 2021
  *
- *              $Revision: 7.16 $
+ *              $Revision: 8.1 $
  */
 
 #include <unistd.h>
@@ -27,10 +28,7 @@ void getnum(int r0, int c0, int rn, int cn, int fd) {
                 else if (p->flags & IS_VALID)
                     snprintf(line, sizeof line, "%.15g", p->v);
             }
-            if (c < cn)
-                strlcat(line, "\t", sizeof line);
-            else
-                strlcat(line, "\n", sizeof line);
+            strlcat(line, (c < cn) ? "\t" : "\n", sizeof line);
             write(fd, line, strlen(line));
             if (brokenpipe) {
                 linelim = -1;

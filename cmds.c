@@ -4,10 +4,9 @@
  *              original by James Gosling, September 1982
  *              modifications by Mark Weiser and Bruce Israel,
  *                      University of Maryland
- *
  *              More mods Robert Bond, 12/86
- *
- *              $Revision: 7.16 $
+ *              updated by Charlie Gordon: June, 2021
+ *              $Revision: 8.1 $
  */
 
 #include <sys/types.h>
@@ -1547,56 +1546,31 @@ void printfile(char *fname, int r0, int c0, int rn, int cn) {
     int plinelim;
     int pid = -1;
     unsigned int fieldlen, nextcol;
-    long namelen;
     int row, col;
     size_t fnamesiz;
-    char file[256];
     char path[1024];
-    char *tpp;
+    char *ext;
 
     if (fname) {
         /* printfile will be the [path/]file ---> [path/]file.out */
         if (*fname == '\0') {
             strlcpy(path, curfile, sizeof path);
-
-#ifdef MSDOS
-            namelen = 12;
-            if ((tpp = strrchr(path, '\\')) == NULL) {
-#else
-            if ((tpp = strrchr(path, '/')) == NULL) {
-                namelen = pathconf(".", _PC_NAME_MAX);
-#endif
-                tpp = path;
-            } else {
+            ext = get_extension(path);
 #ifndef MSDOS
-                *tpp = '\0';
-                namelen = pathconf(path, _PC_NAME_MAX);
-                *tpp = '/';
+            if (strcmp(ext, ".sc") && !(scext && !strcmp(ext, scext)))
+                ext += strlen(ext);
 #endif
-                tpp++;
-            }
-            strlcpy(file, tpp, sizeof file);
-
-            if (!strcmp(file + strlen(file) - 3, ".sc"))
-                file[strlen(file) - 3] = '\0';
-            else if (scext != NULL && file[strlen(file) - strlen(scext) - 1] == '.'
-                    && !strcmp(file + strlen(file) - strlen(scext), scext))
-                file[strlen(file) - strlen(scext)] = '\0';
-
-            if (ascext == NULL)
-                file[namelen - 4] = '\0';
-            else
-                file[namelen - strlen(ascext) - 1] = '\0';
-            snprintf(tpp, sizeof(path) - (tpp - path), "%s.%s", file,
-              ascext == NULL ? "asc" : ascext);
+            snprintf(ext, path + sizeof(path) - ext, ".%s",
+                     ascext == NULL ? "asc" : ascext);
             fname = path;
             fnamesiz = sizeof path;
         } else {
             /* strarg in gram.y, always size of \0 terminated string. */
-            /* TODO: Possible problem if ~ needs to be expanded. */
-            fnamesiz = strlen(fname) + 1;
+            strlcpy(path, fname, sizeof path);
+            fname = path;
+            fnamesiz = sizeof path;
         }
-        if ((strcmp(fname, curfile) == 0) &&
+        if (!strcmp(fname, curfile) &&
             !yn_ask("Confirm that you want to destroy the data base: (y,n)")) {
             return;
         }
@@ -1605,9 +1579,9 @@ void printfile(char *fname, int r0, int c0, int rn, int cn) {
             error("Can't create file \"%s\"", fname);
             return;
         }
-    } else
+    } else {
         f = stdout;
-
+    }
     if (!pline && (pline = scxmalloc(FBUFLEN * ++fbufs_allocated)) == NULL) {
         error("Malloc failed in printfile()");
         return;
@@ -1779,80 +1753,40 @@ void printfile(char *fname, int r0, int c0, int rn, int cn) {
 void tblprintfile(char *fname, int r0, int c0, int rn, int cn) {
     FILE *f;
     int pid;
-    long namelen;
     int row, col;
     size_t fnamesiz;
     char coldelim = DEFCOLDELIM;
-    char file[256];
     char path[1024];
-    char *tpp;
+    char *ext;
 
     /* tblprintfile will be the [path/]file ---> [path/]file.out */
     if (*fname == '\0') {
         strlcpy(path, curfile, sizeof path);
+        ext = get_extension(path);
 
-#ifdef MSDOS
-        namelen = 12;
-        if ((tpp = strrchr(path, '\\')) == NULL) {
-#else
-        if ((tpp = strrchr(path, '/')) == NULL) {
-            namelen = pathconf(".", _PC_NAME_MAX);
-#endif
-            tpp = path;
-        } else {
 #ifndef MSDOS
-            *tpp = '\0';
-            namelen = pathconf(path, _PC_NAME_MAX);
-            *tpp = '/';
+        /* keep the extention unless .sc or scext */
+        if (strcmp(ext, ".sc") && !(scext && !strcmp(ext, scext)))
+            ext += strlen(ext);
 #endif
-            tpp++;
-        }
-        strlcpy(file, tpp, sizeof file);
-
-        if (!strcmp(file + strlen(file) - 3, ".sc"))
-            file[strlen(file) - 3] = '\0';
-        else if (scext != NULL && file[strlen(file) - strlen(scext) - 1] == '.'
-                && !strcmp(file + strlen(file) - strlen(scext), scext))
-            file[strlen(file) - strlen(scext)] = '\0';
-
         if (tbl_style == 0) {
-            if (tbl0ext == NULL)
-                file[namelen - 4] = '\0';
-            else
-                file[namelen - strlen(tbl0ext) - 1] = '\0';
-            snprintf(tpp, sizeof(path) - (tpp - path), "%s.%s", file,
+            snprintf(ext, path + sizeof(path) - ext, ".%s",
                      tbl0ext == NULL ? "cln" : tbl0ext);
-        }
-        else if (tbl_style == TBL) {
-            if (tblext == NULL)
-                file[namelen - 4] = '\0';
-            else
-                file[namelen - strlen(tblext) - 1] = '\0';
-            snprintf(tpp, sizeof(path) - (tpp - path), "%s.%s", file,
+        } else
+        if (tbl_style == TBL) {
+            snprintf(ext, path + sizeof(path) - ext, ".%s",
                      tblext == NULL ? "tbl" : tblext);
-        }
-        else if (tbl_style == LATEX) {
-            if (latexext == NULL)
-                file[namelen - 4] = '\0';
-            else
-                file[namelen - strlen(latexext) - 1] = '\0';
-            snprintf(tpp, sizeof(path) - (tpp - path), "%s.%s", file,
+        } else
+        if (tbl_style == LATEX) {
+            snprintf(ext, path + sizeof(path) - ext, ".%s",
                      latexext == NULL ? "lat" : latexext);
-        }
-        else if (tbl_style == SLATEX) {
-            if (slatexext == NULL)
-                file[namelen - 4] = '\0';
-            else
-                file[namelen - strlen(slatexext) - 1] = '\0';
-            snprintf(tpp, sizeof(path) - (tpp - path), "%s.%s", file,
+        } else
+        if (tbl_style == SLATEX) {
+            snprintf(ext, path + sizeof(path) - ext, ".%s",
                      slatexext == NULL ? "stx" : slatexext);
-        }
-        else if (tbl_style == TEX) {
-            if (texext == NULL)
-                file[namelen - 4] = '\0';
-            else
-                file[namelen - strlen(texext) - 1] = '\0';
-            snprintf(tpp, sizeof(path) - (tpp - path), "%s.%s", file,
+        } else
+        if (tbl_style == TEX) {
+            snprintf(ext, path + sizeof(path) - ext, ".%s",
                      texext == NULL ? "tex" : texext);
         }
         fname = path;
@@ -1861,7 +1795,7 @@ void tblprintfile(char *fname, int r0, int c0, int rn, int cn) {
         /* TODO: Possible problem if ~ needs to be expanded. */
         fnamesiz = strlen(fname) + 1;
     }
-    if ((strcmp(fname, curfile) == 0) &&
+    if (!strcmp(fname, curfile) &&
         !yn_ask("Confirm that you want to destroy the data base: (y,n)"))
         return;
 
@@ -2517,7 +2451,7 @@ void addplugin(char *ext, char *plugin, char type) {
     fp->next = NULL;
 }
 
-char *findplugin(char *ext, char type) {
+char *findplugin(const char *ext, char type) {
     struct impexfilt *fp;
 
     fp = filt;
@@ -2649,27 +2583,28 @@ int writefile(const char *fname, int r0, int c0, int rn, int cn) {
     char tfname[PATHLEN];
     long namelen;
     char *tpp;
-    char *p;
+    const char *p;
+    char *ext;
     char *plugin;
     int pid;
 
 #ifndef MSDOS
     /* find the extension and mapped plugin if exists */
-    if ((p = strrchr(fname, '.'))) {
+    p = get_extension(fname);
+    if (*p) {
         if ((plugin = findplugin(p + 1, 'w')) != NULL) {
-            size_t l;
+            size_t len;
             if (!plugin_exists(plugin, strlen(plugin), save + 1)) {
                 error("plugin not found");
                 return -1;
             }
             *save = '|';
-            if ((strlen(save) + strlen(fname) + 20) > PATHLEN) {
+            len = strlen(save);
+            if (snprintf(save + len, sizeof(save) - len, " %s%d:%s%d \"%s\"",
+                         coltoa(c0), r0, coltoa(cn), rn, fname) >= PATHLEN) {
                 error("Path too long");
                 return -1;
             }
-            l = strlen(save);
-            snprintf(save + l, sizeof(save) - l, " %s%d:%s%d \"%s\"",
-                     coltoa(c0), r0, coltoa(cn), rn, fname);
             /* pass it to readfile as an advanced macro */
             readfile(save, 0);
             return 0;
@@ -2704,19 +2639,16 @@ int writefile(const char *fname, int r0, int c0, int rn, int cn) {
     }
 #endif /* MSDOS */
 
-    strlcpy(tfname, fname, sizeof tfname);
-    for (tpp = tfname; *tpp != '\0'; tpp++) {
-        if (*tpp == '\\' && *(tpp + 1) == '"')
-            memmove(tpp, tpp + 1, strlen(tpp));
+    /* copy the string, strip the \ in front of " */
+    for (tpp = tfname, p = fname; *p; p++) {
+        if (*p == '\\' && p[1] == '"')
+            p++;
+        *tpp++ = *p;
     }
+    ext = get_extension(tfname);
     if (scext != NULL) {
-        if (strlen(tfname) > 3 && !strcmp(tfname + strlen(tfname) - 3, ".sc"))
-            tfname[strlen(tfname) - 3] = '\0';
-        else if (strlen(tfname) > strlen(scext) + 1 &&
-                tfname[strlen(tfname) - strlen(scext) - 1] == '.' &&
-                !strcmp(tfname + strlen(tfname) - strlen(scext), scext))
-            tfname[strlen(tfname) - strlen(scext) - 1] = '\0';
-        tfname[namelen - strlen(scext) - 1] = '\0';
+        if (!strcmp(ext, ".sc") || (scext && !strcmp(ext, scext)))
+            *ext = '\0';
         strlcat(tfname, ".", sizeof tfname);
         strlcat(tfname, scext, sizeof tfname);
     }
@@ -2724,8 +2656,8 @@ int writefile(const char *fname, int r0, int c0, int rn, int cn) {
     strlcpy(save, tfname, sizeof save);
     for (tpp = save; *tpp != '\0'; tpp++) {
         if (*tpp == '"') {
-            memmove(tpp + 1, tpp, strlen(tpp) + 1);
-            *tpp++ = '\\';
+            strsplice(save, sizeof save, tpp - save, 0, "\\", 1);
+            tpp++;
         }
     }
     if ((f = openfile(tfname, sizeof tfname, &pid, NULL)) == NULL) {
@@ -3212,8 +3144,8 @@ void showstring(char *string,        /* to display */
     }
     *fp = '\0';
     for (fp = field; *fp != '\0'; fp++) {
-        if (*fp == '\\' && *(fp + 1) == '"')
-            memmove(fp, fp + 1, strlen(fp));
+        if (*fp == '\\' && fp[1] == '"')
+            strsplice(field, sizeof field, fp - field, 1, NULL, 0);
     }
     mvaddstr(r, c, field);
 
@@ -3336,10 +3268,7 @@ int backup_file(char *path) {
 
     /* tpath will be the [path/]file ---> [path/]file~ */
     strlcpy(tpath, path, sizeof tpath);
-    if ((tpp = strrchr(tpath, '/')) == NULL)
-        tpp = tpath;
-    else
-        tpp++;
+    tpp = get_basename(tpath);
     strlcpy(fname, tpp, sizeof fname);
     snprintf(tpp, sizeof(tpath) - (tpp - tpath), "%s~", fname);
 

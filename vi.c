@@ -1,7 +1,8 @@
 /*      SC      A Spreadsheet Calculator
+ *              One line vi emulation
  *
- *      One line vi emulation
- *      $Revision: 7.16 $
+ *              updated by Charlie Gordon: June, 2021
+ *              $Revision: 8.1 $
  */
 
 #include <sys/types.h>
@@ -151,6 +152,7 @@ void vi_interaction(void) {
     int running;
     int anychanged = FALSE;
     int tempx, tempy;       /* Temp versions of curx, cury */
+    char *ext;
 
     modflg = 0;
     cellassign = 0;
@@ -703,16 +705,13 @@ void vi_interaction(void) {
                     linelim = 0;
                     for (tpp = line; *tpp != '\0'; tpp++) {
                         if (*tpp == '\\' && tpp[1] == '"') {
-                            memmove(tpp, tpp + 1, strlen(tpp + 1) + 1);
+                            strsplice(line, sizeof line, tpp - line, 1, NULL, 0);
                         } else
                         if (*tpp == '$' && tpp[1] == '$') {
                             char mycell[16];
                             size_t len;
-                            snprintf(mycell, sizeof(mycell), "%s%d", coltoa(curcol), currow);
-                            len = strlen(mycell);
-                            // XXX: should use protected version strlinsert()
-                            memmove(tpp + len, tpp + 2, strlen(tpp + 2) + 1);
-                            memcpy(tpp, mycell, len);
+                            len = snprintf(mycell, sizeof(mycell), "%s%d", coltoa(curcol), currow);
+                            strsplice(line, sizeof line, tpp - line, 2, mycell, len);
                             tpp += len - 1;
                         }
                     }
@@ -926,9 +925,9 @@ void vi_interaction(void) {
                             char px[MAXCMD];
                             const char *pager;
 
-                            strlcpy(px, "| ", sizeof px);
                             if (!(pager = getenv("PAGER")))
                                 pager = DFLT_PAGER;
+                            strlcpy(px, "| ", sizeof px);
                             strlcat(px, pager, sizeof px);
                             f = openfile(px, sizeof px, &pid, NULL);
                             if (!f) {
@@ -1320,17 +1319,17 @@ void vi_interaction(void) {
                      */
                     // XXX: clean this ugly mess!
                     curfile[strlen(curfile) + 1] = '\0';
-                    if (strrchr(curfile, '.') != NULL) {
-                        size_t l;
-                        if (!strcmp((strrchr(curfile, '.')), ".sc")) {
-                            *strrchr(curfile, '.') = '\0';
-                            l = strlen(curfile) + 3;
-                            strlcpy(curfile + l, ".", sizeof(curfile) - l);
-                        } else if (scext != NULL &&
-                                !strcmp((strrchr(curfile, '.') + 1), scext)) {
-                            *strrchr(curfile, '.') = '\0';
-                            l = strlen(curfile) + strlen(scext) + 1;
-                            strlcpy(curfile + l, ".", sizeof(curfile) - l);
+                    ext = get_extension(curfile);
+                    if (*ext != '\0') {
+                        size_t len;
+                        if (!strcmp(ext, ".sc")) {
+                            *ext = '\0';
+                            len = ext - curfile + 3;
+                            strlcpy(curfile + len, ".", sizeof(curfile) - len);
+                        } else if (scext && !strcmp(ext + 1, scext)) {
+                            *ext = '\0';
+                            len = ext - curfile + strlen(scext) + 1;
+                            strlcpy(curfile + len, ".", sizeof(curfile) - len);
                         }
                     }
                     if (*curfile) {
@@ -1338,8 +1337,7 @@ void vi_interaction(void) {
                               curfile, scext == NULL ? "sc" : scext);
                     }
                     c = *(curfile + strlen(curfile) + strlen(curfile + strlen(curfile) + 1));
-                    *(curfile + strlen(curfile) +
-                            strlen(curfile + strlen(curfile) + 1)) = '\0';
+                    *(curfile + strlen(curfile) + strlen(curfile + strlen(curfile) + 1)) = '\0';
                     curfile[strlen(curfile)] = c;
                     linelim = strlen(line);
                     insert_mode();
@@ -1391,17 +1389,17 @@ void vi_interaction(void) {
                      * was present or not.
                      */
                     curfile[strlen(curfile) + 1] = '\0';
-                    if (strrchr(curfile, '.') != NULL) {
-                        size_t l;
-                        if (!strcmp((strrchr(curfile, '.')), ".sc")) {
-                            *strrchr(curfile, '.') = '\0';
-                            l = strlen(curfile) + 3;
-                            strlcpy(curfile + l, ".\0", sizeof(curfile) - l);
-                        } else if (scext != NULL &&
-                                !strcmp((strrchr(curfile, '.') + 1), scext)) {
-                            *strrchr(curfile, '.') = '\0';
-                            l = strlen(curfile) + strlen(scext) + 1;
-                            strlcpy(curfile + l, ".\0", sizeof(curfile) - l);
+                    ext = get_extension(curfile);
+                    if (*ext != '\0') {
+                        size_t len;
+                        if (!strcmp(ext, ".sc")) {
+                            *ext = '\0';
+                            len = ext - curfile + 3;
+                            strlcpy(curfile + len, ".", sizeof(curfile) - len);
+                        } else if (scext && !strcmp(ext + 1, scext)) {
+                            *ext = '\0';
+                            len = ext - curfile + strlen(scext) + 1;
+                            strlcpy(curfile + len, ".", sizeof(curfile) - len);
                         }
                     }
 
@@ -1410,16 +1408,14 @@ void vi_interaction(void) {
                      */
                     if (*curfile) {
                         error("Default file is \"%s.%s\"", curfile,
-                                ascext == NULL ? "asc" : ascext);
+                              ascext == NULL ? "asc" : ascext);
                     }
                     /* Now swap the '.' and null bytes again.  If there is no '.', swap a
                      * null byte with itself.  This may seem convoluted, but it works well,
                      * and obviates the need for a 1024 byte temporary buffer. - CRM
                      */
-                    c = *(curfile + strlen(curfile) +
-                          strlen(curfile + strlen(curfile) + 1));
-                    *(curfile + strlen(curfile) +
-                            strlen(curfile + strlen(curfile) + 1)) = '\0';
+                    c = *(curfile + strlen(curfile) + strlen(curfile + strlen(curfile) + 1));
+                    *(curfile + strlen(curfile) + strlen(curfile + strlen(curfile) + 1)) = '\0';
                     curfile[strlen(curfile)] = c;
                     linelim = strlen(line);
                     insert_mode();
@@ -1438,39 +1434,37 @@ void vi_interaction(void) {
                      */
                     // XXX: clean this ugly mess!
                     curfile[strlen(curfile) + 1] = '\0';
-                    if (strrchr(curfile, '.') != NULL) {
-                        size_t l;
-                        if (!strcmp((strrchr(curfile, '.')), ".sc")) {
-                            *strrchr(curfile, '.') = '\0';
-                            l = strlen(curfile) + 3;
-                            strlcpy(curfile + l, ".\0", sizeof(curfile) - l);
-                        } else if (scext != NULL &&
-                                !strcmp((strrchr(curfile, '.') + 1), scext)) {
-                            *strrchr(curfile, '.') = '\0';
-                            l = strlen(curfile) + strlen(scext) + 1;
-                            strlcpy(curfile + l, ".\0", sizeof(curfile) - 1);
+                    ext = get_extension(curfile);
+                    if (*ext != '\0') {
+                        size_t len;
+                        if (!strcmp(ext, ".sc")) {
+                            *ext = '\0';
+                            len = ext - curfile + 3;
+                            strlcpy(curfile + len, ".", sizeof(curfile) - len);
+                        } else if (scext && !strcmp(ext + 1, scext)) {
+                            *ext = '\0';
+                            len = ext - curfile + strlen(scext) + 1;
+                            strlcpy(curfile + len, ".", sizeof(curfile) - len);
                         }
                     }
                     if (*curfile && tbl_style == 0) {
                         error("Default file is \"%s.%s\"", curfile,
-                                tbl0ext == NULL ? "cln" : tbl0ext);
+                              tbl0ext == NULL ? "cln" : tbl0ext);
                     } else if (*curfile && tbl_style == TBL) {
                         error("Default file is \"%s.%s\"", curfile,
-                                tblext == NULL ? "tbl" : tblext);
+                              tblext == NULL ? "tbl" : tblext);
                     } else if (*curfile && tbl_style == LATEX) {
                         error("Default file is \"%s.%s\"", curfile,
-                                latexext == NULL ? "lat" : latexext);
+                              latexext == NULL ? "lat" : latexext);
                     } else if (*curfile && tbl_style == SLATEX) {
                         error("Default file is \"%s.%s\"", curfile,
-                                slatexext == NULL ? "stx" : slatexext);
+                              slatexext == NULL ? "stx" : slatexext);
                     } else if (*curfile && tbl_style == TEX) {
                         error("Default file is \"%s.%s\"", curfile,
-                                texext == NULL ? "tex" : texext);
+                              texext == NULL ? "tex" : texext);
                     }
-                    c = *(curfile + strlen(curfile) +
-                          strlen(curfile + strlen(curfile) + 1));
-                    *(curfile + strlen(curfile) +
-                            strlen(curfile + strlen(curfile) + 1)) = '\0';
+                    c = *(curfile + strlen(curfile) + strlen(curfile + strlen(curfile) + 1));
+                    *(curfile + strlen(curfile) + strlen(curfile + strlen(curfile) + 1)) = '\0';
                     curfile[strlen(curfile)] = c;
                     linelim = strlen(line);
                     insert_mode();
@@ -2297,10 +2291,10 @@ static void dotab(void) {
         }
         if (nextmatch) {
             len = line + linelim - completethis;
-            memmove(completethis, line + linelim, strlen(line) - linelim + 1);
+            strsplice(line, sizeof line, completethis - line, len, NULL, 0);
             linelim -= len;
             ins_string(nextmatch->r_name);
-            if (*(completethis - 1) == ' ' && *(line + linelim) != ' ')
+            if (completethis[-1] == ' ' && line[linelim] != ' ')
                 ins_in_line(' ');
             if (nextmatch == lastmatch)
                 nextmatch = firstmatch;
@@ -2322,7 +2316,7 @@ static void startshow(void) {
 /* insert the range we defined by moving around the screen, see startshow() */
 static void showdr(void) {
     int minsr, minsc, maxsr, maxsc;
-    char r[12];
+    char r[32];
     struct frange *fr = find_frange(currow, curcol);
 
     if (showrange == SHOWROWS) {
@@ -2331,8 +2325,8 @@ static void showdr(void) {
         maxsr = showsr > currow ? showsr : currow;
         maxsc = fr ? fr->or_right->col : maxcols;
 
-        toggle_navigate_mode();
         snprintf(r, sizeof r, "%d:%d", minsr, maxsr);
+        toggle_navigate_mode();
         ins_string(r);
     } else if (showrange == SHOWCOLS) {
         minsr = 0;
@@ -2340,10 +2334,7 @@ static void showdr(void) {
         maxsr = maxrows;
         maxsc = showsc > curcol ? showsc : curcol;
 
-        strlcpy(r, coltoa(minsc), sizeof r);
-        strlcat(r, ":", sizeof r);
-        strlcat(r, coltoa(maxsc), sizeof r);
-
+        snprintf(r, sizeof r, "%s:%s", coltoa(minsc), coltoa(maxsc));
         toggle_navigate_mode();
         ins_string(r);
     } else {
@@ -2608,7 +2599,6 @@ static void del_in_line(int a, int back_null) {
 }
 
 static void ins_in_line(int c) {
-    int i, len;
     static int inabbr;
 
     if (c < 256) {
@@ -2622,11 +2612,10 @@ static void ins_in_line(int c) {
             inabbr--;
         }
         if (c > 0) {
-            len = strlen(line);
-            for (i = len; i >= linelim; --i)
-                line[i+1] = line[i];
-            line[linelim++] = c;
-            line[len+1] = '\0';
+            char buf[1];
+            *buf = c;
+            if (strsplice(line, sizeof line, linelim, 0, buf, 1) < (int)(sizeof line))
+                linelim++;
         }
     }
 }
@@ -2650,13 +2639,17 @@ static void doabbrev(void) {
 
     pos = linelim - 2;
     if (isalnumchar_(line[pos])) {
-        for (; pos >= istart; pos--)
+        for (; pos >= istart; pos--) {
             if (!isalnumchar_(line[pos]))
                 break;
-    } else if (line[pos] != ' ')
-        for (; pos >= istart; pos--)
+        }
+    } else
+    if (line[pos] != ' ') {
+        for (; pos >= istart; pos--) {
             if (isalnumchar_(line[pos]) || line[pos] == ' ')
                 break;
+        }
+    }
     pos++;
 
     if (istart && pos == istart) {
@@ -2807,14 +2800,16 @@ static void yank_cmd(int delete, int change) {
 static void yank_chars(int first, int last, int delete) {
     if (first == last)
         return;
-
-    if (last < first) { int temp = last; last = first; first = temp; }
-
+    if (last < first) {
+        int temp = last;
+        last = first;
+        first = temp;
+    }
     linelim = first;
-    strlcpy(putbuf, line + first, last - first);
-    putbuf[last - first] = '\0';
+    *putbuf = '\0';
+    strsplice(putbuf, sizeof putbuf, 0, 0, line + first, last - first);
     if (delete)
-        memmove(line + first, line + last, strlen(line + last) + 1);
+        strsplice(line, sizeof line, first, last - first, NULL, 0);
 }
 
 static void del_to_end(void) {
@@ -3520,8 +3515,7 @@ static void dogoto(void) {
      */
     query("goto where?", NULL);
     if (linelim >= 0) {
-        memmove(line + 5, line, strlen(line) + 1);
-        strlcpy(line, "goto ", 5);
+        strsplice(line, sizeof line, 0, 0, "goto ", 5);
         linelim = 0;
         yyparse();
     }

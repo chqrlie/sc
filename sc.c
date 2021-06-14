@@ -7,8 +7,7 @@
  *
  *              More mods Robert Bond, 12/86
  *              More mods by Alan Silverstein, 3-4/88, see list of changes.
- *              $Revision: 7.16 $
- *
+ *              $Revision: 8.1 $
  */
 
 #include <sys/types.h>
@@ -161,19 +160,7 @@ int main(int argc, char **argv) {
 #ifdef USELOCALE
     setlocale(LC_ALL, "");
 #endif
-#ifdef MSDOS
-    revi = strrchr(argv[0], '\\');
-#else
-#ifdef VMS
-    revi = strrchr(argv[0], ']');
-#else
-    revi = strrchr(argv[0], '/');
-#endif
-#endif
-    if (revi != NULL)
-        progname = revi + 1;
-    else
-        progname = argv[0];
+    progname = get_basename(argv[0]);
 
 #ifdef TRACE
     if (!(ftrace = fopen(TRACE, "w"))) {

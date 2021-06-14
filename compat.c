@@ -1,7 +1,9 @@
 /* Carsten Kunze, 2016 */
+/* updated by Charlie Gordon: June, 2021 */
 
 #include <string.h>
 #include "config.h"
+#include "util.h"
 
 #ifndef HAVE_STRLCPY
 size_t strlcpy(char *dst, const char *src, size_t dstsize) {
@@ -44,3 +46,61 @@ size_t strlcat(char *dst, const char *src, size_t dstsize) {
     return ld + ls;
 }
 #endif
+
+size_t strsplice(char *dst, size_t size, size_t from, size_t len1,
+                 const char *src, size_t len2)
+{
+    size_t len, len0, len3;
+    len0 = strnlen(dst, size - 1);
+    if (from > len0)
+        from = len0;
+    if (len1 > len0 - from)
+        len1 = len0 - from;
+    len3 = len0 - from - len1;
+    len = from + len2 + len3;       /* theoretical length */
+    if (len2 > size - from - 1)     /* truncate replacement */
+        len2 = size - from - 1;
+    if (len3 > size - from - len2 - 1) /* truncate remainder */
+        len3 = size - from - len2 - 1;
+    memmove(dst + from + len2, dst + from + len1, len3);
+    memcpy(dst + from, src, len2);
+    dst[from + len2 + len3] = '\0';
+    return len;
+}
+
+/* return a pointer to the basename portion of the filename */
+char *get_basename(const char *filename) {
+    char *p = strchr(filename, *filename); // silent cast
+    char *base = p;
+    char c;
+    while ((c = *p++)) {
+#ifdef MSDOS
+        if (c == '/' || c == '\\')
+            base = p;
+#else
+#ifdef VMS
+        if (c == ']')
+            base = p;
+#else
+        if (c == '/')
+            base = p;
+#endif
+#endif
+    }
+    return base;
+}
+
+/* return a pointer to the extension portion of the filename */
+char *get_extension(const char *filename) {
+    char *p = get_basename(filename);
+    char *ext = NULL;
+    while (*p) {
+        if (*p == '.')
+            ext = p;
+        p++;
+    }
+    if (!ext) {
+        ext = p;
+    }
+    return ext;
+}

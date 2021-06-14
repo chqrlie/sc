@@ -7,7 +7,8 @@
  *
  *              More mods Robert Bond, 12/86
  *              More mods by Alan Silverstein, 3-4/88, see list of changes.
- *              $Revision: 7.16 $
+ *              updated by Charlie Gordon: June, 2021
+ *              $Revision: 8.1 $
  */
 
 #include <sys/types.h>
@@ -970,18 +971,16 @@ static double fn2_eval(double (*fn)(double, double), double arg1, double arg2) {
  */
 
 static char *docat(char *s1, char *s2) {
+    size_t len1, len2;
     char *p;
-    const char *arg1, *arg2;
-    size_t size;
 
-    if (!s1 && !s2)
-        return NULL;
-    arg1 = s1 ? s1 : "";
-    arg2 = s2 ? s2 : "";
-    size = strlen(arg1) + strlen(arg2) + 1;
-    p = scxmalloc(size);
-    strlcpy(p, arg1, size);
-    strlcat(p, arg2, size);
+    if (!s1) return s2;
+    if (!s2) return s1;
+    len1 = strlen(s1);
+    len2 = strlen(s2);
+    p = scxmalloc(len1 + len2 + 1);
+    memcpy(p, s1, len1);
+    memcpy(p + len1, s2, len2 + 1);
     scxfree(s1);
     scxfree(s2);
     return p;
@@ -1260,8 +1259,7 @@ char *seval(struct enode *se) {
     case COLTOA:    return scxdup(coltoa((int)eval(se->e.o.left)));
     case FILENAME:  {
                         int n = eval(se->e.o.left);
-                        char *s = strrchr(curfile, '/');
-                        if (n || s++ == NULL) s = curfile;
+                        char *s = n ? curfile : get_basename(curfile);
                         return scxdup(s);
                     }
     default:
