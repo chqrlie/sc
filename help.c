@@ -528,44 +528,42 @@ static const char * const timef[] = {
 NULL
 };
 
+static const char * const * const pages[] = {
+    intro, toggleoptions, setoptions, cursor, cell, vi,
+    file, row, range, misc, var, rangef, numericf, stringf,
+    finf, timef, NULL
+};
+
 #ifndef QREF
-static int pscreen(const char * const screen[]);
 
-void help(void) {
-    int option;
-    const char * const *ns = intro;
+enum {
+    HELP_INTRO,
+    HELP_TOGGLEOPTIONS,
+    HELP_SETOPTIONS,
+    HELP_CURSOR,
+    HELP_CELL,
+    HELP_VI,
+    HELP_FILE,
+    HELP_ROW,
+    HELP_RANGE,
+    HELP_MISC,
+    HELP_VAR,
+    HELP_RANGEF,
+    HELP_NUMERICF,
+    HELP_STRINGF,
+    HELP_FINF,
+    HELP_TIMEF,
+    HELP_NB,
+};
 
-    while ((option = pscreen(ns)) != 'q' && option != 'Q') {
-        switch (option) {
-        case 'a': case 'A': ns = intro; break;
-        case 'b': case 'B': ns = toggleoptions; break;
-        case 'c': case 'C': ns = setoptions; break;
-        case 'd': case 'D': ns = cursor; break;
-        case 'e': case 'E': ns = cell; break;
-        case 'f': case 'F': ns = vi; break;
-        case 'g': case 'G': ns = file; break;
-        case 'h': case 'H': ns = row; break;
-        case 'i': case 'I': ns = range; break;
-        case 'j': case 'J': ns = misc; break;
-        case 'k': case 'K': ns = var; break;
-        case 'l': case 'L': ns = rangef; break;
-        case 'm': case 'M': ns = numericf; break;
-        case 'n': case 'N': ns = stringf; break;
-        case 'o': case 'O': ns = finf; break;
-        case 'p': case 'P': ns = timef; break;
-        default: ns = intro; break;
-        }
-    }
-    FullUpdate++;
-    move(1,0);
-    clrtobot();
-}
-
-static int pscreen(const char * const screen[])
-{
+static void pscreen(int page) {
+    const char * const *screen;
     int lineno;
     int dbline;
 
+    if (page < 0 || page >= HELP_NB)
+        page = HELP_INTRO;
+    screen = pages[page];
     move(1,0);
     clrtobot();
     dbline = 1;
@@ -578,16 +576,67 @@ static int pscreen(const char * const screen[])
     printw("Which Screen? [a-p, q]");
     clrtoeol();
     refresh();
-    return nmgetch();
+}
+
+void help(void) {
+    int history[32];
+    int pos = 0;
+    int page = HELP_INTRO;
+
+    for (;;) {
+        pscreen(history[pos] = page);
+        switch (nmgetch()) {
+        case 'a': case 'A': page = HELP_INTRO; break;
+        case 'b': case 'B': page = HELP_TOGGLEOPTIONS; break;
+        case 'c': case 'C': page = HELP_SETOPTIONS; break;
+        case 'd': case 'D': page = HELP_CURSOR; break;
+        case 'e': case 'E': page = HELP_CELL; break;
+        case 'f': case 'F': page = HELP_VI; break;
+        case 'g': case 'G': page = HELP_FILE; break;
+        case 'h': case 'H': page = HELP_ROW; break;
+        case 'i': case 'I': page = HELP_RANGE; break;
+        case 'j': case 'J': page = HELP_MISC; break;
+        case 'k': case 'K': page = HELP_VAR; break;
+        case 'l': case 'L': page = HELP_RANGEF; break;
+        case 'm': case 'M': page = HELP_NUMERICF; break;
+        case 'n': case 'N': page = HELP_STRINGF; break;
+        case 'o': case 'O': page = HELP_FINF; break;
+        case 'p': case 'P': page = HELP_TIMEF; break;
+
+        case ESC:
+        case ctl('g'):
+        case 'q': case 'Q': page = -1; break;
+
+        case ' ':
+        case ctl('f'):
+        case ctl('n'):
+        case KEY_RIGHT:
+        case KEY_DOWN: if (page < HELP_NB) page++; break;
+
+        case ctl('h'):
+        case DEL:
+        case ctl('b'):
+        case ctl('p'):
+        case KEY_LEFT:
+        case KEY_UP: if (pos > 0) page = history[--pos]; break;
+
+        default: break;
+        }
+        if (page < 0)
+            break;
+        if (page != history[pos]) {
+            if (pos == (int)(sizeof(history) / sizeof(*history)) - 1)
+                memmove(history, history + 1, sizeof(history) - sizeof(*history));
+            else
+                pos++;
+        }
+    }
+    FullUpdate++;
+    move(1,0);
+    clrtobot();
 }
 
 #else /* QREF */
-
-static const char * const * const pages[] = {
-    intro, toggleoptions, setoptions, cursor, cell, vi,
-    file, row, range, misc, var, rangef, numericf, stringf,
-    finf, timef, NULL
-};
 
 int main() {
     int lineno;
