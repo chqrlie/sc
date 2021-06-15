@@ -1518,9 +1518,10 @@ void copy(struct ent *dv1, struct ent *dv2, struct ent *v1, struct ent *v2) {
             if (p->col < minsc) minsc = p->col;
             if (p->col > maxsc) maxsc = p->col;
         }
-    } else if (showrange && !(showsr == currow && showsc == curcol &&
-            mindr == currow && mindc == curcol &&
-            maxdr == currow && maxdc == curcol)) {
+    } else if (showrange &&
+               !(showsr == currow && showsc == curcol &&
+                 mindr == currow && mindc == curcol &&
+                 maxdr == currow && maxdc == curcol)) {
         minsr = showsr < currow ? showsr : currow;
         minsc = showsc < curcol ? showsc : curcol;
         maxsr = showsr > currow ? showsr : currow;
@@ -2202,6 +2203,7 @@ void let(struct ent *v, struct enode *e) {
     if (!loading) {
         int i;
 
+        // XXX: why 28?
         for (i = 36; i > 28; i--) {
             savedrow[i] = savedrow[i-1];
             savedcol[i] = savedcol[i-1];
@@ -2248,6 +2250,7 @@ void slet(struct ent *v, struct enode *se, int flushdir) {
     if (!loading) {
         int i;
 
+        // XXX: why 28?
         for (i = 36; i > 28; i--) {
             savedrow[i] = savedrow[i-1];
             savedcol[i] = savedcol[i-1];

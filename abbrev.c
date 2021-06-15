@@ -106,8 +106,7 @@ void add_abbr(SCXMEM char *string) {
     }
 }
 
-void del_abbr(const char *abbrev)
-{
+void del_abbr(const char *abbrev) {
     struct abbrev *a;
     struct abbrev *prev;
 
@@ -121,8 +120,7 @@ void del_abbr(const char *abbrev)
     }
 }
 
-struct abbrev *find_abbr(const char *abbrev, int len, struct abbrev **prev)
-{
+struct abbrev *find_abbr(const char *abbrev, int len, struct abbrev **prev) {
     struct abbrev *a;
     int cmp;
     int exact = FALSE;
@@ -144,8 +142,7 @@ struct abbrev *find_abbr(const char *abbrev, int len, struct abbrev **prev)
     return NULL;
 }
 
-void write_abbrevs(FILE *f)
-{
+void write_abbrevs(FILE *f) {
     struct abbrev *a;
 
     for (a = abbr_base; a; a = a->next) {

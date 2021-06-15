@@ -1155,7 +1155,7 @@ void vi_interaction(void) {
                 case KEY_HELP:
 #endif
                 case '?':
-                    help();
+                    help(HELP_INTRO);
                     break;
                 case '\\':
                     if (!locked_cell(currow, curcol)) {
@@ -1307,32 +1307,17 @@ void vi_interaction(void) {
                     break;
                 case 'P':
                     snprintf(line, sizeof line, "put [\"dest\" range] \"");
-
-                    /* See the comments under "case 'W':" below for an
-                     * explanation of the logic here.
-                     */
-                    // XXX: clean this ugly mess!
-                    curfile[strlen(curfile) + 1] = '\0';
-                    ext = get_extension(curfile);
-                    if (*ext != '\0') {
-                        size_t len;
-                        if (!strcmp(ext, ".sc")) {
-                            *ext = '\0';
-                            len = ext - curfile + 3;
-                            strlcpy(curfile + len, ".", sizeof(curfile) - len);
-                        } else if (scext && !strcmp(ext + 1, scext)) {
-                            *ext = '\0';
-                            len = ext - curfile + strlen(scext) + 1;
-                            strlcpy(curfile + len, ".", sizeof(curfile) - len);
-                        }
-                    }
                     if (*curfile) {
-                        error("Default path is \"%s.%s\"",
-                              curfile, scext == NULL ? "sc" : scext);
+                        ext = get_extension(curfile);
+#ifndef MSDOS
+                        /* keep the extension unless .sc or scext */
+                        if (strcmp(ext, ".sc") && !(scext && !strcmp(ext, scext)))
+                            ext += strlen(ext);
+#endif
+                        error("Default path is \"%.*s.%s\"",
+                              (int)(ext - curfile), curfile,
+                              scext ? scext : "sc");
                     }
-                    c = *(curfile + strlen(curfile) + strlen(curfile + strlen(curfile) + 1));
-                    *(curfile + strlen(curfile) + strlen(curfile + strlen(curfile) + 1)) = '\0';
-                    curfile[strlen(curfile)] = c;
                     linelim = strlen(line);
                     insert_mode();
                     break;
@@ -1371,46 +1356,17 @@ void vi_interaction(void) {
                     break;
                 case 'W':
                     snprintf(line, sizeof line, "write [\"dest\" range] \"");
-
-                    // XXX: clean this ugly mess!
-
-                    /* First, append an extra null byte to curfile.  Then, if curfile ends in
-                     * ".sc" (or '.' followed by the string in scext), move the '.' to the
-                     * end and replace it with a null byte.  This results in two consecutive
-                     * null-terminated strings, the first being curfile with the ".sc" (or '.'
-                     * and scext) removed, if present, and the second being either "sc." (or
-                     * scext and '.') or "", depending on whether the ".sc" (or '.' and scext)
-                     * was present or not.
-                     */
-                    curfile[strlen(curfile) + 1] = '\0';
-                    ext = get_extension(curfile);
-                    if (*ext != '\0') {
-                        size_t len;
-                        if (!strcmp(ext, ".sc")) {
-                            *ext = '\0';
-                            len = ext - curfile + 3;
-                            strlcpy(curfile + len, ".", sizeof(curfile) - len);
-                        } else if (scext && !strcmp(ext + 1, scext)) {
-                            *ext = '\0';
-                            len = ext - curfile + strlen(scext) + 1;
-                            strlcpy(curfile + len, ".", sizeof(curfile) - len);
-                        }
-                    }
-
-                    /* Now append ".asc" (or '.' and the value of ascext) to the possibly
-                     * truncated curfile.
-                     */
                     if (*curfile) {
-                        error("Default file is \"%s.%s\"", curfile,
-                              ascext == NULL ? "asc" : ascext);
+                        ext = get_extension(curfile);
+#ifndef MSDOS
+                        /* keep the extension unless .sc or scext */
+                        if (strcmp(ext, ".sc") && !(scext && !strcmp(ext, scext)))
+                            ext += strlen(ext);
+#endif
+                        error("Default file is \"%.*s.%s\"",
+                              (int)(ext - curfile), curfile,
+                              ascext ? ascext : "asc");
                     }
-                    /* Now swap the '.' and null bytes again.  If there is no '.', swap a
-                     * null byte with itself.  This may seem convoluted, but it works well,
-                     * and obviates the need for a 1024 byte temporary buffer. - CRM
-                     */
-                    c = *(curfile + strlen(curfile) + strlen(curfile + strlen(curfile) + 1));
-                    *(curfile + strlen(curfile) + strlen(curfile + strlen(curfile) + 1)) = '\0';
-                    curfile[strlen(curfile)] = c;
                     linelim = strlen(line);
                     insert_mode();
                     break;
@@ -1422,44 +1378,35 @@ void vi_interaction(void) {
                     break;
                 case 'T':       /* tbl output */
                     snprintf(line, sizeof line, "tbl [\"dest\" range] \"");
-
-                    /* See the comments under "case 'W':" above for an explanation of the
-                     * logic here.
-                     */
-                    // XXX: clean this ugly mess!
-                    curfile[strlen(curfile) + 1] = '\0';
-                    ext = get_extension(curfile);
-                    if (*ext != '\0') {
-                        size_t len;
-                        if (!strcmp(ext, ".sc")) {
-                            *ext = '\0';
-                            len = ext - curfile + 3;
-                            strlcpy(curfile + len, ".", sizeof(curfile) - len);
-                        } else if (scext && !strcmp(ext + 1, scext)) {
-                            *ext = '\0';
-                            len = ext - curfile + strlen(scext) + 1;
-                            strlcpy(curfile + len, ".", sizeof(curfile) - len);
+                    if (*curfile) {
+                        ext = get_extension(curfile);
+#ifndef MSDOS
+                        /* keep the extension unless .sc or scext */
+                        if (strcmp(ext, ".sc") && !(scext && !strcmp(ext, scext)))
+                            ext += strlen(ext);
+#endif
+                        if (tbl_style == 0) {
+                            error("Default file is \"%.*s.%s\"",
+                                  (int)(ext - curfile), curfile,
+                                  tbl0ext ? tbl0ext : "cln");
+                        } else if (tbl_style == TBL) {
+                            error("Default file is \"%.*s.%s\"",
+                                  (int)(ext - curfile), curfile,
+                                  tblext ? tblext : "tbl");
+                        } else if (tbl_style == LATEX) {
+                            error("Default file is \"%.*s.%s\"",
+                                  (int)(ext - curfile), curfile,
+                                  latexext ? latexext : "lat");
+                        } else if (tbl_style == SLATEX) {
+                            error("Default file is \"%.*s.%s\"",
+                                  (int)(ext - curfile), curfile,
+                                  slatexext ? slatexext : "stx");
+                        } else if (tbl_style == TEX) {
+                            error("Default file is \"%.*s.%s\"",
+                                  (int)(ext - curfile), curfile,
+                                  texext ? texext : "tex");
                         }
                     }
-                    if (*curfile && tbl_style == 0) {
-                        error("Default file is \"%s.%s\"", curfile,
-                              tbl0ext == NULL ? "cln" : tbl0ext);
-                    } else if (*curfile && tbl_style == TBL) {
-                        error("Default file is \"%s.%s\"", curfile,
-                              tblext == NULL ? "tbl" : tblext);
-                    } else if (*curfile && tbl_style == LATEX) {
-                        error("Default file is \"%s.%s\"", curfile,
-                              latexext == NULL ? "lat" : latexext);
-                    } else if (*curfile && tbl_style == SLATEX) {
-                        error("Default file is \"%s.%s\"", curfile,
-                              slatexext == NULL ? "stx" : slatexext);
-                    } else if (*curfile && tbl_style == TEX) {
-                        error("Default file is \"%s.%s\"", curfile,
-                              texext == NULL ? "tex" : texext);
-                    }
-                    c = *(curfile + strlen(curfile) + strlen(curfile + strlen(curfile) + 1));
-                    *(curfile + strlen(curfile) + strlen(curfile + strlen(curfile) + 1)) = '\0';
-                    curfile[strlen(curfile)] = c;
                     linelim = strlen(line);
                     insert_mode();
                     break;
@@ -1544,13 +1491,7 @@ void vi_interaction(void) {
                         startshow();
                         break;
                     }
-                    if (c == '`' || c == '\'')
-                        c = 0;
-                    else if (c >= 'a' && c <= 'z')
-                        c = c - 'a' + 1;
-                    else if (c >= '0' && c <= '9')
-                        c = c - '0' + 1 + 26;
-                    else {
+                    if ((c = checkmark(c)) < 0) {
                         error("Invalid mark (must be a-z, 0-9, ` or \')");
                         break;
                     }
@@ -1576,8 +1517,8 @@ void vi_interaction(void) {
                                 if (!p) break;
                                 n = lookat(currow, c1);
                             }
-                            copyent(n, p, currow - savedrow[c],
-                                    c1 - savedcol[c], 0, 0, maxrow, maxcol, 0);
+                            copyent(n, p, currow - savedrow[c], c1 - savedcol[c],
+                                    0, 0, maxrow, maxcol, 0);
                             n->flags |= IS_CHANGED;
                         }
 
@@ -2000,10 +1941,10 @@ static void write_line(int c) {
                                     toggle_navigate_mode();
                                     startshow();
                                 } else if ((size_t)linelim == strlen(line) &&
-                                        (line[linelim - 1] == '+' ||
-                                        line[linelim - 1] == '-' ||
-                                        (line[linelim - 1] == ' ' &&
-                                         line[linelim - 2] == '='))) {
+                                           (line[linelim - 1] == '+' ||
+                                            line[linelim - 1] == '-' ||
+                                            (line[linelim - 1] == ' ' &&
+                                             line[linelim - 2] == '='))) {
                                     ins_string("@sum(");
                                     showdr();
                                     ins_in_line(')');
@@ -2023,10 +1964,10 @@ static void write_line(int c) {
                                     ins_string(v_name(currow, curcol));
                                     ins_in_line(c);
                                 } else if ((size_t)linelim == strlen(line) &&
-                                        (line[linelim - 1] == '+' ||
-                                        line[linelim - 1] == '-' ||
-                                        (line[linelim - 1] == ' ' &&
-                                         line[linelim - 2] == '='))) {
+                                           (line[linelim - 1] == '+' ||
+                                            line[linelim - 1] == '-' ||
+                                            (line[linelim - 1] == ' ' &&
+                                             line[linelim - 2] == '='))) {
                                     ins_string("@sum(");
                                     showdr();
                                     ins_in_line(')');
@@ -3349,15 +3290,15 @@ static void gohome(void) {
     remember(0);
     if ((fr = find_frange(currow, curcol))) {
         if (currow >= fr->ir_left->row &&
-                currow <= fr->ir_right->row &&
-                curcol >= fr->ir_left->col &&
-                curcol <= fr->ir_right->col &&
-                (currow > fr->ir_left->row ||
-                curcol > fr->ir_left->col)) {
+            currow <= fr->ir_right->row &&
+            curcol >= fr->ir_left->col &&
+            curcol <= fr->ir_right->col &&
+            (currow > fr->ir_left->row ||
+             curcol > fr->ir_left->col)) {
             currow = fr->ir_left->row;
             curcol = fr->ir_left->col;
         } else if (currow > fr->or_left->row ||
-                curcol > fr->or_left->col) {
+                   curcol > fr->or_left->col) {
             currow = fr->or_left->row;
             curcol = fr->or_left->col;
         } else {
@@ -3380,12 +3321,12 @@ static void leftlimit(void) {
     remember(0);
     if ((fr = find_frange(currow, curcol))) {
         if (currow >= fr->ir_left->row &&
-                currow <= fr->ir_right->row &&
-                curcol > fr->ir_left->col &&
-                curcol <= fr->ir_right->col)
+            currow <= fr->ir_right->row &&
+            curcol > fr->ir_left->col &&
+            curcol <= fr->ir_right->col)
             curcol = fr->ir_left->col;
         else if (curcol > fr->or_left->col &&
-                curcol <= fr->or_right->col)
+                 curcol <= fr->or_right->col)
             curcol = fr->or_left->col;
         else
             curcol = 0;
@@ -3403,17 +3344,17 @@ static void rightlimit(void) {
     remember(0);
     if ((fr = find_frange(currow, curcol))) {
         if (currow >= fr->ir_left->row &&
-                currow <= fr->ir_right->row &&
-                curcol >= fr->ir_left->col &&
-                curcol < fr->ir_right->col)
+            currow <= fr->ir_right->row &&
+            curcol >= fr->ir_left->col &&
+            curcol < fr->ir_right->col)
             curcol = fr->ir_right->col;
         else if (curcol >= fr->or_left->col &&
-                curcol < fr->or_right->col)
+                 curcol < fr->or_right->col)
             curcol = fr->or_right->col;
         else {
             curcol = maxcols - 1;
             while (!VALID_CELL(p, currow, curcol) &&
-                    curcol > fr->or_right->col)
+                   curcol > fr->or_right->col)
                 curcol--;
             if ((fr = find_frange(currow, curcol)))
                 curcol = fr->or_right->col;
@@ -3436,12 +3377,12 @@ static void gototop(void) {
     remember(0);
     if ((fr = find_frange(currow, curcol))) {
         if (curcol >= fr->ir_left->col &&
-                curcol <= fr->ir_right->col &&
-                currow > fr->ir_left->row &&
-                currow <= fr->ir_right->row)
+            curcol <= fr->ir_right->col &&
+            currow > fr->ir_left->row &&
+            currow <= fr->ir_right->row)
             currow = fr->ir_left->row;
         else if (currow > fr->or_left->row &&
-                currow <= fr->or_right->row)
+                 currow <= fr->or_right->row)
             currow = fr->or_left->row;
         else
             currow = 0;
@@ -3459,17 +3400,17 @@ static void gotobottom(void) {
     remember(0);
     if ((fr = find_frange(currow, curcol))) {
         if (curcol >= fr->ir_left->col &&
-                curcol <= fr->ir_right->col &&
-                currow >= fr->ir_left->row &&
-                currow < fr->ir_right->row)
+            curcol <= fr->ir_right->col &&
+            currow >= fr->ir_left->row &&
+            currow < fr->ir_right->row)
             currow = fr->ir_right->row;
         else if (currow >= fr->or_left->row &&
-                currow < fr->or_right->row)
+                 currow < fr->or_right->row)
             currow = fr->or_right->row;
         else {
             currow = maxrows - 1;
             while (!VALID_CELL(p, currow, curcol) &&
-                    currow > fr->or_right->row)
+                   currow > fr->or_right->row)
                 currow--;
             if ((fr = find_frange(currow, curcol)))
                 currow = fr->or_right->row;

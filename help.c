@@ -536,26 +536,6 @@ static const char * const * const pages[] = {
 
 #ifndef QREF
 
-enum {
-    HELP_INTRO,
-    HELP_TOGGLEOPTIONS,
-    HELP_SETOPTIONS,
-    HELP_CURSOR,
-    HELP_CELL,
-    HELP_VI,
-    HELP_FILE,
-    HELP_ROW,
-    HELP_RANGE,
-    HELP_MISC,
-    HELP_VAR,
-    HELP_RANGEF,
-    HELP_NUMERICF,
-    HELP_STRINGF,
-    HELP_FINF,
-    HELP_TIMEF,
-    HELP_NB,
-};
-
 static void pscreen(int page) {
     const char * const *screen;
     int lineno;
@@ -578,10 +558,10 @@ static void pscreen(int page) {
     refresh();
 }
 
-void help(void) {
+void help(int ctx) {
     int history[32];
     int pos = 0;
-    int page = HELP_INTRO;
+    int page = ctx;
 
     for (;;) {
         pscreen(history[pos] = page);
@@ -611,16 +591,17 @@ void help(void) {
         case ctl('f'):
         case ctl('n'):
         case KEY_RIGHT:
-        case KEY_DOWN: if (page < HELP_NB) page++; break;
+        case KEY_DOWN:      if (page < HELP_NB) page++; break;
 
         case ctl('h'):
         case DEL:
         case ctl('b'):
         case ctl('p'):
         case KEY_LEFT:
-        case KEY_UP: if (pos > 0) page = history[--pos]; break;
+        case KEY_UP:        if (pos > 0) page = history[--pos];
+                            else page = HELP_INTRO; break;
 
-        default: break;
+        default:            break;
         }
         if (page < 0)
             break;

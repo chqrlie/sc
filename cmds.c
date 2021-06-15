@@ -110,7 +110,7 @@ void duprow(void) {
     c2 = fr ? fr->or_right->col : maxcol;
 
     if (currow >= maxrows - 1 || (!fr && maxrow >= maxrows - 1) ||
-            (fr && fr->or_right->row >= maxrows - 1)) {
+        (fr && fr->or_right->row >= maxrows - 1)) {
         if (!growtbl(GROWROW, 0, 0))
             return;
     }
@@ -379,14 +379,14 @@ void deleterow(int arg) {
             /* Update all marked cells. */
             for (i = 0; i < 37; i++) {
                 if (savedcol[i] >= fr->or_left->col &&
-                        savedcol[i] <= fr->or_right->col) {
+                    savedcol[i] <= fr->or_right->col) {
                     if (savedrow[i] >= currow && savedrow[i] < currow + arg)
                         savedrow[i] = savedcol[i] = -1;
                     if (savedrow[i] >= currow + arg)
                         savedrow[i] -= arg;
                 }
                 if (savedstcol[i] >= fr->or_left->col &&
-                        savedstcol[i] <= fr->or_right->col) {
+                    savedstcol[i] <= fr->or_right->col) {
                     if (savedstrow[i] >= currow && savedstrow[i] < currow + arg)
                         savedstrow[i] = currow;
                     if (savedstrow[i] >= currow + arg)
@@ -1550,11 +1550,12 @@ void printfile(char *fname, int r0, int c0, int rn, int cn) {
             strlcpy(path, curfile, sizeof path);
             ext = get_extension(path);
 #ifndef MSDOS
+            /* keep the extension unless .sc or scext */
             if (strcmp(ext, ".sc") && !(scext && !strcmp(ext, scext)))
                 ext += strlen(ext);
 #endif
             snprintf(ext, path + sizeof(path) - ext, ".%s",
-                     ascext == NULL ? "asc" : ascext);
+                     ascext ? ascext : "asc");
             fname = path;
             fnamesiz = sizeof path;
         } else {
@@ -1758,29 +1759,29 @@ void tblprintfile(char *fname, int r0, int c0, int rn, int cn) {
         ext = get_extension(path);
 
 #ifndef MSDOS
-        /* keep the extention unless .sc or scext */
+        /* keep the extension unless .sc or scext */
         if (strcmp(ext, ".sc") && !(scext && !strcmp(ext, scext)))
             ext += strlen(ext);
 #endif
         if (tbl_style == 0) {
             snprintf(ext, path + sizeof(path) - ext, ".%s",
-                     tbl0ext == NULL ? "cln" : tbl0ext);
+                     tbl0ext ? tbl0ext : "cln");
         } else
         if (tbl_style == TBL) {
             snprintf(ext, path + sizeof(path) - ext, ".%s",
-                     tblext == NULL ? "tbl" : tblext);
+                     tblext ? tblext : "tbl");
         } else
         if (tbl_style == LATEX) {
             snprintf(ext, path + sizeof(path) - ext, ".%s",
-                     latexext == NULL ? "lat" : latexext);
+                     latexext ? latexext : "lat");
         } else
         if (tbl_style == SLATEX) {
             snprintf(ext, path + sizeof(path) - ext, ".%s",
-                     slatexext == NULL ? "stx" : slatexext);
+                     slatexext ? slatexext : "stx");
         } else
         if (tbl_style == TEX) {
             snprintf(ext, path + sizeof(path) - ext, ".%s",
-                     texext == NULL ? "tex" : texext);
+                     texext ? texext : "tex");
         }
         fname = path;
         fnamesiz = sizeof path;
@@ -2091,13 +2092,9 @@ struct enode *copye(struct enode *e, int Rdelta, int Cdelta, int r1, int c1,
 void docopy(void) {
     if (showrange) {
         showrange = 0;
-        copy(lookat(showsr, showsc),
-             lookat(currow, curcol),
-             NULL, NULL);
+        copy(lookat(showsr, showsc), lookat(currow, curcol), NULL, NULL);
     } else {
-        copy(lookat(currow, curcol),
-             lookat(currow, curcol),
-             NULL, NULL);
+        copy(lookat(currow, curcol), lookat(currow, curcol), NULL, NULL);
     }
 }
 
@@ -2215,7 +2212,8 @@ void hidecols(int c1, int c2) {
 void dohide(void) {
     if (showrange == SHOWROWS) {
         hiderows(currow, showsr);
-    } else if (showrange == SHOWCOLS) {
+    } else
+    if (showrange == SHOWCOLS) {
         hiderows(curcol, showsc);
     }
 }
@@ -2863,7 +2861,7 @@ void erasedb(void) {
     if (usecurses)
         select_style(STYLE_NONE, 0);
     /* unset all marks */
-    for (c = 1; c < 37; c++)
+    for (c = 0; c < 37; c++)
         savedrow[c] = savedcol[c] = savedstrow[c] = savedstcol[c] = -1;
 
     scxfree(mdir);
@@ -2967,6 +2965,17 @@ void backrow(int arg) {
     colsinrange = fwidth[curcol];
 }
 
+int checkmark(int c) {
+    if (c == '`' || c == '\'')
+        return 0;
+    else if (c >= 'a' && c <= 'z')
+        return c - 'a' + 1;
+    else if (c >= '0' && c <= '9')
+        return c - '0' + 1 + 26;
+    else
+        return -1;
+}
+
 void markcell(void) {
     int c;
 
@@ -2975,8 +2984,8 @@ void markcell(void) {
         CLEAR_LINE;
         return;
     }
-    if ((c -= ('a' - 1)) < 1 || c > 26) {
-        error("Invalid mark (must be a-z)");
+    if ((c = checkmark(c)) < 0) {
+        error("Invalid mark (must be letter, digit, ` or ')");
         return;
     }
     CLEAR_LINE;
@@ -2996,14 +3005,8 @@ void dotick(int tick) {
         CLEAR_LINE;
         return;
     }
-    if (c == '`' || c == '\'')
-        c = 0;
-    else if (c >= 'a' && c <= 'z')
-        c = c - 'a' + 1;
-    else if (c >= '0' && c <= '9')
-        c = c - '0' + 1 + 26;
-    else {
-        error("Invalid mark (must be a-z, 0-9, ` or ')");
+    if ((c = checkmark(c)) < 0) {
+        error("Invalid mark (must be letter, digit, ` or ')");
         return;
     }
     if (savedrow[c] == -1) {
@@ -3019,8 +3022,9 @@ void dotick(int tick) {
         strow = savedstrow[c];
         stcol = savedstcol[c];
         gs.stflag = 1;
-    } else
+    } else {
         gs.stflag = 0;
+    }
     remember(1);
 
     FullUpdate++;
@@ -3408,7 +3412,7 @@ void domdir(char *str) {
     scxfree(mdir);
     mdir = NULL;
     // XXX: memory leak
-    if (strlen(str))
+    if (*str)
         mdir = str;
     modflg++;
 }
@@ -3417,7 +3421,7 @@ void doautorun(char *str) {
     scxfree(autorun);
     autorun = NULL;
     // XXX: memory leak
-    if (strlen(str))
+    if (*str)
         autorun = str;
     modflg++;
 }
@@ -3427,7 +3431,7 @@ void dofkey(int n, char *str) {
         scxfree(fkey[n - 1]);
         fkey[n - 1] = NULL;
         // XXX: memory leak
-        if (strlen(str))
+        if (*str)
             fkey[n - 1] = str;
         modflg++;
     } else {

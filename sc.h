@@ -416,6 +416,30 @@ typedef chtype attr_t;
 #define KEY_ALT(c)   ((c)|01000)
 extern int nmgetch(void);
 
+/*---------------- Context sensitive help ----------------*/
+
+enum help_context {
+    HELP_INTRO,
+    HELP_TOGGLEOPTIONS,
+    HELP_SETOPTIONS,
+    HELP_CURSOR,
+    HELP_CELL,
+    HELP_VI,
+    HELP_FILE,
+    HELP_ROW,
+    HELP_RANGE,
+    HELP_MISC,
+    HELP_VAR,
+    HELP_RANGEF,
+    HELP_NUMERICF,
+    HELP_STRINGF,
+    HELP_FINF,
+    HELP_TIMEF,
+    HELP_NB,
+};
+
+extern void help(int ctx);
+
 /*---------------- Global data ----------------*/
 
 /* The table data is organized as:
@@ -616,7 +640,6 @@ extern void getnum(int r0, int c0, int rn, int cn, int fd);
 extern void getstring(int r0, int c0, int rn, int cn, int fd);
 extern void go_last(void);
 extern void goraw(void);
-extern void help(void);
 extern void dohide(void);
 extern void hidecols(int c1, int c2);
 extern void hiderows(int c1, int c2);
@@ -629,6 +652,7 @@ extern void unlet(struct ent *v);
 extern void let(struct ent *v, struct enode *e);
 extern void list_ranges(FILE *f);
 extern void lock_cells(struct ent *v1, struct ent *v2);
+extern int checkmark(int c);
 extern void markcell(void);
 extern void move_area(int dr, int dc, int sr, int sc, int er, int ec);
 extern void mover(struct ent *d, struct ent *v1, struct ent *v2);

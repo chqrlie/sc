@@ -738,12 +738,12 @@ void update(int anychanged) {          /* did any cell really change in value? *
                  *
                  * - showing cells which have expressions and this one does.
                  */
-                if ((showrange && (!showneed) && (!showexpr)
+                if ((showrange && !showneed && !showexpr
                         && (row >= minsr) && (row <= maxsr)
                         && (col >= minsc) && (col <= maxsc))
                     || (showneed && p && (p->flags & IS_VALID) &&
-                        ((p->flags & IS_STREXPR) || !(p->expr)))
-                    || (showexpr && p && (p->expr))
+                        ((p->flags & IS_STREXPR) || !p->expr))
+                    || (showexpr && p && p->expr)
                     || (shownote && p && (p->nrow >= 0)))
                 {
                     move(r, c);

@@ -591,7 +591,7 @@ command:  S_LET var_or_range '=' e
         | S_OPENCOL             { insertcol( 1, 1); }
         | S_OPENCOL '*' NUMBER  { insertcol($3, 1); }
         | S_DELETEROW           { if (showrange == SHOWROWS)
-                                      deletecols(currow, showsr);
+                                      deletecols(showsr, currow);
                                   else
                                       deletecols(currow, currow);
                                 }
@@ -599,7 +599,7 @@ command:  S_LET var_or_range '=' e
         | S_DELETEROW NUMBER    { deleterows($2, $2); }
         | S_DELETEROW NUMBER ':' NUMBER { deleterows($2, $4); }
         | S_DELETECOL           { if (showrange == SHOWCOLS)
-                                      deletecols(curcol, showsc);
+                                      deletecols(showsc, curcol);
                                   else
                                       deletecols(curcol, curcol);
                                 }
