@@ -1,4 +1,4 @@
-# Makefile $Revision: 7.16 $
+# Makefile $Revision: 8.1 $
 #
 # 1) Select the proper EXDIR (path), MANDIR, MANEXT, LIBDIR, SIGVOID,
 #	REGEX, DFLT_PAGER, and FMOD. Most of the other things aren't
@@ -346,8 +346,8 @@ _CFLAGS= $(CFLAGS) $(WARNINGS) $(INCDIR_CURSES) $(DEFINES) $(__CDBG) $(__CLDBG) 
 _LDFLAGS=$(LDFLAGS) $(__CLDBG)
 LDADD=-lm $(LIBDIR_CURSES) $(LIB_CURSES)
 
-# All of the source files
-SRC=Makefile abbrev.c cmds.c color.c crypt.c eres.sed frame.c format.c gram.y \
+# All of the source files for archiving targets (outdated)
+SRCS=Makefile abbrev.c cmds.c color.c crypt.c eres.sed frame.c format.c gram.y \
 	help.c interp.c lex.c pipe.c psc.c range.c sc.c sc.h screen.c sort.c \
 	sres.sed version.c vi.c vmtbl.c xmalloc.c
 
@@ -358,6 +358,9 @@ OBJS=$O/abbrev.o $O/cmds.o $O/color.o $(CRYPT_OBJ) $O/format.o $O/frame.o $O/gra
 
 # The documents in the Archive
 DOCS=CHANGES README sc.doc psc.doc tutorial.sc VMS_NOTES torev build.com
+
+# The header files and other implicit dependency files
+DEPENDS:= sc.h config.h compat.h util.h Makefile
 
 all:	Makefile $O $(name) p$(name) $(name)qref $(name).1 p$(name).1 $(name)qref.1 \
 	x$(name) x$(name).1
@@ -388,35 +391,35 @@ p$(name): $O/psc.o $O/xmalloc.o $O/version.o
 #p$(name): $O/psc.o $O/xmalloc.o $O/getopt.o
 #	link ${_LDFLAGS} $O/psc.o $O/xmalloc.o $O/getopt.o,p$(name);
 
-$(name)qref: help.c sc.h
+$(name)qref: help.c $(DEPENDS)
 	$(CC) $(_CFLAGS) -o $@ $(_LDFLAGS) -DQREF $(QREF_FMT) -DSCNAME=\"$(NAME)\" help.c
 
-$O/qhelp.o: help.c sc.h
+$O/qhelp.o: help.c $(DEPENDS)
 	$(CC) $(_CFLAGS) -o $@ ${CRYPT} -c help.c
 
 # Alternative link for MS-DOS
-#$(name)qref: help.c sc.h
+#$(name)qref: help.c $(DEPENDS)
 #	$(CC) -AL -O -Foqhelp.o -c -DQREF -DSCNAME=\"$(name)\" help.c
 #	link ${_LDFLAGS} qhelp.o,$(name)qref;
 
 # Objects
 
-$O/abbrev.o: abbrev.c sc.h
+$O/abbrev.o: abbrev.c $(DEPENDS)
 	$(CC) $(_CFLAGS) -o $@ ${DFLT_PAGER} -c abbrev.c
 
-$O/cmds.o: cmds.c sc.h
+$O/cmds.o: cmds.c $(DEPENDS)
 	$(CC) $(_CFLAGS) -o $@ ${CRYPT} -c cmds.c
 
-$O/color.o: color.c sc.h
+$O/color.o: color.c $(DEPENDS)
 	$(CC) $(_CFLAGS) -o $@ -c color.c
 
-$O/crypt.o: crypt.c sc.h
+$O/crypt.o: crypt.c $(DEPENDS)
 	$(CC) $(_CFLAGS) -o $@ ${CRYPT} -c crypt.c
 
-$O/format.o: format.c sc.h
+$O/format.o: format.c $(DEPENDS)
 	$(CC) $(_CFLAGS) -o $@ -c format.c
 
-$O/frame.o: frame.c sc.h
+$O/frame.o: frame.c $(DEPENDS)
 	$(CC) $(_CFLAGS) -o $@ -c frame.c
 
 experres.h: gram.y eres.sed
@@ -425,49 +428,49 @@ experres.h: gram.y eres.sed
 statres.h: gram.y sres.sed
 	sed < gram.y > statres.h -f sres.sed
 
-$O/gram.o: $(YTAB).c $(YTAB).h sc.h
+$O/gram.o: $(YTAB).c $(YTAB).h $(DEPENDS)
 	$(CC) $(_CFLAGS) -o $@ ${USELOCALE} -c $(YTAB).c
 
-$O/help.o: help.c sc.h
+$O/help.o: help.c $(DEPENDS)
 	$(CC) $(_CFLAGS) -o $@ ${CRYPT} -c help.c
 
-$O/interp.o: interp.c sc.h
+$O/interp.o: interp.c $(DEPENDS)
 	$(CC) $(_CFLAGS) -o $@ ${FLOAT_STORE} ${IEEE_MATH} ${SIGVOID} ${RINT} ${REGEX} ${FMOD} -c interp.c
 
-$O/lex.o: $(YTAB).h $(YTAB).c lex.c sc.h experres.h statres.h
+$O/lex.o: $(YTAB).h $(YTAB).c lex.c $(DEPENDS) experres.h statres.h
 	$(CC) $(_CFLAGS) -o $@ ${SIMPLE} ${IEEE_MATH} ${LIBRARY} ${SIGVOID} ${NO_NOTIMEOUT} -c lex.c
 
-$O/pipe.o: pipe.c sc.h
+$O/pipe.o: pipe.c $(DEPENDS)
 	$(CC) $(_CFLAGS) -o $@ -c pipe.c
 
-$O/range.o: range.c sc.h
+$O/range.o: range.c $(DEPENDS)
 	$(CC) $(_CFLAGS) -o $@ -c range.c
 
-$O/sc.o: sc.c sc.h
+$O/sc.o: sc.c $(DEPENDS)
 	$(CC) $(_CFLAGS) -o $@ ${DFLT_PAGER} ${SIGVOID} ${SAVE} -c sc.c
 
-$O/screen.o: screen.c sc.h
+$O/screen.o: screen.c $(DEPENDS)
 	$(CC) $(_CFLAGS) -o $@ ${BROKENCURSES} ${IDLOKISBAD} ${RIGHTBUG} ${SIGVOID} ${NO_IDLOK} -c screen.c
 
-$O/sort.o: sort.c sc.h
+$O/sort.o: sort.c $(DEPENDS)
 	$(CC) $(_CFLAGS) -o $@ -c sort.c
 
 $O/version.o: version.c version.h
 	$(CC) $(_CFLAGS) -o $@ -c version.c
 
-$O/vi.o: vi.c sc.h
+$O/vi.o: vi.c $(DEPENDS)
 	$(CC) $(_CFLAGS) -o $@ ${REGEX} ${HISTORY_FILE} -c vi.c
 
-$O/vmtbl.o: vmtbl.c sc.h
+$O/vmtbl.o: vmtbl.c $(DEPENDS)
 	$(CC) $(_CFLAGS) -o $@ -c vmtbl.c
 
-$O/xmalloc.o: xmalloc.c sc.h
+$O/xmalloc.o: xmalloc.c $(DEPENDS)
 	$(CC) $(_CFLAGS) -o $@ -c xmalloc.c
 
-$O/psc.o: psc.c sc.h
+$O/psc.o: psc.c $(DEPENDS)
 	$(CC) $(_CFLAGS) -o $@ -c psc.c
 
-$O/compat.o: compat.c sc.h
+$O/compat.o: compat.c $(DEPENDS)
 	$(CC) $(_CFLAGS) -o $@ -c compat.c
 
 # other stuff
@@ -479,24 +482,24 @@ distclean: clean
 	rm -f $(name) p$(name) $(name)qref x$(name) Makefile config.log
 	rm -f $(name).1 p$(name).1 $(name)qref.1 x$(name).1 compat.h
 
-shar: ${SRC} ${DOCS}
-	shar -c -m 64000 -f shar ${DOCS} ${SRC}
+shar: ${SRCS} ${DOCS}
+	shar -c -m 64000 -f shar ${DOCS} ${SRCS}
 
-sshar: ${SRC}
-	shar -c -m 1000000 -f shar ${SRC}
+sshar: ${SRCS}
+	shar -c -m 1000000 -f shar ${SRCS}
 
-lint: sc.h sc.c lex.c $(YTAB).c interp.c cmds.c color.c crypt.c frame.c pipe.c \
-	range.c help.c vi.c version.c xmalloc.c format.c vmtbl.c
-	lint ${LINTFLAGS} $(_CFLAGS) ${SIMPLE} sc.c \
-	    lex.c $(YTAB).c interp.c cmds.c color.c crypt.c frame.c pipe.c \
-	    range.c help.c vi.c version.c xmalloc.c format.c vmtbl.c \
-	    $(LDADD)
-	make lintqref
+lint: lintsc lintqref lintpsc
 
-lintqref: help.c
+lintsc: $(YTAB).c
+	lint ${LINTFLAGS} $(_CFLAGS) ${SIMPLE} \
+	    abbrev.c cmds.c color.c crypt.c format.c frame.c help.c interp.c \
+	    lex.c pipe.c range.c sc.c screen.c sort.c version.c vi.c vmtbl.c \
+	    xmalloc.c compat.c $(YTAB).c $(LDADD)
+
+lintqref:
 	lint ${LINTFLAGS} $(_CFLAGS) ${SIMPLE} -DQREF help.c
 
-lintpsc: psc.c
+lintpsc:
 	lint ${LINTFLAGS} $(_CFLAGS) ${SIMPLE} psc.c
 
 .SUFFIXES: .doc .1
@@ -565,4 +568,4 @@ uninstall:
 	rm -f $(MANDIR)/$(name)qref.$(MANEXT)
 
 files:
-	@find $(DOCS) $(SRC) -print
+	@find $(DOCS) $(SRCS) -print

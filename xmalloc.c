@@ -6,8 +6,6 @@
  * $Revision: 8.1 $
  */
 
-#include <stdlib.h>
-#include <limits.h>
 #include "sc.h"
 
 #define MAGIC   (double)1234567890.12344

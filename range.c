@@ -7,12 +7,6 @@
  *              $Revision: 8.1 $
  */
 
-#include <sys/types.h>
-#include <string.h>
-#include <stdio.h>
-#include <ctype.h>
-#include <unistd.h>
-#include <limits.h>
 #include "sc.h"
 
 static void sync_enode(struct enode *e);

@@ -12,19 +12,7 @@
  */
 
 #include <time.h>
-#include <limits.h>
-#include <string.h>
-#include <stdarg.h>
-
-#ifndef MSDOS
-#include <unistd.h>
-#endif
-
 #include "sc.h"
-
-#ifdef VMS
-    VMS_read_raw = 1;
-#endif
 
 #ifdef BROKENCURSES    /* nl/nonl bug fix */
 #undef nl

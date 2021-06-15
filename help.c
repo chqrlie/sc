@@ -1,17 +1,18 @@
-/*
- * Help functions for sc
- * R. Bond, 1988
- * J. Buhrt 1990
- * $Revision: 8.1 $
+/*      SC      A Table Calculator
+ *              Help data
+ *
+ *              R. Bond, 1988
+ *              J. Buhrt 1990
+ *              Charlie Gordon 2021
+ *
+ *              $Revision: 8.1 $
  */
 
-#include <stdlib.h>
 #ifdef QREF
 #include <stdio.h>
 static const char * const header = " Quick Reference";
 static const char * const revision = "$Revision: 8.1 $";
 #else
-#include <limits.h>
 #include "sc.h"
 #endif /* QREF */
 
@@ -579,7 +580,9 @@ static int pscreen(const char * const screen[])
     refresh();
     return nmgetch();
 }
-#else
+
+#else /* QREF */
+
 static const char * const * const pages[] = {
     intro, toggleoptions, setoptions, cursor, cell, vi,
     file, row, range, misc, var, rangef, numericf, stringf,
@@ -628,7 +631,7 @@ int main() {
         pagep++;
 #ifdef TROFF
         pageno++;
-        if (!(pageno%2))
+        if (!(pageno % 2))
             puts(".bp");
 #endif
     }

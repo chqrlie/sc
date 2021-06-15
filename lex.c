@@ -11,25 +11,19 @@
  *              $Revision: 8.1 $
  */
 
-#include <sys/types.h>
 #include <sys/stat.h>
-#include <string.h>
 #include <math.h>
 
 #if defined(BSD42) || defined(BSD43)
-#include <sys/ioctl.h>
+# include <sys/ioctl.h>
 #endif
 
 #ifdef USE_IEEEFP_H
 # include <ieeefp.h>
 #endif
 
-#include <stdlib.h>
 #include <signal.h>
 #include <setjmp.h>
-#include <ctype.h>
-#include <unistd.h>
-#include <limits.h>
 #include "sc.h"
 
 static sigret_t fpe_trap(int);

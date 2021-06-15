@@ -11,8 +11,6 @@
  *              $Revision: 8.1 $
  */
 
-#include <unistd.h>
-#include <limits.h>
 #include "sc.h"
 
 /*

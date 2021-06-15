@@ -6,7 +6,7 @@
  *              $Revision: 8.1 $
  */
 
-#include <stddef.h>
+#include <string.h>
 
 #ifndef HAVE_STRLCPY
 extern size_t strlcpy(char *dst, const char *src, size_t dstsize);

@@ -11,7 +11,6 @@
  *              $Revision: 8.1 $
  */
 
-#include <sys/types.h>
 #ifdef aiws
 #undef _C_func                  /* Fixes for undefined symbols on AIX */
 #endif
@@ -23,16 +22,7 @@
 #include <math.h>
 #include <signal.h>
 #include <setjmp.h>
-#include <ctype.h>
-#include <errno.h>
 #include <time.h>
-#include <string.h>
-#include <stdlib.h>
-#include <limits.h>
-#ifndef MSDOS
-#include <unistd.h>
-#endif
-
 #ifdef REGCOMP
 #include <regex.h>
 #endif

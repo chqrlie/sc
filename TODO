@@ -33,6 +33,3 @@
 	formatted or unformatted data in a file or list of files which will
 	output the whole row in which a given number or string is found,
 	formatted as with the write command.
-
-DONE:
-* move all vi stuff to vi.c

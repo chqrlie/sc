@@ -11,16 +11,21 @@
  *              $Revision: 8.1 $
  */
 
-#ifdef MSDOS
-#include <stdio.h>
-#endif
+/*---------------- General system dependent definitions ----------------*/
+
+#include <ctype.h>      /* for isxxx() */
+#include <errno.h>      /* adjust for non conforming systems */
+#include <limits.h>     /* for PATH_MAX */
+#include <stdarg.h>     /* adjust for non conforming systems */
+#include <stdio.h>      /* would be included by compat for curses anyway */
+#include <stdlib.h>
+#include <string.h>
 
 #if defined (__unix__) || (defined (__APPLE__) && defined (__MACH__))
 #include <unistd.h>
 #endif
 
 #include "compat.h"
-#include "config.h"
 #include "util.h"
 
 #if (defined(__GNUC__) || defined(__TINYC__))
@@ -30,7 +35,44 @@
 #define sc__attr_printf(a, b)
 #endif
 
-#define CLEAR_LINE error("%s", "") /* suppress warning on NetBSD curses */
+#if (defined(BSD42) || defined(BSD43)) && !defined(strrchr)
+#define strrchr rindex
+#endif
+
+#if (defined(BSD42) || defined(BSD43)) && !defined(strchr)
+#define strchr index
+#endif
+
+#ifdef SYSV4
+size_t strlen(const char *s);
+#endif
+
+#ifndef FALSE
+# define        FALSE   0
+# define        TRUE    1
+#endif /* !FALSE */
+
+#ifdef SIGVOID
+#define sigret_t void
+#else
+#define sigret_t int
+#endif
+
+#if defined(BSD42) || defined(BSD43) && !defined(ultrix)
+#define memcpy(dest, source, len)       bcopy(source, dest, (unsigned int)len);
+#define memset(dest, zero, len)         bzero((dest), (unsigned int)(len));
+#else
+#include <memory.h>
+#endif
+
+#ifndef HAVE_ISFINITE
+#define isfinite(v)  finite(v)
+#endif
+
+extern const char *progname;
+
+/*---------------- Spreadsheet data ----------------*/
+
 #define ATBL(tbl, row, col)     (&tbl[row][col])
 
 #define MINROWS 100     /* minimum size at startup */
@@ -69,42 +111,6 @@ extern void fatal(const char *str);
 #endif /* DFLT_PAGER */
 
 #define MAXCMD 160      /* for ! command and commands that use the pager */
-
-
-#ifndef A_CHARTEXT      /* Should be defined in curses.h */
-#define A_CHARTEXT 0xff
-#endif
-
-#ifndef color_set
-#define color_set(c, o)         attron(COLOR_PAIR(c))
-#endif
-
-#if !defined(HAVE_ATTR_T) && defined(_COMPAT_H) /* Not defined for psc */
-typedef chtype attr_t;
-#endif
-
-#if !defined(HAVE_ATTR_GET) && !defined(NO_ATTR_GET)
-#define attr_get(a, p, o)       ((void)((a) != 0 && (*(a) = stdscr->_attrs)), \
-                                (void)((p) != 0 && \
-                                (*(p) = PAIR_NUMBER(stdscr->_attrs))), OK)
-#endif
-
-#if (defined(BSD42) || defined(BSD43)) && !defined(strrchr)
-#define strrchr rindex
-#endif
-
-#if (defined(BSD42) || defined(BSD43)) && !defined(strchr)
-#define strchr index
-#endif
-
-#ifdef SYSV4
-size_t strlen();
-#endif
-
-#ifndef FALSE
-# define        FALSE   0
-# define        TRUE    1
-#endif /* !FALSE */
 
 /*
  * ent_ptr holds the row/col # and address type of a cell
@@ -333,23 +339,6 @@ struct go_save {
 #define CELLERROR       1
 #define CELLINVALID     2
 
-#define ctl(c) ((c)&037)
-#define ESC 033
-#define DEL 0177
-
-/*
- * there seems to be some question about what to do w/ the iscntrl
- * some BSD systems are reportedly broken as well...
- *
- * CG: to settle this issue once and for all, we cannot use
- * iscntrl() with an argument outside the range EOF..0xFF.
- * Furthermore `ctl(c)` and ESC and DEL are defined explicitly
- * so let's define ISCTL(c) consistently and test for DEL explicitly
- * wherever it is required.
- */
-#define ISCTL(c)  (!((c) & ~0x1F))
-#define ISBYTE(c) (!((c) & ~0xFF))
-
 /* calculation order */
 #define BYCOLS 1
 #define BYROWS 2
@@ -376,7 +365,58 @@ struct go_save {
 #define GROWCOL         4       /* add columns */
 #define GROWBOTH        6       /* grow both */
 
-extern const char *progname;
+/*---------------- curses stuff ----------------*/
+
+#define CLEAR_LINE error("%s", "") /* suppress warning on NetBSD curses */
+
+#ifndef A_CHARTEXT      /* Should be defined in curses.h */
+#define A_CHARTEXT 0xff
+#endif
+
+#ifndef color_set
+#define color_set(c, o)         attron(COLOR_PAIR(c))
+#endif
+
+#if !defined(HAVE_ATTR_T) && defined(_COMPAT_H) /* Not defined for psc */
+typedef chtype attr_t;
+#endif
+
+#if !defined(HAVE_ATTR_GET) && !defined(NO_ATTR_GET)
+#define attr_get(a, p, o)       ((void)((a) != 0 && (*(a) = stdscr->_attrs)), \
+                                (void)((p) != 0 && \
+                                (*(p) = PAIR_NUMBER(stdscr->_attrs))), OK)
+#endif
+
+#if defined BSD42 || defined SYSIII
+# ifndef cbreak
+# define cbreak      crmode
+# define nocbreak    nocrmode
+# endif
+#endif
+
+/*---------------- keyboard input stuff ----------------*/
+
+#define ctl(c) ((c)&037)
+#define ESC 033
+#define DEL 0177
+
+/*
+ * there seems to be some question about what to do w/ the iscntrl
+ * some BSD systems are reportedly broken as well...
+ *
+ * CG: to settle this issue once and for all, we cannot use
+ * iscntrl() with an argument outside the range EOF..0xFF.
+ * Furthermore `ctl(c)` and ESC and DEL are defined explicitly
+ * so let's define ISCTL(c) consistently and test for DEL explicitly
+ * wherever it is required.
+ */
+#define ISCTL(c)  (!((c) & ~0x1F))
+#define ISBYTE(c) (!((c) & ~0xFF))
+
+#define KEY_ALT(c)   ((c)|01000)
+extern int nmgetch(void);
+
+/*---------------- Global data ----------------*/
 
 /* The table data is organized as:
    `tbl`: a pointer to an array of `maxrows` pointers to rows
@@ -443,10 +483,6 @@ extern char *slatexext;
 extern char *texext;
 extern int Vopt;
 extern struct go_save gs;
-
-/* input */
-#define KEY_ALT(c)   ((c)|01000)
-extern int nmgetch(void);
 
 /* styles */
 extern struct colorpair *cpairs[CPAIRS + 1];
@@ -712,11 +748,6 @@ extern void getframe(int);
 extern void add_abbr(char *);
 extern void repaint_cursor(int set);
 extern void update(int);
-#ifdef SIGVOID
-#define sigret_t void
-#else
-#define sigret_t int
-#endif
 extern sigret_t doquit(int);
 extern sigret_t time_out(int);
 extern sigret_t dump_me(int);
@@ -728,22 +759,6 @@ extern void mouseon(void);
 extern void mouseoff(void);
 extern void vi_interaction(void);
 extern void vi_select_range(const char *arg);
-
-#if defined BSD42 || defined SYSIII
-
-#ifndef cbreak
-#define cbreak          crmode
-#define nocbreak        nocrmode
-#endif
-
-#endif
-
-#if defined(BSD42) || defined(BSD43) && !defined(ultrix)
-#define memcpy(dest, source, len)       bcopy(source, dest, (unsigned int)len);
-#define memset(dest, zero, len)         bzero((dest), (unsigned int)(len));
-#else
-#include <memory.h>
-#endif
 
 // character class macros to avoid undefined behavior on negative chars
 #define isspacechar(c)   isspace((unsigned char)(c))
@@ -758,7 +773,3 @@ extern void vi_select_range(const char *arg);
 
 static inline int isalphachar_(char c) { return isalphachar(c) || c == '_'; }
 static inline int isalnumchar_(char c) { return isalnumchar(c) || c == '_'; }
-
-#ifndef HAVE_ISFINITE
-#define isfinite(v)  finite(v)
-#endif

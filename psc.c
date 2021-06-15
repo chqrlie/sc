@@ -18,14 +18,6 @@
  *  Adjustments: Jeff Buhrt, Eric Putz and Chuck Martin
  */
 
-#include <ctype.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <limits.h>
-#include <string.h>
-#include <errno.h>
-#include <stdarg.h>
 #include "sc.h"
 #include "version.h"
 

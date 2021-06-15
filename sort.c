@@ -8,13 +8,6 @@
  *              $Revision: 8.1 $
  */
 
-#include <sys/types.h>
-#include <string.h>
-#include <stdio.h>
-#include <ctype.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <limits.h>
 #include "sc.h"
 
 int compare(const void *row1, const void *row2);

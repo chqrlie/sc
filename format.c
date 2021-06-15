@@ -88,12 +88,8 @@
 
 /*****************************************************************************/
 
-#include <stdio.h>
-#include <string.h>
-#include <sys/types.h>
-#include <time.h>
-#include <limits.h>
 #include <math.h>
+#include <time.h>
 #include "sc.h"
 
 #define EOS     '\0'

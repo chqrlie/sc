@@ -10,21 +10,13 @@
  *              $Revision: 8.1 $
  */
 
-#include <sys/types.h>
 #include <sys/wait.h>
-#include <string.h>
 #include <time.h>
 #include <utime.h>
 #include <sys/file.h>
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <signal.h>
-#include <errno.h>
-#include <stdlib.h>
-#ifndef MSDOS
-#include <unistd.h>
-#endif
-#include <limits.h>
 #include "sc.h"
 
 static void syncref(struct enode *e);

@@ -11,23 +11,14 @@
  *              $Revision: 8.1 $
  */
 
-#include <sys/types.h>
 #include <sys/wait.h>
 #include <signal.h>
-#include <ctype.h>
-#include <string.h>
 #include <sys/file.h>
 #include <fcntl.h>
 #ifdef USELOCALE
 #include <locale.h>
 #endif
-#ifndef MSDOS
-#include <unistd.h>
-#endif
 #include <termios.h>
-#include <errno.h>
-#include <stdlib.h>
-#include <limits.h>
 #include "sc.h"
 #include "version.h"
 

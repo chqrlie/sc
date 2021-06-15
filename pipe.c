@@ -8,10 +8,7 @@
  *              $Revision: 8.1 $
  */
 
-#include <unistd.h>
 #include <time.h>
-#include <string.h>
-#include <limits.h>
 #include "sc.h"
 
 void getnum(int r0, int c0, int rn, int cn, int fd) {

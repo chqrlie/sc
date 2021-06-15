@@ -12,17 +12,6 @@
  */
 
 %{
-#include <stdlib.h>
-#include <limits.h>
-
-#ifdef USELOCALE
-#include <locale.h>
-#endif
-
-#ifndef MSDOS
-#include <unistd.h>
-#endif
-
 #include "sc.h"
 
 #define ENULL (struct enode *)0
