@@ -52,8 +52,7 @@ int growtbl(int rowcol, int toprow, int topcol);
 char *coltoa(int col);
 
 static int curlen;
-static int coff;
-static int roff;
+static int coff, roff;
 static int first;
 static int effr, effc;
 
@@ -92,7 +91,7 @@ int main(int argc, char **argv) {
     char *p;
 
     progname = argv[0];
-    while ((c = getopt(argc, argv, "rfLks:R:C:n:d:SPv")) != EOF) {
+    while ((c = getopt(argc, argv, "rfLks:R:C:n:d:SPvh?")) != EOF) {
         switch (c) {
         case 'r':
             colfirst = TRUE;
@@ -132,27 +131,43 @@ int main(int argc, char **argv) {
         case 'v':
             fprintf(stderr,"%s: %s\n", progname, rev);
             return 0;
+        case 'h':
+        case '?':
+            printf("usage: psc options\n"
+                   "options:\n"
+                   "  -L         Left justify strings.  Default is right justify.\n"
+                   "  -r         Assemble data into rows first, not columns.\n"
+                   "  -R n       Increment by n between rows\n"
+                   "  -C n       Increment by n between columns\n"
+                   "  -n n       Length of the row (column) should be n.\n"
+                   "  -s v       Top left location in the spreadsheet should be v; eg, k5\n"
+                   "  -d c       Use c as the delimiter between the fields.\n"
+                   "  -k         Keep all delimiters - Default is strip multiple delimiters to 1.\n"
+                   "  -f         suppress 'format' lines in output\n"
+                   "  -S         Use strings vs numbers for numbers\n"
+                   "  -P         Use numbers only when there is no [-+eE] (plain numbers only)\n");
+            return 2;
         default:
-            exit(EXIT_FAILURE);
+            return EXIT_FAILURE;
         }
     }
 
     if (optind < argc) {
         fprintf(stderr, "%s: %d more argument(s) than expected\n",
                 progname, argc - optind);
-        exit(EXIT_FAILURE);
+        return EXIT_FAILURE;
     }
 
     /* setup the spreadsheet arrays */
     if (!growtbl(GROWNEW, 0, 0))
-        exit(EXIT_FAILURE);
+        return EXIT_FAILURE;
 
     curlen = 0;
     curcol = c0; coff = 0;
     currow = r0; roff = 0;
     first = TRUE;
 
-    while (1) {
+    for (;;) {
 
         effr = currow + roff;
         effc = curcol + coff;
@@ -168,7 +183,8 @@ int main(int argc, char **argv) {
                     {
                         fprintf(stderr, "%s: Column %d" PRINTF_CMD_ERR("format"),
                                 progname, i, strerror(errno));
-                        exit(EXIT_FAILURE);
+                        exit_status = EXIT_FAILURE;
+                        break;
                     }
                 }
             }
@@ -252,7 +268,6 @@ int main(int argc, char **argv) {
             if (i > fwidth[effc]) {
                 fwidth[effc] = i;
             }
-
             break;
         case SPACE:
             if (first && strip_delim)
@@ -399,9 +414,8 @@ char *coltoa(int col) {
     return rname;
 }
 
-/* scxrealloc will just scxmalloc if oldptr is == NULL */
 #define GROWALLOC(newptr, oldptr, nelem, type, msg) \
-    do { type *newptr = scxrealloc(oldptr, (nelem) * sizeof(type)); \
+    do { type *newptr = realloc(oldptr, (nelem) * sizeof(type)); \
        if (newptr == NULL) { \
            error(msg); \
            return FALSE; \

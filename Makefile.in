@@ -4,7 +4,6 @@
 #	REGEX, DFLT_PAGER, and FMOD. Most of the other things aren't
 #	normally changed (see the comments with each)
 # 2) Select the proper machine/compiler/OS section of code
-#	for MS-DOS look for the pattern 'MS-DOS'
 # 3) make install
 # 4) If you have the command 'file' that uses /etc/magic add the line:
 #	38	string		Spreadsheet	sc file
@@ -165,8 +164,6 @@ RIGHTBUG=
 # NOTE: Do not use with bison 1.16! Get a new version....
 #YACC=bison -y
 
-# MS-DOS needs y_tab instead of the normal y.tab
-#YTAB=y_tab
 YTAB=y.tab
 
 #### SYSTEM DEFINES ####
@@ -295,18 +292,6 @@ YTAB=y.tab
 #YACC=yacc -Sm10000
 
 #########################################
-# Use this for MS-DOS, Microsoft C 5.1 and NDMAKE
-#CC=cl
-#CFLAGS= -AL -O -Fo$*.o
-#LDFLAGS=/noi /st:0x4000
-#LDADD=lcurses
-#YACC=bison -y
-#
-#.SUFFIXES : .o .c
-#.c.o:
-#	$(CC) $(CFLAGS) -c $*.c
-
-#########################################
 # Use this for MS-DOS with DJGPP
 # REGEX should also be undefined (see above) unless a separate REGEX library
 # is installed (gdb includes one, but may result in file conflicts with
@@ -375,32 +360,19 @@ Makefile: Makefile.in configure
 $(name):$(PAR)  $(OBJS)
 	$(CC) $(_CFLAGS) -o $@ ${_LDFLAGS} ${OBJS} $(RPATH_CURSES) ${LDADD}
 
-# Alternative link for MS-DOS
-#$(name):	$(OBJS)
-#	link ${_LDFLAGS} ${OBJS},$(name),,${LDADD};
-
 $(YTAB).c: gram.y
 	$(YACC) -d gram.y
 
 $(YTAB).h: gram.y
 
-p$(name): $O/psc.o $O/xmalloc.o $O/version.o
-	$(CC) $(_CFLAGS) -o $@ ${_LDFLAGS} $O/psc.o $O/xmalloc.o $O/version.o ${PSCLIB}
-
-# Alternative link for MS-DOS (NB: MSC 5.1 has no getopt.c)
-#p$(name): $O/psc.o $O/xmalloc.o $O/getopt.o
-#	link ${_LDFLAGS} $O/psc.o $O/xmalloc.o $O/getopt.o,p$(name);
+p$(name): psc.c version.c $(DEPENDS)
+	$(CC) $(_CFLAGS) -o $@ ${_LDFLAGS} psc.c version.c ${PSCLIB}
 
 $(name)qref: help.c $(DEPENDS)
 	$(CC) $(_CFLAGS) -o $@ $(_LDFLAGS) -DQREF $(QREF_FMT) -DSCNAME=\"$(NAME)\" help.c
 
 $O/qhelp.o: help.c $(DEPENDS)
 	$(CC) $(_CFLAGS) -o $@ ${CRYPT} -c help.c
-
-# Alternative link for MS-DOS
-#$(name)qref: help.c $(DEPENDS)
-#	$(CC) -AL -O -Foqhelp.o -c -DQREF -DSCNAME=\"$(name)\" help.c
-#	link ${_LDFLAGS} qhelp.o,$(name)qref;
 
 # Objects
 
@@ -466,9 +438,6 @@ $O/vmtbl.o: vmtbl.c $(DEPENDS)
 
 $O/xmalloc.o: xmalloc.c $(DEPENDS)
 	$(CC) $(_CFLAGS) -o $@ -c xmalloc.c
-
-$O/psc.o: psc.c $(DEPENDS)
-	$(CC) $(_CFLAGS) -o $@ -c psc.c
 
 $O/compat.o: compat.c $(DEPENDS)
 	$(CC) $(_CFLAGS) -o $@ -c compat.c
