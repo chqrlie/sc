@@ -166,6 +166,13 @@ RIGHTBUG=
 
 YTAB=y.tab
 
+# Extra confuguration:
+#NOCRYPT
+#NOPLUGINS
+#NOPIPES
+#NOSHELL
+#NOEXTFUNCS
+
 #### SYSTEM DEFINES ####
 
 #########################################
@@ -300,8 +307,8 @@ YTAB=y.tab
 # Only use -Wall for testing, since it produces warnings that are of no
 # real effect on the reliability of the program, but may concern some
 # people who don't understand them.
-#CFLAGS=-DSYSV3 -O2 -Wall -UMSDOS
-#CFLAGS=-DSYSV3 -O2 -UMSDOS
+#CFLAGS=-DSYSV3 -O2 -Wall
+#CFLAGS=-DSYSV3 -O2
 #LDADD=-lm -lpdcurses
 
 #########################################

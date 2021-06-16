@@ -40,11 +40,7 @@ typedef union {
 } YYSTYPE;
 extern YYSTYPE yylval;
 #else   /* VMS */
-# if defined(MSDOS)
-#  include "y_tab.h"
-# else
-#  include "y.tab.h"
-# endif /* MSDOS */
+# include "y.tab.h"
 #endif /* VMS */
 
 #ifdef hpux
@@ -299,7 +295,7 @@ int yylex(void)
 */
 
 int plugin_exists(char *name, size_t len, char *path) {
-#ifndef MSDOS
+#ifndef NOPLUGINS
     struct stat sb;
     char *homedir;
 

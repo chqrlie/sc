@@ -5,18 +5,17 @@
  * $Revision: 8.1 $
  */
 
-#if !defined(VMS) && !defined(MSDOS) && defined(CRYPT_PATH)
-
 #include <sys/file.h>
 #include <fcntl.h>
 #include "sc.h"
+
+#ifndef NOCRYPT
 
 int Crypt = 0;
 #define MAXKEYWORDSIZE 30
 char KeyWord[MAXKEYWORDSIZE] = { "" };
 
-void creadfile(const char *save, int eraseflg)
-{
+void creadfile(const char *save, int eraseflg) {
     FILE *f;
     int pipefd[2];
     int fildes;
@@ -84,8 +83,7 @@ void creadfile(const char *save, int eraseflg)
     }
 }
 
-int cwritefile(char *fname, int r0, int c0, int rn, int cn)
-{
+int cwritefile(char *fname, int r0, int c0, int rn, int cn) {
     FILE *f;
     int pipefd[2];
     int fildes;
@@ -165,4 +163,4 @@ int cwritefile(char *fname, int r0, int c0, int rn, int cn)
     return 0;
 }
 
-#endif /* CRYPT_PATH */
+#endif /* NOCRYPT */

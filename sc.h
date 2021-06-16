@@ -71,6 +71,10 @@ size_t strlen(const char *s);
 
 extern const char *progname;
 
+#ifndef CRYPT_PATH
+#define NOCRYPT
+#endif
+
 /*---------------- Spreadsheet data ----------------*/
 
 #define ATBL(tbl, row, col)     (&tbl[row][col])
@@ -706,7 +710,7 @@ extern int backup_file(char *path);
 extern void sc_set_locale(int set);
 
 extern int modflg;
-#if !defined(VMS) && !defined(MSDOS) && defined(CRYPT_PATH)
+#ifndef NOCRYPT
 extern int Crypt;
 #endif
 extern char *mdir;

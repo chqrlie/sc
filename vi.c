@@ -404,7 +404,7 @@ void vi_interaction(void) {
                     break;      /* ignore flow control */
 
                 case ctl('t'):
-#if !defined(VMS) && !defined(MSDOS) && defined(CRYPT_PATH)
+#ifndef NOCRYPT
                     error("Toggle: a:auto,c:cell,e:ext funcs,n:numeric,t:top,x:encrypt,$:pre-scale,<MORE>");
 #else                           /* no encryption available */
                     error("Toggle: a:auto,c:cell,e:ext funcs,n:numeric,t:top,$:pre-scale,<MORE>");
@@ -416,42 +416,42 @@ void vi_interaction(void) {
                     case 'a': case 'A':
                     case 'm': case 'M':
                         autocalc ^= 1;
-                        error("Automatic recalculation %sabled.",
-                              autocalc ? "en" : "dis");
+                        error("Automatic recalculation %s.",
+                              autocalc ? "enabled" : "disabled");
                         break;
                     case 'o': case 'O':
                         optimize ^= 1;
-                        error("%sptimize expressions upon entry.",
-                              optimize ? "O" : "Do not o");
+                        error("%s expressions upon entry.",
+                              optimize ? "Optimize" : "Do not optimize");
                         break;
                     case 'n':
-                        numeric = (!numeric);
-                        error("Numeric input %sabled.",
-                              numeric ? "en" : "dis");
+                        numeric = !numeric;
+                        error("Numeric input %s.",
+                              numeric ? "enabled" : "disabled");
                         break;
                     case 't': case 'T':
-                        showtop = (!showtop);
-                        error("Top line %sabled.",
-                              showtop ? "en" : "dis");
+                        showtop = !showtop;
+                        error("Top line %s.",
+                              showtop ? "enabled" : "disabled");
                         break;
                     case 'c':
                         repaint_cursor(-showcell);
                         showcell = !showcell;
                         repaint_cursor(showcell);
-                        error("Cell highlighting %sabled.",
-                              showcell ? "en" : "dis");
+                        error("Cell highlighting %s.",
+                              showcell ? "enabled" : "disabled");
                         --modflg;   /* negate the modflg++ */
                         break;
                     case 'b':
                         braille ^= 1;
-                        error("Braille enhancement %sabled.",
-                              braille ? "en" : "dis");
+                        error("Braille enhancement %s.",
+                              braille ? "enabled" : "disabled");
                         --modflg;   /* negate the modflg++ */
                         break;
                     case 's':
                         cslop ^= 1;
-                        error("Color slop %sabled.",
-                              cslop ? "en" : "dis");
+                        error("Color slop %s.",
+                              cslop ? "enabled" : "disabled");
                         break;
                     case 'C':
                         color = !color;
@@ -464,30 +464,30 @@ void vi_interaction(void) {
                                 bkgd(COLOR_PAIR(0) | ' ');
                             }
                         }
-                        error("Color %sabled.", color ? "en" : "dis");
+                        error("Color %s.", color ? "enabled" : "disabled");
                         break;
                     case 'N':
                         colorneg = !colorneg;
-                        error("Color changing of negative numbers %sabled.",
-                              colorneg ? "en" : "dis");
+                        error("Color changing of negative numbers %s.",
+                              colorneg ? "enabled" : "disabled");
                         break;
                     case 'E':
                         colorerr = !colorerr;
-                        error("Color changing of cells with errors %sabled.",
-                              colorerr ? "en" : "dis");
+                        error("Color changing of cells with errors %s.",
+                              colorerr ? "enabled" : "disabled");
                         break;
                     case 'x': case 'X':
-#if defined(VMS) || defined(MSDOS) || !defined(CRYPT_PATH)
+#ifdef NOCRYPT
                         error("Encryption not available.");
 #else
-                        Crypt = (! Crypt);
-                        error("Encryption %sabled.", Crypt? "en" : "dis");
+                        Crypt = !Crypt;
+                        error("Encryption %s.", Crypt ? "enabled" : "disabled");
 #endif
                         break;
                     case 'l': case 'L':
-                        autolabel = (!autolabel);
-                        error("Autolabel %sabled.",
-                              autolabel? "en" : "dis");
+                        autolabel = !autolabel;
+                        error("Autolabel %s.",
+                              autolabel ? "enabled" : "disabled");
                         break;
                     case '$':
                         if (prescale == 1.0) {
@@ -499,9 +499,9 @@ void vi_interaction(void) {
                         }
                         break;
                     case 'e':
-                        extfunc = (!extfunc);
-                        error("External functions %sabled.",
-                              extfunc? "en" : "dis");
+                        extfunc = !extfunc;
+                        error("External functions %s.",
+                              extfunc? "enabled" : "disabled");
                         break;
                     case ESC:
                     case ctl('g'):
@@ -537,13 +537,13 @@ void vi_interaction(void) {
                         break;
                     case 'i': case 'I':
                         autoinsert = !autoinsert;
-                        error("Autoinsert %sabled.",
-                              autoinsert? "en" : "dis");
+                        error("Autoinsert %s.",
+                              autoinsert? "enabled" : "disabled");
                         break;
                     case 'w': case 'W':
-                        autowrap = (!autowrap);
-                        error("Autowrap %sabled.",
-                              autowrap? "en" : "dis");
+                        autowrap = !autowrap;
+                        error("Autowrap %s.",
+                              autowrap? "enabled" : "disabled");
                         break;
                     case 'z': case 'Z':
                         rowlimit = currow;
@@ -1309,11 +1309,9 @@ void vi_interaction(void) {
                     snprintf(line, sizeof line, "put [\"dest\" range] \"");
                     if (*curfile) {
                         ext = get_extension(curfile);
-#ifndef MSDOS
                         /* keep the extension unless .sc or scext */
                         if (strcmp(ext, ".sc") && !(scext && !strcmp(ext, scext)))
                             ext += strlen(ext);
-#endif
                         error("Default path is \"%.*s.%s\"",
                               (int)(ext - curfile), curfile,
                               scext ? scext : "sc");
@@ -1358,11 +1356,9 @@ void vi_interaction(void) {
                     snprintf(line, sizeof line, "write [\"dest\" range] \"");
                     if (*curfile) {
                         ext = get_extension(curfile);
-#ifndef MSDOS
                         /* keep the extension unless .sc or scext */
                         if (strcmp(ext, ".sc") && !(scext && !strcmp(ext, scext)))
                             ext += strlen(ext);
-#endif
                         error("Default file is \"%.*s.%s\"",
                               (int)(ext - curfile), curfile,
                               ascext ? ascext : "asc");
@@ -1380,11 +1376,9 @@ void vi_interaction(void) {
                     snprintf(line, sizeof line, "tbl [\"dest\" range] \"");
                     if (*curfile) {
                         ext = get_extension(curfile);
-#ifndef MSDOS
                         /* keep the extension unless .sc or scext */
                         if (strcmp(ext, ".sc") && !(scext && !strcmp(ext, scext)))
                             ext += strlen(ext);
-#endif
                         if (tbl_style == 0) {
                             error("Default file is \"%.*s.%s\"",
                                   (int)(ext - curfile), curfile,
@@ -2852,9 +2846,9 @@ static void doshell(void) {
     *  "!"      forks a shell
     *  "!!" repeats last command
     */
-#if defined VMS || defined MSDOS
-    error("Not implemented on VMS or MS-DOS");
-#else /* VMS */
+#ifdef NOSHELL
+    error("Shell not available");
+#else /* NOSHELL */
     const char *shl;
     int pid, temp, len;
     char cmd[MAXCMD];
@@ -2899,7 +2893,7 @@ static void doshell(void) {
     getch();
     goraw();
     clear();
-#endif /* VMS */
+#endif /* NOSHELL */
 }
 
 /* History functions */
@@ -3112,7 +3106,6 @@ static void search_again(bool reverse) {
     linelim = strlen(line) - 1;
 }
 
-#if !defined(MSDOS)
 static void readhistfile(FILE *fp) {
     if (!*histfile)
         return;
@@ -3182,7 +3175,6 @@ void read_hist(void) {
     histsessionstart = lasthist;
     histsessionnew = 0;
 }
-#endif /* !defined(MSDOS) */
 
 static void col_0(void) {
     linelim = 0;
@@ -3562,22 +3554,21 @@ static void mouse_set_pos(int m) {
 static int get_rcqual(int ch) {
     int c;
 
-    error("%sow/column:  r: row  c: column%s",
-#ifdef KEY_IC
-          (ch == KEY_IC)  ? "Insert r" :
-#endif
-          (ch == 'i')     ? "Insert r" :
-          (ch == 'o')     ? "Open r" :
-          (ch == 'a')     ? "Append r" :
-          (ch == 'd')     ? "Delete r" :
-          (ch == 'y')     ? "Yank r" :
-          (ch == 'p')     ? "Pull r" :
-          (ch == 'v')     ? "Values r" :
-          (ch == 'Z')     ? "Zap r" :
-          (ch == 's')     ? "Show r" : "R",
-
+    error("%s row/column:  r: row  c: column%s",
+          (ch == KEY_IC)  ? "Insert" :
+          (ch == 'i')     ? "Insert" :
+          (ch == 'o')     ? "Open" :
+          (ch == 'a')     ? "Append" :
+          (ch == 'd')     ? "Delete" :
+          (ch == 'y')     ? "Yank" :
+          (ch == 'p')     ? "Pull" :
+          (ch == 'v')     ? "Values" :
+          (ch == 's')     ? "Show" :
+          (ch == 'Z')     ? "Zap" :
+                            "Select",
           (ch == 'p')     ? "  p: paste  m: merge  x: xchg  <MORE>" :
-          (ch == 'Z')     ? "  Z: save/exit" : "");
+          (ch == 'Z')     ? "  Z: save/exit" :
+                            "");
 
     refresh();
 

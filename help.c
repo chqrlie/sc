@@ -65,7 +65,7 @@ static const char * const toggleoptions[] = {
 "          l    Autolabeling defined cells enable/disable.",
 "          n    If enabled, a digit starts a numeric value.",
 "          t    Top line display enable/disable.",
-#if !defined(VMS) && !defined(MSDOS) && defined(CRYPT_PATH)
+#ifndef NOCRYPT
 "          x    Encrypt/decrypt database and listing files.",
 #else
 "          x    Encrypt/decrypt database and listing files (Not available).",
@@ -227,7 +227,7 @@ static const char * const file[] = {
 "          Optionally brackets output with control lines for ``tbl'',",
 "          ``LaTeX'', ``SLaTex'', or ``TeX''.",
 " ",
-#if !defined(VMS) && !defined(MSDOS) && defined(CRYPT_PATH)
+#ifndef NOCRYPT
 "     If encryption mode is set, file I/O will be encrypted/decrypted.",
 "     ``\"| program\"'' for a file name will pipe (unencrypted) output to",
 #else

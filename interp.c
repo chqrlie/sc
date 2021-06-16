@@ -1009,18 +1009,18 @@ static char *dofmt(char *fmtstr, double v) {
  * written to files, etc.
  */
 
-#if defined(VMS) || defined(MSDOS)
+#ifdef NOEXTFUNCS
 static char *doext(struct enode *se) {
     char *command = seval(se->e.o.left);
     double value = eval(se->e.o.right);
 
-    error("Warning: External functions unavailable on VMS");
+    error("Warning: External functions unavailable");
     cellerror = CELLERROR;      /* not sure if this should be a cellerror */
     scxfree(command);
     return scxdup("");
 }
 
-#else /* if defined(VMS) || defined(MSDOS) */
+#else /* NOEXTFUNCS */
 
 static char *doext(struct enode *se) {
     char buff[FBUFLEN];         /* command line/return, not permanently alloc */
@@ -1077,7 +1077,7 @@ static char *doext(struct enode *se) {
     return buf;
 }
 
-#endif  /* if !(defined(VMS) || defined(MSDOS)) */
+#endif  /* NOEXTFUNCS */
 
 
 /*

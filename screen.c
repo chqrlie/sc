@@ -94,13 +94,11 @@ void update(int anychanged) {          /* did any cell really change in value? *
     int ftrows, fbrows, flcols, frcols;
     bool message;
 
-#ifndef MSDOS
     /*
      * If receiving input from a pipeline, don't display spreadsheet data
      * on screen.
      */
     if (!usecurses) return;
-#endif
 
     getmaxyx(stdscr, lines, cols);
     fr = lastfr;
@@ -1190,18 +1188,14 @@ void startdisp(void) {
 }
 
 void stopdisp(void) {
-#ifndef MSDOS
     if (usecurses) {
-#endif
         deraw(1);
         resetkbd();
         endwin();
 #ifdef XENIX2_3
         ioctl(fileno(stdin), TCSETAW, & tmio);
 #endif
-#ifndef MSDOS
     }
-#endif
 }
 
 /* init curses */

@@ -74,7 +74,7 @@ char *get_basename(const char *filename) {
     char *base = p;
     char c;
     while ((c = *p++)) {
-#ifdef MSDOS
+#ifdef WINDOWS
         if (c == '/' || c == '\\')
             base = p;
 #else

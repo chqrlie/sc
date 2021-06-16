@@ -168,7 +168,7 @@ int main(int argc, char **argv) {
             skipautorun = 1;
             break;
         case 'x':
-#if defined(VMS) || defined(MSDOS) || !defined(CRYPT_PATH)
+#ifdef NOCRYPT
             fprintf(stderr, "Crypt not available\n");
             exit(1);
 #else
@@ -262,13 +262,9 @@ int main(int argc, char **argv) {
                  progname, (int)strlen(revi) - 2, revi);
     }
 
-#ifdef MSDOS
-    if (optind < argc)
-#else
     if (optind < argc && !strcmp(argv[optind], "--"))
         optind++;
     if (optind < argc && argv[optind][0] != '|' && strcmp(argv[optind], "-"))
-#endif /* MSDOS */
         strlcpy(curfile, argv[optind], sizeof curfile);
 
     for (dbidx = DELBUFSIZE - 1; dbidx >= 0; ) {
@@ -418,13 +414,11 @@ static void diesave(void) {
 
 void signals(void) {
     signal(SIGINT, doquit);
-#if !defined(MSDOS)
     signal(SIGQUIT, dump_me);
     signal(SIGPIPE, nopipe);
     signal(SIGALRM, time_out);
 #ifndef __DJGPP__
     signal(SIGBUS, doquit);
-#endif
 #endif
     signal(SIGTERM, doquit);
     signal(SIGFPE, doquit);

@@ -1549,11 +1549,11 @@ void printfile(char *fname, int r0, int c0, int rn, int cn) {
         if (*fname == '\0') {
             strlcpy(path, curfile, sizeof path);
             ext = get_extension(path);
-#ifndef MSDOS
+
             /* keep the extension unless .sc or scext */
             if (strcmp(ext, ".sc") && !(scext && !strcmp(ext, scext)))
                 ext += strlen(ext);
-#endif
+
             snprintf(ext, path + sizeof(path) - ext, ".%s",
                      ascext ? ascext : "asc");
             fname = path;
@@ -1758,11 +1758,10 @@ void tblprintfile(char *fname, int r0, int c0, int rn, int cn) {
         strlcpy(path, curfile, sizeof path);
         ext = get_extension(path);
 
-#ifndef MSDOS
         /* keep the extension unless .sc or scext */
         if (strcmp(ext, ".sc") && !(scext && !strcmp(ext, scext)))
             ext += strlen(ext);
-#endif
+
         if (tbl_style == 0) {
             snprintf(ext, path + sizeof(path) - ext, ".%s",
                      tbl0ext ? tbl0ext : "cln");
@@ -2272,8 +2271,8 @@ FILE *openfile(char *fname, size_t fnamesiz, int *rpid, int *rfd) {
         return fopen(efname, rfd == NULL ? "w" : "r");
     }
 
-#if defined(MSDOS)
-    error("Piping not available under MS-DOS\n");
+#ifdef NOPIPES
+    error("Piping not available\n");
     return 0;
 #else
     fname++;                            /* Skip | */
@@ -2285,16 +2284,16 @@ FILE *openfile(char *fname, size_t fnamesiz, int *rpid, int *rfd) {
         return 0;
     }
 
-    deraw(rfd==NULL);
+    deraw(rfd == NULL);
 #ifdef VMS
     fprintf(stderr, "No son tasks available yet under VMS--sorry\n");
+    return f;
 #else /* VMS */
-
-    if ((pid = fork()) == 0) {            /* if child */
+    if ((pid = fork()) == 0) {   /* if child */
         close(0);                /* close stdin */
         close(pipefd[1]);
         dup(pipefd[0]);          /* connect to first pipe */
-        if (rfd != NULL) {              /* if opening for read */
+        if (rfd != NULL) {       /* if opening for read */
             close(1);            /* close stdout */
             close(pipefd[2]);
             dup(pipefd[3]);      /* connect to second pipe */
@@ -2302,11 +2301,11 @@ FILE *openfile(char *fname, size_t fnamesiz, int *rpid, int *rfd) {
         signal(SIGINT, SIG_DFL); /* reset */
         execl("/bin/sh", "sh", "-c", efname, (char *)NULL);
         exit (-127);
-    } else {                            /* else parent */
+    } else {                     /* else parent */
         *rpid = pid;
         if ((f = fdopen(pipefd[(rfd == NULL ? 1 : 2)], rfd == NULL ? "w" : "r")) == NULL) {
             kill(pid, 9);
-            error("Can't fdopen %sput", rfd == NULL ? "out" : "in");
+            error("Cannot fdopen for %s", rfd == NULL ? "output" : "input");
             close(pipefd[1]);
             if (rfd != NULL)
                 close(pipefd[3]);
@@ -2319,9 +2318,9 @@ FILE *openfile(char *fname, size_t fnamesiz, int *rpid, int *rfd) {
         close(pipefd[3]);
         *rfd = pipefd[1];
     }
-#endif /* VMS */
     return f;
-#endif /* MSDOS */
+#endif /* VMS */
+#endif /* NOPIPES */
 }
 
 /* close a file opened by openfile(), if process wait for return */
@@ -2331,7 +2330,7 @@ void closefile(FILE *f, int pid, int rfd) {
     if (fclose(f) == EOF) {
         error("fclose(): %s", strerror(errno));
     }
-#ifndef MSDOS
+#ifndef NOPIPES
     if (pid) {
         while (pid != wait(&temp))
             continue;
@@ -2362,7 +2361,7 @@ void closefile(FILE *f, int pid, int rfd) {
             }
         }
     }
-#endif /* MSDOS */
+#endif /* NOPIPES */
     if (brokenpipe) {
         error("Broken pipe");
         brokenpipe = FALSE;
@@ -2413,7 +2412,7 @@ void copyent(struct ent *n, struct ent *p, int dr, int dc,
     n->flags |= IS_CHANGED;
 }
 
-#ifndef MSDOS
+#ifndef NOPLUGINS
 /* add a plugin/mapping pair to the end of the filter list. type is
  * r(ead) or w(rite)
  */
@@ -2458,7 +2457,7 @@ char *findplugin(const char *ext, char type) {
 
     return NULL;
 }
-#endif
+#endif /* NOPLUGINS */
 
 void write_fd(FILE *f, int r0, int c0, int rn, int cn) {
     int r, c;
@@ -2572,14 +2571,13 @@ int writefile(const char *fname, int r0, int c0, int rn, int cn) {
     FILE *f;
     char save[PATHLEN];
     char tfname[PATHLEN];
-    long namelen;
     char *tpp;
     const char *p;
     char *ext;
     char *plugin;
     int pid;
 
-#ifndef MSDOS
+#ifndef NOPLUGINS
     /* find the extension and mapped plugin if exists */
     p = get_extension(fname);
     if (*p) {
@@ -2603,11 +2601,11 @@ int writefile(const char *fname, int r0, int c0, int rn, int cn) {
     }
 #endif
 
-#if !defined(VMS) && !defined(MSDOS) && defined(CRYPT_PATH)
+#ifndef NOCRYPT
     if (Crypt) {
         return cwritefile(fname, r0, c0, rn, cn);
     }
-#endif /* VMS */
+#endif /* NOCRYPT */
 
     if (*fname == '\0') {
         if (isatty(STDOUT_FILENO) || *curfile != '\0') {
@@ -2617,18 +2615,6 @@ int writefile(const char *fname, int r0, int c0, int rn, int cn) {
             return 0;
         }
     }
-
-#ifdef MSDOS
-    namelen = 12;
-#else
-    if ((tpp = strrchr(fname, '/')) == NULL) {
-        namelen = pathconf(".", _PC_NAME_MAX);
-    } else {
-        *tpp = '\0';
-        namelen = pathconf(fname, _PC_NAME_MAX);
-        *tpp = '/';
-    }
-#endif /* MSDOS */
 
     /* copy the string, strip the \ in front of " */
     for (tpp = tfname, p = fname; *p; p++) {
@@ -2698,7 +2684,7 @@ int readfile(const char *fname, int eraseflg) {
         strlcpy(save, fname, sizeof save);
     }
 
-#ifndef MSDOS
+#ifndef NOPLUGINS
     if ((p = strrchr(fname, '.')) && (fname[0] != '|')) {  /* exclude macros */
         if ((plugin = findplugin(p+1, 'r')) != NULL) {
             size_t l;
@@ -2714,9 +2700,7 @@ int readfile(const char *fname, int eraseflg) {
             l = strlen(save);
             snprintf(save + l, sizeof(save) - l, " \"%s\"", fname);
             eraseflg = 0;
-            /* get filename: could be preceded by params if this is
-            * a save
-            */
+            /* get filename: could be preceded by params if this is a save */
             while (p > fname) {
                 if (*p == ' ') {
                     p++;
@@ -2729,30 +2713,28 @@ int readfile(const char *fname, int eraseflg) {
     }
 #endif
 
-#if !defined(VMS) && !defined(MSDOS) && defined(CRYPT_PATH)
+#ifndef NOCRYPT
     if (Crypt) {
         int ret = 0;
         if (*save == '-' && strlen(fname) == 1)
             error("Can't use encryption in a pipeline.");
         else
-            if (*save == '|')
-                error("Can't use encryption with advanced macros.");
+        if (*save == '|')
+            error("Can't use encryption with advanced macros.");
         else
             ret = creadfile(save, eraseflg);
         autolabel = tempautolabel;
         return ret;
     }
-#endif /* VMS */
+#endif /* NOCRYPT */
 
     if (eraseflg && strcmp(fname, curfile) && modcheck(" first"))
         return 0;
 
-#ifndef MSDOS
     if (fname[0] == '-' && fname[1] == '\0') {
         f = stdin;
         *save = '\0';
     } else {
-#endif /* MSDOS */
         if ((f = openfile(save, sizeof save, &pid, &rfd)) == NULL) {
             error("Can't read file \"%s\"", save);
             autolabel = tempautolabel;
@@ -2764,11 +2746,9 @@ int readfile(const char *fname, int eraseflg) {
             } else
                 fprintf(stderr, "Reading file \"%s\"\n", save);
         }
-#ifndef MSDOS
     }
     if (*fname == '|')
         *save = '\0';
-#endif /* MSDOS */
 
     if (eraseflg) erasedb();
 
@@ -2777,11 +2757,9 @@ int readfile(const char *fname, int eraseflg) {
     savefd = macrofd;
     macrofd = rfd;
     while (!brokenpipe && fgets(line, sizeof(line), f)) {
-#ifndef MSDOS
         if (line[0] == '|' && pid != 0) {
             line[0] = ' ';
         }
-#endif /* MSDOS */
         // XXX: should skip initial blanks
         if (line[0] == '#')  /* skip comments */
             continue;
@@ -2792,12 +2770,10 @@ int readfile(const char *fname, int eraseflg) {
     --loading;
     remember(1);
     closefile(f, pid, rfd);
-#ifndef MSDOS
     if (f == stdin) {
         freopen("/dev/tty", "r", stdin);
         goraw();
     }
-#endif /* MSDOS */
     linelim = -1;
     if (eraseflg) {
         strlcpy(curfile, save, sizeof curfile);
@@ -2874,7 +2850,6 @@ void erasedb(void) {
         fkey[c] = NULL;
     }
 
-#ifndef MSDOS
     /*
      * Load $HOME/.scrc if present.
      */
@@ -2895,7 +2870,6 @@ void erasedb(void) {
         close(c);
         readfile(".scrc", 0);
     }
-#endif /* MSDOS */
 
     *curfile = '\0';
     FullUpdate++;
@@ -3135,7 +3109,7 @@ void showstring(char *string,        /* to display */
         }
     }
 
-    if ((!hasvalue) || fieldlen != fwidth[col]) {
+    if (!hasvalue || fieldlen != fwidth[col]) {
         while (fp < last)
             *fp++ = ' ';
     }
@@ -3201,7 +3175,7 @@ int yn_ask(const char *msg) {
 }
 
 /* expand a ~ in a path to your home directory */
-#if !defined(MSDOS) && !defined(VMS)
+#ifndef VMS
 #include <pwd.h>
 #endif
 char *findhome(char *path, size_t pathsiz) {
@@ -3219,7 +3193,7 @@ char *findhome(char *path, size_t pathsiz) {
         pathptr = path + 1;
         if ((*pathptr == '/') || (*pathptr == '\0'))
             strlcpy(tmppath, HomeDir, sizeof tmppath);
-#if !defined(MSDOS) && !defined(VMS)
+#ifndef VMS
         else {
             struct passwd *pwent;
             char *namep;
