@@ -13,6 +13,7 @@
 struct colorpair *cpairs[1 + CPAIRS];
 
 static struct crange *color_base;
+static struct crange *color_tail;
 
 int are_colors(void) {
     return color_base != NULL;
@@ -110,6 +111,8 @@ void add_crange(struct ent *r_left, struct ent *r_right, int pair) {
             {
                 if (r->r_next)
                     r->r_next->r_prev = r->r_prev;
+                else
+                    color_tail = r->r_prev;
                 if (r->r_prev)
                     r->r_prev->r_next = r->r_next;
                 else
@@ -131,8 +134,10 @@ void add_crange(struct ent *r_left, struct ent *r_right, int pair) {
 
     r->r_next = color_base;
     r->r_prev = NULL;
-    if (r->r_next)
-        r->r_next->r_prev = r;
+    if (color_base)
+        color_base->r_prev = r;
+    else
+        color_tail = r;
     color_base = r;
 
     modflg++;
@@ -165,26 +170,20 @@ struct crange *find_crange(int row, int col) {
 void sync_cranges(void) {
     struct crange *cr;
 
-    cr = color_base;
-    while (cr) {
+    for (cr = color_base; cr; cr = cr->r_next) {
         cr->r_left = lookat(cr->r_left->row, cr->r_left->col);
         cr->r_right = lookat(cr->r_right->row, cr->r_right->col);
-        cr = cr->r_next;
     }
 }
 
 void write_cranges(FILE *f) {
     struct crange *r;
-    struct crange *nextr;
 
-    for (r = nextr = color_base; nextr; r = nextr, nextr = r->r_next)
-        continue;
-    while (r) {
+    for (r = color_tail; r; r = r->r_prev) {
         fprintf(f, "color %s:%s %d\n",
                 v_name(r->r_left->row, r->r_left->col),
                 v_name(r->r_right->row, r->r_right->col),
                 r->r_color);
-        r = r->r_prev;
     }
 }
 
@@ -206,7 +205,6 @@ void write_colors(FILE *f, int indent) {
 
 void list_colors(FILE *f) {
     struct crange *r;
-    struct crange *nextr;
 
     write_colors(f, 2);
     linelim = -1;
@@ -220,13 +218,10 @@ void list_colors(FILE *f) {
     fprintf(f, "  %-30s %s\n", "Range", "Color");
     if (!brokenpipe) fprintf(f, "  %-30s %s\n", "-----", "-----");
 
-    for (r = nextr = color_base; nextr; r = nextr, nextr = r->r_next)
-        continue;
-    while (r) {
+    for (r = color_tail; r; r = r->r_prev) {
         fprintf(f, "  %-32s %d\n", r_name(r->r_left->row, r->r_left->col,
                                           r->r_right->row, r->r_right->col), r->r_color);
         if (brokenpipe) return;
-        r = r->r_prev;
     }
 }
 
@@ -237,33 +232,32 @@ void fix_colors(int row1, int col1, int row2, int col2, int delta1, int delta2) 
 
     fr = find_frange(currow, curcol);
 
-    if (color_base) {
-        for (cr = color_base; cr; cr = ncr) {
-            ncr = cr->r_next;
-            r1 = cr->r_left->row;
-            c1 = cr->r_left->col;
-            r2 = cr->r_right->row;
-            c2 = cr->r_right->col;
+    for (cr = color_base; cr; cr = ncr) {
+        ncr = cr->r_next;
+        r1 = cr->r_left->row;
+        c1 = cr->r_left->col;
+        r2 = cr->r_right->row;
+        c2 = cr->r_right->col;
 
-            if (!(fr && (c1 < fr->or_left->col || c1 > fr->or_right->col))) {
-                if (r1 != r2 && r1 >= row1 && r1 <= row2) r1 = row2 - delta1;
-                if (c1 != c2 && c1 >= col1 && c1 <= col2) c1 = col2 - delta1;
-            }
+        if (!(fr && (c1 < fr->or_left->col || c1 > fr->or_right->col))) {
+            if (r1 != r2 && r1 >= row1 && r1 <= row2) r1 = row2 - delta1;
+            if (c1 != c2 && c1 >= col1 && c1 <= col2) c1 = col2 - delta1;
+        }
 
-            if (!(fr && (c2 < fr->or_left->col || c2 > fr->or_right->col))) {
-                if (r1 != r2 && r2 >= row1 && r2 <= row2) r2 = row1 + delta2;
-                if (c1 != c2 && c2 >= col1 && c2 <= col2) c2 = col1 + delta2;
-            }
+        if (!(fr && (c2 < fr->or_left->col || c2 > fr->or_right->col))) {
+            if (r1 != r2 && r2 >= row1 && r2 <= row2) r2 = row1 + delta2;
+            if (c1 != c2 && c2 >= col1 && c2 <= col2) c2 = col1 + delta2;
+        }
 
-            if (r1 > r2 || c1 > c2 ||
-                (row1 >= 0 && row2 >= 0 && row1 <= r1 && row2 >= r2) ||
-                (col1 >= 0 && col2 >= 0 && col1 <= c1 && col2 >= c2)) {
-                /* the 0 means delete color range */
-                add_crange(cr->r_left, cr->r_right, 0);
-            } else {
-                cr->r_left = lookat(r1, c1);
-                cr->r_right = lookat(r2, c2);
-            }
+        if (r1 > r2 || c1 > c2 ||
+            (row1 >= 0 && row2 >= 0 && row1 <= r1 && row2 >= r2) ||
+            (col1 >= 0 && col2 >= 0 && col1 <= c1 && col2 >= c2))
+        {
+            /* the 0 means delete color range */
+            add_crange(cr->r_left, cr->r_right, 0);
+        } else {
+            cr->r_left = lookat(r1, c1);
+            cr->r_right = lookat(r2, c2);
         }
     }
 }

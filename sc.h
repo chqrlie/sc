@@ -193,14 +193,14 @@ struct range {
 struct frange {
     struct ent *or_left, *or_right;     /* outer range */
     struct ent *ir_left, *ir_right;     /* inner range */
-    struct frange *r_next, *r_prev;     /* chained ranges */
+    struct frange *r_next, *r_prev;     /* chained frame ranges */
 };
 
 /* stores a color range (left, right) */
 struct crange {
     struct ent *r_left, *r_right;
     int r_color;
-    struct crange *r_next, *r_prev;     /* chained ranges */
+    struct crange *r_next, *r_prev;     /* chained color ranges */
 };
 
 struct colorpair {
@@ -605,6 +605,7 @@ extern void del_abbr(const char *abbrev);
 extern void deraw(int ClearLastLine);
 extern void doend(int rowinc, int colinc);
 extern void doformat(int c1, int c2, int w, int p, int r);
+extern void doselect(char c);
 extern void dupcol(void);
 extern void duprow(void);
 extern void doquery(char *s, char *data, int fd);
@@ -671,9 +672,9 @@ extern void read_hist(void);
 extern void remember(int save);
 extern void resetkbd(void);
 extern void rowshow_op(void);
-extern void setauto(int i);
+extern void setautocalc(int i);
 extern void setiterations(int i);
-extern void setorder(int i);
+extern void setcalcorder(int i);
 extern void showcol(int c1, int c2);
 extern void showrow(int r1, int r2);
 extern void showstring(char *string, int dirflush, int hasvalue, int row,

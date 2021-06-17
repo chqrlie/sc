@@ -14,6 +14,7 @@ static void fix_enode(struct enode *e, int row1, int col1, int row2, int col2,
                int delta1, int delta2);
 
 static struct range *rng_base;
+static struct range *rng_tail;
 
 int are_ranges(void) {
     return rng_base != NULL;
@@ -74,15 +75,17 @@ void add_range(char *name, struct ent_ptr left, struct ent_ptr right, int is_ran
             ++p;
             while (isxdigitchar(*++p))
                 continue;
-            if (*p == 'p' || *p == 'P')
+            if (*p == 'p' || *p == 'P') {
                 while (isxdigitchar(*++p))
                     continue;
+            }
         } else {
             while (isdigitchar(*++p))
                 continue;
-            if (isdigitchar(*name) && (*p == 'e' || *p == 'E'))
+            if (isdigitchar(*name) && (*p == 'e' || *p == 'E')) {
                 while (isdigitchar(*++p))
                     continue;
+            }
         }
         if (!(*p)) {
             error("Invalid range name \"%s\" - ambiguous", name);
@@ -94,7 +97,7 @@ void add_range(char *name, struct ent_ptr left, struct ent_ptr right, int is_ran
     if (autolabel && minc > 0 && !is_range) {
         rcp = lookat(minr, minc - 1);
         if (rcp->label == 0 && rcp->expr == 0 && rcp->v == 0)
-                label(rcp, name, 0);
+            label(rcp, name, 0);
     }
 
     r = scxmalloc(sizeof(struct range));
@@ -114,6 +117,8 @@ void add_range(char *name, struct ent_ptr left, struct ent_ptr right, int is_ran
     r->r_next = next;
     if (next)
         next->r_prev = r;
+    else
+        rng_tail = r;
     modflg++;
 }
 
@@ -134,6 +139,8 @@ void del_range(struct ent *left, struct ent *right) {
 
     if (r->r_next)
         r->r_next->r_prev = r->r_prev;
+    else
+        rng_tail = r->r_prev;
     if (r->r_prev)
         r->r_prev->r_next = r->r_next;
     else
@@ -148,7 +155,7 @@ void clean_range(void) {
     struct range *nextr;
 
     r = rng_base;
-    rng_base = NULL;
+    rng_base = rng_tail = NULL;
 
     while (r) {
         nextr = r->r_next;
@@ -202,10 +209,12 @@ void sync_ranges(void) {
         r->r_left.vp = lookat(r->r_left.vp->row, r->r_left.vp->col);
         r->r_right.vp = lookat(r->r_right.vp->row, r->r_right.vp->col);
     }
-    for (i=0; i<=maxrow; i++)
-        for (j=0; j<=maxcol; j++)
+    for (i = 0; i <= maxrow; i++) {
+        for (j = 0; j <= maxcol; j++) {
             if ((p = *ATBL(tbl,i,j)) && p->expr)
                 sync_enode(p->expr);
+        }
+    }
     sync_franges();
     sync_cranges();
 }
@@ -215,7 +224,7 @@ static void sync_enode(struct enode *e) {
         if ((e->op & REDUCE)) {
             e->e.r.left.vp = lookat(e->e.r.left.vp->row, e->e.r.left.vp->col);
             e->e.r.right.vp = lookat(e->e.r.right.vp->row, e->e.r.right.vp->col);
-        } else if (e->op != O_VAR && e->op !=O_CONST && e->op != O_SCONST) {
+        } else if (e->op != O_VAR && e->op != O_CONST && e->op != O_SCONST) {
             sync_enode(e->e.o.left);
             sync_enode(e->e.o.right);
         }
@@ -224,11 +233,8 @@ static void sync_enode(struct enode *e) {
 
 void write_ranges(FILE *f) {
     struct range *r;
-    struct range *nextr;
 
-    for (r = nextr = rng_base; nextr; r = nextr, nextr = r->r_next)
-        continue;
-    while (r) {
+    for (r = rng_tail; r; r = r->r_prev) {
         fprintf(f, "define \"%s\" %s%s%s%d",
                 r->r_name,
                 r->r_left.vf & FIX_COL ? "$" : "",
@@ -243,13 +249,11 @@ void write_ranges(FILE *f) {
                     r->r_right.vp->row);
         }
         fprintf(f, "\n");
-        r = r->r_prev;
     }
 }
 
 void list_ranges(FILE *f) {
     struct range *r;
-    struct range *nextr;
 
     if (!are_ranges()) {
         fprintf(f, "  No ranges defined");
@@ -259,9 +263,7 @@ void list_ranges(FILE *f) {
     fprintf(f, "  %-30s %s\n","Name","Definition");
     if (!brokenpipe) fprintf(f, "  %-30s %s\n","----","----------");
 
-    for (r = nextr = rng_base; nextr; r = nextr, nextr = r->r_next)
-        continue;
-    while (r) {
+    for (r = rng_tail; r; r = r->r_prev) {
         fprintf(f, "  %-30s %s%s%s%d",
                 r->r_name,
                 r->r_left.vf & FIX_COL ? "$" : "",
@@ -278,7 +280,6 @@ void list_ranges(FILE *f) {
         }
         fprintf(f, "\n");
         if (brokenpipe) return;
-        r = r->r_prev;
     }
 }
 
@@ -325,33 +326,34 @@ void fix_ranges(int row1, int col1, int row2, int col2, int delta1, int delta2) 
     fr = find_frange(currow, curcol);
 
     /* First we fix all of the named ranges. */
-    if (rng_base)
-        for (r = rng_base; r; r = r->r_next) {
-            r1 = r->r_left.vp->row;
-            c1 = r->r_left.vp->col;
-            r2 = r->r_right.vp->row;
-            c2 = r->r_right.vp->col;
+    for (r = rng_base; r; r = r->r_next) {
+        r1 = r->r_left.vp->row;
+        c1 = r->r_left.vp->col;
+        r2 = r->r_right.vp->row;
+        c2 = r->r_right.vp->col;
 
-            if (!(fr && (c1 < fr->or_left->col || c1 > fr->or_right->col))) {
-                if (r1 >= row1 && r1 <= row2) r1 = row2 - delta1;
-                if (c1 >= col1 && c1 <= col2) c1 = col2 - delta1;
-            }
-
-            if (!(fr && (c2 < fr->or_left->col || c2 > fr->or_right->col))) {
-                if (r2 >= row1 && r2 <= row2) r2 = row1 + delta2;
-                if (c2 >= col1 && c2 <= col2) c2 = col1 + delta2;
-            }
-            r->r_left.vp = lookat(r1, c1);
-            r->r_right.vp = lookat(r2, c2);
+        if (!(fr && (c1 < fr->or_left->col || c1 > fr->or_right->col))) {
+            if (r1 >= row1 && r1 <= row2) r1 = row2 - delta1;
+            if (c1 >= col1 && c1 <= col2) c1 = col2 - delta1;
         }
+
+        if (!(fr && (c2 < fr->or_left->col || c2 > fr->or_right->col))) {
+            if (r2 >= row1 && r2 <= row2) r2 = row1 + delta2;
+            if (c2 >= col1 && c2 <= col2) c2 = col1 + delta2;
+        }
+        r->r_left.vp = lookat(r1, c1);
+        r->r_right.vp = lookat(r2, c2);
+    }
 
     /* Next, we go through all valid cells with expressions and fix any ranges
      * that need fixing.
      */
-    for (i=0; i<=maxrow; i++)
-        for (j=0; j<=maxcol; j++)
+    for (i = 0; i <= maxrow; i++) {
+        for (j = 0; j <= maxcol; j++) {
             if ((p = *ATBL(tbl,i,j)) && p->expr)
                 fix_enode(p->expr, row1, col2, row2, col2, delta1, delta2);
+        }
+    }
     fix_frames(row1, col1, row2, col2, delta1, delta2);
     fix_colors(row1, col1, row2, col2, delta1, delta2);
 }

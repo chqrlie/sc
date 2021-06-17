@@ -571,17 +571,7 @@ command:  S_LET var_or_range '=' e
         | S_ENDDOWN             { doend( 1, 0); }
         | S_ENDLEFT             { doend( 0,-1); }
         | S_ENDRIGHT            { doend( 0, 1); }
-        | S_SELECT STRING       { int c;
-                                  if ((c = *$2) >= '0' && c <= '9') {
-                                      qbuf = c - '0' + (DELBUFSIZE - 10);
-                                  } else if (c >= 'a' && c <= 'z') {
-                                      qbuf = c - 'a' + (DELBUFSIZE - 36);
-                                  } else if (c == '"') {
-                                      qbuf = 0;
-                                  } else
-                                      error("Invalid buffer");
-                                  scxfree($2);
-                                }
+        | S_SELECT STRING       { doselect(*$2); scxfree($2); }
         | S_INSERTROW           { insertrow( 1, 0); }
         | S_INSERTROW '*' NUMBER { insertrow($3, 0); }
         | S_OPENROW             { insertrow( 1, 1); }
@@ -939,14 +929,14 @@ setlist :
         ;
 
 /* things that you can 'set' */
-setitem : K_AUTO                { setauto(1); }
-        | K_AUTOCALC            { setauto(1); }
-        | '~' K_AUTO            { setauto(0); }
-        | '~' K_AUTOCALC        { setauto(0); }
-        | '!' K_AUTO            { setauto(0); }
-        | '!' K_AUTOCALC        { setauto(0); }
-        | K_BYCOLS              { setorder(BYCOLS); }
-        | K_BYROWS              { setorder(BYROWS); }
+setitem : K_AUTO                { setautocalc(1); }
+        | K_AUTOCALC            { setautocalc(1); }
+        | '~' K_AUTO            { setautocalc(0); }
+        | '~' K_AUTOCALC        { setautocalc(0); }
+        | '!' K_AUTO            { setautocalc(0); }
+        | '!' K_AUTOCALC        { setautocalc(0); }
+        | K_BYCOLS              { setcalcorder(BYCOLS); }
+        | K_BYROWS              { setcalcorder(BYROWS); }
         | K_OPTIMIZE            { optimize = 1; }
         | '~' K_OPTIMIZE        { optimize = 0; }
         | '!' K_OPTIMIZE        { optimize = 0; }

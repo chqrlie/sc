@@ -651,7 +651,7 @@ void erase_area(int sr, int sc, int er, int ec, int ignorelock) {
 
     delbuffmt[++dbidx] = scxmalloc((4*(ec-sc+1)+(er-sr+1))*sizeof(char));
     for (c = sc; c <= ec; c++) {
-        delbuffmt[dbidx][4*(c-sc)] = (char)fwidth[c];
+        delbuffmt[dbidx][4*(c-sc)+0] = (char)fwidth[c];
         delbuffmt[dbidx][4*(c-sc)+1] = (char)precision[c];
         delbuffmt[dbidx][4*(c-sc)+2] = (char)realfmt[c];
         delbuffmt[dbidx][4*(c-sc)+3] = (char)col_hidden[c];
@@ -850,7 +850,8 @@ void pullcells(int to_insert) {
                 row_hidden[currow+i] = delbuffmt[dbidx][4*numcols+i];
             deltac = 0;
         }
-    } else if (to_insert == 'c') {
+    } else
+    if (to_insert == 'c') {
         insertcol(numcols, 0);
         for (i = 0; i < numcols; i++) {
             fwidth[curcol+i] = delbuffmt[dbidx][4*i];
@@ -859,7 +860,8 @@ void pullcells(int to_insert) {
             col_hidden[curcol+i] = delbuffmt[dbidx][4*i+3];
         }
         deltar = 0;
-    } else if (to_insert == 'x') {      /* Do an exchange. */
+    } else
+    if (to_insert == 'x') {      /* Do an exchange. */
         struct ent *tmpbuf;
         char *tmpfmt;
 
@@ -869,22 +871,24 @@ void pullcells(int to_insert) {
          * to be pulled are still on top.
          */
         erase_area(minrow + deltar, mincol + deltac, mxrow + deltar,
-                mxcol + deltac, 0);
+                   mxcol + deltac, 0);
         tmpbuf = delbuf[dbidx];
         delbuf[dbidx] = delbuf[dbidx - 1];
         delbuf[dbidx - 1] = tmpbuf;
         tmpfmt = delbuffmt[dbidx];
         delbuffmt[dbidx] = delbuffmt[dbidx - 1];
         delbuffmt[dbidx - 1] = tmpfmt;
-    } else if (to_insert == 'p') {
+    } else
+    if (to_insert == 'p') {
         erase_area(minrow + deltar, mincol + deltac, mxrow + deltar,
-                mxcol + deltac, 0);
+                   mxcol + deltac, 0);
         sync_refs();
         flush_saved();
-    } else if (to_insert == 't') {
+    } else
+    if (to_insert == 't') {
         erase_area(minrow + deltar, mincol + deltac,
-                minrow + deltar + mxcol - mincol,
-                mincol + deltac + mxrow - minrow, 0);
+                   minrow + deltar + mxcol - mincol,
+                   mincol + deltac + mxrow - minrow, 0);
         sync_refs();
         flush_saved();
     }
@@ -3291,12 +3295,12 @@ int backup_file(char *path) {
 }
 
 /* set the calculation order */
-void setorder(int i) {
+void setcalcorder(int i) {
     if (i == BYROWS || i == BYCOLS)
         calc_order = i;
 }
 
-void setauto(int i) {
+void setautocalc(int i) {
     autocalc = i;
 }
 
@@ -3417,4 +3421,16 @@ void dofkey(int n, char *str) {
 void dohistfile(char *str) {
     strlcpy(histfile, str, sizeof histfile);
     scxfree(str);
+}
+
+void doselect(char c) {
+    if (c >= '0' && c <= '9') {
+        qbuf = c - '0' + (DELBUFSIZE - 10);
+    } else if (c >= 'a' && c <= 'z') {
+        qbuf = c - 'a' + (DELBUFSIZE - 36);
+    } else if (c == '"') {
+        qbuf = 0;
+    } else {
+        error("Invalid buffer");
+    }
 }
