@@ -339,34 +339,24 @@ command:  S_LET var_or_range '=' e
         | S_FORMAT COL NUMBER NUMBER
                                 { doformat($2, $2, $3, $4, REFMTFIX); }
         | S_FORMAT NUMBER '=' STRING
-                                { if ($2 >= 0 && $2 < 10) {
-                                    scxfree(colformat[$2]);
-                                    colformat[$2] = NULL;
-                                    // XXX: memory leak
-                                    if (strlen($4))
-                                        colformat[$2] = $4;
-                                    FullUpdate++;
-                                    modflg++;
-                                  } else
-                                    error("Invalid format number");
-                                }
-        | S_GET strarg          { doreadfile($2, 1); }
-        | S_MERGE strarg        { doreadfile($2, 0); }
-        | S_MDIR strarg         { domdir($2); }
-        | S_AUTORUN strarg      { doautorun($2); }
-        | S_FKEY NUMBER '=' strarg { dofkey($2, $4); }
-        | S_SCEXT strarg        { scxfree(scext); scext = $2; }
-        | S_HISTFILE strarg     { dohistfile($2); }
-        | S_ASCEXT strarg       { scxfree(ascext); ascext = $2; }
-        | S_TBL0EXT strarg      { scxfree(tbl0ext); tbl0ext = $2; }
-        | S_TBLEXT strarg       { scxfree(tblext); tblext = $2; }
-        | S_LATEXEXT strarg     { scxfree(latexext); latexext = $2; }
-        | S_SLATEXEXT strarg    { scxfree(slatexext); slatexext = $2; }
-        | S_TEXEXT strarg       { scxfree(texext); texext = $2; }
-        | S_PUT strarg range    { writefile($2, $3.left.vp->row, $3.left.vp->col,
+                                { dosetformat($2, s2c($4)); scxfree($4); }
+        | S_GET strarg          { char *s = $2; readfile(s2c(s), 1); scxfree(s); }
+        | S_MERGE strarg        { char *s = $2; readfile(s2c(s), 0); scxfree(s); }
+        | S_MDIR strarg         { domdir(s2c($2)); scxfree($2); }
+        | S_AUTORUN strarg      { doautorun(s2c($2)); scxfree($2); }
+        | S_FKEY NUMBER '=' strarg { dofkey($2, s2c($4)); scxfree($4); }
+        | S_SCEXT strarg        { set_string(&scext, $2); }
+        | S_HISTFILE strarg     { dohistfile(s2c($2)); scxfree($2); }
+        | S_ASCEXT strarg       { set_string(&ascext, $2); }
+        | S_TBL0EXT strarg      { set_string(&tbl0ext, $2); }
+        | S_TBLEXT strarg       { set_string(&tblext, $2); }
+        | S_LATEXEXT strarg     { set_string(&latexext, $2); }
+        | S_SLATEXEXT strarg    { set_string(&slatexext, $2); }
+        | S_TEXEXT strarg       { set_string(&texext, $2); }
+        | S_PUT strarg range    { writefile(s2c($2), $3.left.vp->row, $3.left.vp->col,
                                             $3.right.vp->row, $3.right.vp->col);
                                   scxfree($2); }
-        | S_PUT strarg          { writefile($2, 0, 0, maxrow, maxcol);
+        | S_PUT strarg          { writefile(s2c($2), 0, 0, maxrow, maxcol);
                                   scxfree($2); }
         | S_PUT range           { write_cells(stdout,
                                               $2.left.vp->row, $2.left.vp->col,
@@ -386,19 +376,21 @@ command:  S_LET var_or_range '=' e
                                               $3.left.vp->row, $3.left.vp->col); }
         | S_PUT '%'             { write_cells(stdout, 0, 0, maxrow, maxcol, 0, 0); }
         | S_PUT                 { write_cells(stdout, 0, 0, maxrow, maxcol, 0, 0); }
-        | S_WRITE strarg range  { printfile($2, $3.left.vp->row, $3.left.vp->col,
+        | S_WRITE strarg range  { printfile(s2c($2), $3.left.vp->row, $3.left.vp->col,
                                             $3.right.vp->row, $3.right.vp->col);
                                   scxfree($2); }
-        | S_WRITE strarg        { printfile($2, 0, 0, maxrow, maxcol); scxfree($2); }
+        | S_WRITE strarg        { printfile(s2c($2), 0, 0, maxrow, maxcol);
+                                  scxfree($2); }
         | S_WRITE range         { printfile(NULL,
                                             $2.left.vp->row, $2.left.vp->col,
                                             $2.right.vp->row, $2.right.vp->col); }
         | S_WRITE '%'           { printfile(NULL, 0, 0, maxrow, maxcol); }
         | S_WRITE               { printfile(NULL, 0, 0, maxrow, maxcol); }
-        | S_TBL strarg range    { tblprintfile($2, $3.left.vp->row, $3.left.vp->col,
+        | S_TBL strarg range    { tblprintfile(s2c($2), $3.left.vp->row, $3.left.vp->col,
                                                $3.right.vp->row, $3.right.vp->col);
                                   scxfree($2); }
-        | S_TBL strarg          { tblprintfile($2, 0, 0, maxrow, maxcol); scxfree($2); }
+        | S_TBL strarg          { tblprintfile(s2c($2), 0, 0, maxrow, maxcol);
+                                  scxfree($2); }
         | S_SHOW COL ':' COL    { showcol($2, $4); }
         | S_SHOW NUMBER ':' NUMBER
                                 { showrow($2, $4); }
@@ -429,9 +421,9 @@ command:  S_LET var_or_range '=' e
         | S_SORT                { sortrange(lookat(showsr, showsc),
                                             lookat(currow, curcol), NULL); }
         | S_SORT range          { sortrange($2.left.vp, $2.right.vp, NULL); }
-        | S_SORT range strarg   { sortrange($2.left.vp, $2.right.vp, $3); }
+        | S_SORT range strarg   { sortrange($2.left.vp, $2.right.vp, s2c($3)); scxfree($3); }
         | S_FMT var_or_range STRING
-                                { format_cell($2.left.vp, $2.right.vp, $3); }
+                                { format_cell($2.left.vp, $2.right.vp, s2c($3)); scxfree($3); }
         | S_LOCK                { lock_cells(lookat(showsr, showsc),
                                              lookat(currow, curcol)); }
         | S_LOCK var_or_range   { lock_cells($2.left.vp, $2.right.vp); }
@@ -449,35 +441,30 @@ command:  S_LET var_or_range '=' e
                                              $3.right.vp->row, $3.right.vp->col, 0); }
         | S_GOTO num            { num_search($2, 0, 0, maxrow, maxcol, 0); }
         | S_GOTO errlist
-        | S_GOTO STRING range   { str_search($2, $3.left.vp->row, $3.left.vp->col,
-                                             $3.right.vp->row, $3.right.vp->col, 0); }
+        | S_GOTO STRING range   { str_search(s2c($2), $3.left.vp->row, $3.left.vp->col,
+                                             $3.right.vp->row, $3.right.vp->col, 0);
+                                  scxfree($2); }
         | S_GOTO '#' STRING range
-                                { str_search($3, $4.left.vp->row, $4.left.vp->col,
-                                             $4.right.vp->row, $4.right.vp->col, 1); }
+                                { str_search(s2c($3), $4.left.vp->row, $4.left.vp->col,
+                                             $4.right.vp->row, $4.right.vp->col, 1);
+                                  scxfree($3); }
         | S_GOTO '%' STRING range
-                                { str_search($3, $4.left.vp->row, $4.left.vp->col,
-                                             $4.right.vp->row, $4.right.vp->col, 2); }
-        | S_GOTO STRING         { str_search($2, 0, 0, maxrow, maxcol, 0); }
-        | S_GOTO '#' STRING     { str_search($3, 0, 0, maxrow, maxcol, 1); }
-        | S_GOTO '%' STRING     { str_search($3, 0, 0, maxrow, maxcol, 2); }
+                                { str_search(s2c($3), $4.left.vp->row, $4.left.vp->col,
+                                             $4.right.vp->row, $4.right.vp->col, 2);
+                                  scxfree($3); }
+        | S_GOTO STRING         { str_search(s2c($2), 0, 0, maxrow, maxcol, 0); scxfree($2); }
+        | S_GOTO '#' STRING     { str_search(s2c($3), 0, 0, maxrow, maxcol, 1); scxfree($3); }
+        | S_GOTO '%' STRING     { str_search(s2c($3), 0, 0, maxrow, maxcol, 2); scxfree($3); }
         | S_GOTO                { go_last(); }
         | S_GOTO WORD           { /* don't repeat last goto on "unintelligible word" */ ; }
-        | S_DEFINE strarg       { struct ent_ptr arg1, arg2;
-                                  arg1.vp = lookat(showsr, showsc);
-                                  arg1.vf = 0;
-                                  arg2.vp = lookat(currow, curcol);
-                                  arg2.vf = 0;
-                                  if (arg1.vp == arg2.vp || !showrange)
-                                      add_range($2, arg2, arg2, 0);
-                                  else
-                                      add_range($2, arg1, arg2, 1); }
-        | S_DEFINE strarg range { add_range($2, $3.left, $3.right, 1); }
-        | S_DEFINE strarg var   { add_range($2, $3, $3, 0); }
+        | S_DEFINE strarg       { dodefine(s2c($2)); scxfree($2); }
+        | S_DEFINE strarg range { add_range(s2c($2), $3.left, $3.right, 1); scxfree($2); }
+        | S_DEFINE strarg var   { add_range(s2c($2), $3, $3, 0); scxfree($2); }
         | S_UNDEFINE var_or_range
                                 { del_range($2.left.vp, $2.right.vp); }
-        | S_ABBREV STRING       { add_abbr($2); }
+        | S_ABBREV STRING       { add_abbr(s2c($2)); scxfree($2); }
         | S_ABBREV              { add_abbr(NULL); }
-        | S_UNABBREV STRING     { del_abbr($2); scxfree($2); }
+        | S_UNABBREV STRING     { del_abbr(s2c($2)); scxfree($2); }
         | S_FRAME range range   { add_frange($2.left.vp, $2.right.vp,
                                              $3.left.vp, $3.right.vp,
                                              0, 0, 0, 0); }
@@ -559,19 +546,19 @@ command:  S_LET var_or_range '=' e
         | S_COLOR NUMBER '=' e  { change_color($2, $4); }
         | S_COLOR range NUMBER  { add_crange($2.left.vp, $2.right.vp, $3); }
         | S_SET setlist         { modflg++; }
-        | S_UP                  { backrow( 1); }
+        | S_UP                  { backrow(1); }
         | S_UP NUMBER           { backrow($2); }
-        | S_DOWN                { forwrow( 1); }
+        | S_DOWN                { forwrow(1); }
         | S_DOWN NUMBER         { forwrow($2); }
-        | S_LEFT                { backcol( 1); }
+        | S_LEFT                { backcol(1); }
         | S_LEFT NUMBER         { backcol($2); }
-        | S_RIGHT               { forwcol( 1); }
+        | S_RIGHT               { forwcol(1); }
         | S_RIGHT NUMBER        { forwcol($2); }
-        | S_ENDUP               { doend(-1, 0); }
-        | S_ENDDOWN             { doend( 1, 0); }
-        | S_ENDLEFT             { doend( 0,-1); }
-        | S_ENDRIGHT            { doend( 0, 1); }
-        | S_SELECT STRING       { doselect(*$2); scxfree($2); }
+        | S_ENDUP               { doend(-1,  0); }
+        | S_ENDDOWN             { doend( 1,  0); }
+        | S_ENDLEFT             { doend( 0, -1); }
+        | S_ENDRIGHT            { doend( 0,  1); }
+        | S_SELECT STRING       { doselect(*s2c($2)); scxfree($2); }
         | S_INSERTROW           { insertrow( 1, 0); }
         | S_INSERTROW '*' NUMBER { insertrow($3, 0); }
         | S_OPENROW             { insertrow( 1, 1); }
@@ -621,14 +608,8 @@ command:  S_LET var_or_range '=' e
         | S_PULLFMT             { pullcells('f'); }
         | S_PULLCOPY            { copy(NULL, NULL, NULL, NULL); }
         | S_PULLCOPY var_or_range { copy($2.left.vp, $2.right.vp, NULL, (struct ent *)1); }
-        | S_WHEREAMI            { snprintf(line, sizeof line, "%s%d %s%d\n",
-                                           coltoa(curcol), currow, coltoa(stcol), strow);
-                                  write(macrofd, line, strlen(line));
-                                  line[0] = '\0'; }
-        | S_WHEREAMI '|' NUMBER { snprintf(line, sizeof line, "%s%d %s%d\n",
-                                           coltoa(curcol), currow, coltoa(stcol), strow);
-                                  write($3, line, strlen(line));
-                                  line[0] = '\0'; }
+        | S_WHEREAMI            { dowhereami(macrofd); }
+        | S_WHEREAMI '|' NUMBER { dowhereami($3); }
         | S_GETNUM var_or_range { getnum($2.left.vp->row, $2.left.vp->col,
                                          $2.right.vp->row, $2.right.vp->col, macrofd); }
         | S_GETNUM var_or_range '|' NUMBER
@@ -672,54 +653,42 @@ command:  S_LET var_or_range '=' e
         | S_GETFMT '|' NUMBER   { getfmt(currow, curcol, currow, curcol, $3); }
         | S_GETFRAME            { getframe(macrofd); }
         | S_GETFRAME '|' NUMBER { getframe($3); }
-        | S_GETRANGE STRING     { getrange($2, macrofd); }
+        | S_GETRANGE STRING     { getrange(s2c($2), macrofd); scxfree($2); }
         | S_GETRANGE STRING '|' NUMBER
-                                { getrange($2, $4); }
+                                { getrange(s2c($2), $4); scxfree($2); }
         | S_EVAL e              { doeval($2, NULL, currow, curcol, macrofd); }
-        | S_EVAL e STRING       { doeval($2, $3, currow, curcol, macrofd); }
+        | S_EVAL e STRING       { doeval($2, s2c($3), currow, curcol, macrofd); scxfree($3); }
         | S_EVAL e STRING '|' NUMBER
-                                { doeval($2, $3, currow, curcol, $5); }
+                                { doeval($2, s2c($3), currow, curcol, $5); scxfree($3); }
         | S_SEVAL e             { doseval($2, currow, curcol, macrofd); }
-        | S_QUERY STRING STRING { doquery($2, $3, macrofd); }
+        | S_QUERY STRING STRING { doquery(s2c($2), s2c($3), macrofd);
+                                  scxfree($2); scxfree($3); }
         | S_QUERY STRING STRING '|' NUMBER
-                                { doquery($2, $3, $5); }
-        | S_QUERY STRING        { doquery($2, NULL, macrofd); }
+                                { doquery(s2c($2), s2c($3), $5);
+                                  scxfree($2); scxfree($3); }
+        | S_QUERY STRING        { doquery(s2c($2), NULL, macrofd); scxfree($2); }
         | S_QUERY STRING '|' NUMBER
-                                { doquery($2, NULL, $4); }
+                                { doquery(s2c($2), NULL, $4); scxfree($2); }
         | S_QUERY               { doquery(NULL, NULL, macrofd); }
         | S_QUERY '|' NUMBER    { doquery(NULL, NULL, $3); }
         | S_GETKEY              { dogetkey(macrofd); }
-        | S_ERROR STRING        { error("%s", $2); }
+        | S_ERROR STRING        { error("%s", s2c($2)); scxfree($2); }
         | S_STATUS              { dostat(macrofd); }
         | S_STATUS '|' NUMBER   { dostat($3); }
         | S_RECALC              { EvalAll();
                                   update(1);
                                   changed = 0;
                                 }
-        | S_REDRAW              { if (usecurses) {
-                                      clearok(stdscr, TRUE);
-                                      linelim = -1;
-                                      update(1);
-                                      refresh();
-                                      changed = 0;
-                                  }
-                                }
+        | S_REDRAW              { doredraw(); }
         | S_QUIT                { stopdisp(); exit(0); }
-        | S_RUN STRING          { deraw(1);
-                                  system($2);
-                                  if (*($2 + strlen($2) - 1) != '&') {
-                                      printf("Press any key to continue ");
-                                      fflush(stdout);
-                                      cbreak();
-                                      nmgetch();
-                                  }
-                                  goraw();
-                                  scxfree($2); }
+        | S_RUN STRING          { dorun(s2c($2)); scxfree($2); }
         | S_PLUGIN STRING '=' STRING
-                                { addplugin($2, $4, 'r'); }
+                                { addplugin(s2c($2), s2c($4), 'r');
+                                  scxfree($2); scxfree($4); }
         | S_PLUGOUT STRING '=' STRING
-                                { addplugin($2, $4, 'w'); }
-        | PLUGIN                { doplugin($1); }
+                                { addplugin(s2c($2), s2c($4), 'w');
+                                  scxfree($2); scxfree($4); }
+        | PLUGIN                { char *s = $1; doplugin(s2c(s)); scxfree(s); }
         | /* nothing */
         | error;
 

@@ -12,7 +12,7 @@
 
 struct colorpair *cpairs[1 + CPAIRS];
 
-static struct crange *color_base;
+static SCXMEM struct crange *color_base;
 static struct crange *color_tail;
 
 int are_colors(void) {

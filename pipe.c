@@ -161,7 +161,7 @@ void getframe(int fd) {
     linelim = -1;
 }
 
-void getrange(char *name, int fd) {
+void getrange(const char *name, int fd) {
     struct range *r;
 
     *line = '\0';
@@ -199,7 +199,7 @@ void getrange(char *name, int fd) {
     linelim = -1;
 }
 
-void doeval(struct enode *e, char *fmt, int row, int col, int fd) {
+void doeval(struct enode *e, const char *fmt, int row, int col, int fd) {
     double v;
 
     gmyrow = row;
@@ -221,11 +221,10 @@ void doeval(struct enode *e, char *fmt, int row, int col, int fd) {
     linelim = -1;
 
     efree(e);
-    scxfree(fmt);
 }
 
 void doseval(struct enode *e, int row, int col, int fd) {
-    char *s;
+    SCXMEM char *s;
 
     gmyrow = row;
     gmycol = col;
@@ -240,7 +239,7 @@ void doseval(struct enode *e, int row, int col, int fd) {
     scxfree(s);
 }
 
-void doquery(char *s, char *data, int fd) {
+void doquery(const char *s, const char *data, int fd) {
     goraw();
     query(s, data);
     deraw(0);
@@ -253,8 +252,6 @@ void doquery(char *s, char *data, int fd) {
     linelim = -1;
     CLEAR_LINE;
     update(0);
-
-    scxfree(s);
 }
 
 void dogetkey(int fd) {

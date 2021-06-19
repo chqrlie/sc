@@ -10,8 +10,7 @@
 
 #define MAGIC   (double)1234567890.12344
 
-void *scxmalloc(size_t n)
-{
+void *scxmalloc(size_t n) {
     void *ptr;
 
     if ((ptr = malloc(n + sizeof(double))) == NULL)
@@ -21,8 +20,7 @@ void *scxmalloc(size_t n)
 }
 
 /* we make sure realloc will do a malloc if needed */
-void *scxrealloc(void *ptr, size_t n)
-{
+void *scxrealloc(void *ptr, size_t n) {
     if (ptr == NULL)
         return scxmalloc(n);
 
@@ -38,11 +36,11 @@ void *scxrealloc(void *ptr, size_t n)
 
 char *scxdup(const char *s) {
     size_t size = strlen(s) + 1;
-    return memcpy(scxmalloc(size), s, size);
+    char *p = scxmalloc(size);
+    return p ? memcpy(p, s, size) : p;
 }
 
-void scxfree(void *p)
-{
+void scxfree(void *p) {
     if (p != NULL) {
         p = (unsigned char*)p - sizeof(double);
         if (*((double *)p) != MAGIC)

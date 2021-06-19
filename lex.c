@@ -52,8 +52,7 @@ static jmp_buf fpe_buf;
 
 bool sc_decimal = false;
 
-static sigret_t fpe_trap(int signo)
-{
+static sigret_t fpe_trap(int signo) {
     (void)signo;
 #if defined(i386) && !defined(M_XENIX)
     asm("       fnclex");
@@ -129,7 +128,7 @@ int yylex(void)
          * (no alpha or '_')
          */
         if (!isdigitchar(*tokenst) && tokenl && tokenl <= 2 && (colstate ||
-                (isdigitchar(*(la-1)) && !(isalphachar_(*la))))) {
+                (isdigitchar(la[-1]) && !(isalphachar_(*la))))) {
             ret = COL;
             yylval.ival = atocol(tokenst, tokenl);
         } else {
@@ -172,7 +171,7 @@ int yylex(void)
                     else
                         ret = VAR;
                 } else if ((path = scxmalloc(PATHLEN)) &&
-                           plugin_exists(tokenst, tokenl, path)) {
+                           plugin_exists(tokenst, tokenl, path, PATHLEN)) {
                     strlcat(path, p, PATHLEN);
                     yylval.sval = path;
                     ret = PLUGIN;
@@ -219,8 +218,8 @@ int yylex(void)
                  *  .'s as tokens instead of interpreting them as decimal
                  *  points.  dateflag counts the .'s as they're returned.
                  */
-                } else if (*p == '.' && isdigitchar(*(p+1)) &&
-                           (*(p+2) == '.' || (isdigitchar(*(p+2)) && *(p+3) == '.'))) {
+                } else if (*p == '.' && isdigitchar(p[1]) &&
+                           (p[2] == '.' || (isdigitchar(p[2]) && p[3] == '.'))) {
                     ret = NUMBER;
                     yylval.ival = (int)v;
                     dateflag = 2;
@@ -261,13 +260,13 @@ int yylex(void)
     } else if (*p == '"') {
         char *ptr;
         ptr = p + 1;      /* "string" or "string\"quoted\"" */
-        while (*ptr && ((*ptr != '"') || (*(ptr-1) == '\\')))
+        while (*ptr && ((*ptr != '"') || (ptr[-1] == '\\')))
             ptr++;
-        ptr = scxmalloc(ptr-p);
+        ptr = scxmalloc(ptr - p);
         yylval.sval = ptr;
         p++;
         while (*p && ((*p != '"') ||
-                (*(p-1) == '\\' && *(p+1) != '\0' && *(p+1) != '\n')))
+                (p[-1] == '\\' && p[1] != '\0' && p[1] != '\n')))
             *ptr++ = *p++;
         *ptr = '\0';
         if (*p)
@@ -294,16 +293,16 @@ int yylex(void)
 * in the plugin directories.  Perhaps should test for it being executable
 */
 
-int plugin_exists(char *name, size_t len, char *path) {
+int plugin_exists(const char *name, int len, char *path, size_t size) {
 #ifndef NOPLUGINS
     struct stat sb;
     char *homedir;
 
     if ((homedir = getenv("HOME"))) {
-        if (snprintf(path, len, "%s/.sc/plugins/%s", homedir, name) >= (int)len)
+        if (snprintf(path, size, "%s/.sc/plugins/%.*s", homedir, len, name) >= (int)size)
             return 0;
     } else {
-        if (snprintf(path, len, "%s/plugins/%s", LIBDIR, name) >= (int)len)
+        if (snprintf(path, size, "%s/plugins/%.*s", LIBDIR, len, name) >= (int)size)
             return 0;
     }
     if (!stat(path, &sb))
@@ -317,18 +316,14 @@ int plugin_exists(char *name, size_t len, char *path) {
  * length, convert column name ("A"-"Z" or "AA"-"ZZ") to a column number (0-N).
  * Never mind if the column number is illegal (too high).  The procedure's name
  * and function are the inverse of coltoa().
- *
- * Case-insensitivity is done crudely, by ignoring the 040 bit.
  */
 
-int atocol(char *string, int len)
-{
+int atocol(const char *string, int len) {
     int col;
 
     col = toupperchar(string[0]) - 'A';
-
     if (len == 2)               /* has second char */
-        col = ((col + 1) * 26) + (toupperchar(string[1]) - 'A');
+        col = (col + 1) * 26 + (toupperchar(string[1]) - 'A');
 
     return col;
 }

@@ -10,18 +10,32 @@
 
 #include "sc.h"
 
-static struct abbrev *abbr_base;
+static SCXMEM struct abbrev *abbr_base;
 
 static int are_abbrevs(void) {
     return abbr_base != NULL;
 }
 
-// add an abbreviation
-void add_abbr(SCXMEM char *string) {
+/* unlink and free an abbrev */
+static void free_abbr(SCXMEM struct abbrev *a, struct abbrev *prev) {
+    if (a) {
+        if (prev)
+            prev->next = a->next;
+        else
+            abbr_base = a->next;
+        scxfree(a->name);
+        scxfree(a->exp);
+        scxfree(a);
+    }
+}
+
+/* add an abbreviation */
+void add_abbr(const char *string) {
+    char name[32];
     struct abbrev *a;
     struct abbrev *prev;
-    char *p;
-    char *expansion;
+    const char *expansion;
+    int i, j;
 
     // null or empty string: list abbreviations to the PAGER
     if (!string || *string == '\0') {
@@ -45,56 +59,59 @@ void add_abbr(SCXMEM char *string) {
                     fprintf(f, "%-15s %s\n", "------------", "--------");
 
                 for (a = abbr_base; a && !brokenpipe; a = a->next) {
-                    fprintf(f, "%-15s %s\n", a->abbr, a->exp);
+                    fprintf(f, "%-15s %s\n", a->name, a->exp);
                 }
                 closefile(f, pid, 0);
             }
         }
-        scxfree(string);
         return;
     }
 
-    // get expansion if any
-    if ((expansion = strchr(string, ' ')) != NULL)
-        *expansion++ = '\0';
+    /* extract the name */
+    for (i = j = 0; string[i] && string[i] != ' '; i++) {
+        if (i < (int)sizeof(name) - 1)
+            name[j++] = string[i];
+    }
+    name[j] = '\0';
 
-    if (isalnumchar_(*string)) {
-        for (p = string + 1; *p; p++) {
-            if (!isalnumchar_(*p)) {
-                error("Invalid abbreviation: %s", string);
-                scxfree(string);
+    expansion = NULL;
+    if (string[i] == ' ')
+        expansion = string + i + 1;
+
+    if (isalnumchar_(*name)) {
+        for (i = 1; name[i]; i++) {
+            if (!isalnumchar_(name[i])) {
+                error("Invalid abbreviation: %s", name);
                 return;
             }
         }
     } else {
-        for (p = string + 1; *p; p++) {
-            if (isalnumchar_(*p) && p[1]) {
-                error("Invalid abbreviation: %s", string);
-                scxfree(string);
+        for (i = 1; name[i]; i++) {
+            if (isalnumchar_(name[i]) && name[i+1]) {
+                error("Invalid abbreviation: %s", name);
                 return;
             }
         }
     }
 
-    a = find_abbr(string, -1, &prev);
+    a = find_abbr(name, -1, &prev);
 
     // no expansion: lookup abbreviation
     if (expansion == NULL) {
         if (a) {
-            error("abbrev \"%s %s\"", a->abbr, a->exp);
+            error("abbrev \"%s %s\"", a->name, a->exp);
         } else {
-            error("abbreviation \"%s\" doesn't exist", string);
+            error("abbreviation \"%s\" doesn't exist", name);
         }
-        scxfree(string);
         return;
     }
 
     // string has space: separates name and expansion
-    if (a) del_abbr(string);
+    free_abbr(a, prev);
 
     a = scxmalloc(sizeof(struct abbrev));
-    a->abbr = string;
-    a->exp = expansion;
+    a->name = scxdup(name);
+    a->exp = scxdup(expansion);
 
     // link abbreviation in singly linked list
     if (prev) {
@@ -106,36 +123,35 @@ void add_abbr(SCXMEM char *string) {
     }
 }
 
-void del_abbr(const char *abbrev) {
+void del_abbr(const char *name) {
     struct abbrev *a;
     struct abbrev *prev;
 
-    if ((a = find_abbr(abbrev, -1, &prev)) != NULL) {
-        if (prev)
-            prev->next = a->next;
-        else
-            abbr_base = a->next;
-        scxfree(a->abbr);
-        scxfree(a);
-    }
+    if ((a = find_abbr(name, -1, &prev)) != NULL)
+        free_abbr(a, prev);
 }
 
-struct abbrev *find_abbr(const char *abbrev, int len, struct abbrev **prev) {
+void clean_abbrevs(void) {
+    while (abbr_base)
+        free_abbr(abbr_base, NULL);
+}
+
+struct abbrev *find_abbr(const char *name, int len, struct abbrev **prev) {
     struct abbrev *a;
     int cmp;
     int exact = FALSE;
 
     if (len < 0) {
         exact = TRUE;
-        len = strlen(abbrev);
+        len = strlen(name);
     }
 
     *prev = NULL;
     for (a = abbr_base; a; *prev = a, a = a->next) {
-        if ((cmp = strncmp(abbrev, a->abbr, len)) < 0)
+        if ((cmp = strncmp(name, a->name, len)) < 0)
             return NULL;
         if (cmp == 0) {
-            if (!exact || a->abbr[len] == '\0')
+            if (!exact || a->name[len] == '\0')
                 return a;
         }
     }
@@ -146,6 +162,6 @@ void write_abbrevs(FILE *f) {
     struct abbrev *a;
 
     for (a = abbr_base; a; a = a->next) {
-        fprintf(f, "abbrev \"%s %s\"\n", a->abbr, a->exp);
+        fprintf(f, "abbrev \"%s %s\"\n", a->name, a->exp);
     }
 }

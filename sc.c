@@ -30,7 +30,7 @@ static void settcattr(void);
 
 /* Globals declared in sc.h */
 
-struct ent ***tbl;
+SCXMEM struct ent ***tbl;
 int strow = 0, stcol = 0;
 int currow = 0, curcol = 0;
 int savedrow[37], savedcol[37];
@@ -38,31 +38,31 @@ int savedstrow[37], savedstcol[37];
 int FullUpdate = 0;
 int maxrow, maxcol;
 int maxrows, maxcols;
-int *fwidth;
-int *precision;
-int *realfmt;
-char *col_hidden;
-char *row_hidden;
+SCXMEM int *fwidth;
+SCXMEM int *precision;
+SCXMEM int *realfmt;
+SCXMEM unsigned char *col_hidden;
+SCXMEM unsigned char *row_hidden;
 char line[FBUFLEN];
 int changed;
-struct ent *delbuf[DELBUFSIZE];
-char *delbuffmt[DELBUFSIZE];
+SCXMEM struct ent *delbuf[DELBUFSIZE];
+SCXMEM char *delbuffmt[DELBUFSIZE];
 int dbidx;
 int qbuf;       /* buffer no. specified by " command */
 int modflg;
 int cellassign;
 int numeric;
-char *mdir;
-char *autorun;
+SCXMEM char *mdir;
+SCXMEM char *autorun;
 int skipautorun;
-char *fkey[FKEYS];
-char *scext;
-char *ascext;
-char *tbl0ext;
-char *tblext;
-char *latexext;
-char *slatexext;
-char *texext;
+SCXMEM char *fkey[FKEYS];
+SCXMEM char *scext;
+SCXMEM char *ascext;
+SCXMEM char *tbl0ext;
+SCXMEM char *tblext;
+SCXMEM char *latexext;
+SCXMEM char *slatexext;
+SCXMEM char *texext;
 int scrc = 0;
 int showsc, showsr;     /* Starting cell for highlighted range */
 int usecurses = TRUE;   /* Use curses unless piping/redirection or using -q */

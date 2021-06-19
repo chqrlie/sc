@@ -10,7 +10,7 @@
 
 #include "sc.h"
 
-static struct frange *frame_base;
+static SCXMEM struct frange *frame_base;
 static struct frange *frame_tail;
 
 int are_frames(void) {

@@ -6,7 +6,7 @@
  * $Revision: 8.1 $
  *
  * bool format(fmt, precision, num, buf, buflen)
- *  char *fmt;
+ *  const char *fmt;
  *  double num;
  *  char buf[];
  *  int buflen;
@@ -105,9 +105,8 @@ char *colformat[COLFORMATS];
 
 /*****************************************************************************/
 
-bool format(char *fmt, int lprecision, double val, char *buf, size_t buflen) {
-    char *cp;
-    char *tmp, *tp;
+bool format(const char *fmt0, int lprecision, double val, char *buf, size_t buflen) {
+    char *fmt, *cp, *tmp, *tp;
     bool comma = false, negative = false;
     char *integer = NULL, *decimal = NULL;
     char *exponent = NULL;
@@ -115,29 +114,29 @@ bool format(char *fmt, int lprecision, double val, char *buf, size_t buflen) {
     int width;
     static char *mantissa = NULL;
     static char *tmpfmt1 = NULL, *tmpfmt2 = NULL, *exptmp = NULL;
-    static unsigned mantlen = 0, fmtlen = 0;
+    static unsigned mantlen = 0, fmtsize = 0;
     const char *fraction = NULL;
     int zero_pad = 0;
 
-    if (fmt == NULL)
+    if (fmt0 == NULL)
         return true;
 
-    if (strlen(fmt) + 1 > fmtlen) {
-        fmtlen = strlen(fmt) + 40;
-        tmpfmt1 = scxrealloc(tmpfmt1, fmtlen);
-        tmpfmt2 = scxrealloc(tmpfmt2, fmtlen);
-        exptmp = scxrealloc(exptmp, fmtlen);
+    if (strlen(fmt0) >= fmtsize) {
+        fmtsize = strlen(fmt0) + 40;
+        tmpfmt1 = scxrealloc(tmpfmt1, fmtsize);
+        tmpfmt2 = scxrealloc(tmpfmt2, fmtsize);
+        exptmp = scxrealloc(exptmp, fmtsize);
     }
-    strlcpy(tmpfmt1, fmt, fmtlen);
+    strlcpy(tmpfmt1, fmt0, fmtsize);
     fmt = tmpfmt1;
     if (buflen + 1 > mantlen) {
         mantlen = buflen + 40;
         mantissa = scxrealloc(mantissa, mantlen);
     }
 
-/*
- * select positive or negative format if necessary
- */
+    /*
+     * select positive or negative format if necessary
+     */
     for (cp = fmt; *cp != ';' && *cp != EOS; cp++) {
         if (*cp == '\\')
             cp++;
@@ -150,59 +149,59 @@ bool format(char *fmt, int lprecision, double val, char *buf, size_t buflen) {
             *cp = EOS;
     }
 
-/*
- * extract other information from format and produce a
- * format string stored in tmpfmt2 also scxmalloc()'d above
- */
+    /*
+     * extract other information from format and produce a
+     * format string stored in tmpfmt2 also scxmalloc()'d above
+     */
     tmp = tmpfmt2;
     for (cp = fmt, tp = tmp; *cp != EOS; cp++) {
         switch (*cp) {
-            case '\\':
-                *tp++ = *cp++;
-                *tp++ = *cp;
-                break;
+        case '\\':
+            *tp++ = *cp++;
+            *tp++ = *cp;
+            break;
 
-            case ',':
-                comma = true;
-                break;
+        case ',':
+            comma = true;
+            break;
 
-            case '.':
-                if (decimal == NULL)
-                    decimal = tp;
-                *tp++ = *cp;
-                break;
+        case '.':
+            if (decimal == NULL)
+                decimal = tp;
+            *tp++ = *cp;
+            break;
 
-            case '%':
-                val *= 100.0;
-                *tp++ = *cp;
-                break;
+        case '%':
+            val *= 100.0;
+            *tp++ = *cp;
+            break;
 
-            default:
-                *tp++ = *cp;
-                break;
+        default:
+            *tp++ = *cp;
+            break;
         }
     }
     *tp = EOS;
     fmt = tmpfmt2;
 
-/* The following line was necessary due to problems with the gcc
- * compiler and val being a negative zero.  Thanks to Mike Novack for
- * the suggestion. - CRM
- */
+    /* The following line was necessary due to problems with the gcc
+     * compiler and val being a negative zero.  Thanks to Mike Novack for
+     * the suggestion. - CRM
+     */
     val = (val + 1.0) - 1.0;
     if (val < 0.0) {
         negative = true;
         val = -val;
     }
-/*
- * extract the exponent from the format if present
- */
+    /*
+     * extract the exponent from the format if present
+     */
     for (cp = fmt; *cp != EOS; cp++) {
         if (*cp == '\\')
             cp++;
         else if (*cp == 'e' || *cp == 'E') {
             if (cp[1] == '+' || cp[1] == '-') {
-                strlcpy(exptmp, cp, fmtlen);
+                strlcpy(exptmp, cp, fmtsize);
                 exponent = exptmp;
                 *cp = EOS;
                 if (val != 0.0) {
@@ -220,31 +219,31 @@ bool format(char *fmt, int lprecision, double val, char *buf, size_t buflen) {
         }
     }
 
-/*
- * determine maximum decimal places and use sprintf
- * to build initial character form of formatted value.
- */
+    /*
+     * determine maximum decimal places and use sprintf
+     * to build initial character form of formatted value.
+     */
     width = 0;
     if (decimal) {
         *decimal++ = EOS;
         for (cp = decimal; *cp != EOS; cp++) {
             switch (*cp) {
-                case '\\':
-                    cp++;
-                    break;
+            case '\\':
+                cp++;
+                break;
 
-                case '#':
-                    width++;
-                    break;
+            case '#':
+                width++;
+                break;
 
-                case '0':
-                    zero_pad = ++width;
-                    break;
+            case '0':
+                zero_pad = ++width;
+                break;
 
-                case '&':
-                    width += lprecision;
-                    zero_pad = width;
-                    break;
+            case '&':
+                width += lprecision;
+                zero_pad = width;
+                break;
             }
         }
         zero_pad = strlen(decimal) - zero_pad;
@@ -267,46 +266,46 @@ bool format(char *fmt, int lprecision, double val, char *buf, size_t buflen) {
     } else
         fraction = "";
 
-/*
- * format the puppy
- */
+    /*
+     * format the puppy
+     */
     {
-    static char *citmp = NULL, *cftmp = NULL;
-    static unsigned cilen = 0, cflen = 0;
-    const char *ci, *cf, *ce;
-    unsigned int len_ci, len_cf, len_ce;
-    bool ret = false;
+        static char *citmp = NULL, *cftmp = NULL;
+        static unsigned cilen = 0, cflen = 0;
+        const char *ci, *cf, *ce;
+        unsigned int len_ci, len_cf, len_ce;
+        bool ret = false;
 
-    ci = fmt_int(integer, fmt, comma, negative);
-    len_ci = strlen(ci);
-    if (len_ci >= cilen) {
-        cilen = len_ci + 40;
-        citmp = scxrealloc(citmp, cilen);
-    }
-    strlcpy(citmp, ci, cilen);
-    ci = citmp;
+        ci = fmt_int(integer, fmt, comma, negative);
+        len_ci = strlen(ci);
+        if (len_ci >= cilen) {
+            cilen = len_ci + 40;
+            citmp = scxrealloc(citmp, cilen);
+        }
+        strlcpy(citmp, ci, cilen);
+        ci = citmp;
 
-    cf = decimal ? fmt_frac(fraction, decimal, lprecision) : "";
-    len_cf = strlen(cf);
-    if (len_cf >= cflen) {
-        cflen = len_cf + 40;
-        cftmp = scxrealloc(cftmp, cilen);
-    }
-    strlcpy(cftmp, cf, cilen);
-    cf = cftmp;
+        cf = decimal ? fmt_frac(fraction, decimal, lprecision) : "";
+        len_cf = strlen(cf);
+        if (len_cf >= cflen) {
+            cflen = len_cf + 40;
+            cftmp = scxrealloc(cftmp, cilen);
+        }
+        strlcpy(cftmp, cf, cilen);
+        cf = cftmp;
 
-    ce = (exponent) ? fmt_exp(exp_val, exponent) : "";
-    len_ce = strlen(ce);
-/*
- * Skip copy assuming sprintf doesn't call our format functions
- *   ce = strcpy(scxmalloc((unsigned)((len_ce = strlen(ce)) + 1)), ce);
- */
-    if (len_ci + len_cf + len_ce < buflen) {
-        snprintf(buf, buflen, "%s%s%s", ci, cf, ce);
-        ret = true;
-    }
+        ce = (exponent) ? fmt_exp(exp_val, exponent) : "";
+        len_ce = strlen(ce);
+        /*
+         * Skip copy assuming sprintf doesn't call our format functions
+         *   ce = strcpy(scxmalloc((unsigned)((len_ce = strlen(ce)) + 1)), ce);
+         */
+        if (len_ci + len_cf + len_ce < buflen) {
+            snprintf(buf, buflen, "%s%s%s", ci, cf, ce);
+            ret = true;
+        }
 
-    return ret;
+        return ret;
     }
 }
 
@@ -323,9 +322,9 @@ static char *fmt_int(char *val,      /* integer part of the value to be formatte
     static char buf[MAXBUF];
     char *bufptr = buf;
 
-/*
- * locate the leftmost digit placeholder
- */
+    /*
+     * locate the leftmost digit placeholder
+     */
     for (cp = fmt; *cp != EOS; cp++) {
         if (*cp == '\\')
             cp++;
@@ -334,9 +333,9 @@ static char *fmt_int(char *val,      /* integer part of the value to be formatte
     }
     digit = (*cp == EOS) ? -1 : cp - fmt;
 
-/*
- * format the value
- */
+    /*
+     * format the value
+     */
     f = strlen(fmt) - 1;
     v = (digit >= 0) ? (ssize_t)strlen(val) - 1 : -1;
     while (f >= 0 || v >= 0) {
@@ -484,7 +483,7 @@ static void reverse(char *buf)
 
 bool engformat(int fmt, int width, int lprecision, double val, char *buf, int buflen) {
 
-    static const char *engmult[] = {
+    static const char * const engmult[] = {
         "-18", "-15", "-12", "-09", "-06", "-03",
         "+00",
         "+03", "+06", "+09", "+12", "+15", "+18"

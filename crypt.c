@@ -67,7 +67,7 @@ void creadfile(const char *save, int eraseflg) {
         if (line[0] == '#')
             continue;
         linelim = 0;
-         yyparse();
+        yyparse();
     }
     --loading;
     if (fclose(f) == EOF) {

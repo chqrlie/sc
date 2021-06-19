@@ -1921,7 +1921,7 @@ static void write_line(int c) {
                                     back_space();
                                 else {
                                     linelim = back_line(1);
-                                    *(line+linelim) = *(undo_line+linelim);
+                                    line[linelim] = undo_line[linelim];
                                 }                                       break;
         case ctl('m'):          cr_line();                              break;
         case ESC:               edit_mode();                            break;
@@ -2916,8 +2916,7 @@ static void save_hist(void) {
         strlcpy(history[lasthist].histline, line, history[lasthist].len);
         histsessionnew++;
     }
-    scxfree(history[0].histline);
-    history[0].histline = NULL;
+    set_string(&history[0].histline, NULL);
     history[0].len = 0;
     histp = 0;
 }
@@ -3110,7 +3109,10 @@ static void readhistfile(FILE *fp) {
     if (!*histfile)
         return;
     while (fgets(line, FBUFLEN, fp)) {
-        line[strlen(line)-1] = '\0'; /* chop the \n */
+        size_t len = strlen(line);
+        if (len && line[len - 1] == '\n') {
+            line[--len] = '\0'; /* chop the \n */
+        }
         save_hist();
     }
 }
@@ -3458,7 +3460,7 @@ static void dogoto(void) {
         toggle_navigate_mode();
 }
 
-void query(const char *s, char *data) {
+void query(const char *s, const char *data) {
     int c;
 
     insert_mode();
@@ -3669,7 +3671,7 @@ static void formatcol(int arg) {
           fwidth[curcol], precision[curcol],
           realfmt[curcol]);
     refresh();
-    oldformat = scxmalloc(arg*3*sizeof(int));
+    oldformat = scxmalloc(arg * 3 * sizeof(int));
     for (i = 0; i < arg; i++) {
         oldformat[i * 3 + 0] = fwidth[i + curcol];
         oldformat[i * 3 + 1] = precision[i + curcol];

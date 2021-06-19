@@ -20,9 +20,9 @@ int are_ranges(void) {
     return rng_base != NULL;
 }
 
-void add_range(char *name, struct ent_ptr left, struct ent_ptr right, int is_range) {
+void add_range(const char *name, struct ent_ptr left, struct ent_ptr right, int is_range) {
     struct range *r;
-    char *p;
+    const char *p;
     int minr, minc, maxr, maxc;
     int minrf, mincf, maxrf, maxcf;
     struct ent *rcp;
@@ -52,14 +52,12 @@ void add_range(char *name, struct ent_ptr left, struct ent_ptr right, int is_ran
 
     if (!find_range_name(name, strlen(name), &prev)) {
         error("Error: range name \"%s\" already defined", name);
-        scxfree(name);
         return;
     }
 
     for (p = name; *p; p++) {
         if (!isalnumchar_(*p)) {
             error("Invalid range name \"%s\" - illegal combination", name);
-            scxfree(name);
             return;
         }
     }
@@ -87,9 +85,8 @@ void add_range(char *name, struct ent_ptr left, struct ent_ptr right, int is_ran
                     continue;
             }
         }
-        if (!(*p)) {
+        if (!*p) {
             error("Invalid range name \"%s\" - ambiguous", name);
-            scxfree(name);
             return;
         }
     }
@@ -101,7 +98,7 @@ void add_range(char *name, struct ent_ptr left, struct ent_ptr right, int is_ran
     }
 
     r = scxmalloc(sizeof(struct range));
-    r->r_name = name;
+    r->r_name = scxdup(name);
     r->r_left = left;
     r->r_right = right;
     r->r_is_range = is_range;
@@ -189,7 +186,7 @@ int find_range_name(const char *name, int len, struct range **rng) {
     return -1;
 }
 
-struct range *find_range_coords(struct ent *lmatch, struct ent *rmatch) {
+struct range *find_range_coords(const struct ent *lmatch, const struct ent *rmatch) {
     struct range *r;
 
     for (r = rng_base; r; r = r->r_next) {

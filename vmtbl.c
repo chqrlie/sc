@@ -100,7 +100,7 @@ int growtbl(int rowcol, int toprow, int topcol) {
     }
 
     if (newrows > currows) {
-        GROWALLOC(row_hidden2, row_hidden, newrows, char, nolonger);
+        GROWALLOC(row_hidden2, row_hidden, newrows, unsigned char, nolonger);
         memset(row_hidden + currows, 0, (newrows - currows) * sizeof(*row_hidden));
         GROWALLOC(tbl2, tbl, newrows, struct ent **, nolonger);
         for (row = currows; row < newrows; row++) {
@@ -112,7 +112,7 @@ int growtbl(int rowcol, int toprow, int topcol) {
         GROWALLOC(fwidth2, fwidth, newcols, int, nowider);
         GROWALLOC(precision2, precision, newcols, int, nowider);
         GROWALLOC(realfmt2, realfmt, newcols, int, nowider);
-        GROWALLOC(col_hidden2, col_hidden, newcols, char, nowider);
+        GROWALLOC(col_hidden2, col_hidden, newcols, unsigned char, nowider);
         for (col = curcols; col < newcols; col++) {
             col_hidden[col] = 0;
             fwidth[col] = DEFWIDTH;
