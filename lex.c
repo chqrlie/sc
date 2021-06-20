@@ -88,8 +88,7 @@ static struct key statres[] = {
     { 0, 0 }
 };
 
-int yylex(void)
-{
+int yylex(void) {
     char *p = line + linelim;
     int ret = -1;
     static int isfunc = 0;
@@ -99,11 +98,13 @@ int yylex(void)
     static char *tokenst = NULL;
     static size_t tokenl;
 
-    while (isspacechar(*p)) p++;
+    while (isspacechar(*p))
+        p++;
     if (*p == '\0') {
         isfunc = isgoto = 0;
         ret = -1;
-    } else if (isalphachar_(*p)) {
+    } else
+    if (isalphachar_(*p)) {
         char *la;      /* lookahead pointer */
         struct key *tblp;
 
@@ -127,8 +128,8 @@ int yylex(void)
          * A COL is 1 or 2 char alpha with nothing but digits following
          * (no alpha or '_')
          */
-        if (!isdigitchar(*tokenst) && tokenl && tokenl <= 2 && (colstate ||
-                (isdigitchar(la[-1]) && !(isalphachar_(*la))))) {
+        if (!isdigitchar(*tokenst) && tokenl && tokenl <= 2 &&
+            (colstate || (isdigitchar(la[-1]) && !(isalphachar_(*la))))) {
             ret = COL;
             yylval.ival = atocol(tokenst, tokenl);
         } else {
@@ -139,17 +140,18 @@ int yylex(void)
             ret = WORD;
             if (!linelim || isfunc) {
                 if (isfunc) isfunc--;
-                for (tblp = linelim ? experres : statres; tblp->key; tblp++)
+                for (tblp = linelim ? experres : statres; tblp->key; tblp++) {
                     if (((tblp->key[0] ^ tokenst[0]) & 0x5F) == 0) {
-                    /* Commenting the following line makes the search slower */
-                    /* but avoids access outside valid memory. A BST would   */
-                    /* be the better alternative. */
-                    /*  && tblp->key[tokenl] == 0) { */
+                        /* Commenting the following line makes the search slower */
+                        /* but avoids access outside valid memory. A BST would   */
+                        /* be the better alternative. */
+                        /*  && tblp->key[tokenl] == 0) { */
                         unsigned int i = 1;
                         while (i < tokenl && ((tokenst[i] ^ tblp->key[i]) & 0x5F) == 0)
                             i++;
                         if (i >= tokenl) {
                             ret = tblp->val;
+                            yylval.ival = ret;
                             colstate = (ret <= S_FORMAT);
                             if (isgoto) {
                                 isfunc = isgoto = 0;
@@ -159,6 +161,7 @@ int yylex(void)
                             break;
                         }
                     }
+                }
             }
             if (ret == WORD) {
                 struct range *r;
@@ -274,15 +277,18 @@ int yylex(void)
         if (*p)
             p++;
         ret = STRING;
-    } else if (*p == '[') {
+    } else if (*p == '[') { /* syntax hint comment */
         while (*p && *p != ']')
             p++;
         if (*p)
             p++;
         linelim = p - line;
         tokenst = NULL;
-        return yylex();
-    } else ret = *p++;
+        return yylex();  // XXX: why a recursive call?
+    } else {
+        ret = *p++;
+        yylval.ival = ret;
+    }
     linelim = p - line;
     if (!isfunc) isfunc = ((ret == '@') + (ret == S_GOTO) - (ret == S_SET));
     if (ret == S_GOTO) isgoto = TRUE;

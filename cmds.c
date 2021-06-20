@@ -3461,6 +3461,26 @@ void dodefine(const char *name) {
         add_range(name, arg1, arg2, 1);
 }
 
+void addnote(struct ent *p, int sr, int sc, int er, int ec) {
+    if (sr > er) { int r = sr; sr = er; er = r; }
+    if (sc > ec) { int c = sc; sc = ec; ec = c; }
+    p->nrow = sr;
+    p->ncol = sc;
+    p->nlastrow = er;
+    p->nlastcol = ec;
+    p->flags |= IS_CHANGED;
+    FullUpdate++;
+    modflg++;
+}
+
+void delnote(struct ent *p) {
+    if (p) {
+        p->nrow = p->ncol = -1;
+        p->flags |= IS_CHANGED;
+        modflg++;
+    }
+}
+
 char *set_string(SCXMEM char **pp, SCXMEM char *s) {
     scxfree(*pp);
     return *pp = s;

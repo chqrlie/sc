@@ -12,12 +12,12 @@
  */
 
 %{
+
 #include "sc.h"
 
-#define ENULL (struct enode *)0
+//extern int yychar;
+//extern int yynerrs;
 
-extern int yychar;
-extern int yynerrs;
 %}
 
 %union {
@@ -268,6 +268,8 @@ extern int yynerrs;
 %token K_SCRC
 %token K_LOCALE
 
+%token <ival> '+' '-' '*' '/' '%' '^'
+
 %right ';'
 %left '?' ':'
 %left '|'
@@ -278,6 +280,7 @@ extern int yynerrs;
 %left '^'
 
 %%
+
 command:  S_LET var_or_range '=' e
                                 { let($2.left.vp, $4); }
         | S_LET var_or_range '=' { unlet($2.left.vp); }
@@ -302,34 +305,15 @@ command:  S_LET var_or_range '=' e
                                          $2.right.vp->row, $2.right.vp->col); }
         | S_CENTER              { if (showrange)
                                     center(showsr, showsc, currow, curcol); }
-        | S_ADDNOTE var         { if (showrange) {
-                                    $2.vp->nrow = currow < showsr ? currow : showsr;
-                                    $2.vp->ncol = curcol < showsc ? curcol : showsc;
-                                    $2.vp->nlastrow = currow < showsr ? showsr : currow;
-                                    $2.vp->nlastcol = curcol < showsc ? showsc : curcol;
-                                  } else {
-                                    $2.vp->nrow = currow;
-                                    $2.vp->ncol = curcol;
-                                    $2.vp->nlastrow = currow;
-                                    $2.vp->nlastcol = curcol;
-                                  }
-                                  $2.vp->flags |= IS_CHANGED;
-                                  FullUpdate++;
-                                  modflg++; }
+        | S_ADDNOTE var         { if (showrange)
+                                    addnote($2.vp, currow, curcol, showsr, showsc);
+                                  else
+                                    addnote($2.vp, currow, curcol, currow, curcol); }
         | S_ADDNOTE var var_or_range
-                                { $2.vp->nrow = $3.left.vp->row;
-                                  $2.vp->ncol = $3.left.vp->col;
-                                  $2.vp->nlastrow = $3.right.vp->row;
-                                  $2.vp->nlastcol = $3.right.vp->col;
-                                  $2.vp->flags |= IS_CHANGED;
-                                  FullUpdate++;
-                                  modflg++; }
-        | S_DELNOTE var         { $2.vp->nrow = $2.vp->ncol = -1; }
-        | S_DELNOTE             { struct ent *p;
-                                  p = lookat(currow, curcol);
-                                  p->nrow = p->ncol = -1;
-                                  p->flags |= IS_CHANGED;
-                                  modflg++; }
+                                { addnote($2.vp, $3.left.vp->row, $3.left.vp->col,
+                                          $3.right.vp->row, $3.right.vp->col); }
+        | S_DELNOTE var         { delnote($2.vp); }
+        | S_DELNOTE             { delnote(lookat(currow, curcol)); }
         | S_FORMAT COL ':' COL NUMBER NUMBER NUMBER
                                 { doformat($2, $4, $5, $6, $7); }
         | S_FORMAT COL NUMBER NUMBER NUMBER
@@ -693,37 +677,37 @@ command:  S_LET var_or_range '=' e
         | error;
 
 term:     var                   { $$ = new_var(O_VAR, $1); }
-        | '@' K_FIXED term      { $$ = new('f', $3, ENULL); }
+        | '@' K_FIXED term      { $$ = new('f', $3, NULL); }
         | '(' '@' K_FIXED ')' term
-                                { $$ = new('F', $5, ENULL); }
+                                { $$ = new('F', $5, NULL); }
         | '@' K_SUM '(' var_or_range ')'
-                                { $$ = new(SUM, new_range(REDUCE | SUM, $4), ENULL); }
+                                { $$ = new(SUM, new_range(REDUCE | SUM, $4), NULL); }
         | '@' K_SUM '(' range ',' e ')'
                                 { $$ = new(SUM, new_range(REDUCE | SUM, $4), $6); }
         | '@' K_PROD '(' var_or_range ')'
-                                { $$ = new(PROD, new_range(REDUCE | PROD, $4), ENULL); }
+                                { $$ = new(PROD, new_range(REDUCE | PROD, $4), NULL); }
         | '@' K_PROD '(' range ',' e ')'
                                 { $$ = new(PROD, new_range(REDUCE | PROD, $4), $6); }
         | '@' K_AVG '(' var_or_range ')'
-                                { $$ = new(AVG, new_range(REDUCE | AVG, $4), ENULL); }
+                                { $$ = new(AVG, new_range(REDUCE | AVG, $4), NULL); }
         | '@' K_AVG '(' range ',' e ')'
                                 { $$ = new(AVG, new_range(REDUCE | AVG, $4), $6); }
         | '@' K_STDDEV '(' var_or_range ')'
-                                { $$ = new(STDDEV, new_range(REDUCE | STDDEV, $4), ENULL); }
+                                { $$ = new(STDDEV, new_range(REDUCE | STDDEV, $4), NULL); }
         | '@' K_STDDEV '(' range ',' e ')'
                                 { $$ = new(STDDEV, new_range(REDUCE | STDDEV, $4), $6); }
         | '@' K_COUNT '(' var_or_range ')'
-                                { $$ = new(COUNT, new_range(REDUCE | COUNT, $4), ENULL); }
+                                { $$ = new(COUNT, new_range(REDUCE | COUNT, $4), NULL); }
         | '@' K_COUNT '(' range ',' e ')'
                                 { $$ = new(COUNT, new_range(REDUCE | COUNT, $4), $6); }
         | '@' K_MAX '(' var_or_range ')'
-                                { $$ = new(MAX, new_range(REDUCE | MAX, $4), ENULL); }
+                                { $$ = new(MAX, new_range(REDUCE | MAX, $4), NULL); }
         | '@' K_MAX '(' range ',' e ')'
                                 { $$ = new(MAX, new_range(REDUCE | MAX, $4), $6); }
         | '@' K_MAX '(' e ',' expr_list ')'
                                 { $$ = new(LMAX, $6, $4); }
         | '@' K_MIN '(' var_or_range ')'
-                                { $$ = new(MIN, new_range(REDUCE | MIN, $4), ENULL); }
+                                { $$ = new(MIN, new_range(REDUCE | MIN, $4), NULL); }
         | '@' K_MIN '(' range ',' e ')'
                                 { $$ = new(MIN, new_range(REDUCE | MIN, $4), $6); }
         | '@' K_MIN '(' e ',' expr_list ')'
@@ -733,26 +717,26 @@ term:     var                   { $$ = new_var(O_VAR, $1); }
         | '@' K_COLS '(' var_or_range ')'
                                 { $$ = new_range(REDUCE | 'C', $4); }
 
-        | '@' K_ABS '(' e ')'           { $$ = new(ABS, $4, ENULL); }
-        | '@' K_ACOS '(' e ')'          { $$ = new(ACOS, $4, ENULL); }
-        | '@' K_ASIN '(' e ')'          { $$ = new(ASIN, $4, ENULL); }
-        | '@' K_ATAN '(' e ')'          { $$ = new(ATAN, $4, ENULL); }
+        | '@' K_ABS '(' e ')'           { $$ = new(ABS, $4, NULL); }
+        | '@' K_ACOS '(' e ')'          { $$ = new(ACOS, $4, NULL); }
+        | '@' K_ASIN '(' e ')'          { $$ = new(ASIN, $4, NULL); }
+        | '@' K_ATAN '(' e ')'          { $$ = new(ATAN, $4, NULL); }
         | '@' K_ATAN2 '(' e ',' e ')'   { $$ = new(ATAN2, $4, $6); }
-        | '@' K_CEIL '(' e ')'          { $$ = new(CEIL, $4, ENULL); }
-        | '@' K_COS '(' e ')'           { $$ = new(COS, $4, ENULL); }
-        | '@' K_EXP '(' e ')'           { $$ = new(EXP, $4, ENULL); }
-        | '@' K_FABS '(' e ')'          { $$ = new(FABS, $4, ENULL); }
-        | '@' K_FLOOR '(' e ')'         { $$ = new(FLOOR, $4, ENULL); }
+        | '@' K_CEIL '(' e ')'          { $$ = new(CEIL, $4, NULL); }
+        | '@' K_COS '(' e ')'           { $$ = new(COS, $4, NULL); }
+        | '@' K_EXP '(' e ')'           { $$ = new(EXP, $4, NULL); }
+        | '@' K_FABS '(' e ')'          { $$ = new(FABS, $4, NULL); }
+        | '@' K_FLOOR '(' e ')'         { $$ = new(FLOOR, $4, NULL); }
         | '@' K_HYPOT '(' e ',' e ')'   { $$ = new(HYPOT, $4, $6); }
-        | '@' K_LN '(' e ')'            { $$ = new(LOG, $4, ENULL); }
-        | '@' K_LOG '(' e ')'           { $$ = new(LOG10, $4, ENULL); }
+        | '@' K_LN '(' e ')'            { $$ = new(LOG, $4, NULL); }
+        | '@' K_LOG '(' e ')'           { $$ = new(LOG10, $4, NULL); }
         | '@' K_POW '(' e ',' e ')'     { $$ = new(POW, $4, $6); }
-        | '@' K_SIN '(' e ')'           { $$ = new(SIN, $4, ENULL); }
-        | '@' K_SQRT '(' e ')'          { $$ = new(SQRT, $4, ENULL); }
-        | '@' K_TAN '(' e ')'           { $$ = new(TAN, $4, ENULL); }
-        | '@' K_DTR '(' e ')'           { $$ = new(DTR, $4, ENULL); }
-        | '@' K_RTD '(' e ')'           { $$ = new(RTD, $4, ENULL); }
-        | '@' K_RND '(' e ')'           { $$ = new(RND, $4, ENULL); }
+        | '@' K_SIN '(' e ')'           { $$ = new(SIN, $4, NULL); }
+        | '@' K_SQRT '(' e ')'          { $$ = new(SQRT, $4, NULL); }
+        | '@' K_TAN '(' e ')'           { $$ = new(TAN, $4, NULL); }
+        | '@' K_DTR '(' e ')'           { $$ = new(DTR, $4, NULL); }
+        | '@' K_RTD '(' e ')'           { $$ = new(RTD, $4, NULL); }
+        | '@' K_RND '(' e ')'           { $$ = new(RND, $4, NULL); }
         | '@' K_ROUND '(' e ',' e ')'   { $$ = new(ROUND, $4, $6); }
 
         | '@' K_IF '(' e ',' e ',' e ')' { $$ = new(IF, $4, new(',', $6, $8)); }
@@ -761,13 +745,13 @@ term:     var                   { $$ = new_var(O_VAR, $1); }
         | '@' K_FV '(' e ',' e ',' e ')' { $$ = new(FV, $4, new(':', $6, $8)); }
         | '@' K_PMT '(' e ',' e ',' e ')' { $$ = new(PMT, $4, new(':', $6, $8)); }
 
-        | '@' K_HOUR '(' e ')'          { $$ = new(HOUR, $4, ENULL); }
-        | '@' K_MINUTE '(' e ')'        { $$ = new(MINUTE, $4, ENULL); }
-        | '@' K_SECOND '(' e ')'        { $$ = new(SECOND, $4, ENULL); }
-        | '@' K_MONTH '(' e ')'         { $$ = new(MONTH, $4, ENULL); }
-        | '@' K_DAY '(' e ')'           { $$ = new(DAY, $4, ENULL); }
-        | '@' K_YEAR '(' e ')'          { $$ = new(YEAR, $4, ENULL); }
-        | '@' K_NOW                     { $$ = new(NOW, ENULL, ENULL); }
+        | '@' K_HOUR '(' e ')'          { $$ = new(HOUR, $4, NULL); }
+        | '@' K_MINUTE '(' e ')'        { $$ = new(MINUTE, $4, NULL); }
+        | '@' K_SECOND '(' e ')'        { $$ = new(SECOND, $4, NULL); }
+        | '@' K_MONTH '(' e ')'         { $$ = new(MONTH, $4, NULL); }
+        | '@' K_DAY '(' e ')'           { $$ = new(DAY, $4, NULL); }
+        | '@' K_YEAR '(' e ')'          { $$ = new(YEAR, $4, NULL); }
+        | '@' K_NOW                     { $$ = new(NOW, NULL, NULL); }
         | '@' K_DTS '(' e ',' e ',' e ')'
                                         { $$ = new(DTS, $4, new(',', $6, $8)); }
         | NUMBER '.' NUMBER '.' NUMBER  { $$ = new(DTS,
@@ -776,14 +760,14 @@ term:     var                   { $$ = new_var(O_VAR, $1); }
                                                        new_const(O_CONST, (double)$5))); }
         | '@' K_TTS '(' e ',' e ',' e ')'
                                         { $$ = new(TTS, $4, new(',', $6, $8)); }
-        | '@' K_STON '(' e ')'          { $$ = new(STON, $4, ENULL); }
+        | '@' K_STON '(' e ')'          { $$ = new(STON, $4, NULL); }
         | '@' K_EQS '(' e ',' e ')'     { $$ = new(EQS, $4, $6); }
-        | '@' K_DATE '(' e ')'          { $$ = new(DATE, $4, ENULL); }
+        | '@' K_DATE '(' e ')'          { $$ = new(DATE, $4, NULL); }
         | '@' K_DATE '(' e ',' e ')'    { $$ = new(DATE, $4, $6); }
         | '@' K_FMT '(' e ',' e ')'     { $$ = new(FMT, $4, $6); }
-        | '@' K_UPPER '(' e ')'         { $$ = new(UPPER, $4, ENULL); }
-        | '@' K_LOWER '(' e ')'         { $$ = new(LOWER, $4, ENULL); }
-        | '@' K_CAPITAL '(' e ')'       { $$ = new(CAPITAL, $4, ENULL); }
+        | '@' K_UPPER '(' e ')'         { $$ = new(UPPER, $4, NULL); }
+        | '@' K_LOWER '(' e ')'         { $$ = new(LOWER, $4, NULL); }
+        | '@' K_CAPITAL '(' e ')'       { $$ = new(CAPITAL, $4, NULL); }
         | '@' K_INDEX '(' range ',' e ')'
                 { $$ = new(INDEX, new_range(REDUCE | INDEX, $4), $6); }
         | '@' K_INDEX '(' e ',' range ')'
@@ -815,30 +799,30 @@ term:     var                   { $$ = new_var(O_VAR, $1); }
                                         { $$ = new(SUBSTR, $4, new(',', $6, $8)); }
         |     '(' e ')'                 { $$ = $2; }
         |     '+' term                  { $$ = $2; }
-        |     '-' term                  { $$ = new('m', $2, ENULL); }
+        |     '-' term                  { $$ = new('m', $2, NULL); }
         |     NUMBER                    { $$ = new_const(O_CONST, (double)$1); }
         |     FNUMBER                   { $$ = new_const(O_CONST, $1); }
-        | '@' K_PI                      { $$ = new(PI_, ENULL, ENULL); }
+        | '@' K_PI                      { $$ = new(PI_, NULL, NULL); }
         |     STRING                    { $$ = new_str($1); }
-        |     '~' term                  { $$ = new('!', $2, ENULL); }
-        |     '!' term                  { $$ = new('!', $2, ENULL); }
-        | '@' K_FILENAME '(' e ')'      { $$ = new(FILENAME, $4, ENULL); }
-        | '@' K_MYROW                   { $$ = new(MYROW, ENULL, ENULL); }
-        | '@' K_MYCOL                   { $$ = new(MYCOL, ENULL, ENULL); }
-        | '@' K_LASTROW                 { $$ = new(LASTROW, ENULL, ENULL); }
-        | '@' K_LASTCOL                 { $$ = new(LASTCOL, ENULL, ENULL); }
-        | '@' K_COLTOA '(' e ')'        { $$ = new(COLTOA, $4, ENULL); }
-        | '@' K_NUMITER                 { $$ = new(NUMITER, ENULL, ENULL); }
-        | '@' K_ERR                     { $$ = new(ERR_, ENULL, ENULL); }
-        |     K_ERR                     { $$ = new(ERR_, ENULL, ENULL); }
-        | '@' K_BLACK                   { $$ = new(BLACK, ENULL, ENULL); }
-        | '@' K_RED                     { $$ = new(RED, ENULL, ENULL); }
-        | '@' K_GREEN                   { $$ = new(GREEN, ENULL, ENULL); }
-        | '@' K_YELLOW                  { $$ = new(YELLOW, ENULL, ENULL); }
-        | '@' K_BLUE                    { $$ = new(BLUE, ENULL, ENULL); }
-        | '@' K_MAGENTA                 { $$ = new(MAGENTA, ENULL, ENULL); }
-        | '@' K_CYAN                    { $$ = new(CYAN, ENULL, ENULL); }
-        | '@' K_WHITE                   { $$ = new(WHITE, ENULL, ENULL); }
+        |     '~' term                  { $$ = new('!', $2, NULL); }
+        |     '!' term                  { $$ = new('!', $2, NULL); }
+        | '@' K_FILENAME '(' e ')'      { $$ = new(FILENAME, $4, NULL); }
+        | '@' K_MYROW                   { $$ = new(MYROW, NULL, NULL); }
+        | '@' K_MYCOL                   { $$ = new(MYCOL, NULL, NULL); }
+        | '@' K_LASTROW                 { $$ = new(LASTROW, NULL, NULL); }
+        | '@' K_LASTCOL                 { $$ = new(LASTCOL, NULL, NULL); }
+        | '@' K_COLTOA '(' e ')'        { $$ = new(COLTOA, $4, NULL); }
+        | '@' K_NUMITER                 { $$ = new(NUMITER, NULL, NULL); }
+        | '@' K_ERR                     { $$ = new(ERR_, NULL, NULL); }
+        |     K_ERR                     { $$ = new(ERR_, NULL, NULL); }
+        | '@' K_BLACK                   { $$ = new(BLACK, NULL, NULL); }
+        | '@' K_RED                     { $$ = new(RED, NULL, NULL); }
+        | '@' K_GREEN                   { $$ = new(GREEN, NULL, NULL); }
+        | '@' K_YELLOW                  { $$ = new(YELLOW, NULL, NULL); }
+        | '@' K_BLUE                    { $$ = new(BLUE, NULL, NULL); }
+        | '@' K_MAGENTA                 { $$ = new(MAGENTA, NULL, NULL); }
+        | '@' K_CYAN                    { $$ = new(CYAN, NULL, NULL); }
+        | '@' K_WHITE                   { $$ = new(WHITE, NULL, NULL); }
         ;
 
 /* expressions */
@@ -856,14 +840,14 @@ e:        e '+' e         { $$ = new('+', $1, $3); }
         | e '>' e         { $$ = new('>', $1, $3); }
         | e '&' e         { $$ = new('&', $1, $3); }
         | e '|' e         { $$ = new('|', $1, $3); }
-        | e '<' '=' e     { $$ = new('!', new('>', $1, $4), ENULL); }
-        | e '!' '=' e     { $$ = new('!', new('=', $1, $4), ENULL); }
-        | e '<' '>' e     { $$ = new('!', new('=', $1, $4), ENULL); }
-        | e '>' '=' e     { $$ = new('!', new('<', $1, $4), ENULL); }
+        | e '<' '=' e     { $$ = new('!', new('>', $1, $4), NULL); }
+        | e '!' '=' e     { $$ = new('!', new('=', $1, $4), NULL); }
+        | e '<' '>' e     { $$ = new('!', new('=', $1, $4), NULL); }
+        | e '>' '=' e     { $$ = new('!', new('<', $1, $4), NULL); }
         | e '#' e         { $$ = new('#', $1, $3); }
         ;
 
-expr_list: e              { $$ = new(ELIST, ENULL, $1); }
+expr_list: e              { $$ = new(ELIST, NULL, $1); }
         | expr_list ',' e { $$ = new(ELIST, $1, $3); }
         ;
 
@@ -882,6 +866,9 @@ var_or_range: range         { $$ = $1; }
         |     var           { $$.left = $1; $$.right = $1; }
         ;
 
+not:      '!' | '~'
+        ;
+
 num:      NUMBER            { $$ = (double)$1; }
         | FNUMBER           { $$ = $1; }
         | '-' num           { $$ = -$2; }
@@ -889,7 +876,8 @@ num:      NUMBER            { $$ = (double)$1; }
         ;
 
 strarg:   STRING            { $$ = $1; }
-        | var               { $$ = scxdup($1.vp->label ? $1.vp->label : "NULL_STRING"); }
+        | var               { // XXX: should convert numeric value to string according to format
+                              $$ = scxdup($1.vp->label ? $1.vp->label : "NULL_STRING"); }
         ;
 
 /* allows >=1 'setitem's to be listed in the same 'set' command */
@@ -900,57 +888,40 @@ setlist :
 /* things that you can 'set' */
 setitem : K_AUTO                { setautocalc(1); }
         | K_AUTOCALC            { setautocalc(1); }
-        | '~' K_AUTO            { setautocalc(0); }
-        | '~' K_AUTOCALC        { setautocalc(0); }
-        | '!' K_AUTO            { setautocalc(0); }
-        | '!' K_AUTOCALC        { setautocalc(0); }
+        | not K_AUTO            { setautocalc(0); }
+        | not K_AUTOCALC        { setautocalc(0); }
         | K_BYCOLS              { setcalcorder(BYCOLS); }
         | K_BYROWS              { setcalcorder(BYROWS); }
         | K_OPTIMIZE            { optimize = 1; }
-        | '~' K_OPTIMIZE        { optimize = 0; }
-        | '!' K_OPTIMIZE        { optimize = 0; }
+        | not K_OPTIMIZE        { optimize = 0; }
         | K_NUMERIC             { numeric = 1; }
-        | '~' K_NUMERIC         { numeric = 0; }
-        | '!' K_NUMERIC         { numeric = 0; }
-        | K_PRESCALE            { prescale = 0.01; }
-        | '~' K_PRESCALE        { prescale = 1.0; }
-        | '!' K_PRESCALE        { prescale = 1.0; }
+        | not K_NUMERIC         { numeric = 0; }
+        | K_PRESCALE            { prescale = 0.01; } // XXX: should use 100.0
+        | not K_PRESCALE        { prescale = 1.0; }
         | K_EXTFUN              { extfunc = 1; }
-        | '~' K_EXTFUN          { extfunc = 0; }
-        | '!' K_EXTFUN          { extfunc = 0; }
+        | not K_EXTFUN          { extfunc = 0; }
         | K_CELLCUR             { showcell = 1; }
-        | '~' K_CELLCUR         { showcell = 0; }
-        | '!' K_CELLCUR         { showcell = 0; }
+        | not K_CELLCUR         { showcell = 0; }
         | K_TOPROW              { showtop = 1; }
-        | '~' K_TOPROW          { showtop = 0; }
-        | '!' K_TOPROW          { showtop = 0; }
+        | not K_TOPROW          { showtop = 0; }
         | K_AUTOINSERT          { autoinsert = 1; }
-        | '~' K_AUTOINSERT      { autoinsert = 0; }
-        | '!' K_AUTOINSERT      { autoinsert = 0; }
+        | not K_AUTOINSERT      { autoinsert = 0; }
         | K_AUTOWRAP            { autowrap = 1; }
-        | '~' K_AUTOWRAP        { autowrap = 0; }
-        | '!' K_AUTOWRAP        { autowrap = 0; }
+        | not K_AUTOWRAP        { autowrap = 0; }
         | K_CSLOP               { cslop = 1; FullUpdate++; }
-        | '~' K_CSLOP           { cslop = 0; FullUpdate++; }
-        | '!' K_CSLOP           { cslop = 0; FullUpdate++; }
+        | not K_CSLOP           { cslop = 0; FullUpdate++; }
         | K_COLOR               { sc_setcolor(1); }
-        | '!' K_COLOR           { sc_setcolor(0); }
-        | '~' K_COLOR           { sc_setcolor(0); }
+        | not K_COLOR           { sc_setcolor(0); }
         | K_COLORNEG            { colorneg = 1; }
-        | '!' K_COLORNEG        { colorneg = 0; }
-        | '~' K_COLORNEG        { colorneg = 0; }
+        | not K_COLORNEG        { colorneg = 0; }
         | K_COLORERR            { colorerr = 1; }
-        | '!' K_COLORERR        { colorerr = 0; }
-        | '~' K_COLORERR        { colorerr = 0; }
+        | not K_COLORERR        { colorerr = 0; }
         | K_BRAILLE             { braille = 1; }
-        | '!' K_BRAILLE         { braille = 0; }
-        | '~' K_BRAILLE         { braille = 0; }
+        | not K_BRAILLE         { braille = 0; }
         | K_BACKUP              { dobackups = 1; }
-        | '!' K_BACKUP          { dobackups = 0; }
-        | '~' K_BACKUP          { dobackups = 0; }
+        | not K_BACKUP          { dobackups = 0; }
         | K_MOUSE               { mouseon(); }
-        | '!' K_MOUSE           { mouseoff(); }
-        | '~' K_MOUSE           { mouseoff(); }
+        | not K_MOUSE           { mouseoff(); }
         | K_ITERATIONS '=' NUMBER { setiterations($3); }
         | K_TBLSTYLE '=' NUMBER { tbl_style = $3; }
         | K_TBLSTYLE '=' K_TBL  { tbl_style = TBL; }
@@ -958,17 +929,15 @@ setitem : K_AUTO                { setautocalc(1); }
         | K_TBLSTYLE '=' K_SLATEX { tbl_style = SLATEX; }
         | K_TBLSTYLE '=' K_TEX  { tbl_style = TEX; }
         | K_TBLSTYLE '=' K_FRAME  { tbl_style = FRAME; }
-        | K_RNDTOEVEN           { rndtoeven = 1; FullUpdate++; }
-        | '!' K_RNDTOEVEN       { rndtoeven = 0; FullUpdate++; }
-        | '~' K_RNDTOEVEN       { rndtoeven = 0; FullUpdate++; }
+        | K_RNDTOEVEN           { rndtoeven = 1; FullUpdate++; } // XXX: should recalc
+        | not K_RNDTOEVEN       { rndtoeven = 0; FullUpdate++; } // XXX: should recalc
         | K_CRACTION '=' NUMBER { craction = $3; }
         | K_ROWLIMIT '=' NUMBER { rowlimit = $3; }
         | K_COLLIMIT '=' NUMBER { collimit = $3; }
         | K_PAGESIZE '=' NUMBER { pagesize = $3; }
         | K_SCRC                { scrc++; }
         | K_LOCALE              { sc_set_locale(1); }
-        | '!' K_LOCALE          { sc_set_locale(0); }
-        | '~' K_LOCALE          { sc_set_locale(0); }
+        | not K_LOCALE          { sc_set_locale(0); }
         ;
 
 /* types of errors, to 'goto' */

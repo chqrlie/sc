@@ -768,6 +768,8 @@ extern int VMS_read_raw;   /*sigh*/
 #endif
 
 extern void gotonote(void);
+extern void addnote(struct ent *p, int sr, int sc, int er, int ec);
+extern void delnote(struct ent *p);
 extern void center(int sr, int sc, int er, int ec);
 extern void rjustify(int sr, int sc, int er, int ec);
 extern void ljustify(int sr, int sc, int er, int ec);
