@@ -341,12 +341,12 @@ LDADD=-lm $(LIBDIR_CURSES) $(LIB_CURSES)
 # All of the source files for archiving targets (outdated)
 SRCS=Makefile abbrev.c cmds.c color.c crypt.c eres.sed frame.c format.c gram.y \
 	help.c interp.c lex.c pipe.c psc.c range.c sc.c sc.h screen.c sort.c \
-	sres.sed version.c vi.c vmtbl.c xmalloc.c
+	sres.sed version.c vi.c vmtbl.c xmalloc.c lotus.c
 
 # The objects
 OBJS=$O/abbrev.o $O/cmds.o $O/color.o $(CRYPT_OBJ) $O/format.o $O/frame.o $O/gram.o $O/help.o $O/interp.o \
 	$O/lex.o $O/pipe.o $O/range.o $O/sc.o $O/screen.o $O/sort.o $O/version.o $O/vi.o $O/vmtbl.o \
-	$O/xmalloc.o $O/compat.o
+	$O/xmalloc.o $O/compat.o $O/lotus.o
 
 # The documents in the Archive
 DOCS=CHANGES README sc.doc psc.doc tutorial.sc VMS_NOTES torev build.com
@@ -418,6 +418,9 @@ $O/interp.o: interp.c $(DEPENDS)
 
 $O/lex.o: $(YTAB).h $(YTAB).c lex.c $(DEPENDS) experres.h statres.h
 	$(CC) $(_CFLAGS) -o $@ ${SIMPLE} ${IEEE_MATH} ${LIBRARY} ${SIGVOID} ${NO_NOTIMEOUT} -c lex.c
+
+$O/lotus.o: lotus.c $(DEPENDS)
+	$(CC) $(_CFLAGS) -o $@ -c lotus.c
 
 $O/pipe.o: pipe.c $(DEPENDS)
 	$(CC) $(_CFLAGS) -o $@ -c pipe.c

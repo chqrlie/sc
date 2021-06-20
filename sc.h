@@ -799,8 +799,10 @@ extern sigret_t winchg(int i);
 #endif
 extern void mouseon(void);
 extern void mouseoff(void);
+extern void hidecursor(void);
 extern void vi_interaction(void);
 extern void vi_select_range(const char *arg);
+extern void lotus_menu(void);
 
 // character class macros to avoid undefined behavior on negative chars
 #define isspacechar(c)   isspace((unsigned char)(c))

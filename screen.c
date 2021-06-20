@@ -53,7 +53,7 @@ void error(const char *fmt, ...) {
     va_list ap;
 
     select_style(STYLE_CELL, 0);
-    if (isatty(fileno(stdout)) && !move(1,0) && !clrtoeol()) {
+    if (isatty(fileno(stdout)) && !move(1, 0) && !clrtoeol()) {
         va_start(ap, fmt);
         // Prevent warning: format string is not a string literal [-Werror,-Wformat-nonliteral]
         ((int (*)(char *, size_t, const char *, va_list))vsnprintf)(buf, sizeof buf, fmt, ap);
@@ -1297,4 +1297,8 @@ void sc_setcolor(int set) {
         }
         FullUpdate++;
     }
+}
+
+void hidecursor(void) {
+    move(lines - 1, cols - 1);
 }

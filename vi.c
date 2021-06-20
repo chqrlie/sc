@@ -714,6 +714,9 @@ void vi_interaction(void) {
             } else {
                 /* switch on a normal command character */
                 switch (c) {
+                case '/':
+                    lotus_menu();
+                    break;
                 case ':':
                     if (linelim >= 0)
                         write_line(':');
