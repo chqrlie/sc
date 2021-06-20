@@ -719,7 +719,8 @@ extern void write_ranges(FILE *f);
 extern void yank_area(int sr, int sc, int er, int ec);
 extern void yyerror(const char *err);
 extern int yylex(void);
-extern int yyparse(void);
+// XXX: redundant declaration in y.tab.h
+//extern int yyparse(void);
 extern int backup_file(const char *path);
 extern void sc_set_locale(int set);
 
@@ -731,13 +732,6 @@ extern SCXMEM char *mdir;
 extern SCXMEM char *autorun;
 extern int skipautorun;
 extern SCXMEM char *fkey[FKEYS];
-extern SCXMEM char *scext;
-extern SCXMEM char *ascext;
-extern SCXMEM char *tbl0ext;
-extern SCXMEM char *tblext;
-extern SCXMEM char *latexext;
-extern SCXMEM char *slatexext;
-extern SCXMEM char *texext;
 extern int scrc;
 extern double prescale;
 extern int extfunc;
@@ -769,7 +763,6 @@ extern char revmsg[80];
 extern int showneed;   /* Causes cells needing values to be highlighted */
 extern int showexpr;   /* Causes cell exprs to be displayed, highlighted */
 extern int shownote;   /* Causes cells with attached notes to be highlighted */
-extern struct go_save gs;
 #ifdef VMS
 extern int VMS_read_raw;   /*sigh*/
 #endif
@@ -789,7 +782,6 @@ extern void getrange(const char *name, int fd);
 extern void getframe(int fd);
 extern void add_abbr(const char *string);
 extern void repaint_cursor(int set);
-extern void update(int anychanged);
 extern sigret_t doquit(int i);
 extern sigret_t time_out(int signo);
 extern sigret_t dump_me(int i);

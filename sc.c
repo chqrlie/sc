@@ -20,6 +20,7 @@
 #endif
 #include <termios.h>
 #include "sc.h"
+#include "y.tab.h"
 #include "version.h"
 
 #ifndef SAVENAME

@@ -2,7 +2,7 @@
 /* updated by Charlie Gordon: June, 2021 */
 
 #include <string.h>
-#include "config.h"
+#include "compat.h"
 #include "util.h"
 
 #ifndef HAVE_STRLCPY

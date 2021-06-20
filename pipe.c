@@ -52,8 +52,9 @@ void fgetnum(int r0, int c0, int rn, int cn, int fd) {
                     if (p->format) {
                         if (*p->format == ctl('d')) {
                             time_t i = (time_t)(p->v);
-                            strftime(line, sizeof(line), p->format + 1,
-                                     localtime(&i));
+                            // XXX: should check format string
+                            ((size_t (*)(char *, size_t, const char *, const struct tm *tm))strftime)
+                                (line, sizeof(line), p->format + 1, localtime(&i));
                         } else {
                             format(p->format, precision[c], p->v, line,
                                    sizeof(line));
@@ -209,7 +210,9 @@ void doeval(struct enode *e, const char *fmt, int row, int col, int fd) {
     if (fmt) {
         if (*fmt == ctl('d')) {
             time_t tv = v;
-            strftime(line, FBUFLEN, fmt + 1, localtime(&tv));
+            // XXX: should check format string
+            ((size_t (*)(char *, size_t, const char *, const struct tm *tm))strftime)
+                (line, FBUFLEN, fmt + 1, localtime(&tv));
         } else {
             format(fmt, precision[col], v, line, FBUFLEN);
         }

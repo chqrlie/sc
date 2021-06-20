@@ -191,13 +191,15 @@ int yylex(void)
         sig_save = signal(SIGFPE, fpe_trap);
         if (setjmp(fpe_buf)) {
             signal(SIGFPE, sig_save);
-            yylval.fval = v;
+            // was: yylval.fval = v; but gcc complains about v getting clobbered
+            yylval.fval = 0.0;
             error("Floating point exception\n");
             isfunc = isgoto = 0;
             tokenst = NULL;
             return FNUMBER;
         }
 
+        v = 0.0;
         if (*p == '.' && dateflag) {  /* .'s in dates are returned as tokens. */
             ret = *p++;
             dateflag--;

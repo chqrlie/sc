@@ -619,7 +619,7 @@ void help(int ctx) {
 
 #else /* QREF */
 
-int main() {
+int main(void) {
     int lineno;
     const char * const * const *pagep = pages;
 #ifdef TROFF

@@ -313,7 +313,8 @@ YTAB=y.tab
 
 #########################################
 # Use this for OS/X
-CC=clang
+#CC=clang
+CC=gcc
 CFLAGS= -O2
 LDFLAGS=
 #__CDBG=-g -O0
@@ -321,16 +322,22 @@ LDFLAGS=
 # define as O:=. for debug build
 O:=.obj
 #YACC=bison
-WARNINGS := -Wall -Wextra -Weverything -Werror
-WARNINGS += -Wno-padded -Wno-shorten-64-to-32 -Wno-missing-prototypes
+WARNINGS := -Wall -Wextra -Werror
+ifeq ($(CC),clang)
+WARNINGS += -Weverything
+endif
+WARNINGS += -Wno-padded -Wno-missing-prototypes
 WARNINGS += -Wno-vla -Wno-missing-noreturn -Wno-sign-conversion -Wno-conversion
-WARNINGS += -Wwrite-strings -Wno-reserved-id-macro -Wno-bad-function-cast
+WARNINGS += -Wwrite-strings -Wno-bad-function-cast
 WARNINGS += -Wno-unused-macros -Wchar-subscripts -Wno-float-equal
-WARNINGS += -Wno-unreachable-code -Wno-unreachable-code-break
+WARNINGS += -Wno-unreachable-code
 WARNINGS += -Wredundant-decls -Wmissing-declarations -Wundef -Wsign-compare
 WARNINGS += -Wunused -Wno-unused-parameter -Wuninitialized
 WARNINGS += -Wformat-nonliteral -Wmissing-format-attribute -Wstrict-prototypes
 WARNINGS += -Wnested-externs -Wdeclaration-after-statement
+ifeq ($(CC),clang)
+WARNINGS += -Wno-shorten-64-to-32 -Wno-reserved-id-macro -Wno-unreachable-code-break
+endif
 
 #########################################
 _CFLAGS= $(CFLAGS) $(WARNINGS) $(INCDIR_CURSES) $(DEFINES) $(__CDBG) $(__CLDBG) \
@@ -352,7 +359,7 @@ OBJS=$O/abbrev.o $O/cmds.o $O/color.o $(CRYPT_OBJ) $O/format.o $O/frame.o $O/gra
 DOCS=CHANGES README sc.doc psc.doc tutorial.sc VMS_NOTES torev build.com
 
 # The header files and other implicit dependency files
-DEPENDS:= sc.h config.h compat.h util.h Makefile
+DEPENDS:= sc.h config.h compat.h util.h $(YTAB).h Makefile
 
 all:	Makefile $O $(name) p$(name) $(name)qref $(name).1 p$(name).1 $(name)qref.1 \
 	x$(name) x$(name).1
@@ -364,13 +371,11 @@ Makefile: Makefile.in configure
 .obj:
 	mkdir -p $@
 
-$(name):$(PAR)  $(OBJS)
+$(name): $(PAR) $(OBJS)
 	$(CC) $(_CFLAGS) -o $@ ${_LDFLAGS} ${OBJS} $(RPATH_CURSES) ${LDADD}
 
-$(YTAB).c: gram.y
+$(YTAB).h $(YTAB).c: gram.y
 	$(YACC) -d gram.y
-
-$(YTAB).h: gram.y
 
 p$(name): psc.c version.c $(DEPENDS)
 	$(CC) $(_CFLAGS) -o $@ ${_LDFLAGS} psc.c version.c ${PSCLIB}

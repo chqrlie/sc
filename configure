@@ -81,7 +81,7 @@ test_result () {
 gen_mk () {
 	[ $# -eq 0 ] && rm -f $OUTMK $OUTCONF
 	echo "/* file generated automatically, do not modify */" > $OUTCONF
-	for i in $DEFS ; do echo "#define ${i/-D/} 1" >> $OUTCONF ; done
+	for i in $DEFS ; do echo "#define ${i} 1" | sed -e 's/-D//' - >> $OUTCONF ; done
 	[ -n "$LEX" ] && echo "LEX=$LEX" >> $OUTMK
 	[ -n "$FLOAT_STORE" ] && echo "FLOAT_STORE=$FLOAT_STORE" >> $OUTMK
 	#[ -n "$DEFS" ] && echo "DEFINES=$DEFS" >> $OUTMK

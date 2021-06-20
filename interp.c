@@ -982,7 +982,9 @@ static SCXMEM char *dodate(time_t tloc, const char *fmtstr) {
 
     if (!fmtstr)
         fmtstr = "%a %b %d %H:%M:%S %Y";
-    strftime(buff, FBUFLEN, fmtstr, localtime(&tloc));
+    // XXX: should check format string
+    ((size_t (*)(char *, size_t, const char *, const struct tm *tm))strftime)
+        (buff, sizeof buff, fmtstr, localtime(&tloc));
     return scxdup(buff);
 }
 
@@ -1920,8 +1922,9 @@ void str_search(const char *s, int firstrow, int firstcol, int lastrow, int last
                     if (p->format) {
                         if (*p->format == ctl('d')) {
                             time_t i = (time_t)(p->v);
-                            strftime(line, sizeof(line), p->format + 1,
-                                     localtime(&i));
+                            // XXX: should check format string
+                            ((size_t (*)(char *, size_t, const char *, const struct tm *tm))strftime)
+                                (line, sizeof(line), p->format + 1, localtime(&i));
                         } else {
                             format(p->format, precision[c], p->v, line,
                                    sizeof(line));

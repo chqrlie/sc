@@ -812,9 +812,10 @@ void update(int anychanged) {          /* did any cell really change in value? *
                             }
                             if (cfmt) {
                                 if (*cfmt == ctl('d')) {
-                                    time_t v = (time_t) (p->v);
-                                    strftime(field, sizeof(field),
-                                             cfmt + 1, localtime(&v));
+                                    time_t v = (time_t)(p->v);
+                                    // XXX: should check format string
+                                    ((size_t (*)(char *, size_t, const char *, const struct tm *tm))strftime)
+                                        (field, sizeof(field), cfmt + 1, localtime(&v));
                                 } else
                                     format(cfmt, precision[col], p->v,
                                            field, sizeof(field));

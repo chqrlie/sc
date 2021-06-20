@@ -18,6 +18,7 @@
 #include <sys/stat.h>
 #include <signal.h>
 #include "sc.h"
+#include "y.tab.h" /* for yyparse() */
 
 static void syncref(struct enode *e);
 static void unspecial(FILE *f, char *str, int delim);
@@ -1445,7 +1446,7 @@ void center(int sr, int sc, int er, int ec) {
     }
 }
 
-void print_options(FILE *f) {
+static void print_options(FILE *f) {
     if (autocalc &&
         !autoinsert &&
         !autowrap &&
@@ -1619,8 +1620,9 @@ void printfile(const char *fname, int r0, int c0, int rn, int cn) {
 
                             if (*cfmt == ctl('d')) {
                                 time_t v = (time_t) (p->v);
-                                strftime(field, sizeof(field), cfmt + 1,
-                                         localtime(&v));
+                                // XXX: should check format string
+                                ((size_t (*)(char *, size_t, const char *, const struct tm *tm))strftime)
+                                    (field, sizeof(field), cfmt + 1, localtime(&v));
                                 snprintf(pline + plinelim,
                                          FBUFLEN * fbufs_allocated - plinelim,
                                          "%-*s", fwidth[col], field);
@@ -1856,9 +1858,10 @@ void tblprintfile(const char *fname, int r0, int c0, int rn, int cn) {
                     if (p->format) {
                         char field[FBUFLEN];
                         if (*p->format == ctl('d')) {
-                            time_t v = (time_t) (p->v);
-                            strftime(field, sizeof(field), p->format + 1,
-                                     localtime(&v));
+                            time_t v = (time_t)(p->v);
+                            // XXX: must check format string
+                            ((size_t (*)(char *, size_t, const char *, const struct tm *tm))strftime)
+                            (field, sizeof(field), p->format + 1, localtime(&v));
                         } else {
                             format(p->format, precision[col], p->v,
                                    field, sizeof(field));

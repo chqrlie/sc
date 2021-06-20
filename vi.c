@@ -12,6 +12,7 @@
 #include <regex.h>
 #endif
 #include "sc.h"
+#include "y.tab.h"
 
 #if defined(RE_COMP)
 extern char *re_comp(char *s);

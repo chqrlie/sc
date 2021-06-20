@@ -48,8 +48,8 @@ static int scan(void);
 static int getrow(const char *p);
 static int getcol(const char *p);
 
-int growtbl(int rowcol, int toprow, int topcol);
-char *coltoa(int col);
+//int growtbl(int rowcol, int toprow, int topcol);
+//char *coltoa(int col);
 
 static int curlen;
 static int coff, roff;

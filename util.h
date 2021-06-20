@@ -8,11 +8,13 @@
 
 #include <string.h>
 
+#if 0   // declared in compat.h
 #ifndef HAVE_STRLCPY
 extern size_t strlcpy(char *dst, const char *src, size_t dstsize);
 #endif
 #ifndef HAVE_STRLCAT
 extern size_t strlcat(char *dst, const char *src, size_t dstsize);
+#endif
 #endif
 extern size_t strsplice(char *dst, size_t size, size_t from, size_t len1,
                         const char *src, size_t len2);
