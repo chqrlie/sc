@@ -110,6 +110,8 @@ static SCXMEM char *dosubstr(SCXMEM char *, int, int);
 #ifdef RINT
 double rint(double d);
 #endif
+static double rand_between(double aa, double bb);
+
 static int cellerror = CELLOK;     /* is there an error in this cell */
 static void g_free(void);
 static sigret_t eval_fpe(int);
@@ -844,6 +846,8 @@ double eval(struct enode *e) {
     case TAN:        return fn1_eval( tan, eval(e->e.o.left));
     case DTR:        return dtr(eval(e->e.o.left));
     case RTD:        return rtd(eval(e->e.o.left));
+    case RAND:       return (double)rand() / ((double)RAND_MAX + 1);
+    case RANDBETWEEN: return (double)rand_between(eval(e->e.o.left), eval(e->e.o.right));
     case RND:
         if (rndtoeven) {
             return rint(eval(e->e.o.left));
@@ -1273,13 +1277,13 @@ void setiterations(int i) {
 void EvalAll(void) {
     int lastcnt, pair, v;
 
-    repct = 1;
     signal(SIGFPE, eval_fpe);
 
-    while ((lastcnt = RealEvalAll()) && (++repct <= propagation))
+    for (repct = 1; (lastcnt = RealEvalAll()) && repct < propagation; repct++)
         continue;
+
     if (propagation > 1 && lastcnt > 0)
-        error("Still changing after %d iterations", repct - 1);
+        error("Still changing after %d iterations", repct);
 
     if (usecurses && color && has_colors()) {
         for (pair = 1; pair <= CPAIRS; pair++) {
@@ -2735,3 +2739,17 @@ double rint(double d) {
     return fr < 0.5 || fr == 0.5 && fl == floor(fl / 2) * 2 ? fl : ceil(d);
 }
 #endif
+
+static double rand_between(double aa, double bb) {
+    long int a = (long int)aa;
+    long int b = (long int)bb;
+    if (a > b) {
+        long int c = a;
+        a = b;
+        b = c;
+    }
+    if (a == b)
+        return a;
+    else
+        return a + (long int)rand() * (double)(b - a + 1) / ((double)RAND_MAX + 1);
+}

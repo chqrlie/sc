@@ -183,6 +183,8 @@
 %token K_RTD
 %token K_MAX
 %token K_MIN
+%token K_RAND
+%token K_RANDBETWEEN
 %token K_RND
 %token K_ROUND
 %token K_IF
@@ -737,6 +739,8 @@ term:     var                   { $$ = new_var(O_VAR, $1); }
         | '@' K_TAN '(' e ')'           { $$ = new(TAN, $4, NULL); }
         | '@' K_DTR '(' e ')'           { $$ = new(DTR, $4, NULL); }
         | '@' K_RTD '(' e ')'           { $$ = new(RTD, $4, NULL); }
+        | '@' K_RAND '(' ')'            { $$ = new(RAND, NULL, NULL); }
+        | '@' K_RANDBETWEEN '(' e ',' e ')'  { $$ = new(RANDBETWEEN, $4, $6); }
         | '@' K_RND '(' e ')'           { $$ = new(RND, $4, NULL); }
         | '@' K_ROUND '(' e ',' e ')'   { $$ = new(ROUND, $4, $6); }
 

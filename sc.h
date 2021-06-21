@@ -326,6 +326,8 @@ struct go_save {
 #define MAGENTA   (OP_BASE + 74)
 #define CYAN      (OP_BASE + 75)
 #define WHITE     (OP_BASE + 76)
+#define RAND      (OP_BASE + 77)
+#define RANDBETWEEN  (OP_BASE + 78)
 
 /* flag values (9 bits) */
 #define IS_VALID     0001
