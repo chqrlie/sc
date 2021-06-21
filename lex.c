@@ -344,8 +344,7 @@ void resetkbd(void) {}
 
 # ifndef VMS
 
-int nmgetch(void)
-{
+int nmgetch(void) {
     return getchar();
 }
 

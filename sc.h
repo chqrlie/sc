@@ -602,7 +602,6 @@ extern void deletecols(int c1, int c2);
 extern void closefile(FILE *f, int pid, int rfd);
 extern void closerow(int r, int numrow);
 extern void deleterows(int r1, int r2);
-extern void colshow_op(void);
 extern void copy(struct ent *dv1, struct ent *dv2, struct ent *v1, struct ent *v2);
 extern void docopy(void);
 extern void copyent(struct ent *n, struct ent *p,
@@ -683,7 +682,6 @@ extern void query(const char *s, const char *data);
 extern void read_hist(void);
 extern void remember(int save);
 extern void resetkbd(void);
-extern void rowshow_op(void);
 extern void setautocalc(int i);
 extern void setiterations(int i);
 extern void setcalcorder(int i);
@@ -723,6 +721,7 @@ extern int yylex(void);
 //extern int yyparse(void);
 extern int backup_file(const char *path);
 extern void sc_set_locale(int set);
+extern int set_line(const char *fmt, ...) sc__attr_printf(1,2);
 
 extern int modflg;
 #ifndef NOCRYPT

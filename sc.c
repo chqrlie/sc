@@ -364,14 +364,14 @@ int main(int argc, char **argv) {
                         yyparse();
                     }
                 } else {
-                    snprintf(line, sizeof line, "put %s", optarg);
+                    set_line("put %s", optarg);
                     linelim = 0;
                     yyparse();
                 }
                 Vopt = 0;
                 break;
             case 'W':
-                snprintf(line, sizeof line, "write %s", optarg);
+                set_line("write %s", optarg);
                 linelim = 0;
                 yyparse();
                 break;
@@ -380,23 +380,19 @@ int main(int argc, char **argv) {
             }
         }
         if (redraw) fputs(redraw, stdout);
-        return 0;
+        return EXIT_SUCCESS;
     }
 
     if (!isatty(STDOUT_FILENO)) {
         stopdisp();
         write_fd(stdout, 0, 0, maxrow, maxcol);
-        return 0;
+        return EXIT_SUCCESS;
     }
 
     vi_interaction();
     stopdisp();
     write_hist();
-#ifdef VMS      /* Until VMS "fixes" exit we should say 1 here */
-    return 1;
-#else
-    return 0;
-#endif
+    return EXIT_SUCCESS;
 }
 
 /* try to save the current spreadsheet if we can */

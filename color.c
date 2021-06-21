@@ -219,8 +219,10 @@ void list_colors(FILE *f) {
     if (!brokenpipe) fprintf(f, "  %-30s %s\n", "-----", "-----");
 
     for (r = color_tail; r; r = r->r_prev) {
-        fprintf(f, "  %-32s %d\n", r_name(r->r_left->row, r->r_left->col,
-                                          r->r_right->row, r->r_right->col), r->r_color);
+        fprintf(f, "  %-32s %d\n",
+                r_name(r->r_left->row, r->r_left->col,
+                       r->r_right->row, r->r_right->col),
+                r->r_color);
         if (brokenpipe) return;
     }
 }

@@ -2672,16 +2672,14 @@ void editfmt(int row, int col) {
 
     p = lookat(row, col);
     if (p->format) {
-        snprintf(line, sizeof line, "fmt %s \"%s\"", v_name(row, col), p->format);
-        linelim = strlen(line);
+        set_line("fmt %s \"%s\"", v_name(row, col), p->format);
     }
 }
 
 void editv(int row, int col) {
     struct ent *p = lookat(row, col);
 
-    snprintf(line, sizeof line, "let %s = ", v_name(row, col));
-    linelim = strlen(line);
+    set_line("let %s = ", v_name(row, col));
     if (p->flags & IS_VALID) {
         if ((p->flags & IS_STREXPR) || p->expr == NULL) {
             snprintf(line + linelim, sizeof(line) - linelim, "%.15g", p->v);
@@ -2701,11 +2699,10 @@ void editexp(int row, int col) {
 void edits(int row, int col) {
     struct ent *p = lookat(row, col);
 
-    snprintf(line, sizeof line, "%s %s = ",
+    set_line("%s %s = ",
              (p->flags & IS_LABEL) ? "label" :
              (p->flags & IS_LEFTFLUSH) ? "leftstring" : "rightstring",
              v_name(row, col));
-    linelim = strlen(line);
     if ((p->flags & IS_STREXPR) && p->expr) {
         decompile(p->expr, 0);
     } else if (p->label) {

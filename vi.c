@@ -44,9 +44,9 @@ static void dotab(void);
 static void dotcmd(void);
 static void doshell(void);
 static int find_char(int arg, int n);
-static void for_hist(void);
-static int for_line(int arg, int stop_null);
-static int for_word(int arg, int end_word, int big_word, int stop_null);
+static void forw_hist(void);
+static int forw_line(int arg, int stop_null);
+static int forw_word(int arg, int end_word, int big_word, int stop_null);
 static int istart;
 static void last_col(void);
 static void match_paren(void);
@@ -68,6 +68,8 @@ static int get_motion(int change);
 static int vigetch(void);
 static void scroll_down(void);
 static void scroll_up(int);
+static void colshow_op(void);
+static void rowshow_op(void);
 static int get_rcqual(int ch);
 static void formatcol(int arg);
 static void edit_mode(void);
@@ -80,6 +82,7 @@ static void gototop(void);
 static void gohome(void);
 static void leftlimit(void);
 static void rightlimit(void);
+static void list_all(void);
 
 static int uarg = 1;        /* universal numeric prefix argument */
 
@@ -138,6 +141,18 @@ static void mouse_set_pos(int);
 static int mouse_sel_cell(int);
 #endif
 
+int set_line(const char *fmt, ...) {
+    va_list ap;
+    va_start(ap, fmt);
+    // Prevent warning: format string is not a string literal [-Werror,-Wformat-nonliteral]
+    linelim = ((int (*)(char *, size_t, const char *, va_list))vsnprintf)
+        (line, sizeof line, fmt, ap);
+    va_end(ap);
+    if (linelim >= (int)(sizeof line))
+        linelim = strlen(line);
+    return linelim;
+}
+
 void vi_interaction(void) {
     int inloop = 1;
     int c, rcqual;
@@ -148,6 +163,8 @@ void vi_interaction(void) {
     int anychanged = FALSE;
     int tempx, tempy;       /* Temp versions of curx, cury */
     char *ext;
+    struct ent *p;
+    int ps;
 
     modflg = 0;
     cellassign = 0;
@@ -157,9 +174,6 @@ void vi_interaction(void) {
 
     uarg = 1;
     while (inloop) {
-        struct ent *p;
-        int ps;
-
         running = 1;
         while (running) {
             nedistate = -1;
@@ -172,6 +186,7 @@ void vi_interaction(void) {
             } else {            /* any cells change? */
                 if (changed)
                     anychanged = TRUE;
+                //changed = 0;  // XXX: should clear changed
             }
 
             update(anychanged);
@@ -209,9 +224,6 @@ void vi_interaction(void) {
                     FullUpdate++;
                     showexpr = 1;
                     clearok(stdscr, 1);
-                    break;
-                default:
-                    error("No such command (^%c)", c + 0100);
                     break;
                 case ctl('b'):
                     if (emacs_bindings) {
@@ -389,9 +401,10 @@ void vi_interaction(void) {
                         error("Quote: ");
                         for (;;) {
                             c = nmgetch();
-                            error("Quote: %d (%#x)\n", c, c);
+                            CLEAR_LINE;
                             if (c == ctl('q') || c == ctl('m'))
                                 break;
+                            error("Quote: %d (%#x)\n", c, c);
                         }
                         break;
                     }
@@ -405,11 +418,11 @@ void vi_interaction(void) {
                     break;      /* ignore flow control */
 
                 case ctl('t'):
+                    error("Toggle: a:auto,c:cell,e:ext funcs,n:numeric,t:top,"
 #ifndef NOCRYPT
-                    error("Toggle: a:auto,c:cell,e:ext funcs,n:numeric,t:top,x:encrypt,$:pre-scale,<MORE>");
-#else                           /* no encryption available */
-                    error("Toggle: a:auto,c:cell,e:ext funcs,n:numeric,t:top,$:pre-scale,<MORE>");
+                          "x:encrypt,"
 #endif
+                          "$:pre-scale,<MORE>");
                     if (braille) move(1, 0);
                     refresh();
 
@@ -623,6 +636,9 @@ void vi_interaction(void) {
                     if (linelim >= 0)
                         write_line(c);
                     break;
+                default:
+                    error("No such command (^%c)", c + 0100);
+                    break;
                 } /* End of the control char switch stmt */
             } else
             if (ISBYTE(c) && isdigit(c) &&
@@ -741,31 +757,29 @@ void vi_interaction(void) {
                     savedstcol[27] = stcol;
 
                     numeric_field = 1;
-                    snprintf(line, sizeof line, "let %s = %c",
-                             v_name(currow, curcol), c);
-                    linelim = strlen(line);
+                    set_line("let %s = %c", v_name(currow, curcol), c);
                     insert_mode();
                     break;
 
                 case '+':
                 case '-':
-                    if (!locked_cell(currow, curcol)) {
-                        p = lookat(currow, curcol);
-                        /* set mark 0 */
-                        savedrow[27] = currow;
-                        savedcol[27] = curcol;
-                        savedstrow[27] = strow;
-                        savedstcol[27] = stcol;
+                    if (locked_cell(currow, curcol))
+                        break;
+                    p = lookat(currow, curcol);
+                    /* set mark 0 */
+                    savedrow[27] = currow;
+                    savedcol[27] = curcol;
+                    savedstrow[27] = strow;
+                    savedstcol[27] = stcol;
 
-                        numeric_field = 1;
-                        editv(currow, curcol);
-                        linelim = strlen(line);
-                        insert_mode();
-                        if (c == '-' || (p->flags & IS_VALID))
-                            write_line(c);
-                        else
-                            write_line(ctl('v'));
-                    }
+                    numeric_field = 1;
+                    editv(currow, curcol);
+                    linelim = strlen(line);
+                    insert_mode();
+                    if (c == '-' || (p->flags & IS_VALID))
+                        write_line(c);
+                    else
+                        write_line(ctl('v'));
                     break;
 
                 case '=':
@@ -777,8 +791,7 @@ void vi_interaction(void) {
                     savedstrow[27] = strow;
                     savedstcol[27] = stcol;
 
-                    snprintf(line, sizeof line, "let %s = ", v_name(currow, curcol));
-                    linelim = strlen(line);
+                    set_line("let %s = ", v_name(currow, curcol));
                     insert_mode();
                     break;
 
@@ -799,89 +812,85 @@ void vi_interaction(void) {
                     CLEAR_LINE;
                     switch (c) {
                     case 'l':
-                        snprintf(line, sizeof line, "lock [range] ");
-                        linelim = strlen(line);
+                        set_line("lock [range] ");
                         insert_mode();
                         startshow();
                         break;
                     case 'U':
-                        snprintf(line, sizeof line, "unlock [range] ");
-                        linelim = strlen(line);
+                        set_line("unlock [range] ");
                         insert_mode();
                         startshow();
                         break;
                     case 'c':
-                        snprintf(line, sizeof line, "copy [dest_range src_range] ");
-                        linelim = strlen(line);
+                        set_line("copy [dest_range src_range] ");
                         insert_mode();
                         startshow();
                         break;
                     case 'm':
-                        snprintf(line, sizeof line, "move [destination src_range] %s ",
-                                 v_name(currow, curcol));
-                        linelim = strlen(line);
+                        set_line("move [destination src_range] %s ", v_name(currow, curcol));
                         insert_mode();
                         write_line(ctl('v'));
                         break;
                     case 'x':
-                        snprintf(line, sizeof line, "erase [range] ");
-                        linelim = strlen(line);
+                        set_line("erase [range] ");
                         insert_mode();
                         startshow();
                         break;
                     case 'y':
-                        snprintf(line, sizeof line, "yank [range] ");
-                        linelim = strlen(line);
+                        set_line("yank [range] ");
                         insert_mode();
                         startshow();
                         break;
                     case 'v':
-                        snprintf(line, sizeof line, "value [range] ");
-                        linelim = strlen(line);
+                        set_line("value [range] ");
                         insert_mode();
                         startshow();
                         break;
                     case 'f':
-                        snprintf(line, sizeof line, "fill [range start inc] ");
-                        linelim = strlen(line);
+                        set_line("fill [range start inc] ");
                         insert_mode();
                         startshow();
                         break;
                     case 'd':
-                        snprintf(line, sizeof line, "define [string range] \"");
-                        linelim = strlen(line);
+                        set_line("define [string range] \"");
                         insert_mode();
                         break;
                     case 'u':
-                        snprintf(line, sizeof line, "undefine [range] ");
-                        linelim = strlen(line);
+                        set_line("undefine [range] ");
                         insert_mode();
                         break;
                     case 'r':
                         error("frame (top/bottom/left/right/all/unframe)");
                         if (braille) move(1, 0);
                         refresh();
-                        linelim = 0;
                         c = nmgetch();
                         CLEAR_LINE;
                         switch (c) {
                         case 't':
-                            snprintf(line, sizeof line, "frametop [<outrange> rows] ");
+                            set_line("frametop [<outrange> rows] ");
+                            insert_mode();
                             break;
                         case 'b':
-                            snprintf(line, sizeof line, "framebottom [<outrange> rows] ");
+                            set_line("framebottom [<outrange> rows] ");
+                            insert_mode();
                             break;
                         case 'l':
-                            snprintf(line, sizeof line, "frameleft [<outrange> cols] ");
+                            set_line("frameleft [<outrange> cols] ");
+                            insert_mode();
                             break;
                         case 'r':
-                            snprintf(line, sizeof line, "frameright [<outrange> cols] ");
+                            set_line("frameright [<outrange> cols] ");
+                            insert_mode();
                             break;
                         case 'a':
-                            snprintf(line, sizeof line, "frame [<outrange> inrange] ");
+                            set_line("frame [<outrange> inrange] ");
+                            insert_mode();
+                            startshow();
                             break;
                         case 'u':
-                            snprintf(line, sizeof line, "unframe [<range>] ");
+                            set_line("unframe [<range>] ");
+                            insert_mode();
+                            startshow();
                             break;
                         case ESC:
                         case ctl('g'):
@@ -892,78 +901,37 @@ void vi_interaction(void) {
                             linelim = -1;
                             break;
                         }
-                        if (linelim == 0) {
-                            linelim = strlen(line);
-                            insert_mode();
-                        }
-                        if (c == 'a' || c == 'u')
-                            startshow();
                         break;
                     case 's':
-                        snprintf(line, sizeof line, "sort [range \"criteria\"] ");
-                        linelim = strlen(line);
+                        set_line("sort [range \"criteria\"] ");
                         insert_mode();
                         startshow();
                         break;
                     case 'C':
-                        snprintf(line, sizeof line, "color [range color#] ");
-                        linelim = strlen(line);
+                        set_line("color [range color#] ");
                         insert_mode();
                         startshow();
                         break;
                     case 'S':
-                        /* Show color definitions and various types of
-                         * ranges
-                         */
-                        if (!are_ranges() && !are_frames() && !are_colors()) {
-                            error("Nothing to show");
-                        } else {
-                            FILE *f;
-                            int pid;
-                            char px[MAXCMD];
-                            const char *pager;
-
-                            if (!(pager = getenv("PAGER")))
-                                pager = DFLT_PAGER;
-                            strlcpy(px, "| ", sizeof px);
-                            strlcat(px, pager, sizeof px);
-                            f = openfile(px, sizeof px, &pid, NULL);
-                            if (!f) {
-                                error("Can't open pipe to %s", pager);
-                                break;
-                            }
-                            fprintf(f, "Named Ranges:\n=============\n\n");
-                            if (!brokenpipe) list_ranges(f);
-                            if (!brokenpipe)
-                                fprintf(f, "\n\nFrames:\n=======\n\n");
-                            if (!brokenpipe) list_frames(f);
-                            if (!brokenpipe)
-                                fprintf(f, "\n\nColors:\n=======\n\n");
-                            if (!brokenpipe) list_colors(f);
-                            closefile(f, pid, 0);
-                        }
+                        list_all();
                         break;
                     case 'F':
-                        snprintf(line, sizeof line, "fmt [range \"format\"] ");
-                        linelim = strlen(line);
+                        set_line("fmt [range \"format\"] ");
                         insert_mode();
                         startshow();
                         break;
                     case '{':
-                        snprintf(line, sizeof line, "leftjustify [range] ");
-                        linelim = strlen(line);
+                        set_line("leftjustify [range] ");
                         insert_mode();
                         startshow();
                         break;
                     case '}':
-                        snprintf(line, sizeof line, "rightjustify [range] ");
-                        linelim = strlen(line);
+                        set_line("rightjustify [range] ");
                         insert_mode();
                         startshow();
                         break;
                     case '|':
-                        snprintf(line, sizeof line, "center [range] ");
-                        linelim = strlen(line);
+                        set_line("center [range] ");
                         insert_mode();
                         startshow();
                         break;
@@ -977,24 +945,22 @@ void vi_interaction(void) {
                     break;
 
                 case '~':
-                    snprintf(line, sizeof line, "abbrev \"");
-                    linelim = strlen(line);
+                    set_line("abbrev \"");
                     insert_mode();
                     break;
 
                 case '"':
                     error("Select buffer (a-z or 0-9):");
-                    if ((c = nmgetch()) == ESC || c == ctl('g')) {
-                        CLEAR_LINE;
+                    c = nmgetch();
+                    CLEAR_LINE;
+                    if (c == ESC || c == ctl('g')) {
+                        break;
                     } else if (c >= '0' && c <= '9') {
                         qbuf = c - '0' + (DELBUFSIZE - 10);
-                        CLEAR_LINE;
                     } else if (c >= 'a' && c <= 'z') {
                         qbuf = c - 'a' + (DELBUFSIZE - 36);
-                        CLEAR_LINE;
                     } else if (c == '"') {
                         qbuf = 0;
-                        CLEAR_LINE;
                     } else {
                         error("Invalid buffer");
                     }
@@ -1019,8 +985,6 @@ void vi_interaction(void) {
                             error("Invalid row/column command");
                             break;
                         }
-
-                        CLEAR_LINE;     /* clear line */
 
                         if (rcqual == ESC || rcqual == ctl('g'))
                             break;
@@ -1053,8 +1017,7 @@ void vi_interaction(void) {
 
                         case 'p':
                             if (rcqual == '.') {
-                                snprintf(line, sizeof line, "pullcopy ");
-                                linelim = strlen(line);
+                                set_line("pullcopy ");
                                 insert_mode();
                                 startshow();
                                 break;
@@ -1075,11 +1038,9 @@ void vi_interaction(void) {
                                     valueize_area(currow, fr->or_left->col,
                                                   currow + uarg - 1, fr->or_right->col);
                                 else
-                                    valueize_area(currow, 0,
-                                                  currow + uarg - 1, maxcol);
+                                    valueize_area(currow, 0, currow + uarg - 1, maxcol);
                             } else
-                                valueize_area(0, curcol,
-                                              maxrow, curcol + uarg - 1);
+                                valueize_area(0, curcol, maxrow, curcol + uarg - 1);
                             break;
 
                         case 'Z':
@@ -1169,9 +1130,7 @@ void vi_interaction(void) {
                         savedstrow[27] = strow;
                         savedstcol[27] = stcol;
 
-                        snprintf(line, sizeof line, "label %s = \"",
-                                 v_name(currow, curcol));
-                        linelim = strlen(line);
+                        set_line("label %s = \"", v_name(currow, curcol));
                         insert_mode();
                     }
                     break;
@@ -1184,9 +1143,7 @@ void vi_interaction(void) {
                         savedstrow[27] = strow;
                         savedstcol[27] = stcol;
 
-                        snprintf(line, sizeof line, "leftstring %s = \"",
-                                 v_name(currow, curcol));
-                        linelim = strlen(line);
+                        set_line("leftstring %s = \"", v_name(currow, curcol));
                         insert_mode();
                     }
                     break;
@@ -1199,9 +1156,7 @@ void vi_interaction(void) {
                         savedstrow[27] = strow;
                         savedstcol[27] = stcol;
 
-                       snprintf(line, sizeof line, "rightstring %s = \"",
-                                v_name(currow, curcol));
-                       linelim = strlen(line);
+                       set_line("rightstring %s = \"", v_name(currow, curcol));
                        insert_mode();
                     }
                     break;
@@ -1262,15 +1217,11 @@ void vi_interaction(void) {
                 case 'F':
                     p = *ATBL(tbl, currow, curcol);
                     if (p && p->format) {
-                        snprintf(line, sizeof line, "fmt [format] %s \"%s",
-                                 v_name(currow, curcol), p->format);
+                        set_line("fmt [format] %s \"%s", v_name(currow, curcol), p->format);
                         edit_mode();
-                        linelim = strlen(line) - 1;
                     } else {
-                        snprintf(line, sizeof line, "fmt [format] %s \"",
-                                 v_name(currow, curcol));
+                        set_line("fmt [format] %s \"", v_name(currow, curcol));
                         insert_mode();
-                        linelim = strlen(line);
                     }
                     break;
                 case 'C': {
@@ -1279,17 +1230,16 @@ void vi_interaction(void) {
                         break;
                     }
                     error("Color number to set (1-8)?");
-                    if ((c = nmgetch()) == ESC || c == ctl('g')) {
-                        CLEAR_LINE;
+                    c = nmgetch();
+                    CLEAR_LINE;
+                    if (c == ESC || c == ctl('g')) {
                         break;
                     }
                     if ((c -= '0') < 1 || c > CPAIRS) {
                         error("Invalid color number.");
                         break;
                     }
-                    CLEAR_LINE;
-                    snprintf(line, sizeof line, "color %d = ", c);
-                    linelim = strlen(line);
+                    set_line("color %d = ", c);
                     if (cpairs[c] && cpairs[c]->expr) {
                         decompile(cpairs[c]->expr, 0);
                         edit_mode();
@@ -1302,15 +1252,14 @@ void vi_interaction(void) {
                 case KEY_FIND:
 #endif
                 case 'g':
-                    snprintf(line, sizeof line, "goto [v] ");
-                    linelim = strlen(line);
+                    set_line("goto [v] ");
                     insert_mode();
                     break;
                 case 'n':
                     go_last();
                     break;
                 case 'P':
-                    snprintf(line, sizeof line, "put [\"dest\" range] \"");
+                    set_line("put [\"dest\" range] \"");
                     if (*curfile) {
                         ext = get_extension(curfile);
                         /* keep the extension unless .sc or scext */
@@ -1320,44 +1269,38 @@ void vi_interaction(void) {
                               (int)(ext - curfile), curfile,
                               scext ? scext : "sc");
                     }
-                    linelim = strlen(line);
                     insert_mode();
                     break;
                 case 'M':
-                    snprintf(line, sizeof line, "merge [\"source\"] \"");
-                    linelim = strlen(line);
+                    set_line("merge [\"source\"] \"");
                     insert_mode();
                     break;
                 case 'R':
                     if (mdir)
-                        snprintf(line, sizeof line, "merge [\"macro_file\"] \"%s", mdir);
+                        set_line("merge [\"macro_file\"] \"%s", mdir);
                     else
-                        snprintf(line, sizeof line, "merge [\"macro_file\"] \"");
-                    linelim = strlen(line);
+                        set_line("merge [\"macro_file\"] \"");
                     insert_mode();
                     break;
                 case 'D':
-                    snprintf(line, sizeof line, "mdir [\"macro_directory\"] \"");
-                    linelim = strlen(line);
+                    set_line("mdir [\"macro_directory\"] \"");
                     insert_mode();
                     break;
                 case 'A':
                     if (autorun)
-                        snprintf(line, sizeof line,"autorun [\"macro_file\"] \"%s", autorun);
+                        set_line("autorun [\"macro_file\"] \"%s", autorun);
                     else
-                        snprintf(line, sizeof line, "autorun [\"macro_file\"] \"");
-                    linelim = strlen(line);
+                        set_line("autorun [\"macro_file\"] \"");
                     insert_mode();
                     break;
                 case 'G':
-                    snprintf(line, sizeof line, "get [\"source\"] \"");
+                    set_line("get [\"source\"] \"");
                     if (*curfile)
                         error("Default file is \"%s\"", curfile);
-                    linelim = strlen(line);
                     insert_mode();
                     break;
                 case 'W':
-                    snprintf(line, sizeof line, "write [\"dest\" range] \"");
+                    set_line("write [\"dest\" range] \"");
                     if (*curfile) {
                         ext = get_extension(curfile);
                         /* keep the extension unless .sc or scext */
@@ -1367,17 +1310,15 @@ void vi_interaction(void) {
                               (int)(ext - curfile), curfile,
                               ascext ? ascext : "asc");
                     }
-                    linelim = strlen(line);
                     insert_mode();
                     break;
                 case 'S':       /* set options */
-                    snprintf(line, sizeof line, "set ");
+                    set_line("set ");
                     error("Options:byrows,bycols,iterations=n,tblstyle=(0|tbl|latex|slatex|tex|frame),<MORE>");
-                    linelim = strlen(line);
                     insert_mode();
                     break;
                 case 'T':       /* tbl output */
-                    snprintf(line, sizeof line, "tbl [\"dest\" range] \"");
+                    set_line("tbl [\"dest\" range] \"");
                     if (*curfile) {
                         ext = get_extension(curfile);
                         /* keep the extension unless .sc or scext */
@@ -1405,7 +1346,6 @@ void vi_interaction(void) {
                                   texext ? texext : "tex");
                         }
                     }
-                    linelim = strlen(line);
                     insert_mode();
                     break;
 #ifdef KEY_DC
@@ -1477,14 +1417,14 @@ void vi_interaction(void) {
                     break;
                 case 'c':
                     error("Copy marked cell:");
-                    if ((c = nmgetch()) == ESC || c == ctl('g')) {
-                        CLEAR_LINE;
+                    c = nmgetch();
+                    CLEAR_LINE;
+                    if (c == ESC || c == ctl('g')) {
                         break;
                     }
                     if (c == '.') {
                         copy(NULL, NULL, lookat(currow, curcol), NULL);
-                        snprintf(line, sizeof line, "copy [dest_range src_range] ");
-                        linelim = strlen(line);
+                        set_line("copy [dest_range src_range] ");
                         insert_mode();
                         startshow();
                         break;
@@ -1497,7 +1437,6 @@ void vi_interaction(void) {
                         error("Mark not set");
                         break;
                     }
-                    CLEAR_LINE;
                     {
                         int c1;
                         struct ent *n;
@@ -1530,17 +1469,15 @@ void vi_interaction(void) {
                     break;
                 case '*':
                     error("Note: Add/Delete/Show/*(go to note)?");
-                    if ((c = nmgetch()) == ESC || c == ctl('g')) {
-                        CLEAR_LINE;
+                    c = nmgetch();
+                    CLEAR_LINE;
+                    if (c == ESC || c == ctl('g')) {
                         break;
                     }
                     if (c == 'a' || c == 'A') {
-                        snprintf(line, sizeof line, "addnote [target range] %s ",
-                                 v_name(currow, curcol));
-                        linelim = strlen(line);
+                        set_line("addnote [target range] %s ", v_name(currow, curcol));
                         insert_mode();
                         write_line(ctl('v'));
-                        CLEAR_LINE;
                         FullUpdate++;
                         break;
                     }
@@ -1548,7 +1485,6 @@ void vi_interaction(void) {
                         p = lookat(currow, curcol);
                         p->nrow = p->ncol = -1;
                         p->flags |= IS_CHANGED;
-                        CLEAR_LINE;
                         modflg++;
                         FullUpdate++;
                         break;
@@ -1562,7 +1498,6 @@ void vi_interaction(void) {
                     }
                     if (c == '*') {
                         gotonote();
-                        CLEAR_LINE;
                         break;
                     }
                     error("Invalid command");
@@ -1667,6 +1602,42 @@ static void scroll_up(int x) {
     backrow(x);
 }
 
+static void colshow_op(void) {
+    int i, j;
+    for (i = 0; i < maxcols; i++) {
+        if (col_hidden[i])
+            break;
+    }
+    for (j = i; j < maxcols; j++) {
+        if (!col_hidden[j])
+            break;
+    }
+    j--;
+    if (i >= maxcols) {
+        error("No hidden columns to show");
+    } else {
+        set_line("show %s:%s", coltoa(i), coltoa(j));
+    }
+}
+
+static void rowshow_op(void) {
+    int i, j;
+    for (i = 0; i < maxrows; i++) {
+        if (row_hidden[i])
+            break;
+    }
+    for (j = i; j < maxrows; j++) {
+        if (!row_hidden[j])
+            break;
+    }
+    j--;
+    if (i >= maxrows) {
+        error("No hidden rows to show");
+    } else {
+        set_line("show %d:%d", i, j);
+    }
+}
+
 static void write_line(int c) {
     struct frange *fr;
     struct crange *cr;
@@ -1690,7 +1661,7 @@ static void write_line(int c) {
         case 'v':
         case ctl('v'):  toggle_navigate_mode();                         break;
         case ESC:       stop_edit();                                    break;
-        case '+':       for_hist();                                     break;
+        case '+':       forw_hist();                                    break;
         case '-':       back_hist();                                    break;
         case KEY_END:
         case ctl('e'):
@@ -1731,9 +1702,9 @@ static void write_line(int c) {
         case 'B':       linelim = back_word(uarg, 1);                   break;
         case 'C':       u_save(c); del_to_end(); append_line();         break;
         case 'D':       u_save(c); del_to_end();                        break;
-        case 'E':       linelim = for_word(uarg, 1, 1, 0);              break;
+        case 'E':       linelim = forw_word(uarg, 1, 1, 0);             break;
         case 'F':       linelim = find_char(uarg, -1);                  break;
-        case 'G':       if (histp > 0) histp = lasthist; for_hist();    break;
+        case 'G':       if (histp > 0) histp = lasthist; forw_hist();   break;
         case 'I':       u_save(c); col_0(); insert_mode();              break;
         case 'N':       search_again(true);                             break;
         case 'P':       u_save(c);
@@ -1741,14 +1712,14 @@ static void write_line(int c) {
                         linelim = back_line(1);                         break;
         case 'R':       u_save(c); replace_mode();                      break;
         case 'T':       linelim = to_char(uarg, -1);                    break;
-        case 'W':       linelim = for_word(uarg, 0, 1, 0);              break;
+        case 'W':       linelim = forw_word(uarg, 0, 1, 0);             break;
         case 'X':       u_save(c); back_space();                        break;
         case 'Y':       yank_chars(linelim, strlen(line), 0);           break;
         case 'a':       u_save(c); append_line();                       break;
         case 'b':       linelim = back_word(uarg, 0);                   break;
         case 'c':       u_save(c); yank_cmd(1, 1); insert_mode();       break;
         case 'd':       u_save(c); yank_cmd(1, 0);                      break;
-        case 'e':       linelim = for_word(uarg, 1, 0, 0);              break;
+        case 'e':       linelim = forw_word(uarg, 1, 0, 0);             break;
         case 'f':       linelim = find_char(uarg, 1);                   break;
         case KEY_LEFT:
         case ctl('b'):
@@ -1756,16 +1727,16 @@ static void write_line(int c) {
         case KEY_IC:
         case 'i':       u_save(c); insert_mode();                       break;
         case KEY_DOWN:
-        case 'j':       for_hist();                                     break;
+        case 'j':       forw_hist();                                    break;
         case KEY_UP:
         case 'k':       back_hist();                                    break;
         case KEY_RIGHT:
         case ctl('f'):
         case ' ':
-        case 'l':       linelim = for_line(uarg, 0);                    break;
+        case 'l':       linelim = forw_line(uarg, 0);                   break;
         case 'n':       search_again(false);                            break;
         case 'p':       u_save(c);
-                        linelim = for_line(1, 1);
+                        linelim = forw_line(1, 1);
                         ins_string(putbuf);
                         linelim = back_line(1);                         break;
         case 'q':       stop_edit();                                    break;
@@ -1773,7 +1744,7 @@ static void write_line(int c) {
         case 's':       u_save(c); del_in_line(uarg, 0); insert_mode(); break;
         case 't':       linelim = to_char(uarg, 1);                     break;
         case 'u':       restore_it();                                   break;
-        case 'w':       linelim = for_word(uarg, 0, 0, 0);              break;
+        case 'w':       linelim = forw_word(uarg, 0, 0, 0);             break;
         case KEY_DC:
         case 'x':       u_save(c); del_in_line(uarg, 1);                break;
         case 'y':       yank_cmd(0, 0);                                 break;
@@ -1838,7 +1809,7 @@ static void write_line(int c) {
                                         forwcol(1);
                                     }
                                 } else {
-                                    linelim = for_line(uarg, 1);
+                                    linelim = forw_line(uarg, 1);
                                     istart = linelim;
                                 }   break;
         case KEY_DOWN:
@@ -1857,7 +1828,7 @@ static void write_line(int c) {
                                         forwrow(1);
                                     }
                                 } else {
-                                    for_hist();
+                                    forw_hist();
                                     istart = linelim;
                                 }   break;
         case KEY_UP:
@@ -1989,7 +1960,7 @@ static void write_line(int c) {
                                     p = *ATBL(tbl, currow, curcol);
                                     if (p && (p->flags & IS_VALID)) {
                                         snprintf(temp, sizeof temp, "%.*f",
-                                                precision[curcol], p->v);
+                                                 precision[curcol], p->v);
                                         ins_string(temp);
                                         toggle_navigate_mode();
                                     }
@@ -2065,7 +2036,6 @@ static void write_line(int c) {
         case 'o':               if (showrange) {
                                     int r = currow;
                                     int cc = curcol;
-
                                     currow = showsr;
                                     showsr = r;
                                     curcol = showsc;
@@ -2150,7 +2120,7 @@ static void search_mode(char sind) {
          * back into line by search_hist() before the search is done. - CRM
          */
         back_hist();
-        for_hist();
+        forw_hist();
         line[0] = '\0';
         linelim = 0;
         mode_ind = 'i';
@@ -2248,37 +2218,22 @@ static void startshow(void) {
 
 /* insert the range we defined by moving around the screen, see startshow() */
 static void showdr(void) {
-    int minsr, minsc, maxsr, maxsc;
     char r[32];
-    struct frange *fr = find_frange(currow, curcol);
+    int minsr = showsr < currow ? showsr : currow;
+    int minsc = showsc < curcol ? showsc : curcol;
+    int maxsr = showsr > currow ? showsr : currow;
+    int maxsc = showsc > curcol ? showsc : curcol;
 
     if (showrange == SHOWROWS) {
-        minsr = showsr < currow ? showsr : currow;
-        minsc = fr ? fr->or_left->col : 0;
-        maxsr = showsr > currow ? showsr : currow;
-        maxsc = fr ? fr->or_right->col : maxcols;
-
         snprintf(r, sizeof r, "%d:%d", minsr, maxsr);
-        toggle_navigate_mode();
         ins_string(r);
     } else if (showrange == SHOWCOLS) {
-        minsr = 0;
-        minsc = showsc < curcol ? showsc : curcol;
-        maxsr = maxrows;
-        maxsc = showsc > curcol ? showsc : curcol;
-
         snprintf(r, sizeof r, "%s:%s", coltoa(minsc), coltoa(maxsc));
-        toggle_navigate_mode();
         ins_string(r);
     } else {
-        minsr = showsr < currow ? showsr : currow;
-        minsc = showsc < curcol ? showsc : curcol;
-        maxsr = showsr > currow ? showsr : currow;
-        maxsc = showsc > curcol ? showsc : curcol;
-
-        toggle_navigate_mode();
         ins_string(r_name(minsr, minsc, maxsr, maxsc));
     }
+    toggle_navigate_mode();
     showrange = 0;
 }
 
@@ -2399,7 +2354,7 @@ static void stop_edit(void) {
  * the null at the end of the line instead of stopping at the
  * the last character of the line.
  */
-static int for_line(int a, int stop_null) {
+static int forw_line(int a, int stop_null) {
     ssize_t cpos = linelim;
 
     if (linelim < 0)
@@ -2419,7 +2374,7 @@ static int for_line(int a, int stop_null) {
  * beginning-of-word.
  */
 
-static int for_word(int a, int end_word, int big_word, int stop_null) {
+static int forw_word(int a, int end_word, int big_word, int stop_null) {
     int c;
     ssize_t cpos;
 
@@ -2625,7 +2580,7 @@ static void change_case(int a) {
             line[linelim] = toupperchar(line[linelim]);
         else if (isupperchar(line[linelim]))
             line[linelim] = tolowerchar(line[linelim]);
-        linelim = for_line(1, 0);
+        linelim = forw_line(1, 0);
     }
 }
 
@@ -2706,16 +2661,16 @@ static int get_motion(int change) {
     case 'B':   return back_word(uarg, 1);
     case 'c':   return change ? -1 : linelim;
     case 'd':   return !change ? -1 : linelim;
-    case 'e':   return for_word(uarg, 1, 0, 1) + 1;
-    case 'E':   return for_word(uarg, 1, 1, 1) + 1;
+    case 'e':   return forw_word(uarg, 1, 0, 1) + 1;
+    case 'E':   return forw_word(uarg, 1, 1, 1) + 1;
     case 'f':   return ((c = find_char(uarg, 1)) == linelim) ? c : c + 1;
     case 'F':   return find_char(uarg, -1);
     case 'h':   return back_line(uarg);
-    case 'l':   return for_line(uarg, 1);
+    case 'l':   return forw_line(uarg, 1);
     case 't':   return ((c = to_char(uarg, 1)) == linelim) ? c : c + 1;
     case 'T':   return to_char(uarg, -1);
-    case 'w':   return for_word(uarg, change, 0, 1) + change;
-    case 'W':   return for_word(uarg, change, 1, 1) + change;
+    case 'w':   return forw_word(uarg, change, 0, 1) + change;
+    case 'W':   return forw_word(uarg, change, 1, 1) + change;
     default:    return linelim;
     }
 }
@@ -2900,6 +2855,35 @@ static void doshell(void) {
 #endif /* NOSHELL */
 }
 
+static void list_all(void) {
+    char px[MAXCMD];
+    const char *pager;
+    FILE *f;
+    int pid;
+
+    /* Show color definitions and various types of ranges */
+    // XXX: deal with raw mode switch?
+    if (!are_ranges() && !are_frames() && !are_colors()) {
+        error("Nothing to show");
+        return;
+    }
+    if (!(pager = getenv("PAGER")))
+        pager = DFLT_PAGER;
+    snprintf(px, sizeof px, "| %s", pager);
+    f = openfile(px, sizeof px, &pid, NULL);
+    if (!f) {
+        error("Can't open pipe to %s", pager);
+        return;
+    }
+    if (!brokenpipe) fprintf(f, "Named Ranges:\n=============\n\n");
+    if (!brokenpipe) list_ranges(f);
+    if (!brokenpipe) fprintf(f, "\n\nFrames:\n=======\n\n");
+    if (!brokenpipe) list_frames(f);
+    if (!brokenpipe) fprintf(f, "\n\nColors:\n=======\n\n");
+    if (!brokenpipe) list_colors(f);
+    closefile(f, pid, 0);
+}
+
 /* History functions */
 
 static void save_hist(void) {
@@ -2925,7 +2909,7 @@ static void save_hist(void) {
     histp = 0;
 }
 
-static void for_hist(void) {
+static void forw_hist(void) {
     if (histp == 0) {
         last_col();
         return;
@@ -2943,7 +2927,7 @@ static void for_hist(void) {
     if (histp) {
         error("History line %d", endhist - lasthist + histp);
     } else {
-        CLEAR_LINE;
+        CLEAR_LINE;  // XXX: should not be necessary
     }
 }
 
@@ -2971,7 +2955,7 @@ static void back_hist(void) {
     if (histp) {
         error("History line %d", endhist - lasthist + histp);
     } else {
-        CLEAR_LINE;
+        CLEAR_LINE;  // XXX: should not be necessary
     }
 }
 
@@ -3049,7 +3033,7 @@ static void search_again(bool reverse) {
                     histp = ((lasthist + 1) % endhist);
                     strlcpy(line, history[histp].histline, sizeof line);
                 } else
-                    for_hist();
+                    forw_hist();
             else if ((search_dir ^ reverse) && histp != ((lasthist + 1) % endhist))
                 back_hist();
             else {
@@ -3481,14 +3465,14 @@ void query(const char *s, const char *data) {
 
     while (linelim >= 0) {
         update(0);
-        switch (c = nmgetch()) {
+        c = nmgetch();
+        CLEAR_LINE;
+        switch (c) {
         case ctl('m'):
-            CLEAR_LINE;
             return;
         case ctl('g'):
             line[0] = '\0';
             linelim = -1;
-            CLEAR_LINE;
             update(0);
             return;
         case ctl('l'):
@@ -3578,7 +3562,9 @@ static int get_rcqual(int ch) {
 
     refresh();
 
-    switch (c = nmgetch()) {
+    c = nmgetch();
+    CLEAR_LINE;
+    switch (c) {
     case 'r':       return 'r';
     case 'c':       return 'c';
     case 'p':       return (ch == 'p') ? 'p' : 0;
@@ -3623,11 +3609,11 @@ static int get_rcqual(int ch) {
     case ctl('b'):
     case ctl('n'):
     case ctl('p'):  if (ch == 'd')
-                        snprintf(line, sizeof line, "deleterow [range] ");
+                        set_line("deleterow [range] ");
                     else if (ch == 'y')
-                        snprintf(line, sizeof line, "yankrow [range] ");
+                        set_line("yankrow [range] ");
                     else if (ch == 'Z')
-                        snprintf(line, sizeof line, "hide [range] ");
+                        set_line("hide [range] ");
                     else
                         return 0;
                     edit_mode();
@@ -3646,11 +3632,11 @@ static int get_rcqual(int ch) {
     case 'l':
     case 'H':
     case 'L':       if (ch == 'd')
-                        snprintf(line, sizeof line, "deletecol [range] ");
+                        set_line("deletecol [range] ");
                     else if (ch == 'y')
-                        snprintf(line, sizeof line, "yankcol [range] ");
+                        set_line("yankcol [range] ");
                     else if (ch == 'Z')
-                        snprintf(line, sizeof line, "hide [range] ");
+                        set_line("hide [range] ");
                     else
                         return 0;
                     edit_mode();
@@ -3682,6 +3668,7 @@ static void formatcol(int arg) {
         oldformat[i * 3 + 2] = realfmt[i + curcol];
     }
     c = nmgetch();
+    //CLEAR_LINE;     // XXX: clear line?
     while (c >= 0 && c != ctl('m') && c != 'q' && c != ESC &&
            c != ctl('g') && linelim < 0) {
         if (c >= '0' && c <= '9') {
@@ -3732,15 +3719,11 @@ static void formatcol(int arg) {
                 break;
             case ' ':
                 if (arg == 1) {
-                    snprintf(line, sizeof line,
-                             "format [for column] %s ",
-                             coltoa(curcol));
+                    set_line("format [for column] %s ", coltoa(curcol));
                 } else {
-                    snprintf(line, sizeof line,
-                             "format [for columns] %s:%s ",
+                    set_line("format [for columns] %s:%s ",
                              coltoa(curcol), coltoa(curcol+arg-1));
                 }
-                linelim = strlen(line);
                 insert_mode();
                 error("Current format is %d %d %d",
                       fwidth[curcol], precision[curcol], realfmt[curcol]);
@@ -3748,18 +3731,16 @@ static void formatcol(int arg) {
             case '=':
                 error("Define format type (0-9):");
                 refresh();
-                if ((c = nmgetch()) >= '0' && c <= '9') {
+                c = nmgetch();
+                CLEAR_LINE;
+                if (c >= '0' && c <= '9') {
                     if (colformat[c - '0']) {
-                        snprintf(line, sizeof line,
-                                 "format %c = \"%s\"", c, colformat[c - '0']);
+                        set_line("format %c = \"%s\"", c, colformat[c - '0']);
                         edit_mode();
-                        linelim = strlen(line) - 1;
                     } else {
-                        snprintf(line, sizeof line, "format %c = \"", c);
+                        set_line("format %c = \"", c);
                         insert_mode();
-                        linelim = strlen(line);
                     }
-                    CLEAR_LINE;
                 } else {
                     error("Invalid format type");
                     c = -1;
@@ -3780,7 +3761,8 @@ static void formatcol(int arg) {
         update(1);
         refresh();
         if (linelim < 0) {
-            if ((c = nmgetch()) == ESC || c == ctl('g') || c == 'q') {
+            c = nmgetch();
+            if (c == ESC || c == ctl('g') || c == 'q') {
                 for (i = 0; i < arg; i++) {
                     fwidth[i + curcol] = oldformat[i * 3 + 0];
                     precision[i + curcol] = oldformat[i * 3 + 1];
@@ -3794,7 +3776,7 @@ static void formatcol(int arg) {
     }
     scxfree(oldformat);
     if (c >= 0)
-        CLEAR_LINE;
+        CLEAR_LINE;     // XXX: should get rid of this hack
 }
 
 /* called from main() for -P/ option */
@@ -3809,7 +3791,9 @@ void vi_select_range(const char *arg) {
     error("Select range:");
     update(1);
     while (!linelim) {
-        switch (c = nmgetch()) {
+        c = nmgetch();
+        //CLEAR_LINE;   // XXX: why delay?
+        switch (c) {
         case '.':
         case ':':
         case ctl('i'):

@@ -965,44 +965,6 @@ void pullcells(int to_insert) {
     qbuf = 0;
 }
 
-void colshow_op(void) {
-    int i, j;
-    for (i = 0; i < maxcols; i++) {
-        if (col_hidden[i])
-            break;
-    }
-    for (j = i; j < maxcols; j++) {
-        if (!col_hidden[j])
-            break;
-    }
-    j--;
-    if (i >= maxcols) {
-        error("No hidden columns to show");
-    } else {
-        snprintf(line, sizeof line, "show %s:%s", coltoa(i), coltoa(j));
-        linelim = strlen(line);
-    }
-}
-
-void rowshow_op(void) {
-    int i, j;
-    for (i = 0; i < maxrows; i++) {
-        if (row_hidden[i])
-            break;
-    }
-    for (j = i; j < maxrows; j++) {
-        if (!row_hidden[j])
-            break;
-    }
-    j--;
-    if (i >= maxrows) {
-        error("No hidden rows to show");
-    } else {
-        snprintf(line, sizeof line, "show %d:%d", i, j);
-        linelim = strlen(line);
-    }
-}
-
 /* delete numrow rows, starting with rs */
 void closerow(int rs, int numrow) {
     struct ent **pp;
@@ -1288,6 +1250,7 @@ void doend(int rowinc, int colinc) {
         if (!loading)
             remember(1);
 
+        // XXX: should clear the prompt line in vi.c before calling doend()
         CLEAR_LINE;     /* clear line */
         return;
     }
@@ -1943,8 +1906,8 @@ static void unspecial(FILE *f, char *str, int delim) {
     }
 }
 
-struct enode *copye(struct enode *e, int Rdelta, int Cdelta, int r1, int c1,
-                    int r2, int c2, int transpose)
+struct enode *copye(struct enode *e, int Rdelta, int Cdelta,
+                    int r1, int c1, int r2, int c2, int transpose)
 {
     struct enode *ret;
     static struct enode *range = NULL;
@@ -2050,7 +2013,7 @@ struct enode *copye(struct enode *e, int Rdelta, int Cdelta, int r1, int c1,
                     (!range && ret->op == 'f')   )
                     Rdelta = Cdelta = 0;
                 ret->e.o.left = copye(e->e.o.left, Rdelta, Cdelta,
-                        r1, c1, r2, c2, transpose);
+                                      r1, c1, r2, c2, transpose);
                 ret->e.o.right = NULL;
                 break;
             case '$':
@@ -2060,9 +2023,9 @@ struct enode *copye(struct enode *e, int Rdelta, int Cdelta, int r1, int c1,
                     break;
             default:
                 ret->e.o.left = copye(e->e.o.left, Rdelta, Cdelta,
-                        r1, c1, r2, c2, transpose);
+                                      r1, c1, r2, c2, transpose);
                 ret->e.o.right = copye(e->e.o.right, Rdelta, Cdelta,
-                        r1, c1, r2, c2, transpose);
+                                       r1, c1, r2, c2, transpose);
                 break;
         }
         switch (ret->op) {
@@ -2204,7 +2167,7 @@ void dohide(void) {
         hiderows(currow, showsr);
     } else
     if (showrange == SHOWCOLS) {
-        hiderows(curcol, showsc);
+        hidecols(curcol, showsc);
     }
 }
 
@@ -2387,7 +2350,7 @@ void copyent(struct ent *n, struct ent *p, int dr, int dc,
         if (p->label) {
             set_cstring(&n->label, p->label);
             n->flags &= ~IS_LEFTFLUSH;
-            n->flags |= ((p->flags & IS_LABEL) | (p->flags & IS_LEFTFLUSH));
+            n->flags |= p->flags & (IS_LABEL | IS_LEFTFLUSH);
         } else if (special != 'm') {
             n->label = NULL;
             n->flags &= ~(IS_LABEL | IS_LEFTFLUSH);
@@ -2584,6 +2547,7 @@ int writefile(const char *fname, int r0, int c0, int rn, int cn) {
                 return -1;
             }
             /* pass it to readfile as an advanced macro */
+            // XXX: does writefile pass to readfile?
             readfile(save, 0);
             return 0;
         }
@@ -2728,18 +2692,21 @@ int readfile(const char *fname, int eraseflg) {
             error("Can't read file \"%s\"", save);
             autolabel = tempautolabel;
             return 0;
-        } else if (eraseflg) {
+        }
+    }
+    if (*fname == '|')
+        *save = '\0';
+
+    if (eraseflg) {
+        if (*save) {
             if (usecurses) {
                 error("Reading file \"%s\"", save);
                 refresh();
             } else
                 fprintf(stderr, "Reading file \"%s\"\n", save);
         }
+        erasedb();
     }
-    if (*fname == '|')
-        *save = '\0';
-
-    if (eraseflg) erasedb();
 
     remember(0);
     loading++;
@@ -2772,6 +2739,13 @@ int readfile(const char *fname, int eraseflg) {
         if (autorun && !skipautorun) readfile(autorun, 0);
         skipautorun = 0;
         EvalAll();
+        if (*save) {
+            if (usecurses) {
+                error("File \"%s\" loaded.", save);
+                refresh();
+            } else
+                fprintf(stderr, "File \"%s\" loaded.\n", save);
+        }
     }
     autolabel = tempautolabel;
     FullUpdate++;
@@ -2941,15 +2915,15 @@ void markcell(void) {
     int c;
 
     error("Mark cell:");
-    if ((c = nmgetch()) == ESC || c == ctl('g')) {
-        CLEAR_LINE;
+    c = nmgetch();
+    CLEAR_LINE;
+    if (c == ESC || c == ctl('g')) {
         return;
     }
     if ((c = checkmark(c)) < 0) {
         error("Invalid mark (must be letter, digit, ` or ')");
         return;
     }
-    CLEAR_LINE;
     savedrow[c] = currow;
     savedcol[c] = curcol;
     savedstrow[c] = strow;
@@ -2962,8 +2936,9 @@ void dotick(int tick) {
     remember(0);
 
     error("Go to marked cell:");
-    if ((c = nmgetch()) == ESC || c == ctl('g')) {
-        CLEAR_LINE;
+    c = nmgetch();
+    CLEAR_LINE;
+    if (c == ESC || c == ctl('g')) {
         return;
     }
     if ((c = checkmark(c)) < 0) {
@@ -2974,7 +2949,6 @@ void dotick(int tick) {
         error("Mark not set");
         return;
     }
-    CLEAR_LINE;
     currow = savedrow[c];
     curcol = savedcol[c];
     rowsinrange = 1;
@@ -3149,6 +3123,7 @@ int yn_ask(const char *msg) {
     clrtoeol();
     addstr(msg);
     refresh();
+    // should clear line 0 upon returning
     for (;;) {
         switch (nmgetch()) {
         case 'y':

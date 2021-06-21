@@ -20,8 +20,8 @@ void getnum(int r0, int c0, int rn, int cn, int fd) {
             *line = '\0';
             if (p) {
                 if (p->cellerror)
-                    snprintf(line, sizeof line, "%s", p->cellerror == CELLERROR ?
-                            "ERROR" : "INVALID");
+                    snprintf(line, sizeof line, "%s",
+                             p->cellerror == CELLERROR ? "ERROR" : "INVALID");
                 else if (p->flags & IS_VALID)
                     snprintf(line, sizeof line, "%.15g", p->v);
             }
@@ -45,8 +45,8 @@ void fgetnum(int r0, int c0, int rn, int cn, int fd) {
             *line = '\0';
             if (p) {
                 if (p->cellerror) {
-                    snprintf(line, sizeof line, "%s", p->cellerror == CELLERROR ?
-                             "ERROR" : "INVALID");
+                    snprintf(line, sizeof line, "%s",
+                             p->cellerror == CELLERROR ? "ERROR" : "INVALID");
                 } else
                 if (p->flags & IS_VALID) {
                     if (p->format) {
@@ -253,7 +253,7 @@ void doquery(const char *s, const char *data, int fd) {
 
     line[0] = '\0';
     linelim = -1;
-    CLEAR_LINE;
+    CLEAR_LINE; // XXX: why this?
     update(0);
 }
 

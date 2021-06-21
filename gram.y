@@ -591,7 +591,8 @@ command:  S_LET var_or_range '=' e
         | S_PULLTP              { pullcells('t'); }
         | S_PULLFMT             { pullcells('f'); }
         | S_PULLCOPY            { copy(NULL, NULL, NULL, NULL); }
-        | S_PULLCOPY var_or_range { copy($2.left.vp, $2.right.vp, NULL, (struct ent *)1); }
+        | S_PULLCOPY var_or_range { // XXX: fix this ugly hack
+                                    copy($2.left.vp, $2.right.vp, NULL, (struct ent *)1); }
         | S_WHEREAMI            { dowhereami(macrofd); }
         | S_WHEREAMI '|' NUMBER { dowhereami($3); }
         | S_GETNUM var_or_range { getnum($2.left.vp->row, $2.left.vp->col,
@@ -929,8 +930,8 @@ setitem : K_AUTO                { setautocalc(1); }
         | K_TBLSTYLE '=' K_SLATEX { tbl_style = SLATEX; }
         | K_TBLSTYLE '=' K_TEX  { tbl_style = TEX; }
         | K_TBLSTYLE '=' K_FRAME  { tbl_style = FRAME; }
-        | K_RNDTOEVEN           { rndtoeven = 1; FullUpdate++; } // XXX: should recalc
-        | not K_RNDTOEVEN       { rndtoeven = 0; FullUpdate++; } // XXX: should recalc
+        | K_RNDTOEVEN           { rndtoeven = 1; FullUpdate++; }
+        | not K_RNDTOEVEN       { rndtoeven = 0; FullUpdate++; }
         | K_CRACTION '=' NUMBER { craction = $3; }
         | K_ROWLIMIT '=' NUMBER { rowlimit = $3; }
         | K_COLLIMIT '=' NUMBER { collimit = $3; }
