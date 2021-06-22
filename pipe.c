@@ -253,7 +253,7 @@ void doquery(const char *s, const char *data, int fd) {
 
     line[0] = '\0';
     linelim = -1;
-    CLEAR_LINE; // XXX: why this?
+    //CLEAR_LINE; // XXX: why this?
     update(0);
 }
 
@@ -261,7 +261,7 @@ void dogetkey(int fd) {
     int c, len;
 
     goraw();
-    c = nmgetch();
+    c = nmgetch(0);
     deraw(0);
 
     if (c < 256) {

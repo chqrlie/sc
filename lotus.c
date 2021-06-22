@@ -1748,7 +1748,7 @@ static int run_menu(const void *arg, int n) {
         clrtoeol();
         addstr(menu[option].desc);
         hidecursor();
-        switch (c = nmgetch()) {
+        switch (c = nmgetch(0)) {
         case KEY_HOME:
         case ctl('a'):
             option = 0;

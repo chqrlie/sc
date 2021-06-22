@@ -70,6 +70,9 @@ static void scroll_down(void);
 static void scroll_up(int);
 static void colshow_op(void);
 static void rowshow_op(void);
+static int checkmark(int c);
+static void markcell(void);
+static void dotick(int tick);
 static int get_rcqual(int ch);
 static void formatcol(int arg);
 static void edit_mode(void);
@@ -194,7 +197,8 @@ void vi_interaction(void) {
 #ifndef SYSV3   /* HP/Ux 3.1 this may not be wanted */
             refresh(); /* 5.3 does a refresh in getch */
 #endif
-            c = nmgetch();
+            // XXX: should use CLEAR_LINE
+            c = nmgetch(0);
             getyx(stdscr, tempy, tempx);
             move(1, 0);
             clrtoeol();
@@ -244,7 +248,7 @@ void vi_interaction(void) {
                 case KEY_END:
                 case ctl('e'):
                     if (linelim < 0 || mode_ind == 'v') {
-                        switch (c = nmgetch()) {
+                        switch (c = nmgetch(1)) {
                         case KEY_UP:
                         case ctl('p'): case 'k':    doend(-1, 0);   break;
 
@@ -276,7 +280,7 @@ void vi_interaction(void) {
                                 FullUpdate++;
                                 update(0);
                                 uarg = 1;
-                                c = nmgetch();
+                                c = nmgetch(0);
                             }
                             ungetch(c);
                             break;
@@ -310,7 +314,7 @@ void vi_interaction(void) {
                         FullUpdate++;
                         update(0);
                         uarg = 1;
-                        c = nmgetch();
+                        c = nmgetch(0);
                     }
                     ungetch(c);
                     break;
@@ -400,8 +404,7 @@ void vi_interaction(void) {
                         // XXX: quoted insert: just a test for function keys
                         error("Quote: ");
                         for (;;) {
-                            c = nmgetch();
-                            CLEAR_LINE;
+                            c = nmgetch(1);
                             if (c == ctl('q') || c == ctl('m'))
                                 break;
                             error("Quote: %d (%#x)\n", c, c);
@@ -426,7 +429,7 @@ void vi_interaction(void) {
                     if (braille) move(1, 0);
                     refresh();
 
-                    switch (nmgetch()) {
+                    switch (nmgetch(1)) {
                     case 'a': case 'A':
                     case 'm': case 'M':
                         autocalc ^= 1;
@@ -519,12 +522,11 @@ void vi_interaction(void) {
                         break;
                     case ESC:
                     case ctl('g'):
-                        CLEAR_LINE;
                         --modflg;   /* negate the modflg++ */
                         break;
                     case 'r': case 'R':
                         error("Which direction after return key?");
-                        switch (nmgetch()) {
+                        switch (nmgetch(1)) {
                         case ctl('m'):
                             craction = 0;
                             error("No action after new line");
@@ -543,7 +545,6 @@ void vi_interaction(void) {
                             break;
                         case ESC:
                         case ctl('g'):
-                            CLEAR_LINE;
                             break;
                         default:
                             error("Not a valid direction");
@@ -808,9 +809,7 @@ void vi_interaction(void) {
                     if (braille) move(1, 0);
                     refresh();
 
-                    c = nmgetch();
-                    CLEAR_LINE;
-                    switch (c) {
+                    switch (c = nmgetch(1)) {
                     case 'l':
                         set_line("lock [range] ");
                         insert_mode();
@@ -863,9 +862,7 @@ void vi_interaction(void) {
                         error("frame (top/bottom/left/right/all/unframe)");
                         if (braille) move(1, 0);
                         refresh();
-                        c = nmgetch();
-                        CLEAR_LINE;
-                        switch (c) {
+                        switch (c = nmgetch(1)) {
                         case 't':
                             set_line("frametop [<outrange> rows] ");
                             insert_mode();
@@ -951,8 +948,7 @@ void vi_interaction(void) {
 
                 case '"':
                     error("Select buffer (a-z or 0-9):");
-                    c = nmgetch();
-                    CLEAR_LINE;
+                    c = nmgetch(1);
                     if (c == ESC || c == ctl('g')) {
                         break;
                     } else if (c >= '0' && c <= '9') {
@@ -1230,8 +1226,7 @@ void vi_interaction(void) {
                         break;
                     }
                     error("Color number to set (1-8)?");
-                    c = nmgetch();
-                    CLEAR_LINE;
+                    c = nmgetch(1);
                     if (c == ESC || c == ctl('g')) {
                         break;
                     }
@@ -1417,8 +1412,7 @@ void vi_interaction(void) {
                     break;
                 case 'c':
                     error("Copy marked cell:");
-                    c = nmgetch();
-                    CLEAR_LINE;
+                    c = nmgetch(1);
                     if (c == ESC || c == ctl('g')) {
                         break;
                     }
@@ -1469,8 +1463,7 @@ void vi_interaction(void) {
                     break;
                 case '*':
                     error("Note: Add/Delete/Show/*(go to note)?");
-                    c = nmgetch();
-                    CLEAR_LINE;
+                    c = nmgetch(1);
                     if (c == ESC || c == ctl('g')) {
                         break;
                     }
@@ -1503,7 +1496,7 @@ void vi_interaction(void) {
                     error("Invalid command");
                     break;
                 case 'z':
-                    switch (c = nmgetch()) {
+                    switch (c = nmgetch(1)) {
                     case ctl('m'):
                         strow = currow;
                         FullUpdate++;
@@ -1638,13 +1631,76 @@ static void rowshow_op(void) {
     }
 }
 
+static int checkmark(int c) {
+    if (c == '`' || c == '\'')
+        return 0;
+    else if (c >= 'a' && c <= 'z')
+        return c - 'a' + 1;
+    else if (c >= '0' && c <= '9')
+        return c - '0' + 1 + 26;
+    else
+        return -1;
+}
+
+static void markcell(void) {
+    int c;
+
+    error("Mark cell:");
+    c = nmgetch(1);
+    if (c == ESC || c == ctl('g')) {
+        return;
+    }
+    if ((c = checkmark(c)) < 0) {
+        error("Invalid mark (must be letter, digit, ` or ')");
+        return;
+    }
+    savedrow[c] = currow;
+    savedcol[c] = curcol;
+    savedstrow[c] = strow;
+    savedstcol[c] = stcol;
+}
+
+static void dotick(int tick) {
+    int c;
+
+    remember(0);
+
+    error("Go to marked cell:");
+    c = nmgetch(1);
+    if (c == ESC || c == ctl('g')) {
+        return;
+    }
+    if ((c = checkmark(c)) < 0) {
+        error("Invalid mark (must be letter, digit, ` or ')");
+        return;
+    }
+    if (savedrow[c] == -1) {
+        error("Mark not set");
+        return;
+    }
+    currow = savedrow[c];
+    curcol = savedcol[c];
+    rowsinrange = 1;
+    colsinrange = fwidth[curcol];
+    if (tick == '\'') {
+        strow = savedstrow[c];
+        stcol = savedstcol[c];
+        gs.stflag = 1;
+    } else {
+        gs.stflag = 0;
+    }
+    remember(1);
+
+    FullUpdate++;
+}
+
 static void write_line(int c) {
     struct frange *fr;
     struct crange *cr;
     struct ent *p;
     int ps;
 
-    CLEAR_LINE;
+    CLEAR_LINE;  // XXX: possibly redundant
     if (c != ctl('i'))
         completethis = NULL;
     if (mode == EDIT_MODE) {
@@ -1684,9 +1740,9 @@ static void write_line(int c) {
                             break;
                         findchar = 0;
                         if (findfunc == 'f')
-                            linelim = find_char(uarg, -(finddir));
+                            linelim = find_char(uarg, -finddir);
                         else
-                            linelim = to_char(uarg, -(finddir));
+                            linelim = to_char(uarg, -finddir);
                                                                         break;
         case '~':       u_save(c); change_case(uarg);                   break;
         case '%':       match_paren();                                  break;
@@ -1910,10 +1966,9 @@ static void write_line(int c) {
                                     toggle_navigate_mode();
                                     startshow();
                                 } else if ((size_t)linelim == strlen(line) &&
-                                           (line[linelim - 1] == '+' ||
-                                            line[linelim - 1] == '-' ||
-                                            (line[linelim - 1] == ' ' &&
-                                             line[linelim - 2] == '='))) {
+                                           ((linelim > 0 && (line[linelim - 1] == '+' || line[linelim - 1] == '-')) ||
+                                            (linelim > 1 && (line[linelim - 1] == ' ' && line[linelim - 2] == '='))))
+                                {
                                     ins_string("@sum(");
                                     showdr();
                                     ins_in_line(')');
@@ -1933,10 +1988,9 @@ static void write_line(int c) {
                                     ins_string(v_name(currow, curcol));
                                     ins_in_line(c);
                                 } else if ((size_t)linelim == strlen(line) &&
-                                           (line[linelim - 1] == '+' ||
-                                            line[linelim - 1] == '-' ||
-                                            (line[linelim - 1] == ' ' &&
-                                             line[linelim - 2] == '='))) {
+                                           ((linelim > 0 && (line[linelim - 1] == '+' || line[linelim - 1] == '-')) ||
+                                            (linelim > 1 && (line[linelim - 1] == ' ' && line[linelim - 2] == '='))))
+                                {
                                     ins_string("@sum(");
                                     showdr();
                                     ins_in_line(')');
@@ -2011,16 +2065,14 @@ static void write_line(int c) {
                                                                         break;
         case KEY_NPAGE:         /* next page */
         case ctl('f'):
-        case 'J':               ps = pagesize ? pagesize :
-                                    (LINES - RESROW - framerows)/2;
+        case 'J':               ps = pagesize ? pagesize : (LINES - RESROW - framerows) / 2;
                                 forwrow(uarg * ps);
                                 strow = strow + (uarg * ps);
                                 FullUpdate++;
                                                                         break;
         case KEY_PPAGE:         /* previous page */
         case ctl('b'):
-        case 'K':               ps = pagesize ? pagesize :
-                                    (LINES - RESROW - framerows)/2;
+        case 'K':               ps = pagesize ? pagesize : (LINES - RESROW - framerows) / 2;
                                 backrow(uarg * ps);
                                 strow = strow - (uarg * ps);
                                 if (strow < 0) strow = 0;
@@ -2045,7 +2097,7 @@ static void write_line(int c) {
                                 }                                       break;
         case 'm':               markcell();                             break;
         case '`': case '\'':    dotick(c);                              break;
-        case '*':               if (nmgetch() == '*') gotonote();       break;
+        case '*':               if (nmgetch(0) == '*') gotonote();       break;
         case 'g':               dogoto();                               break;
         case 'n':               go_last();                              break;
 
@@ -2059,6 +2111,7 @@ static void write_line(int c) {
                                                     continue;
                                                 curcol = 0;
                                             } else {
+                                                // XXX: current cell was updated
                                                 error("At end of table");
                                                 break;
                                             }
@@ -2079,6 +2132,7 @@ static void write_line(int c) {
                                                     continue;
                                                 curcol = maxcols - 1;
                                             } else {
+                                                // XXX: current cell was updated
                                                 error("At start of table");
                                                 break;
                                             }
@@ -2243,9 +2297,9 @@ static void savedot(int c) {
         return;
 
     if (doti == 0) dotarg = uarg;
-    if (doti < DOTLEN-1) {
+    if (doti < DOTLEN - 1) {
         if (c > 255) {
-            if (doti < DOTLEN-2) {
+            if (doti < DOTLEN - 2) {
                 dotb[doti++] = c / 256;
                 c %= 256;
             } else
@@ -2286,11 +2340,11 @@ static int vigetch(void) {
         } else {
             do_dot = 0;
             doti = 0;
-            return nmgetch();
+            return nmgetch(0);
         }
     }
     update(1);
-    return nmgetch();
+    return nmgetch(0);
 }
 
 /* saves the current line for possible use by an undo cmd */
@@ -2359,7 +2413,8 @@ static int forw_line(int a, int stop_null) {
 
     if (linelim < 0)
         return linelim;
-    else if (a >= 0 && (size_t)(linelim + a) <= strlen(line))
+    else
+    if (a >= 0 && (size_t)(linelim + a) <= strlen(line))
         cpos += a;
     else
         cpos = strlen(line);
@@ -2434,9 +2489,10 @@ static int back_word(int a, int big_word) {
             /* Skip white space */
             while (cpos > 0 && line[cpos] == ' ')
                 --cpos;
-        } else if (cpos > 0 && (line[cpos-1] == ' '
-                        || ( iswordchar(line[cpos]) && !iswordchar(line[cpos-1]))
-                        || (!iswordchar(line[cpos]) &&  iswordchar(line[cpos-1])))) {
+        } else
+        if (cpos > 0 && (line[cpos-1] == ' '
+                     || ( iswordchar(line[cpos]) && !iswordchar(line[cpos-1]))
+                     || (!iswordchar(line[cpos]) &&  iswordchar(line[cpos-1])))) {
             /* Started on the first char of a word - back up to prev. word */
             --cpos;
             while (cpos > 0 && line[cpos] == ' ')
@@ -3452,22 +3508,14 @@ void query(const char *s, const char *data) {
     int c;
 
     insert_mode();
-    if (data != NULL) {
-        strlcpy(line, data, sizeof line);
-        linelim = strlen(line);
-    } else {
-        *line = '\0';
-        linelim = 0;
-    }
-    if (s != NULL) {
+    strlcpy(line, data ? data : "", sizeof line);
+    linelim = strlen(line);
+    if (s != NULL)
         error("%s", s);
-    }
 
     while (linelim >= 0) {
         update(0);
-        c = nmgetch();
-        CLEAR_LINE;
-        switch (c) {
+        switch (c = nmgetch(1)) {
         case ctl('m'):
             return;
         case ctl('g'):
@@ -3477,7 +3525,7 @@ void query(const char *s, const char *data) {
             return;
         case ctl('l'):
             FullUpdate++;
-            clearok(stdscr,1);
+            clearok(stdscr, 1);
             update(1);
             break;
         default:
@@ -3562,9 +3610,7 @@ static int get_rcqual(int ch) {
 
     refresh();
 
-    c = nmgetch();
-    CLEAR_LINE;
-    switch (c) {
+    switch (c = nmgetch(1)) {
     case 'r':       return 'r';
     case 'c':       return 'c';
     case 'p':       return (ch == 'p') ? 'p' : 0;
@@ -3667,7 +3713,7 @@ static void formatcol(int arg) {
         oldformat[i * 3 + 1] = precision[i + curcol];
         oldformat[i * 3 + 2] = realfmt[i + curcol];
     }
-    c = nmgetch();
+    c = nmgetch(0);
     //CLEAR_LINE;     // XXX: clear line?
     while (c >= 0 && c != ctl('m') && c != 'q' && c != ESC &&
            c != ctl('g') && linelim < 0) {
@@ -3731,8 +3777,7 @@ static void formatcol(int arg) {
             case '=':
                 error("Define format type (0-9):");
                 refresh();
-                c = nmgetch();
-                CLEAR_LINE;
+                c = nmgetch(1);
                 if (c >= '0' && c <= '9') {
                     if (colformat[c - '0']) {
                         set_line("format %c = \"%s\"", c, colformat[c - '0']);
@@ -3761,7 +3806,7 @@ static void formatcol(int arg) {
         update(1);
         refresh();
         if (linelim < 0) {
-            c = nmgetch();
+            c = nmgetch(0);
             if (c == ESC || c == ctl('g') || c == 'q') {
                 for (i = 0; i < arg; i++) {
                     fwidth[i + curcol] = oldformat[i * 3 + 0];
@@ -3791,7 +3836,7 @@ void vi_select_range(const char *arg) {
     error("Select range:");
     update(1);
     while (!linelim) {
-        c = nmgetch();
+        c = nmgetch(0);
         //CLEAR_LINE;   // XXX: why delay?
         switch (c) {
         case '.':

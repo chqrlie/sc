@@ -565,7 +565,7 @@ void help(int ctx) {
 
     for (;;) {
         pscreen(history[pos] = page);
-        switch (nmgetch()) {
+        switch (nmgetch(0)) {
         case 'a': case 'A': page = HELP_INTRO; break;
         case 'b': case 'B': page = HELP_TOGGLEOPTIONS; break;
         case 'c': case 'C': page = HELP_SETOPTIONS; break;

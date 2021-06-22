@@ -1062,7 +1062,7 @@ static SCXMEM char *doext(struct enode *se) {
                     error("Warning: external function returned nothing");
                 } else {
                     size_t len = strlen(buff);
-                    CLEAR_LINE;                         /* erase notice */
+                    error(" ");                         /* erase notice */
                     if (len && buff[len - 1] == '\n')   /* contains newline */
                         buff[--len] = '\0';             /* end string there */
                     // XXX: this test is probably useless

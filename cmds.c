@@ -1249,9 +1249,6 @@ void doend(int rowinc, int colinc) {
         colsinrange = fwidth[curcol];
         if (!loading)
             remember(1);
-
-        // XXX: should clear the prompt line in vi.c before calling doend()
-        CLEAR_LINE;     /* clear line */
         return;
     }
 
@@ -1896,10 +1893,10 @@ static void unspecial(FILE *f, char *str, int delim) {
     if (*str == '\\') str++; /* delete wheeling string operator, OK? */
     while (*str) {
         if (((tbl_style == LATEX) || (tbl_style == SLATEX) ||
-                (tbl_style == TEX)) &&
-                ((*str == delim) || (*str == '$') || (*str == '#') ||
-                (*str == '%') || (*str == '{') || (*str == '}') ||
-                (*str == '&')))
+             (tbl_style == TEX)) &&
+            ((*str == delim) || (*str == '$') || (*str == '#') ||
+             (*str == '%') || (*str == '{') || (*str == '}') ||
+             (*str == '&')))
             putc('\\', f);
         putc(*str, f);
         str++;
@@ -2292,7 +2289,7 @@ void closefile(FILE *f, int pid, int rfd) {
             printf("Press any key to continue ");
             fflush(stdout);
             cbreak();
-            nmgetch();
+            nmgetch(0);
             goraw();
             clear();
         } else {
@@ -2575,6 +2572,7 @@ int writefile(const char *fname, int r0, int c0, int rn, int cn) {
             p++;
         *tpp++ = *p;
     }
+    *tpp = '\0';
     ext = get_extension(tfname);
     if (scext != NULL) {
         if (!strcmp(ext, ".sc") || (scext && !strcmp(ext, scext)))
@@ -2900,71 +2898,6 @@ void backrow(int arg) {
     colsinrange = fwidth[curcol];
 }
 
-int checkmark(int c) {
-    if (c == '`' || c == '\'')
-        return 0;
-    else if (c >= 'a' && c <= 'z')
-        return c - 'a' + 1;
-    else if (c >= '0' && c <= '9')
-        return c - '0' + 1 + 26;
-    else
-        return -1;
-}
-
-void markcell(void) {
-    int c;
-
-    error("Mark cell:");
-    c = nmgetch();
-    CLEAR_LINE;
-    if (c == ESC || c == ctl('g')) {
-        return;
-    }
-    if ((c = checkmark(c)) < 0) {
-        error("Invalid mark (must be letter, digit, ` or ')");
-        return;
-    }
-    savedrow[c] = currow;
-    savedcol[c] = curcol;
-    savedstrow[c] = strow;
-    savedstcol[c] = stcol;
-}
-
-void dotick(int tick) {
-    int c;
-
-    remember(0);
-
-    error("Go to marked cell:");
-    c = nmgetch();
-    CLEAR_LINE;
-    if (c == ESC || c == ctl('g')) {
-        return;
-    }
-    if ((c = checkmark(c)) < 0) {
-        error("Invalid mark (must be letter, digit, ` or ')");
-        return;
-    }
-    if (savedrow[c] == -1) {
-        error("Mark not set");
-        return;
-    }
-    currow = savedrow[c];
-    curcol = savedcol[c];
-    rowsinrange = 1;
-    colsinrange = fwidth[curcol];
-    if (tick == '\'') {
-        strow = savedstrow[c];
-        stcol = savedstcol[c];
-        gs.stflag = 1;
-    } else {
-        gs.stflag = 0;
-    }
-    remember(1);
-
-    FullUpdate++;
-}
-
 void gotonote(void) {
     struct ent *p;
 
@@ -3125,7 +3058,7 @@ int yn_ask(const char *msg) {
     refresh();
     // should clear line 0 upon returning
     for (;;) {
-        switch (nmgetch()) {
+        switch (nmgetch(0)) {
         case 'y':
         case 'Y':
             return 1;
@@ -3412,7 +3345,7 @@ void dorun(const char *str) {
         printf("Press any key to continue ");
         fflush(stdout);
         cbreak();
-        nmgetch();
+        nmgetch(0);
     }
     goraw();
 }

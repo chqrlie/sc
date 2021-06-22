@@ -423,7 +423,7 @@ static inline const char *s2c(char *p) { return p; }
 #define ISBYTE(c) (!((c) & ~0xFF))
 
 #define KEY_ALT(c)   ((c)|01000)
-extern int nmgetch(void);
+extern int nmgetch(int clearline);
 
 /*---------------- Context sensitive help ----------------*/
 
@@ -621,7 +621,6 @@ extern void dupcol(void);
 extern void duprow(void);
 extern void doquery(const char *s, const char *data, int fd);
 extern void dostat(int fd);
-extern void dotick(int tick);
 extern int doplugin(const char *str);
 extern void domdir(const char *str);
 extern void doautorun(const char *str);
@@ -670,8 +669,6 @@ extern void unlet(struct ent *v);
 extern void let(struct ent *v, struct enode *e);
 extern void list_ranges(FILE *f);
 extern void lock_cells(struct ent *v1, struct ent *v2);
-extern int checkmark(int c);
-extern void markcell(void);
 extern void move_area(int dr, int dc, int sr, int sc, int er, int ec);
 extern void mover(struct ent *d, struct ent *v1, struct ent *v2);
 extern void moveto(int row, int col, int lastrow, int lastcol,

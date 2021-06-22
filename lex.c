@@ -344,8 +344,10 @@ void resetkbd(void) {}
 
 # ifndef VMS
 
-int nmgetch(void) {
-    return getchar();
+int nmgetch(int clearline) {
+    int c = getchar();
+    if (clearline) CLEAR_LINE;
+    return c;
 }
 
 # else /* VMS */
@@ -361,7 +363,7 @@ int nmgetch(void) {
    and this method of reading would collide (the screen was not updated
    when continuing from screen mode in the debugger).
 */
-int nmgetch(void) {
+int nmgetch(int clearline) {
     short c;
     static int key_id = 0;
     int status;
@@ -380,6 +382,7 @@ int nmgetch(void) {
     case SMG$K_TRM_DOWN:  c = ctl('n');  break;
     default:   c = c & A_CHARTEXT;
     }
+    if (clearline) CLEAR_LINE;
     return c;
 }
 
@@ -522,7 +525,7 @@ void resetkbd(void) {
 #  endif
 }
 
-int nmgetch(void) {
+int nmgetch(int clearline) {
     int c;
     struct key_map *kp;
     struct key_map *biggest;
@@ -533,8 +536,10 @@ int nmgetch(void) {
     static char dumpbuf[10];
     static char *dumpindex;
 
-    if (dumpindex && *dumpindex)
+    if (dumpindex && *dumpindex) {
+        if (clearline) CLEAR_LINE;
         return *dumpindex++;
+    }
 
     c = getchar();
     biggest = 0;
@@ -564,7 +569,7 @@ int nmgetch(void) {
         alarm(1);
 
         if (setjmp(wakeup) == 0) {
-            maybe = nmgetch();
+            maybe = nmgetch(clearline);
             alarm(0);
             return maybe;
         }
@@ -582,6 +587,7 @@ int nmgetch(void) {
         return dumpbuf[0];
     }
 
+    if (clearline) CLEAR_LINE;
     return c;
 }
 
@@ -636,7 +642,7 @@ static int kbhit(void) {
 #endif
 }
 
-int nmgetch(void) {
+int nmgetch(int clearline) {
     int c;
 
     c = getch();
@@ -684,6 +690,7 @@ int nmgetch(void) {
     default:
         break;
     }
+    if (clearline) CLEAR_LINE;
     return c;
 }
 

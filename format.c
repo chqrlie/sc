@@ -138,7 +138,7 @@ bool format(const char *fmt0, int lprecision, double val, char *buf, size_t bufl
      * select positive or negative format if necessary
      */
     for (cp = fmt; *cp != ';' && *cp != EOS; cp++) {
-        if (*cp == '\\')
+        if (*cp == '\\' && cp[1] != EOS)
             cp++;
     }
     if (*cp == ';') {
@@ -157,8 +157,9 @@ bool format(const char *fmt0, int lprecision, double val, char *buf, size_t bufl
     for (cp = fmt, tp = tmp; *cp != EOS; cp++) {
         switch (*cp) {
         case '\\':
-            *tp++ = *cp++;
             *tp++ = *cp;
+            if (cp[1] != EOS)
+                *tp++ = *++cp;
             break;
 
         case ',':
@@ -197,7 +198,7 @@ bool format(const char *fmt0, int lprecision, double val, char *buf, size_t bufl
      * extract the exponent from the format if present
      */
     for (cp = fmt; *cp != EOS; cp++) {
-        if (*cp == '\\')
+        if (*cp == '\\' && cp[1] != EOS)
             cp++;
         else if (*cp == 'e' || *cp == 'E') {
             if (cp[1] == '+' || cp[1] == '-') {
@@ -229,7 +230,7 @@ bool format(const char *fmt0, int lprecision, double val, char *buf, size_t bufl
         for (cp = decimal; *cp != EOS; cp++) {
             switch (*cp) {
             case '\\':
-                cp++;
+                if (cp[1]) cp++;
                 break;
 
             case '#':
@@ -326,7 +327,7 @@ static char *fmt_int(char *val,      /* integer part of the value to be formatte
      * locate the leftmost digit placeholder
      */
     for (cp = fmt; *cp != EOS; cp++) {
-        if (*cp == '\\')
+        if (*cp == '\\' && cp[1])
             cp++;
         else if (*cp == '#' || *cp == '0')
             break;
