@@ -12,40 +12,39 @@
 #include "sc.h"
 
 void getnum(int r0, int c0, int rn, int cn, int fd) {
+    char buf[32];
     int r, c;
 
     for (r = r0; r <= rn; r++) {
         for (c = c0; c <= cn; c++) {
             struct ent *p = *ATBL(tbl, r, c);
-            *line = '\0';
+            *buf = '\0';
             if (p) {
                 if (p->cellerror)
-                    snprintf(line, sizeof line, "%s",
+                    snprintf(buf, sizeof buf - 1, "%s",
                              p->cellerror == CELLERROR ? "ERROR" : "INVALID");
                 else if (p->flags & IS_VALID)
-                    snprintf(line, sizeof line, "%.15g", p->v);
+                    snprintf(buf, sizeof buf - 1, "%.15g", p->v);
             }
-            strlcat(line, (c < cn) ? "\t" : "\n", sizeof line);
-            write(fd, line, strlen(line));
-            if (brokenpipe) {
-                linelim = -1;
+            strlcat(buf, (c < cn) ? "\t" : "\n", sizeof buf);
+            write(fd, buf, strlen(buf));
+            if (brokenpipe)
                 return;
-            }
         }
     }
-    linelim = -1;
 }
 
 void fgetnum(int r0, int c0, int rn, int cn, int fd) {
+    char buf[FBUFLEN];  /* for very long format strings */
     int r, c;
 
     for (r = r0; r <= rn; r++) {
         for (c = c0; c <= cn; c++) {
             struct ent *p = *ATBL(tbl, r, c);
-            *line = '\0';
+            *buf = '\0';
             if (p) {
                 if (p->cellerror) {
-                    snprintf(line, sizeof line, "%s",
+                    snprintf(buf, sizeof buf - 1, "%s",
                              p->cellerror == CELLERROR ? "ERROR" : "INVALID");
                 } else
                 if (p->flags & IS_VALID) {
@@ -54,49 +53,43 @@ void fgetnum(int r0, int c0, int rn, int cn, int fd) {
                             time_t i = (time_t)(p->v);
                             // XXX: should check format string
                             ((size_t (*)(char *, size_t, const char *, const struct tm *tm))strftime)
-                                (line, sizeof(line), p->format + 1, localtime(&i));
+                                (buf, sizeof buf - 1, p->format + 1, localtime(&i));
                         } else {
-                            format(p->format, precision[c], p->v, line,
-                                   sizeof(line));
+                            format(p->format, precision[c], p->v, buf, sizeof buf - 1);
                         }
                     } else {
-                        engformat(realfmt[c], fwidth[c], precision[c],
-                                  p->v, line, sizeof(line));
+                        engformat(realfmt[c], fwidth[c], precision[c], p->v, buf, sizeof buf - 1);
                     }
                 }
             }
-            strlcat(line, (c < cn) ? "\t" : "\n", sizeof line);
-            write(fd, line, strlen(line));
-            if (brokenpipe) {
-                linelim = -1;
+            strlcat(buf, (c < cn) ? "\t" : "\n", sizeof buf);
+            write(fd, buf, strlen(buf));
+            if (brokenpipe)
                 return;
-            }
         }
     }
-    linelim = -1;
 }
 
 void getstring(int r0, int c0, int rn, int cn, int fd) {
+    char buf[FBUFLEN];  /* for very long labels */
     int r, c;
 
     for (r = r0; r <= rn; r++) {
         for (c = c0; c <= cn; c++) {
             struct ent *p = *ATBL(tbl, r, c);
-            *line = '\0';
+            *buf = '\0';
             if (p && p->label)
-                snprintf(line, sizeof line, "%s", p->label);
-            strlcat(line, (c < cn) ? "\t" : "\n", sizeof line);
-            write(fd, line, strlen(line));
-            if (brokenpipe) {
-                linelim = -1;
+                snprintf(buf, sizeof buf - 1, "%s", p->label);
+            strlcat(buf, (c < cn) ? "\t" : "\n", sizeof buf);
+            write(fd, buf, strlen(buf));
+            if (brokenpipe)
                 return;
-            }
         }
     }
-    linelim = -1;
 }
 
 void getexp(int r0, int c0, int rn, int cn, int fd) {
+    // XXX: should use local buffer for decompile
     int r, c;
 
     for (r = r0; r <= rn; r++) {
@@ -121,86 +114,71 @@ void getexp(int r0, int c0, int rn, int cn, int fd) {
 }
 
 void getformat(int col, int fd) {
-    snprintf(line, sizeof line, "%d %d %d\n", fwidth[col], precision[col], realfmt[col]);
-    write(fd, line, strlen(line));
-    linelim = -1;
+    char buf[32];
+    snprintf(buf, sizeof buf, "%d %d %d\n", fwidth[col], precision[col], realfmt[col]);
+    write(fd, buf, strlen(buf));
 }
 
 void getfmt(int r0, int c0, int rn, int cn, int fd) {
+    char buf[FBUFLEN];  /* for very long format strings */
     int r, c;
 
     for (r = r0; r <= rn; r++) {
         for (c = c0; c <= cn; c++) {
             struct ent *p = *ATBL(tbl, r, c);
-            *line = '\0';
+            *buf = '\0';
             if (p && p->format)
-                snprintf(line, sizeof line, "%s", p->format);
-            strlcat(line, (c < cn) ? "\t" : "\n", sizeof line);
-            write(fd, line, strlen(line));
-            if (brokenpipe) {
-                linelim = -1;
+                snprintf(buf, sizeof buf - 1, "%s", p->format);
+            strlcat(buf, (c < cn) ? "\t" : "\n", sizeof buf);
+            write(fd, buf, strlen(buf));
+            if (brokenpipe)
                 return;
-            }
         }
     }
-    linelim = -1;
 }
 
 void getframe(int fd) {
+    char buf[100];
     struct frange *fr;
 
-    *line = '\0';
+    *buf = '\0';
     if ((fr = find_frange(currow, curcol))) {
-        snprintf(line, sizeof line, "%s %s",
+        snprintf(buf, sizeof buf - 1, "%s %s",
                  r_name(fr->or_left->row, fr->or_left->col,
                         fr->or_right->row, fr->or_right->col),
                  r_name(fr->ir_left->row, fr->ir_left->col,
                         fr->ir_right->row, fr->ir_right->col));
     }
-    strlcat(line, "\n", sizeof line);
-    write(fd, line, strlen(line));
-    linelim = -1;
+    strlcat(buf, "\n", sizeof buf);
+    write(fd, buf, strlen(buf));
 }
 
 void getrange(const char *name, int fd) {
+    char buf[100];
     struct range *r;
 
-    *line = '\0';
+    *buf = '\0';
     if (!find_range_name(name, strlen(name), &r)) {
-        snprintf(line, sizeof line, "%s%s%s%d",
+        snprintf(buf, sizeof buf - 1, "%s%s%s%d",
                 r->r_left.vf & FIX_COL ? "$" : "",
                 coltoa(r->r_left.vp->col),
                 r->r_left.vf & FIX_ROW ? "$" : "",
                 r->r_left.vp->row);
         if (r->r_is_range) {
-            int len = strlen(line);
-            snprintf(line + len, sizeof(line) - len, ":%s%s%s%d",
+            int len = strlen(buf);
+            snprintf(buf + len, sizeof(buf) - 1 - len, ":%s%s%s%d",
                      r->r_right.vf & FIX_COL ? "$" : "",
                      coltoa(r->r_right.vp->col),
                      r->r_right.vf & FIX_ROW ? "$" : "",
                      r->r_right.vp->row);
         }
-        /************************************************/
-        /*                                              */
-        /* if(r->r_is_range)                            */
-        /*         sprintf(line,"%d:%d:%d:%d",          */
-        /*                         r->r_left.vp->col,   */
-        /*                         r->r_left.vp->row,   */
-        /*                         r->r_right.vp->col,  */
-        /*                         r->r_right.vp->row); */
-        /* else                                         */
-        /*         sprintf(line,"%d:%d",                */
-        /*                         r->r_left.vp->col,   */
-        /*                         r->r_left.vp->row);  */
-        /*                                              */
-        /************************************************/
     }
-    strlcat(line, "\n", sizeof line);
-    write(fd, line, strlen(line));
-    linelim = -1;
+    strlcat(buf, "\n", sizeof buf);
+    write(fd, buf, strlen(buf));
 }
 
 void doeval(struct enode *e, const char *fmt, int row, int col, int fd) {
+    char buf[FBUFLEN];
     double v;
 
     gmyrow = row;
@@ -212,16 +190,15 @@ void doeval(struct enode *e, const char *fmt, int row, int col, int fd) {
             time_t tv = v;
             // XXX: should check format string
             ((size_t (*)(char *, size_t, const char *, const struct tm *tm))strftime)
-                (line, FBUFLEN, fmt + 1, localtime(&tv));
+                (buf, sizeof buf - 1, fmt + 1, localtime(&tv));
         } else {
-            format(fmt, precision[col], v, line, FBUFLEN);
+            format(fmt, precision[col], v, buf, sizeof buf - 1);
         }
     } else {
-        snprintf(line, sizeof line, "%.15g", v);
+        snprintf(buf, sizeof buf - 1, "%.15g", v);
     }
-    strlcat(line, "\n", sizeof line);
-    write(fd, line, strlen(line));
-    linelim = -1;
+    strlcat(buf, "\n", sizeof buf);
+    write(fd, buf, strlen(buf));
 
     efree(e);
 }
@@ -236,7 +213,6 @@ void doseval(struct enode *e, int row, int col, int fd) {
     if (s)
         write(fd, s, strlen(s));
     write(fd, "\n", 1);
-    linelim = -1;
 
     efree(e);
     scxfree(s);
@@ -244,6 +220,7 @@ void doseval(struct enode *e, int row, int col, int fd) {
 
 void doquery(const char *s, const char *data, int fd) {
     goraw();
+    // XXX: should provide destination buffer
     query(s, data);
     deraw(0);
     if (linelim >= 0) {
@@ -258,44 +235,45 @@ void doquery(const char *s, const char *data, int fd) {
 }
 
 void dogetkey(int fd) {
+    char buf[32];
     int c, len;
 
     goraw();
     c = nmgetch(0);
     deraw(0);
 
+    // XXX: this is bogus for function keys
     if (c < 256) {
-        line[0] = c;
+        buf[0] = c;
         len = 1;
 #ifdef HAVE_CURSES_KEYNAME
     } else if (c >= KEY_MIN && c <= KEY_MAX) {
         int i, j;
-        line[0] = '\0';
-        snprintf(line + 1, sizeof(line) - 1, "%s\n", keyname(c));
-        for (i = 1, j = 5; line[j-1]; ) {
-            if (line[j] == '(' || line[j] == ')')
-                j++;
-            else
-                line[i++] = line[j++];
+        buf[0] = '\0';
+        snprintf(buf + 1, sizeof buf - 1, "%s\n", keyname(c));
+        /* strip `KEY_` and parentheses */
+        for (i = 1, j = 5; buf[j-1]; j++) {
+            if (buf[j] != '(' && buf[j] != ')')
+                buf[i++] = buf[j];
         }
-        len = strlen(line + 1) + 1;
+        len = 1 + strlen(buf + 1);
 #endif
     } else {
-        line[0] = '0';
-        snprintf(line + 1, sizeof(line) - 1, "UNKNOWN KEY");
-        len = strlen(line + 1) + 1;
+        buf[0] = '0';
+        snprintf(buf + 1, sizeof buf - 1, "%s\n", "UNKNOWN KEY");
+        len = 1 + strlen(buf + 1);
     }
 
-    write(fd, line, len);
+    write(fd, buf, len);
 }
 
 void dostat(int fd) {
-    char *p = line;
+    char buf[8];
+    char *p = buf;
     if (modflg)                 *p++ = 'm';
     if (isatty(STDIN_FILENO))   *p++ = 'i';
     if (isatty(STDOUT_FILENO))  *p++ = 'o';
     *p++ = '\n';
     *p = '\0';
-    write(fd, line, p - line);
-    linelim = -1;
+    write(fd, buf, p - buf);
 }

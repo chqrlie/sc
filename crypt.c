@@ -20,6 +20,7 @@ void creadfile(const char *save, int eraseflg) {
     int pipefd[2];
     int fildes;
     int pid;
+    char *p;
 
     if (eraseflg && strcmp(save, curfile) && modcheck(" first"))
         return;
@@ -63,9 +64,17 @@ void creadfile(const char *save, int eraseflg) {
     }
 
     loading++;
+    // XXX: should use a local buffer
     while (fgets(line, sizeof line, f)) {
-        if (line[0] == '#')
+        p = line;
+        while (*p == ' ') {
+            /* skip initial blanks */
+            p++;
+        }
+        if (*p == '#' || *p == '\0' || *p == '\n') {
+            /* ignore comments and blank lines */
             continue;
+        }
         linelim = 0;
         yyparse();
     }
@@ -109,7 +118,7 @@ int cwritefile(char *fname, int r0, int c0, int rn, int cn) {
     if (dobackups && !backup_file(busave) &&
             (yn_ask("Could not create backup copy, Save anyway?: (y,n)") != 1))
         return 0;
-    if ((fildes = open (busave, O_TRUNC|O_WRONLY|O_CREAT, 0600)) < 0) {
+    if ((fildes = open(busave, O_TRUNC|O_WRONLY|O_CREAT, 0600)) < 0) {
         error("Can't create file \"%s\"", save);
         return -1;
     }

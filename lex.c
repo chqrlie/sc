@@ -91,6 +91,7 @@ static struct key statres[] = {
 int yylex(void) {
     char *p = line + linelim;
     int ret = -1;
+    // XXX: static data in the lexer is toxic
     static int isfunc = 0;
     static bool isgoto = 0;
     static bool colstate = 0;
@@ -140,6 +141,8 @@ int yylex(void) {
             ret = WORD;
             if (!linelim || isfunc) {
                 if (isfunc) isfunc--;
+                // XXX: initial blanks should be ignored:
+                //      so the test on linelim is incorrect
                 for (tblp = linelim ? experres : statres; tblp->key; tblp++) {
                     if (((tblp->key[0] ^ tokenst[0]) & 0x5F) == 0) {
                         /* Commenting the following line makes the search slower */
@@ -233,12 +236,12 @@ int yylex(void) {
                         continue;
                     if (isalphachar_(*p)) {
                         linelim = p - line;
-                        return yylex();
+                        return yylex();     // XXX: why a recursive call?
                     } else
                         ret = FNUMBER;
                 } else if (isalphachar_(*p)) {
                     linelim = p - line;
-                    return yylex();
+                    return yylex();     // XXX: why a recursive call?
                 }
             }
             if ((!dateflag && *p == '.') || ret == FNUMBER) {

@@ -782,6 +782,7 @@ void update(int anychanged) {          /* did any cell really change in value? *
                                p->cellerror == CELLERROR ? "ERROR" : "INVALID");
                     } else
                     if (showexpr && p->expr) {
+                        // XXX: this is bogus: it destroys the `line` buffer
                         linelim = 0;
                         decompile(p->expr, 0);   /* set line to expr */
                         linelim = -1;
@@ -931,6 +932,8 @@ void update(int anychanged) {          /* did any cell really change in value? *
     clrtoeol();
 
     if (linelim >= 0) {
+        // XXX: display the current edit line
+        // XXX: should scroll line to make cursor position visible
         int ctlchars = 0;
         for (i = 0; i < linelim; i++) {
             if ((unsigned char)line[i] < ' ')
@@ -955,17 +958,18 @@ void update(int anychanged) {          /* did any cell really change in value? *
 
             printw("%s%d ", coltoa(curcol), currow);
 
-            if ((p1 = *ATBL(tbl, currow, curcol)) && p1->nrow > -1)
+            if ((p1 = *ATBL(tbl, currow, curcol)) && p1->nrow > -1) {
                 printw("{*%s} ", r_name(p1->nrow, p1->ncol,
                                         p1->nlastrow, p1->nlastcol));
+            }
 
             /* show the current cell's format */
-            if (p1 && p1->format)
+            if (p1 && p1->format) {
                 printw("(%s) ", p1->format);
-            else
+            } else {
                 printw("(%d %d %d) ", fwidth[curcol], precision[curcol],
                                       realfmt[curcol]);
-
+            }
             if (p1) {
                 if (p1->expr) {
                     /* has expr of some type */
@@ -1003,14 +1007,14 @@ void update(int anychanged) {          /* did any cell really change in value? *
                  */
 
                 if (p1->flags & IS_VALID) {
+                    char buf[32];
                     /* has value or num expr */
                     if ((!(p1->expr)) || (p1->flags & IS_STREXPR))
-                        snprintf(line, sizeof line, "%.15g", p1->v);
+                        snprintf(buf, sizeof buf, "%.15g", p1->v);
 
                     addch('[');
-                    addstr(line);
+                    addstr(buf);
                     addch(']');
-                    *line = '\0'; /* this is the input buffer ! */
                     printed = 1;
                 }
             }
@@ -1105,6 +1109,7 @@ void yyerror(const char *err) {
         seenerr++;
         move(1, 0);
         clrtoeol();
+        // XXX: should print line portion around error if too long
         printw("%s: %.*s<=%s", err, (int)linelim, line, line + linelim);
     } else {
         fprintf(stderr, "%s: %.*s<=%s\n",

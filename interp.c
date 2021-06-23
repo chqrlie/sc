@@ -71,13 +71,6 @@ static int RealEvalAll(void);
 static int constant(struct enode *e);
 static void RealEvalOne(struct ent *p, int i, int j, int *chgct);
 static void copydbuf(int deltar, int deltac);
-static void index_arg(const char *s, struct enode *e);
-static void list_arg(const char *s, struct enode *e);
-static void one_arg(const char *s, struct enode *e);
-static void range_arg(const char *s, struct enode *e);
-static void three_arg(const char *s, struct enode *e);
-static void two_arg(const char *s, struct enode *e);
-static void two_arg_index(const char *s, struct enode *e);
 
 static double finfunc(int fun, double v1, double v2, double v3);
 static SCXMEM char *dostindex(int minr, int minc, int maxr, int maxc, struct enode *val);
@@ -1038,7 +1031,7 @@ static SCXMEM char *doext(struct enode *se) {
     value = eval(se->e.o.right);
     if (!extfunc) {
         error("Warning: external functions disabled; using %s value",
-                (se->e.o.s && *se->e.o.s) ? "previous" : "null");
+              (se->e.o.s && *se->e.o.s) ? "previous" : "null");
         scxfree(command);
     } else {
         if (!command || !*command) {
@@ -1920,8 +1913,7 @@ void str_search(const char *s, int firstrow, int firstcol, int lastrow, int last
             *line = '\0';
             if (p) {
                 if (p->cellerror) {
-                    snprintf(line, sizeof line, "%s",
-                             p->cellerror == CELLERROR ? "ERROR" : "INVALID");
+                    set_line("%s", p->cellerror == CELLERROR ? "ERROR" : "INVALID");
                 } else if (p->flags & IS_VALID) {
                     if (p->format) {
                         if (*p->format == ctl('d')) {
@@ -1930,12 +1922,10 @@ void str_search(const char *s, int firstrow, int firstcol, int lastrow, int last
                             ((size_t (*)(char *, size_t, const char *, const struct tm *tm))strftime)
                                 (line, sizeof(line), p->format + 1, localtime(&i));
                         } else {
-                            format(p->format, precision[c], p->v, line,
-                                   sizeof(line));
+                            format(p->format, precision[c], p->v, line, sizeof(line));
                         }
                     } else {
-                        engformat(realfmt[c], fwidth[c], precision[c],
-                                  p->v, line, sizeof(line));
+                        engformat(realfmt[c], fwidth[c], precision[c], p->v, line, sizeof(line));
                     }
                 }
             }
@@ -1952,37 +1942,38 @@ void str_search(const char *s, int firstrow, int firstcol, int lastrow, int last
             if (gs.g_type == G_STR) {
                 if (p && p->label
 #if defined(REGCOMP)
-                        && (regexec(&preg, p->label, 0, NULL, 0) == 0)
+                && (regexec(&preg, p->label, 0, NULL, 0) == 0)
 #else
 #if defined(RE_COMP)
-                        && (re_exec(p->label) != 0)
+                && (re_exec(p->label) != 0)
 #else
 #if defined(REGCMP)
-                        && (regex(tmp, p->label) != NULL)
+                && (regex(tmp, p->label) != NULL)
 #else
-                        && (strcmp(s, p->label) == 0)
+                && (strcmp(s, p->label) == 0)
 #endif
 #endif
 #endif
                     )
                     break;
-            } else                      /* gs.g_type != G_STR */
-            if (*line != '\0'
+            } else {                    /* gs.g_type != G_STR */
+                if (*line != '\0'
 #if defined(REGCOMP)
-                        && (regexec(&preg, line, 0, NULL, 0) == 0)
+                && (regexec(&preg, line, 0, NULL, 0) == 0)
 #else
 #if defined(RE_COMP)
-                        && (re_exec(line) != 0)
+                && (re_exec(line) != 0)
 #else
 #if defined(REGCMP)
-                        && (regex(tmp, line) != NULL)
+                && (regex(tmp, line) != NULL)
 #else
-                        && (strcmp(s, line) == 0)
+                && (strcmp(s, line) == 0)
 #endif
 #endif
 #endif
                     )
                     break;
+            }
         }
         if (r == endr && c == endc) {
             error("String not found");
@@ -2408,9 +2399,18 @@ char *coltoa(int col) {
     return rname;
 }
 
+/*---- decompile expressions ----*/
+
 static void out_word(const char *s) {
-    while (((size_t)linelim < sizeof(line) - 1) && (line[linelim] = *s++))
-        linelim++;
+    size_t len = strlen(s);
+    if (linelim + len < sizeof(line)) {
+        memcpy(line + linelim, s, len + 1);
+        linelim += len;
+    } else {
+        while ((size_t)linelim < sizeof(line) - 1)
+            line[linelim++] = *s++;
+        line[sizeof(line) - 1] = '\0';
+    }
 }
 
 static void out_char(int c) {
@@ -2420,21 +2420,45 @@ static void out_char(int c) {
     }
 }
 
-static void out_var(struct ent_ptr v) {
+static void out_const(double v) {
+    char buf[32];
+    snprintf(buf, sizeof(buf), "%.15g", v);
+    out_word(buf);
+}
+
+static void out_sconst(const char *s) {
+    // XXX: potentially incorrect for embedded `"` and other control characters
+    out_char('"');
+    out_word(s);
+    out_char('"');
+}
+
+static void out_var(struct ent_ptr v, int usename) {
     struct range *r;
+    char buf[32];
 
     if (!v.vp || (v.vp->flags & IS_DELETED)) {
         out_word("@ERR");
     } else
-    if ((r = find_range_coords(v.vp, v.vp)) != NULL && !r->r_is_range) {
+    if (usename && (r = find_range_coords(v.vp, v.vp)) != NULL && !r->r_is_range) {
         out_word(r->r_name);
     } else {
-        snprintf(line + linelim, sizeof(line) - linelim, "%s%s%s%d",
-                 v.vf & FIX_COL ? "$" : "",
-                 coltoa(v.vp->col),
-                 v.vf & FIX_ROW ? "$" : "",
-                 v.vp->row);
-        linelim += strlen(line + linelim);
+        snprintf(buf, sizeof(buf), "%s%s%s%d",
+                 v.vf & FIX_COL ? "$" : "", coltoa(v.vp->col),
+                 v.vf & FIX_ROW ? "$" : "", v.vp->row);
+        out_word(buf);
+    }
+}
+
+static void out_range(struct enode *e) {
+    struct range *r;
+
+    if ((r = find_range_coords(e->e.r.left.vp, e->e.r.right.vp)) != NULL && r->r_is_range) {
+        out_word(r->r_name);
+    } else {
+        out_var(e->e.r.left, 0);
+        out_char(':');
+        out_var(e->e.r.right, 0);
     }
 }
 
@@ -2453,32 +2477,79 @@ static void decompile_list(struct enode *p) {
     }
 }
 
-static void out_const(double v) {
-    snprintf(line + linelim, sizeof(line) - linelim, "%.15g", v);
-    linelim += strlen(line + linelim);
-}
-
-static void out_sconst(const char *s) {
-    // XXX: potentially incorrect for embedded `"`
-    snprintf(line + linelim, sizeof(line) - linelim, "\"%s\"", s);
-    linelim += strlen(line + linelim);
-}
-
-static void out_range(struct enode *e) {
-    struct range *r;
-
-    if ((r = find_range_coords(e->e.r.left.vp, e->e.r.right.vp)) != NULL && r->r_is_range) {
-        out_word(r->r_name);
-    } else {
-        out_var(e->e.r.left);
-        out_char(':');
-        out_var(e->e.r.right);
-    }
-}
-
 static void unary_arg(const char *s, struct enode *e) {
     out_word(s);
     decompile(e->e.o.left, 30);
+}
+
+static void one_arg(const char *s, struct enode *e) {
+    out_word(s);
+    out_char('(');
+    decompile(e->e.o.left, 0);
+    out_char(')');
+}
+
+static void two_arg(const char *s, struct enode *e) {
+    out_word(s);
+    out_char('(');
+    decompile(e->e.o.left, 0);
+    // XXX: should test e->e.o.right
+    out_char(',');
+    decompile(e->e.o.right, 0);
+    out_char(')');
+}
+
+static void three_arg(const char *s, struct enode *e) {
+    out_word(s);
+    out_char('(');
+    decompile(e->e.o.left, 0);
+    out_char(',');
+    decompile(e->e.o.right->e.o.left, 0);
+    out_char(',');
+    decompile(e->e.o.right->e.o.right, 0);
+    out_char(')');
+}
+
+static void range_arg(const char *s, struct enode *e) {
+    out_word(s);
+    out_char('(');
+    out_range(e);
+    out_char(')');
+}
+
+static void two_arg_index(const char *s, struct enode *e) {
+    out_word(s);
+    out_char('(');
+    out_range(e->e.o.left);
+    out_char(',');
+    decompile(e->e.o.right->e.o.left, 0);
+    out_char(',');
+    decompile(e->e.o.right->e.o.right, 0);
+    out_char(')');
+}
+
+static void index_arg(const char *s, struct enode *e) {
+    if (e->e.o.right && e->e.o.right->op == ',') {
+        two_arg_index(s, e);
+        return;
+    }
+    out_word(s);
+    out_char('(');
+    out_range(e->e.o.left);
+    if (e->e.o.right) {
+        out_char(',');
+        decompile(e->e.o.right, 0);
+    }
+    out_char(')');
+}
+
+static void list_arg(const char *s, struct enode *e) {
+    out_word(s);
+    out_char('(');
+    decompile(e->e.o.right, 0);
+    out_char(',');
+    decompile_list(e->e.o.left);
+    out_char(')');
 }
 
 void decompile(struct enode *e, int priority) {
@@ -2503,7 +2574,7 @@ void decompile(struct enode *e, int priority) {
         case 'F':       unary_arg("(@fixed)", e); break;
         case 'm':       unary_arg("-", e); break;
         case '!':       unary_arg("!", e); break;
-        case O_VAR:     out_var(e->e.v); break;
+        case O_VAR:     out_var(e->e.v, 1); break;
         case O_CONST:   out_const(e->e.k); break;
         case O_SCONST:  out_sconst(e->e.s); break;
 
@@ -2601,82 +2672,16 @@ void decompile(struct enode *e, int priority) {
     }
 }
 
-static void index_arg(const char *s, struct enode *e) {
-    if (e->e.o.right && e->e.o.right->op == ',') {
-        two_arg_index(s, e);
-        return;
-    }
-    out_word(s);
-    out_char('(');
-    out_range(e->e.o.left);
-    if (e->e.o.right) {
-        out_char(',');
-        decompile(e->e.o.right, 0);
-    }
-    out_char(')');
-}
-
-static void two_arg_index(const char *s, struct enode *e) {
-    out_word(s);
-    out_char('(');
-    out_range(e->e.o.left);
-    out_char(',');
-    decompile(e->e.o.right->e.o.left, 0);
-    out_char(',');
-    decompile(e->e.o.right->e.o.right, 0);
-    out_char(')');
-}
-
-static void list_arg(const char *s, struct enode *e) {
-    out_word(s);
-    out_char('(');
-    decompile(e->e.o.right, 0);
-    out_char(',');
-    decompile_list(e->e.o.left);
-    out_char(')');
-}
-
-static void one_arg(const char *s, struct enode *e) {
-    out_word(s);
-    out_char('(');
-    decompile(e->e.o.left, 0);
-    out_char(')');
-}
-
-static void two_arg(const char *s, struct enode *e) {
-    out_word(s);
-    out_char('(');
-    decompile(e->e.o.left, 0);
-    // XXX: should test e->e.o.right
-    out_char(',');
-    decompile(e->e.o.right, 0);
-    out_char(')');
-}
-
-static void three_arg(const char *s, struct enode *e) {
-    out_word(s);
-    out_char('(');
-    decompile(e->e.o.left, 0);
-    out_char(',');
-    decompile(e->e.o.right->e.o.left, 0);
-    out_char(',');
-    decompile(e->e.o.right->e.o.right, 0);
-    out_char(')');
-}
-
-static void range_arg(const char *s, struct enode *e) {
-    out_word(s);
-    out_char('(');
-    out_range(e);
-    out_char(')');
-}
-
 void editfmt(int row, int col) {
     struct ent *p;
 
     p = lookat(row, col);
     if (p->format) {
-        set_line("fmt %s \"%s\"", v_name(row, col), p->format);
+        set_line("fmt %s ", v_name(row, col));
+        out_sconst(p->format);
+    } else {
+        // XXX: clear line?
+        line[linelim = 0] = '\0';
     }
 }
 
@@ -2686,18 +2691,11 @@ void editv(int row, int col) {
     set_line("let %s = ", v_name(row, col));
     if (p->flags & IS_VALID) {
         if ((p->flags & IS_STREXPR) || p->expr == NULL) {
-            snprintf(line + linelim, sizeof(line) - linelim, "%.15g", p->v);
-            linelim += strlen(line + linelim);
+            out_const(p->v);
         } else {
             decompile(p->expr, 0);
         }
     }
-}
-
-void editexp(int row, int col) {
-    struct ent *p = lookat(row, col);
-
-    decompile(p->expr, 0);
 }
 
 void edits(int row, int col) {
@@ -2710,13 +2708,10 @@ void edits(int row, int col) {
     if ((p->flags & IS_STREXPR) && p->expr) {
         decompile(p->expr, 0);
     } else if (p->label) {
-        // XXX: incorrect if p->label contains embedded `"`
-        snprintf(line + linelim, sizeof(line) - linelim, "\"%s\"", p->label);
-        linelim += strlen(line + linelim);
+        out_sconst(p->label);
     } else {
         /* output a single `"` for the user to start entering the string */
-        snprintf(line + linelim, sizeof(line) - linelim, "\"");
-        linelim += 1;
+        out_char('"');
     }
 }
 

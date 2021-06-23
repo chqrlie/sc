@@ -2471,7 +2471,6 @@ void write_cells(FILE *f, int r0, int c0, int rn, int cn, int dr, int dc) {
     int r, c, mf;
     int rs = 0;
     int cs = 0;
-    char *dpointptr;
 
     mf = modflg;
     if (dr != r0 || dc != c0) {
@@ -2490,19 +2489,24 @@ void write_cells(FILE *f, int r0, int c0, int rn, int cn, int dr, int dc) {
             struct ent *p = *ATBL(tbl, r, c);
             if (p) {
                 if (p->label || (p->flags & IS_STREXPR)) {
+                    // XXX: should pass destination buffer
                     edits(r, c);
                     fprintf(f, "%s\n", line);
                 }
                 if (p->flags & IS_VALID) {
+                    // XXX: should pass destination buffer
                     editv(r, c);
-                    dpointptr = strchr(line, dpoint);
-                    if (dpointptr != NULL)
-                        *dpointptr = '.';
+                    if (dpoint != '.') {
+                        char *dpointptr = strchr(line, dpoint);
+                        if (dpointptr != NULL)
+                            *dpointptr = '.';
+                    }
                     fprintf(f, "%s\n", line);
                 }
                 if (p->format) {
+                    // XXX: should pass destination buffer
                     editfmt(r, c);
-                    fprintf(f, "%s\n",line);
+                    fprintf(f, "%s\n", line);
                 }
             }
         }
@@ -2514,6 +2518,7 @@ void write_cells(FILE *f, int r0, int c0, int rn, int cn, int dr, int dc) {
         flush_saved();
     }
     modflg = mf;
+    linelim = -1;
 }
 
 int writefile(const char *fname, int r0, int c0, int rn, int cn) {
@@ -2710,13 +2715,21 @@ int readfile(const char *fname, int eraseflg) {
     loading++;
     savefd = macrofd;
     macrofd = rfd;
+    // XXX: should use a local buffer
     while (!brokenpipe && fgets(line, sizeof(line), f)) {
-        if (line[0] == '|' && pid != 0) {
-            line[0] = ' ';
+        p = line;
+        if (*p == '|' && pid != 0) {
+            *p = ' ';
+        } else {
+            while (*p == ' ') {
+                /* skip initial blanks */
+                p++;
+            }
+            if (*p == '#' || *p == '\0' || *p == '\n') {
+                /* ignore comments and blank lines */
+                continue;
+            }
         }
-        // XXX: should skip initial blanks
-        if (line[0] == '#')  /* skip comments */
-            continue;
         linelim = 0;
         yyparse();
     }
@@ -3056,7 +3069,7 @@ int yn_ask(const char *msg) {
     clrtoeol();
     addstr(msg);
     refresh();
-    // should clear line 0 upon returning
+    // should clear screen row 0 upon returning
     for (;;) {
         switch (nmgetch(0)) {
         case 'y':

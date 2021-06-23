@@ -629,7 +629,6 @@ extern void dohistfile(const char *str);
 extern void dosetformat(int n, const char *str);
 extern void dorun(const char *str);
 extern void dodefine(const char *name);
-extern void editexp(int row, int col);
 extern void editfmt(int row, int col);
 extern void edits(int row, int col);
 extern void editv(int row, int col);

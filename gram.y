@@ -269,6 +269,7 @@
 %token K_ERR
 %token K_SCRC
 %token K_LOCALE
+%token K_EMACS
 
 %token <ival> '+' '-' '*' '/' '%' '^'
 
@@ -943,6 +944,8 @@ setitem : K_AUTO                { setautocalc(1); }
         | K_SCRC                { scrc++; }
         | K_LOCALE              { sc_set_locale(1); }
         | not K_LOCALE          { sc_set_locale(0); }
+        | K_EMACS               { emacs_bindings = 1; }
+        | not K_EMACS           { emacs_bindings = 0; }
         ;
 
 /* types of errors, to 'goto' */

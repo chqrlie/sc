@@ -436,20 +436,11 @@ void vi_interaction(void) {
                         error("Automatic recalculation %s.",
                               autocalc ? "enabled" : "disabled");
                         break;
-                    case 'o': case 'O':
-                        optimize ^= 1;
-                        error("%s expressions upon entry.",
-                              optimize ? "Optimize" : "Do not optimize");
-                        break;
-                    case 'n':
-                        numeric = !numeric;
-                        error("Numeric input %s.",
-                              numeric ? "enabled" : "disabled");
-                        break;
-                    case 't': case 'T':
-                        showtop = !showtop;
-                        error("Top line %s.",
-                              showtop ? "enabled" : "disabled");
+                    case 'b':
+                        braille ^= 1;
+                        error("Braille enhancement %s.",
+                              braille ? "enabled" : "disabled");
+                        --modflg;   /* negate the modflg++ */
                         break;
                     case 'c':
                         repaint_cursor(-showcell);
@@ -458,17 +449,6 @@ void vi_interaction(void) {
                         error("Cell highlighting %s.",
                               showcell ? "enabled" : "disabled");
                         --modflg;   /* negate the modflg++ */
-                        break;
-                    case 'b':
-                        braille ^= 1;
-                        error("Braille enhancement %s.",
-                              braille ? "enabled" : "disabled");
-                        --modflg;   /* negate the modflg++ */
-                        break;
-                    case 's':
-                        cslop ^= 1;
-                        error("Color slop %s.",
-                              cslop ? "enabled" : "disabled");
                         break;
                     case 'C':
                         color = !color;
@@ -483,46 +463,40 @@ void vi_interaction(void) {
                         }
                         error("Color %s.", color ? "enabled" : "disabled");
                         break;
-                    case 'N':
-                        colorneg = !colorneg;
-                        error("Color changing of negative numbers %s.",
-                              colorneg ? "enabled" : "disabled");
+                    case 'e':
+                        extfunc = !extfunc;
+                        error("External functions %s.",
+                              extfunc? "enabled" : "disabled");
                         break;
                     case 'E':
                         colorerr = !colorerr;
                         error("Color changing of cells with errors %s.",
                               colorerr ? "enabled" : "disabled");
                         break;
-                    case 'x': case 'X':
-#ifdef NOCRYPT
-                        error("Encryption not available.");
-#else
-                        Crypt = !Crypt;
-                        error("Encryption %s.", Crypt ? "enabled" : "disabled");
-#endif
+                    case 'i': case 'I':
+                        autoinsert = !autoinsert;
+                        error("Autoinsert %s.",
+                              autoinsert? "enabled" : "disabled");
                         break;
                     case 'l': case 'L':
                         autolabel = !autolabel;
                         error("Autolabel %s.",
                               autolabel ? "enabled" : "disabled");
                         break;
-                    case '$':
-                        if (prescale == 1.0) {
-                            error("Prescale enabled.");
-                            prescale = 0.01;
-                        } else {
-                            prescale = 1.0;
-                            error("Prescale disabled.");
-                        }
+                    case 'n':
+                        numeric = !numeric;
+                        error("Numeric input %s.",
+                              numeric ? "enabled" : "disabled");
                         break;
-                    case 'e':
-                        extfunc = !extfunc;
-                        error("External functions %s.",
-                              extfunc? "enabled" : "disabled");
+                    case 'N':
+                        colorneg = !colorneg;
+                        error("Color changing of negative numbers %s.",
+                              colorneg ? "enabled" : "disabled");
                         break;
-                    case ESC:
-                    case ctl('g'):
-                        --modflg;   /* negate the modflg++ */
+                    case 'o': case 'O':
+                        optimize ^= 1;
+                        error("%s expressions upon entry.",
+                              optimize ? "Optimize" : "Do not optimize");
                         break;
                     case 'r': case 'R':
                         error("Which direction after return key?");
@@ -550,20 +524,51 @@ void vi_interaction(void) {
                             error("Not a valid direction");
                         }
                         break;
-                    case 'i': case 'I':
-                        autoinsert = !autoinsert;
-                        error("Autoinsert %s.",
-                              autoinsert? "enabled" : "disabled");
+                    case 's':
+                        cslop ^= 1;
+                        error("Color slop %s.",
+                              cslop ? "enabled" : "disabled");
+                        break;
+                    case 't': case 'T':
+                        showtop = !showtop;
+                        error("Top line %s.",
+                              showtop ? "enabled" : "disabled");
+                        break;
+                    case 'v':
+                        emacs_bindings = !emacs_bindings;
+                        error("Emacs %s.",
+                              emacs_bindings ? "enabled" : "disabled");
                         break;
                     case 'w': case 'W':
                         autowrap = !autowrap;
                         error("Autowrap %s.",
                               autowrap? "enabled" : "disabled");
                         break;
+                    case 'x': case 'X':
+#ifdef NOCRYPT
+                        error("Encryption not available.");
+#else
+                        Crypt = !Crypt;
+                        error("Encryption %s.", Crypt ? "enabled" : "disabled");
+#endif
+                        break;
                     case 'z': case 'Z':
                         rowlimit = currow;
                         collimit = curcol;
                         error("Row and column limits set");
+                        break;
+                    case '$':
+                        if (prescale == 1.0) {
+                            error("Prescale enabled.");
+                            prescale = 0.01;
+                        } else {
+                            prescale = 1.0;
+                            error("Prescale disabled.");
+                        }
+                        break;
+                    case ESC:
+                    case ctl('g'):
+                        --modflg;   /* negate the modflg++ */
                         break;
                     default:
                         error("Invalid toggle command");
@@ -592,26 +597,9 @@ void vi_interaction(void) {
                     break;
 
                 case ctl('w'):  /* insert variable expression */
-                    if (linelim >= 0)  {
-                        static char *temp = NULL, *temp1 = NULL;
-                        static unsigned templen = 0;
-                        int templim;
-
-                        /* scxrealloc will scxmalloc if needed */
-                        if (strlen(line) + 1 > templen) {
-                            templen = strlen(line) + 40;
-
-                            temp = scxrealloc(temp, templen);
-                            temp1= scxrealloc(temp1, templen);
-                        }
-                        strlcpy(temp, line, templen);
-                        templim = linelim;
-                        linelim = 0;            /* reset line to empty  */
-                        editexp(currow, curcol);
-                        strlcpy(temp1, line, templen);
-                        strlcpy(line, temp, sizeof line);
-                        linelim = templim;
-                        ins_string(temp1);
+                    if (linelim >= 0) {
+                        struct ent *p = lookat(currow, curcol);
+                        decompile(p->expr, 0);
                     }
                     break;
 
@@ -690,7 +678,6 @@ void vi_interaction(void) {
                 if (!p || !(p->flags & IS_VALID)) {
                     if (c == '+') {
                         editv(currow, curcol);
-                        linelim = strlen(line);
                         insert_mode();
                         write_line(ctl('v'));
                     }
@@ -775,7 +762,6 @@ void vi_interaction(void) {
 
                     numeric_field = 1;
                     editv(currow, curcol);
-                    linelim = strlen(line);
                     insert_mode();
                     if (c == '-' || (p->flags & IS_VALID))
                         write_line(c);
@@ -1189,7 +1175,6 @@ void vi_interaction(void) {
 
                         editv(currow, curcol);
                         if (!(p->flags & IS_VALID)) {
-                            linelim = strlen(line);
                             insert_mode();
                         } else
                             edit_mode();
@@ -2649,7 +2634,7 @@ static void rep_char(void) {
     }
     c = vigetch();
     savedot(c);
-    if (c < 256 && c!= ESC && c != ctl('g')) {
+    if (c < 256 && c != ESC && c != ctl('g')) {
         if (line[linelim] == '\0')
             line[linelim+1] = '\0';
         line[linelim] = c;
@@ -3848,8 +3833,7 @@ void vi_select_range(const char *arg) {
             }
             /* else drop through */
         case ctl('m'):
-            strlcpy(line, "put ", sizeof line);
-            linelim = 4;
+            set_line("put ");
             write_line('.');
             if (showrange)
                 write_line('.');

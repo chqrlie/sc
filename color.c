@@ -192,14 +192,15 @@ void write_colors(FILE *f, int indent) {
 
     for (i = 1; i <= CPAIRS; i++) {
         if (cpairs[i] && cpairs[i]->expr) {
-            snprintf(line, sizeof line, "color %d = ", i);
-            linelim = strlen(line);
+            // XXX: should use a local buffer
+            set_line("color %d = ", i);
             decompile(cpairs[i]->expr, 0);
             fprintf(f, "%*s%s\n", indent, "", line);
             if (brokenpipe) return;
             count++;
         }
     }
+    linelim = -1;
     if (indent && count) fprintf(f, "\n");
 }
 
@@ -207,7 +208,6 @@ void list_colors(FILE *f) {
     struct crange *r;
 
     write_colors(f, 2);
-    linelim = -1;
     if (brokenpipe) return;
 
     if (!are_colors()) {
