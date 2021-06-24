@@ -44,7 +44,6 @@ SCXMEM int *precision;
 SCXMEM int *realfmt;
 SCXMEM unsigned char *col_hidden;
 SCXMEM unsigned char *row_hidden;
-char line[FBUFLEN];
 int changed;
 SCXMEM struct ent *delbuf[DELBUFSIZE];
 SCXMEM char *delbuffmt[DELBUFSIZE];
@@ -75,8 +74,6 @@ char revmsg[80];
 /* numeric separators, country-dependent if locale support enabled: */
 char dpoint = '.';   /* decimal point */
 char thsep = ',';    /* thousands separator */
-
-ssize_t linelim = -1;  /* position in line for writing and parsing */
 
 int showtop   = 1;     /* Causes current cell value display in top line  */
 int showcell  = 1;     /* Causes current cell to be highlighted          */
@@ -524,6 +521,15 @@ int buf_putc(buf_t buf, int c) {
     return -1;
 }
 
+/* append repeated bytes to a buffer */
+int buf_repc(buf_t buf, int c, int count) {
+    if (buf->len + count >= buf->size)
+        count = buf->size - buf->len - 1;
+    memset(buf->buf + buf->len, c, count);
+    buf->buf[buf->len += count] = '\0';
+    return count;
+}
+
 /* append a block of bytes to a buffer */
 size_t buf_put(buf_t buf, const char *s, size_t len) {
     if (buf->len + len >= buf->size)
@@ -577,4 +583,26 @@ size_t buf_setf(buf_t buf, const char *fmt, ...) {
     if (len >= buf->size)
         len = buf->size - 1;
     return buf->len = len;
+}
+
+/* extend the buffer with scxmalloc or scxrealloc to a minimum size */
+int buf_extend(buf_t buf, size_t size, size_t blocksize) {
+    char *ptr;
+    if (size <= buf->size)
+        return 0;
+    size = (size + blocksize - 1) / blocksize * blocksize;
+    if (buf->flags & BUF_ALLOC) {
+        ptr = scxrealloc(buf->buf, size);
+        if (!ptr)
+            return -1;
+    } else {
+        ptr = scxmalloc(size);
+        if (!ptr)
+            return -1;
+        memcpy(ptr, buf->buf, buf->size);
+    }
+    buf->buf = ptr;
+    buf->size = size;
+    buf->flags |= BUF_ALLOC;
+    return 0;
 }

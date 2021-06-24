@@ -87,11 +87,14 @@ static void leftlimit(void);
 static void rightlimit(void);
 static void list_all(void);
 
+char line[FBUFLEN];
+ssize_t linelim = -1;  /* position in line for writing and parsing */
+char histfile[PATHLEN] = "~/.sc_history";
+
 static int uarg = 1;        /* universal numeric prefix argument */
 
 static char *completethis = NULL;
 static int search_dir;      /* Search direction:  forward = 0; back = 1 */
-char histfile[PATHLEN] = "~/.sc_history";
 
 /* values for mode below */
 
@@ -168,6 +171,7 @@ void vi_interaction(void) {
     char *ext;
     struct ent *p;
     int ps;
+    buf_t buf;
 
     modflg = 0;
     cellassign = 0;
@@ -599,7 +603,10 @@ void vi_interaction(void) {
                 case ctl('w'):  /* insert variable expression */
                     if (linelim >= 0) {
                         struct ent *p = lookat(currow, curcol);
-                        decompile(p->expr, 0);
+                        /* decompile expression into line array */
+                        buf_init(buf, line, sizeof line);
+                        decompile(buf, p->expr);
+                        linelim = buf->len;
                     }
                     break;
 
@@ -677,7 +684,10 @@ void vi_interaction(void) {
                 p = *ATBL(tbl, currow, curcol);
                 if (!p || !(p->flags & IS_VALID)) {
                     if (c == '+') {
-                        editv(currow, curcol);
+                        /* copy cell contents into line array */
+                        buf_init(buf, line, sizeof line);
+                        editv(buf, currow, curcol);
+                        linelim = buf->len;
                         insert_mode();
                         write_line(ctl('v'));
                     }
@@ -761,7 +771,10 @@ void vi_interaction(void) {
                     savedstcol[27] = stcol;
 
                     numeric_field = 1;
-                    editv(currow, curcol);
+                    /* copy cell contents into line array */
+                    buf_init(buf, line, sizeof line);
+                    editv(buf, currow, curcol);
+                    linelim = buf->len;
                     insert_mode();
                     if (c == '-' || (p->flags & IS_VALID))
                         write_line(c);
@@ -1173,7 +1186,11 @@ void vi_interaction(void) {
                         savedstrow[27] = strow;
                         savedstcol[27] = stcol;
 
-                        editv(currow, curcol);
+                        /* copy cell contents into line array */
+                        buf_init(buf, line, sizeof line);
+                        editv(buf, currow, curcol);
+                        linelim = buf->len;
+
                         if (!(p->flags & IS_VALID)) {
                             insert_mode();
                         } else
@@ -1188,7 +1205,10 @@ void vi_interaction(void) {
                         savedstrow[27] = strow;
                         savedstcol[27] = stcol;
 
-                        edits(currow, curcol);
+                        /* copy cell contents into line array */
+                        buf_init(buf, line, sizeof line);
+                        edits(buf, currow, curcol);
+                        linelim = buf->len;
                         edit_mode();
                     }
                     break;
@@ -1221,7 +1241,10 @@ void vi_interaction(void) {
                     }
                     set_line("color %d = ", c);
                     if (cpairs[c] && cpairs[c]->expr) {
-                        decompile(cpairs[c]->expr, 0);
+                        /* copy color expression into line array */
+                        buf_init(buf, line, sizeof line);
+                        decompile(buf, cpairs[c]->expr);
+                        linelim = buf->len;
                         edit_mode();
                     } else {
                         insert_mode();

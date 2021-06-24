@@ -1481,12 +1481,11 @@ static void print_options(FILE *f) {
 }
 
 void printfile(const char *fname, int r0, int c0, int rn, int cn) {
+    char field[FBUFLEN];
+    buf_t(buf, FBUFLEN);
     FILE *f;
-    static char *pline = NULL;          /* only malloc once, malloc is slow */
-    static unsigned fbufs_allocated = 0;
-    int plinelim;
     int pid = -1;
-    unsigned int fieldlen, nextcol;
+    int fieldlen, nextcol;
     int row, col;
     char path[PATHLEN];
     char *ext;
@@ -1519,172 +1518,134 @@ void printfile(const char *fname, int r0, int c0, int rn, int cn) {
     } else {
         f = stdout;
     }
-    if (!pline && (pline = scxmalloc(FBUFLEN * ++fbufs_allocated)) == NULL) {
-        error("Malloc failed in printfile()");
-        return;
-    }
 
     for (row = r0; row <= rn; row++) {
-        unsigned int c = 0;
+        int w = 0;
 
         if (row_hidden[row])
             continue;
 
-        pline[plinelim = 0] = '\0';
-        for (col = c0; col <= cn; col = nextcol, c += fieldlen) {
+        buf_reset(buf);
+        for (col = c0; col <= cn; col = nextcol, w += fieldlen) {
             struct ent *p = *ATBL(tbl, row, col);
+            char *s;
+
+            fieldlen = 0;
             nextcol = col + 1;
             if (col_hidden[col]) {
-                fieldlen = 0;
                 continue;
             }
 
+            // XXX: should handle cell fusion
             fieldlen = fwidth[col];
-            if (p) {
-                char *s;
+            if (!p)
+                continue;
 
-                /*
-                 * dynamically allocate pline, making sure we are not
-                 * attempting to write 'out of bounds'.
-                 */
-                while (c > (fbufs_allocated * FBUFLEN)) {
-                    if ((pline = scxrealloc(pline, FBUFLEN * ++fbufs_allocated)) == NULL) {
-                        error("Realloc failed in printfile()");
-                        return;
-                    }
+            if (buf_extend(buf, w + fieldlen + 2, FBUFLEN))
+                goto malloc_error;
+
+            if (p->flags & IS_VALID) {
+                if ((int)buf->len < w) {
+                    buf_repc(buf, ' ', w - buf->len);
+                } else {
+                    buf->buf[buf->len = w] = '\0';
                 }
-                while (plinelim < (int)c)
-                    pline[plinelim++] = ' ';
-                plinelim = c;
-                if (p->flags & IS_VALID) {
-                    while (plinelim + fwidth[col] > (int)(fbufs_allocated * FBUFLEN)) {
-                        if ((pline = scxrealloc(pline, FBUFLEN * ++fbufs_allocated)) == NULL) {
-                            error("Realloc failed in printfile()");
-                            return;
-                        }
-                    }
-                    if (p->cellerror) {
-                        snprintf(pline + plinelim,
-                                 FBUFLEN * fbufs_allocated - plinelim,
-                                 "%*s", fwidth[col],
-                                 (p->cellerror == CELLERROR ? "ERROR " : "INVALID "));
-                    } else {
-                        char *cfmt;
-
-                        cfmt = p->format ? p->format :
-                            (realfmt[col] >= 0 && realfmt[col] < COLFORMATS &&
-                             colformat[realfmt[col]]) ?
-                            colformat[realfmt[col]] : 0;
-                        if (cfmt) {
-                            char field[FBUFLEN];
-
-                            if (*cfmt == ctl('d')) {
-                                time_t v = (time_t) (p->v);
-                                // XXX: should check format string
-                                ((size_t (*)(char *, size_t, const char *, const struct tm *tm))strftime)
-                                    (field, sizeof(field), cfmt + 1, localtime(&v));
-                                snprintf(pline + plinelim,
-                                         FBUFLEN * fbufs_allocated - plinelim,
-                                         "%-*s", fwidth[col], field);
-                            } else {
-                                format(cfmt, precision[col], p->v, field,
-                                       sizeof(field));
-                                snprintf(pline + plinelim,
-                                         FBUFLEN * fbufs_allocated - plinelim,
-                                         "%*s", fwidth[col], field);
-                            }
+                if (p->cellerror) {
+                    buf_printf(buf, "%*s", fieldlen,
+                               (p->cellerror == CELLERROR ? "ERROR " : "INVALID "));
+                } else {
+                    // XXX: should fill fieldlen with * if too long
+                    // XXX: alignment should be determined from cell format
+                    //      ALIGN_AUTO, ALIGN_LEFT, ALIGN_CENTER, ALIGN_RIGHT
+                    char *cfmt = p->format ? p->format :
+                        (realfmt[col] >= 0 && realfmt[col] < COLFORMATS &&
+                         colformat[realfmt[col]]) ?
+                        colformat[realfmt[col]] : NULL;
+                    if (cfmt) {
+                        if (*cfmt == ctl('d')) {
+                            time_t v = (time_t)(p->v);
+                            // XXX: should check format string
+                            ((size_t (*)(char *, size_t, const char *, const struct tm *tm))strftime)
+                            (field, sizeof(field), cfmt + 1, localtime(&v));
+                            buf_printf(buf, "%-*s", fieldlen, field);
                         } else {
-                            char field[FBUFLEN];
-                            engformat(realfmt[col], fwidth[col],
-                                      precision[col], p->v,
-                                      field, sizeof(field));
-                            snprintf(pline + plinelim,
-                                     FBUFLEN * fbufs_allocated - plinelim,
-                                     "%*s", fwidth[col], field);
-                        }
-                    }
-                    plinelim += strlen(pline + plinelim);
-                }
-                if ((s = p->label)) {
-                    ssize_t slen;
-                    char *start, *last;
-                    char *fp;
-                    struct ent *nc;
-
-                    /*
-                     * Figure out if the label slops over to a blank field.
-                     * A string started with backslash is defining repetition
-                     * char
-                     */
-                    slen = strlen(s);
-                    if (*s == '\\' && s[1] != '\0')
-                        slen = fwidth[col];
-                    while (slen > (ssize_t)fieldlen && (int)nextcol <= cn &&
-                            !((nc = lookat(row, nextcol))->flags & IS_VALID) &&
-                            !nc->label) {
-
-                        if (!col_hidden[nextcol])
-                            fieldlen += fwidth[nextcol];
-
-                        nextcol++;
-                    }
-                    if (slen > (ssize_t)fieldlen)
-                        slen = fieldlen;
-
-                    while (c + fieldlen + 2 > (fbufs_allocated * FBUFLEN)) {
-                        if ((pline = scxrealloc(pline, FBUFLEN * ++fbufs_allocated)) == NULL) {
-                            error ("scxrealloc failed in printfile()");
-                            return;
-                        }
-                    }
-
-                    /* Now justify and print */
-                    start = (p->flags & IS_LEFTFLUSH) ? pline + c : pline + c + fieldlen - slen;
-                    if (p->flags & IS_LABEL)
-                        start = pline + (c + ((fwidth[col] > slen) ?
-                                              (fwidth[col] - slen) / 2 : 0));
-                    last = pline + c + fieldlen;
-                    fp = plinelim < (int)c ? pline + plinelim : pline + c;
-                    while (fp < start)
-                        *fp++ = ' ';
-                    if (*s == '\\' && s[1] != '\0') {
-                        char *strt;
-                        strt = ++s;
-
-                        while (slen--) {
-                            *fp++ = *s++;
-                            if (*s == '\0')
-                                s = strt;
+                            format(cfmt, precision[col], p->v, field, sizeof(field));
+                            buf_printf(buf, "%*s", fieldlen, field);
                         }
                     } else {
-                        while (slen-- > 0) {
-                            if (*s == '\\') {
-                                if (s[1] == '"') {
-                                    ++s;
-                                    --slen;
-                                } else if (s[1] == '\\' && s[2] == '"') {
-                                    s    += 2;
-                                    slen -= 2;
-                                }
-                            }
-                            *fp++ = *s++;
-                        }
+                        engformat(realfmt[col], fieldlen, precision[col],
+                                  p->v, field, sizeof(field));
+                        buf_printf(buf, "%*s", fieldlen, field);
                     }
-
-                    if (!(p->flags & IS_VALID) || (int)fieldlen != fwidth[col]) {
-                        while (fp < last)
-                            *fp++ = ' ';
-                    }
-                    if (plinelim < fp - pline)
-                        plinelim = fp - pline;
                 }
+            } else
+            if ((s = p->label)) {
+                int slen = strlen(s);
+                int pad = 0;
+                int soff = 0;
+
+                if (*s == '\\' && slen > 1) {
+                    /* A string starting with a backslash is repeated across
+                       the column width. */
+                    int remain = fieldlen;
+                    slen -= 1;  /* skip the '\' */
+                    s += 1;
+                    while (remain > 0) {
+                        int chunk = slen <= remain ? slen : remain;
+                        buf_put(buf, s, chunk);
+                        remain -= chunk;
+                    }
+                    continue;
+                }
+                /* Figure out if the label slops over to a blank field. */
+                while (slen > fieldlen && nextcol <= cn) {
+                    if (!col_hidden[nextcol]) {
+                        struct ent *nc = lookat(row, nextcol);
+                        if ((nc->flags & IS_VALID) || nc->label)
+                            break;
+                        fieldlen += fwidth[nextcol];
+                    }
+                    nextcol++;
+                }
+                if (p->flags & IS_LEFTFLUSH) {  /* left align */
+                    pad = w - buf->len;
+                    if (slen > fieldlen)
+                        slen = fieldlen;
+                } else
+                if (p->flags & IS_LABEL) {  /* center */
+                    pad = w - buf->len + (fwidth[nextcol] - slen) / 2;
+                    if (pad < 0) {
+                        soff = -pad;
+                        slen -= soff;
+                    }
+                    if ((int)buf->len + pad + slen > w + fieldlen)
+                        slen = w + fieldlen - buf->len - pad;
+                } else {
+                    pad = w - buf->len + fieldlen - slen;
+                    if (pad < 0) {
+                        soff = -pad;
+                        slen -= soff;
+                        pad = 0;
+                    }
+                }
+
+                if (buf_extend(buf, w + fieldlen + 2, FBUFLEN))
+                    goto malloc_error;
+
+                buf_repc(buf, ' ', pad);
+                buf_put(buf, s + soff, slen);
+                if (nextcol <= cn)
+                    buf_repc(buf, ' ', w + fieldlen - buf->len);
             }
         }
-        pline[plinelim++] = '\n';
-        pline[plinelim] = '\0';
-        fputs(pline, f);
+        buf_putc(buf, '\n');
+        fputs(buf->buf, f);
     }
-
+    if (0) {
+    malloc_error:
+        error("Realloc failed in printfile()");
+    }
+    buf_free(buf);
     if (fname) closefile(f, pid, 0);
 }
 
@@ -2468,6 +2429,7 @@ void write_fd(FILE *f, int r0, int c0, int rn, int cn) {
 }
 
 void write_cells(FILE *f, int r0, int c0, int rn, int cn, int dr, int dc) {
+    buf_t(buf, FBUFLEN);
     int r, c, mf;
     int rs = 0;
     int cs = 0;
@@ -2489,24 +2451,21 @@ void write_cells(FILE *f, int r0, int c0, int rn, int cn, int dr, int dc) {
             struct ent *p = *ATBL(tbl, r, c);
             if (p) {
                 if (p->label || (p->flags & IS_STREXPR)) {
-                    // XXX: should pass destination buffer
-                    edits(r, c);
-                    fprintf(f, "%s\n", line);
+                    edits(buf, r, c);
+                    fprintf(f, "%s\n", buf->buf);
                 }
                 if (p->flags & IS_VALID) {
-                    // XXX: should pass destination buffer
-                    editv(r, c);
+                    editv(buf, r, c);
                     if (dpoint != '.') {
-                        char *dpointptr = strchr(line, dpoint);
+                        char *dpointptr = strchr(buf->buf, dpoint);
                         if (dpointptr != NULL)
                             *dpointptr = '.';
                     }
-                    fprintf(f, "%s\n", line);
+                    fprintf(f, "%s\n", buf->buf);
                 }
                 if (p->format) {
-                    // XXX: should pass destination buffer
-                    editfmt(r, c);
-                    fprintf(f, "%s\n", line);
+                    editfmt(buf, r, c);
+                    fprintf(f, "%s\n", buf->buf);
                 }
             }
         }
@@ -2518,7 +2477,6 @@ void write_cells(FILE *f, int r0, int c0, int rn, int cn, int dr, int dc) {
         flush_saved();
     }
     modflg = mf;
-    linelim = -1;
 }
 
 int writefile(const char *fname, int r0, int c0, int rn, int cn) {

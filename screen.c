@@ -83,6 +83,7 @@ void select_style(int n, int rev) {
 static int standlast = FALSE;
 
 void update(int anychanged) {          /* did any cell really change in value? */
+    buf_t(buf, FBUFLEN);
     int row, col;
     struct ent *p;
     int mxrow, mxcol;
@@ -782,11 +783,9 @@ void update(int anychanged) {          /* did any cell really change in value? *
                                p->cellerror == CELLERROR ? "ERROR" : "INVALID");
                     } else
                     if (showexpr && p->expr) {
-                        // XXX: this is bogus: it destroys the `line` buffer
-                        linelim = 0;
-                        decompile(p->expr, 0);   /* set line to expr */
-                        linelim = -1;
-                        showstring(line, /* leftflush = */ 1, /* hasvalue = */ 0,
+                        buf_reset(buf);
+                        decompile(buf, p->expr);
+                        showstring(buf->buf, /* leftflush = */ 1, /* hasvalue = */ 0,
                                    row, col, &nextcol, mxcol, &fieldlen, r, c,
                                    fr, frightcols, flcols, frcols);
                     } else {
@@ -971,11 +970,10 @@ void update(int anychanged) {          /* did any cell really change in value? *
                                       realfmt[curcol]);
             }
             if (p1) {
+                buf_reset(buf);
                 if (p1->expr) {
                     /* has expr of some type */
-                    linelim = 0;
-                    decompile(p1->expr, 0);   /* set line to expr */
-                    linelim = -1;
+                    decompile(buf, p1->expr);
                 }
 
                 /*
@@ -987,7 +985,7 @@ void update(int anychanged) {          /* did any cell really change in value? *
                         addstr("|{");
                     else
                         addstr((p1->flags & IS_LEFTFLUSH) ? "<{" : ">{");
-                    addstr(line);
+                    addstr(buf->buf);
                     addstr("} ");        /* and this '}' is for vi % */
                     printed = 1;
                 } else
@@ -1007,13 +1005,12 @@ void update(int anychanged) {          /* did any cell really change in value? *
                  */
 
                 if (p1->flags & IS_VALID) {
-                    char buf[32];
                     /* has value or num expr */
-                    if ((!(p1->expr)) || (p1->flags & IS_STREXPR))
-                        snprintf(buf, sizeof buf, "%.15g", p1->v);
+                    if (!(p1->expr) || (p1->flags & IS_STREXPR))
+                        buf_setf(buf, "%.15g", p1->v);
 
                     addch('[');
-                    addstr(buf);
+                    addstr(buf->buf);
                     addch(']');
                     printed = 1;
                 }

@@ -89,28 +89,25 @@ void getstring(int r0, int c0, int rn, int cn, int fd) {
 }
 
 void getexp(int r0, int c0, int rn, int cn, int fd) {
-    // XXX: should use local buffer for decompile
+    buf_t(buf, FBUFLEN);
     int r, c;
 
     for (r = r0; r <= rn; r++) {
         for (c = c0; c <= cn; c++) {
             struct ent *p = *ATBL(tbl, r, c);
-            *line = '\0';
+            buf_reset(buf);
             if (p && p->expr) {
-                linelim = 0;
-                decompile(p->expr, 0);  /* set line to expr */
-                if (*line == '?')
-                    *line = '\0';
+                decompile(buf, p->expr);
+                if (*buf->buf == '?')
+                    buf_reset(buf);
             }
-            strlcat(line, (c < cn) ? "\t" : "\n", sizeof line);
-            write(fd, line, strlen(line));
-            if (brokenpipe) {
-                linelim = -1;
+            // XXX: should force separator output even if buffer is full
+            buf_putc(buf, (c < cn) ? '\t' : '\n');
+            buf_write(buf, fd);
+            if (brokenpipe)
                 return;
-            }
         }
     }
-    linelim = -1;
 }
 
 void getformat(int col, int fd) {

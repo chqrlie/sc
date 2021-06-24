@@ -189,18 +189,17 @@ void write_cranges(FILE *f) {
 
 void write_colors(FILE *f, int indent) {
     int i, count = 0;
+    buf_t(buf, FBUFLEN);
 
     for (i = 1; i <= CPAIRS; i++) {
         if (cpairs[i] && cpairs[i]->expr) {
-            // XXX: should use a local buffer
-            set_line("color %d = ", i);
-            decompile(cpairs[i]->expr, 0);
-            fprintf(f, "%*s%s\n", indent, "", line);
+            buf_setf(buf, "color %d = ", i);
+            decompile(buf, cpairs[i]->expr);
+            fprintf(f, "%*s%s\n", indent, "", buf->buf);
             if (brokenpipe) return;
             count++;
         }
     }
-    linelim = -1;
     if (indent && count) fprintf(f, "\n");
 }
 

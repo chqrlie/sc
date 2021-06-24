@@ -75,6 +75,85 @@ extern const char *progname;
 #define NOCRYPT
 #endif
 
+/*---------------- Memory allocation ----------------*/
+
+#define SCXMEM          /* flag allocated pointers with this */
+
+extern SCXMEM void *scxmalloc(size_t n);
+extern SCXMEM void *scxrealloc(SCXMEM void *ptr, size_t n);
+extern SCXMEM char *scxdup(const char *s);
+extern void scxfree(SCXMEM void *p);
+extern char *set_string(SCXMEM char **pp, SCXMEM char *s);
+extern char *set_cstring(SCXMEM char **pp, const char *s);
+
+/*---------------- char buffer utilities ----------------*/
+
+/* buf_t structure to collect bufferized output */
+typedef struct buf_t {
+    char *buf;
+    size_t size, len;
+    int flags;
+#define BUF_ALLOC  1
+} buf_t[1];
+
+/* define a fixed size buf_t object */
+#define buf_t(name, size) \
+    char name##__buf[size]; \
+    buf_t name = {{ name##__buf, sizeof(name##__buf), 0, 0 }}
+
+/* initialize a buffer with explicit array and size */
+static inline void buf_init(buf_t buf, char *p, size_t size) {
+    buf->buf = p;
+    buf->size = size;
+    buf->len = 0;
+    buf->flags = 0;
+}
+
+/* clear the contents of a buffer */
+static inline void buf_reset(buf_t buf) {
+    buf->buf[buf->len = 0] = '\0';
+}
+
+/* free the contents of a buffer */
+static inline void buf_free(buf_t buf) {
+    if (buf->flags & BUF_ALLOC)
+        scxfree(buf->buf);
+}
+
+/* write the contents of a buffer to a system file handle */
+static inline ssize_t buf_write(buf_t buf, int fd) {
+    ssize_t res = write(fd, buf->buf, buf->len);
+    buf->len = 0;
+    return res;
+}
+
+/* append a char to a buffer */
+int buf_putc(buf_t buf, int c);
+
+/* append count copies of char to a buffer */
+int buf_repc(buf_t buf, int c, int count);
+
+/* append a block of bytes to a buffer */
+size_t buf_put(buf_t buf, const char *s, size_t len);
+
+/* append a string to a buffer */
+size_t buf_puts(buf_t buf, const char *s);
+
+/* append a formated string to a buffer */
+size_t buf_printf(buf_t buf, const char *fmt, ...) sc__attr_printf(2,3);
+
+/* set buffer contents to block of bytes */
+size_t buf_set(buf_t buf, const char *s, size_t len);
+
+/* set buffer contents to a string */
+size_t buf_sets(buf_t buf, const char *s);
+
+/* set buffer contents to a formated string */
+size_t buf_setf(buf_t buf, const char *fmt, ...) sc__attr_printf(2,3);
+
+/* extend the buffer with scxmalloc or scxrealloc */
+int buf_extend(buf_t buf, size_t size, size_t blocksize);
+
 /*---------------- Spreadsheet data ----------------*/
 
 #define ATBL(tbl, row, col)     (&tbl[row][col])
@@ -115,8 +194,6 @@ extern void fatal(const char *str);
 #endif /* DFLT_PAGER */
 
 #define MAXCMD 160      /* for ! command and commands that use the pager */
-
-#define SCXMEM          /* flag allocated pointers with this */
 
 /*
  * ent_ptr holds the row/col # and address type of a cell
@@ -517,14 +594,6 @@ extern SCXMEM char *texext;
 extern int Vopt;
 extern struct go_save gs;
 
-/* memory allocation */
-extern SCXMEM void *scxmalloc(size_t n);
-extern SCXMEM void *scxrealloc(SCXMEM void *ptr, size_t n);
-extern SCXMEM char *scxdup(const char *s);
-extern void scxfree(SCXMEM void *p);
-extern char *set_string(SCXMEM char **pp, SCXMEM char *s);
-extern char *set_cstring(SCXMEM char **pp, const char *s);
-
 /* styles */
 extern struct SCXMEM colorpair *cpairs[CPAIRS + 1];
 extern int are_colors(void);
@@ -608,7 +677,7 @@ extern void copy(struct ent *dv1, struct ent *dv2, struct ent *v1, struct ent *v
 extern void docopy(void);
 extern void copyent(struct ent *n, struct ent *p,
                     int dr, int dc, int r1, int c1, int r2, int c2, int transpose);
-extern void decompile(struct enode *e, int priority);
+extern void decompile(buf_t buf, struct enode *e);
 extern void del_range(struct ent *left, struct ent *right);
 extern void del_abbr(const char *abbrev);
 extern void deraw(int ClearLastLine);
@@ -629,9 +698,9 @@ extern void dohistfile(const char *str);
 extern void dosetformat(int n, const char *str);
 extern void dorun(const char *str);
 extern void dodefine(const char *name);
-extern void editfmt(int row, int col);
-extern void edits(int row, int col);
-extern void editv(int row, int col);
+extern void editfmt(buf_t buf, int row, int col);
+extern void edits(buf_t buf, int row, int col);
+extern void editv(buf_t buf, int row, int col);
 extern void efree(SCXMEM struct enode *e);
 extern void erase_area(int sr, int sc, int er, int ec, int ignorelock);
 extern void erasedb(void);
@@ -808,56 +877,3 @@ extern void lotus_menu(void);
 
 static inline int isalphachar_(char c) { return isalphachar(c) || c == '_'; }
 static inline int isalnumchar_(char c) { return isalnumchar(c) || c == '_'; }
-
-/* char buffer utilities */
-
-/* buf_t structure to collect bufferized output */
-typedef struct buf_t {
-    char *buf;
-    size_t size, len;
-} buf_t[1];
-
-/* define a fixed size buf_t object */
-#define buf_t(name, size) \
-    char name##__buf[size]; \
-    buf_t name = { name##__buf, sizeof(name##__buf), 0 }
-
-/* initialize a buffer with explicit array and size */
-static inline void buf_init(buf_t buf, char *p, size_t size) {
-    buf->buf = p;
-    buf->size = size;
-    buf->len = 0;
-}
-
-/* clear the contents of a buffer */
-static inline void buf_reset(buf_t buf) {
-    buf->buf[buf->len = 0] = '\0';
-}
-
-/* write the contents of a buffer to a system file handle */
-static inline ssize_t buf_write(buf_t buf, int fd) {
-    ssize_t res = write(fd, buf->buf, buf->len);
-    buf->len = 0;
-    return res;
-}
-
-/* append a char to a buffer  */
-int buf_putc(buf_t buf, int c);
-
-/* append a block of bytes to a buffer */
-size_t buf_put(buf_t buf, const char *s, size_t len);
-
-/* append a string to a buffer */
-size_t buf_puts(buf_t buf, const char *s);
-
-/* append a formated string to a buffer */
-size_t buf_printf(buf_t buf, const char *fmt, ...) sc__attr_printf(2,3);
-
-/* set buffer contents to block of bytes */
-size_t buf_set(buf_t buf, const char *s, size_t len);
-
-/* set buffer contents to a string */
-size_t buf_sets(buf_t buf, const char *s);
-
-/* set buffer contents to a formated string */
-size_t buf_setf(buf_t buf, const char *fmt, ...) sc__attr_printf(2,3);
