@@ -12,7 +12,6 @@
 #include <regex.h>
 #endif
 #include "sc.h"
-#include "y.tab.h"
 
 #if defined(RE_COMP)
 extern char *re_comp(char *s);
@@ -2788,8 +2787,7 @@ static void cr_line(void) {
     }
     save_hist();
     nosavedot = 1;
-    linelim = 0;
-    yyparse();
+    parse_line(line);
     showrange = 0;
     linelim = -1;
     if (cellassign) {
@@ -3497,8 +3495,8 @@ static void dogoto(void) {
     query("goto where?", NULL);
     if (linelim >= 0) {
         strsplice(line, sizeof line, 0, 0, "goto ", 5);
-        linelim = 0;
-        yyparse();
+        parse_line(line);
+        linelim = -1;
     }
 
     strlcpy(line, tempc, sizeof line);
@@ -3833,7 +3831,7 @@ static void formatcol(int arg) {
 }
 
 /* called from main() for -P/ option */
-void vi_select_range(const char *arg) {
+static void vi_select_range(const char *arg) {
     int c;
 
     linelim = 0;
@@ -3884,4 +3882,42 @@ void vi_select_range(const char *arg) {
         CLEAR_LINE;
         update(1);
     }
+}
+
+void sc_cmd_put(const char *arg) {
+    if (*optarg == '/') {
+        int in = dup(STDIN_FILENO);
+        int out = dup(STDOUT_FILENO);
+        freopen("/dev/tty", "r", stdin);
+        freopen("/dev/tty", "w", stdout);
+        usecurses = TRUE;
+        startdisp();
+        if (has_colors()) {
+            initcolor(0);
+            bkgd(COLOR_PAIR(1) | ' ');
+        }
+        clearok(stdscr, TRUE);
+        FullUpdate++;
+
+        // XXX: should not use global line array
+        //      another ugly hack
+        vi_select_range(optarg); // sets linelim
+        stopdisp();
+        dup2(in, STDIN_FILENO);
+        dup2(out, STDOUT_FILENO);
+        close(in);
+        close(out);
+        if (linelim > 0) {
+            parse_line(line);
+        }
+    } else {
+        set_line("put %s", optarg);
+        parse_line(line);
+    }
+    linelim = -1;
+}
+
+void sc_cmd_write(const char *arg) {
+    set_line("write %s", optarg);
+    parse_line(line);
 }

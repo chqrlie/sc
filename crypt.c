@@ -16,6 +16,7 @@ int Crypt = 0;
 char KeyWord[MAXKEYWORDSIZE] = { "" };
 
 void creadfile(const char *save, int eraseflg) {
+    char buf[FBUFLEN];
     FILE *f;
     int pipefd[2];
     int fildes;
@@ -65,8 +66,8 @@ void creadfile(const char *save, int eraseflg) {
 
     loading++;
     // XXX: should use a local buffer
-    while (fgets(line, sizeof line, f)) {
-        p = line;
+    while (fgets(buf, sizeof buf, f)) {
+        p = buf;
         while (*p == ' ') {
             /* skip initial blanks */
             p++;
@@ -75,8 +76,7 @@ void creadfile(const char *save, int eraseflg) {
             /* ignore comments and blank lines */
             continue;
         }
-        linelim = 0;
-        yyparse();
+        parse_line(buf);
     }
     --loading;
     if (fclose(f) == EOF) {
@@ -85,7 +85,7 @@ void creadfile(const char *save, int eraseflg) {
     close(pipefd[0]);
     while (pid != wait(&fildes))
         continue;
-    linelim = -1;
+    //linelim = -1;
     if (eraseflg) {
         strlcpy(curfile, save, sizeof curfile);
         modflg = 0;

@@ -18,7 +18,6 @@
 #include <sys/stat.h>
 #include <signal.h>
 #include "sc.h"
-#include "y.tab.h" /* for yyparse() */
 
 static void syncref(struct enode *e);
 static void unspecial(FILE *f, char *str, int delim);
@@ -2580,6 +2579,7 @@ int writefile(const char *fname, int r0, int c0, int rn, int cn) {
 int readfile(const char *fname, int eraseflg) {
     FILE *f;
     char save[PATHLEN];
+    char buf[FBUFLEN];
     int tempautolabel;
     char *p;
     char *plugin;
@@ -2674,8 +2674,8 @@ int readfile(const char *fname, int eraseflg) {
     savefd = macrofd;
     macrofd = rfd;
     // XXX: should use a local buffer
-    while (!brokenpipe && fgets(line, sizeof(line), f)) {
-        p = line;
+    while (!brokenpipe && fgets(buf, sizeof(buf), f)) {
+        p = buf;
         if (*p == '|' && pid != 0) {
             *p = ' ';
         } else {
@@ -2688,8 +2688,7 @@ int readfile(const char *fname, int eraseflg) {
                 continue;
             }
         }
-        linelim = 0;
-        yyparse();
+        parse_line(buf);
     }
     macrofd = savefd;
     --loading;
@@ -2700,7 +2699,7 @@ int readfile(const char *fname, int eraseflg) {
         freopen("/dev/tty", "r", stdin);
         goraw();
     }
-    linelim = -1;
+    //linelim = -1;
     if (eraseflg) {
         strlcpy(curfile, save, sizeof curfile);
         modflg = 0;
@@ -3302,7 +3301,7 @@ void dosetformat(int n, const char *str) {
 void doredraw(void) {
     if (usecurses) {
         clearok(stdscr, TRUE);
-        linelim = -1;
+        //linelim = -1;
         update(1);
         refresh();
         changed = 0;

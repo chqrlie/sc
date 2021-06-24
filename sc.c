@@ -20,7 +20,6 @@
 #endif
 #include <termios.h>
 #include "sc.h"
-#include "y.tab.h"
 #include "version.h"
 
 #ifndef SAVENAME
@@ -333,44 +332,13 @@ int main(int argc, char **argv) {
                 Vopt = 1;
                 break;
             case 'P':
-                if (*optarg == '/') {
-                    int in, out;
-
-                    in = dup(STDIN_FILENO);
-                    out = dup(STDOUT_FILENO);
-                    freopen("/dev/tty", "r", stdin);
-                    freopen("/dev/tty", "w", stdout);
-                    usecurses = TRUE;
-                    startdisp();
-                    if (has_colors()) {
-                        initcolor(0);
-                        bkgd(COLOR_PAIR(1) | ' ');
-                    }
-                    clearok(stdscr, TRUE);
-                    FullUpdate++;
-
-                    vi_select_range(optarg); // sets linelim
-                    stopdisp();
-                    dup2(in, STDIN_FILENO);
-                    dup2(out, STDOUT_FILENO);
-                    close(in);
-                    close(out);
+                sc_cmd_put(optarg);
+                if (*optarg == '/')
                     redraw = "recalc\nredraw\n";
-                    if (linelim > 0) {
-                        linelim = 0;
-                        yyparse();
-                    }
-                } else {
-                    set_line("put %s", optarg);
-                    linelim = 0;
-                    yyparse();
-                }
                 Vopt = 0;
                 break;
             case 'W':
-                set_line("write %s", optarg);
-                linelim = 0;
-                yyparse();
+                sc_cmd_write(optarg);
                 break;
             default:
                 break;

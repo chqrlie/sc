@@ -88,15 +88,33 @@ static struct key statres[] = {
     { 0, 0 }
 };
 
+static const char *src_line;
+static const char *src_pos;
+
+//should be declared in y.tab.h
+//extern int yyparse(void);
+
+int parse_line(const char *buf) {
+    int ret;
+    src_pos = src_line = buf;
+    ret = yyparse();
+    src_pos = src_line = "";
+    return ret;
+}
+
+void yyerror(const char *err) {
+    parse_error(err, src_line, src_pos);
+}
+
 int yylex(void) {
-    char *p = line + linelim;
+    const char *p = src_pos;
     int ret = -1;
     // XXX: static data in the lexer is toxic
     static int isfunc = 0;
     static bool isgoto = 0;
     static bool colstate = 0;
     static int dateflag;
-    static char *tokenst = NULL;
+    static const char *tokenst = NULL;
     static size_t tokenl;
 
     while (isspacechar(*p))
@@ -106,7 +124,7 @@ int yylex(void) {
         ret = -1;
     } else
     if (isalphachar_(*p)) {
-        char *la;      /* lookahead pointer */
+        const char *la;      /* lookahead pointer */
         struct key *tblp;
 
         if (!tokenst) {
@@ -139,11 +157,11 @@ int yylex(void) {
                 tokenl++;
             }
             ret = WORD;
-            if (!linelim || isfunc) {
+            if (src_pos == src_line || isfunc) {
                 if (isfunc) isfunc--;
                 // XXX: initial blanks should be ignored:
-                //      so the test on linelim is incorrect
-                for (tblp = linelim ? experres : statres; tblp->key; tblp++) {
+                //      so the test on src_pos is incorrect
+                for (tblp = src_pos > src_line ? experres : statres; tblp->key; tblp++) {
                     if (((tblp->key[0] ^ tokenst[0]) & 0x5F) == 0) {
                         /* Commenting the following line makes the search slower */
                         /* but avoids access outside valid memory. A BST would   */
@@ -183,7 +201,7 @@ int yylex(void) {
                     ret = PLUGIN;
                 } else {
                     scxfree(path);
-                    linelim = p - line;
+                    src_pos = p;
                     yyerror("Unintelligible word");
                 }
             }
@@ -192,7 +210,7 @@ int yylex(void) {
         sigret_t (*sig_save)(int);
         double v = 0.0;
         int temp;
-        char *nstart = p;
+        const char *nstart = p;
 
         sig_save = signal(SIGFPE, fpe_trap);
         if (setjmp(fpe_buf)) {
@@ -235,18 +253,20 @@ int yylex(void) {
                     while (isdigitchar(*++p))
                         continue;
                     if (isalphachar_(*p)) {
-                        linelim = p - line;
+                        src_pos = p;
                         return yylex();     // XXX: why a recursive call?
                     } else
                         ret = FNUMBER;
                 } else if (isalphachar_(*p)) {
-                    linelim = p - line;
+                    src_pos = p;
                     return yylex();     // XXX: why a recursive call?
                 }
             }
             if ((!dateflag && *p == '.') || ret == FNUMBER) {
+                char *endp;
                 ret = FNUMBER;
-                yylval.fval = strtod(nstart, &p);
+                yylval.fval = strtod(nstart, &endp);
+                p = endp;
                 if (!isfinite(yylval.fval))
                     ret = K_ERR;
                 else
@@ -266,11 +286,12 @@ int yylex(void) {
         }
         signal(SIGFPE, sig_save);
     } else if (*p == '"') {
+        const char *p1;
         char *ptr;
-        ptr = p + 1;      /* "string" or "string\"quoted\"" */
-        while (*ptr && ((*ptr != '"') || (ptr[-1] == '\\')))
-            ptr++;
-        ptr = scxmalloc(ptr - p);
+        p1 = p + 1;      /* "string" or "string\"quoted\"" */
+        while (*p1 && ((*p1 != '"') || (p1[-1] == '\\')))
+            p1++;
+        ptr = scxmalloc(p1 - p);
         yylval.sval = ptr;
         p++;
         while (*p && ((*p != '"') ||
@@ -285,14 +306,14 @@ int yylex(void) {
             p++;
         if (*p)
             p++;
-        linelim = p - line;
+        src_pos = p;
         tokenst = NULL;
         return yylex();  // XXX: why a recursive call?
     } else {
         ret = *p++;
         yylval.ival = ret;
     }
-    linelim = p - line;
+    src_pos = p;
     if (!isfunc) isfunc = ((ret == '@') + (ret == S_GOTO) - (ret == S_SET));
     if (ret == S_GOTO) isgoto = TRUE;
     tokenst = NULL;

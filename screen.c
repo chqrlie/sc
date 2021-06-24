@@ -1100,17 +1100,16 @@ void repaint_cursor(int set) {
 int seenerr;
 
 /* error routine for yacc (gram.y) */
-void yyerror(const char *err) {
+void parse_error(const char *err, const char *base, const char *pos) {
     if (usecurses) {
         if (seenerr) return;
         seenerr++;
         move(1, 0);
         clrtoeol();
         // XXX: should print line portion around error if too long
-        printw("%s: %.*s<=%s", err, (int)linelim, line, line + linelim);
+        printw("%s: %.*s<=%s", err, (int)(pos - base), base, pos);
     } else {
-        fprintf(stderr, "%s: %.*s<=%s\n",
-                err, (int)linelim, line, line + linelim);
+        fprintf(stderr, "%s: %.*s<=%s\n", err, (int)(pos - base), base, pos);
     }
 }
 

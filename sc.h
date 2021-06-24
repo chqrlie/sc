@@ -410,10 +410,10 @@ struct go_save {
 #define IS_VALID     0001
 #define IS_CHANGED   0002
 #define IS_STREXPR   0004
-#define IS_LEFTFLUSH 0010
+#define IS_LEFTFLUSH 0010  /* align left */
 #define IS_DELETED   0020
 #define IS_LOCKED    0040
-#define IS_LABEL     0100
+#define IS_LABEL     0100  /* align center */
 #define IS_CLEARED   0200
 #define MAY_SYNC     0400
 
@@ -782,10 +782,10 @@ extern void write_franges(FILE *f);
 extern void write_hist(void);
 extern void write_ranges(FILE *f);
 extern void yank_area(int sr, int sc, int er, int ec);
+extern int parse_line(const char *buf);
+extern void parse_error(const char *err, const char *line, const char *pos);
 extern void yyerror(const char *err);
 extern int yylex(void);
-// XXX: redundant declaration in y.tab.h
-//extern int yyparse(void);
 extern int backup_file(const char *path);
 extern void sc_set_locale(int set);
 extern int set_line(const char *fmt, ...) sc__attr_printf(1,2);
@@ -861,7 +861,8 @@ extern void mouseon(void);
 extern void mouseoff(void);
 extern void hidecursor(void);
 extern void vi_interaction(void);
-extern void vi_select_range(const char *arg);
+extern void sc_cmd_put(const char *arg);
+extern void sc_cmd_write(const char *arg);
 extern void lotus_menu(void);
 
 /* character class macros to avoid undefined behavior on negative chars */

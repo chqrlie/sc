@@ -215,6 +215,7 @@ void doseval(struct enode *e, int row, int col, int fd) {
     scxfree(s);
 }
 
+// XXX: this is an ugly hack
 void doquery(const char *s, const char *data, int fd) {
     goraw();
     // XXX: should provide destination buffer

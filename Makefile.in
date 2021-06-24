@@ -391,7 +391,7 @@ $O/qhelp.o: help.c $(DEPENDS)
 $O/abbrev.o: abbrev.c $(DEPENDS)
 	$(CC) $(_CFLAGS) -o $@ ${DFLT_PAGER} -c abbrev.c
 
-$O/cmds.o: cmds.c $(DEPENDS) $(YTAB).h
+$O/cmds.o: cmds.c $(DEPENDS)
 	$(CC) $(_CFLAGS) -o $@ ${CRYPT} -c cmds.c
 
 $O/color.o: color.c $(DEPENDS)
@@ -433,7 +433,7 @@ $O/pipe.o: pipe.c $(DEPENDS)
 $O/range.o: range.c $(DEPENDS)
 	$(CC) $(_CFLAGS) -o $@ -c range.c
 
-$O/sc.o: sc.c $(DEPENDS) $(YTAB).h
+$O/sc.o: sc.c $(DEPENDS)
 	$(CC) $(_CFLAGS) -o $@ ${DFLT_PAGER} ${SIGVOID} ${SAVE} -c sc.c
 
 $O/screen.o: screen.c $(DEPENDS)
@@ -445,7 +445,7 @@ $O/sort.o: sort.c $(DEPENDS)
 $O/version.o: version.c version.h
 	$(CC) $(_CFLAGS) -o $@ -c version.c
 
-$O/vi.o: vi.c $(DEPENDS) $(YTAB).h
+$O/vi.o: vi.c $(DEPENDS)
 	$(CC) $(_CFLAGS) -o $@ ${REGEX} ${HISTORY_FILE} -c vi.c
 
 $O/vmtbl.o: vmtbl.c $(DEPENDS)
