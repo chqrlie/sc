@@ -513,3 +513,68 @@ void fatal(const char *str) {
     diesave();
     exit(1);
 }
+
+/* append a char to a buffer  */
+int buf_putc(buf_t buf, int c) {
+    if (buf->len < buf->size - 1) {
+        buf->buf[buf->len++] = c;
+        buf->buf[buf->len] = '\0';
+        return (unsigned char)c;
+    }
+    return -1;
+}
+
+/* append a block of bytes to a buffer */
+size_t buf_put(buf_t buf, const char *s, size_t len) {
+    if (buf->len + len >= buf->size)
+        len = buf->size - buf->len - 1;
+    memcpy(buf->buf + buf->len, s, len);
+    buf->buf[buf->len += len] = '\0';
+    return len;
+}
+
+/* append a string to a buffer */
+size_t buf_puts(buf_t buf, const char *s) {
+    return buf_put(buf, s, strlen(s));
+}
+
+/* append a formated string to a buffer */
+size_t buf_printf(buf_t buf, const char *fmt, ...) {
+    va_list ap;
+    va_start(ap, fmt);
+    // Prevent warning: format string is not a string literal [-Werror,-Wformat-nonliteral]
+    size_t len = ((int (*)(char *, size_t, const char *, va_list))vsnprintf)
+        (buf->buf + buf->len, buf->size - buf->len, fmt, ap);
+    va_end(ap);
+    if (len >= buf->size - buf->len)
+        len = buf->size - buf->len - 1;
+    buf->len += len;
+    return len;
+}
+
+/* set buffer contents to block of bytes */
+size_t buf_set(buf_t buf, const char *s, size_t len) {
+    if (len >= buf->size)
+        len = buf->size - 1;
+    memcpy(buf->buf, s, len);
+    buf->buf[len] = '\0';
+    return buf->len = len;
+}
+
+/* set buffer contents to a string */
+size_t buf_sets(buf_t buf, const char *s) {
+    return buf_set(buf, s, strlen(s));
+}
+
+/* set buffer contents to a formated string */
+size_t buf_setf(buf_t buf, const char *fmt, ...) {
+    va_list ap;
+    va_start(ap, fmt);
+    // Prevent warning: format string is not a string literal [-Werror,-Wformat-nonliteral]
+    size_t len = ((int (*)(char *, size_t, const char *, va_list))vsnprintf)
+        (buf->buf, buf->size, fmt, ap);
+    va_end(ap);
+    if (len >= buf->size)
+        len = buf->size - 1;
+    return buf->len = len;
+}

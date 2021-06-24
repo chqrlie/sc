@@ -1530,7 +1530,7 @@ void printfile(const char *fname, int r0, int c0, int rn, int cn) {
         if (row_hidden[row])
             continue;
 
-        pline[plinelim=0] = '\0';
+        pline[plinelim = 0] = '\0';
         for (col = c0; col <= cn; col = nextcol, c += fieldlen) {
             struct ent *p = *ATBL(tbl, row, col);
             nextcol = col + 1;
@@ -1589,7 +1589,7 @@ void printfile(const char *fname, int r0, int c0, int rn, int cn) {
                             } else {
                                 format(cfmt, precision[col], p->v, field,
                                        sizeof(field));
-                                snprintf(pline+plinelim,
+                                snprintf(pline + plinelim,
                                          FBUFLEN * fbufs_allocated - plinelim,
                                          "%*s", fwidth[col], field);
                             }
@@ -1598,12 +1598,12 @@ void printfile(const char *fname, int r0, int c0, int rn, int cn) {
                             engformat(realfmt[col], fwidth[col],
                                       precision[col], p->v,
                                       field, sizeof(field));
-                            snprintf(pline+plinelim,
+                            snprintf(pline + plinelim,
                                      FBUFLEN * fbufs_allocated - plinelim,
                                      "%*s", fwidth[col], field);
                         }
                     }
-                    plinelim += strlen(pline+plinelim);
+                    plinelim += strlen(pline + plinelim);
                 }
                 if ((s = p->label)) {
                     ssize_t slen;
@@ -1620,8 +1620,8 @@ void printfile(const char *fname, int r0, int c0, int rn, int cn) {
                     if (*s == '\\' && s[1] != '\0')
                         slen = fwidth[col];
                     while (slen > (ssize_t)fieldlen && (int)nextcol <= cn &&
-                            !((nc = lookat(row,nextcol))->flags & IS_VALID) &&
-                            !(nc->label)) {
+                            !((nc = lookat(row, nextcol))->flags & IS_VALID) &&
+                            !nc->label) {
 
                         if (!col_hidden[nextcol])
                             fieldlen += fwidth[nextcol];

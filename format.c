@@ -505,26 +505,27 @@ bool engformat(int fmt, int width, int lprecision, double val, char *buf, int bu
         } else {
             engabs = (val);
             if ( engabs <  0e0)       engabs = -engabs;
-            if ((engabs >= 1e-18) && (engabs <  1e-15)) engind=0;
-            if ((engabs >= 1e-15) && (engabs <  1e-12)) engind=1;
-            if ((engabs >= 1e-12) && (engabs <  1e-9 )) engind=2;
-            if ((engabs >= 1e-9)  && (engabs <  1e-6 )) engind=3;
-            if ((engabs >= 1e-6)  && (engabs <  1e-3 )) engind=4;
-            if ((engabs >= 1e-3)  && (engabs <  1    )) engind=5;
-            if ((engabs >= 1)     && (engabs <  1e3  )) engind=6;
-            if ((engabs >= 1e3)   && (engabs <  1e6  )) engind=7;
-            if ((engabs >= 1e6)   && (engabs <  1e9  )) engind=8;
-            if ((engabs >= 1e9)   && (engabs <  1e12 )) engind=9;
-            if ((engabs >= 1e12)  && (engabs <  1e15 )) engind=10;
-            if ((engabs >= 1e15)  && (engabs <  1e18 )) engind=11;
-            if ((engabs >= 1e18)  && (engabs <  1e21 )) engind=12;
+            if ((engabs >= 1e-18) && (engabs <  1e-15)) engind = 0;
+            if ((engabs >= 1e-15) && (engabs <  1e-12)) engind = 1;
+            if ((engabs >= 1e-12) && (engabs <  1e-9 )) engind = 2;
+            if ((engabs >= 1e-9)  && (engabs <  1e-6 )) engind = 3;
+            if ((engabs >= 1e-6)  && (engabs <  1e-3 )) engind = 4;
+            if ((engabs >= 1e-3)  && (engabs <  1    )) engind = 5;
+            if ((engabs >= 1)     && (engabs <  1e3  )) engind = 6;
+            if ((engabs >= 1e3)   && (engabs <  1e6  )) engind = 7;
+            if ((engabs >= 1e6)   && (engabs <  1e9  )) engind = 8;
+            if ((engabs >= 1e9)   && (engabs <  1e12 )) engind = 9;
+            if ((engabs >= 1e12)  && (engabs <  1e15 )) engind = 10;
+            if ((engabs >= 1e15)  && (engabs <  1e18 )) engind = 11;
+            if ((engabs >= 1e18)  && (engabs <  1e21 )) engind = 12;
             if ((engabs < 1e-18)  || (engabs >= 1e21 )) {
                 /* Revert to floating point */
                 snprintf(buf, buflen, "%*.*E", width, lprecision, val);
             } else {
-                engexp = (double)(engind-6) * 3;
+                engexp = (double)(engind - 6) * 3;
                 engmant = val / pow(10.0e0, engexp);
-                snprintf(buf, buflen, "%*.*fe%s", width-4,
+                // XXX: why a lower case 'e'?
+                snprintf(buf, buflen, "%*.*fe%s", width - 4,
                          lprecision, engmant, engmult[engind]);
             }
         }

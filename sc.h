@@ -795,7 +795,7 @@ extern void vi_interaction(void);
 extern void vi_select_range(const char *arg);
 extern void lotus_menu(void);
 
-// character class macros to avoid undefined behavior on negative chars
+/* character class macros to avoid undefined behavior on negative chars */
 #define isspacechar(c)   isspace((unsigned char)(c))
 #define isdigitchar(c)   isdigit((unsigned char)(c))
 #define isxdigitchar(c)  isxdigit((unsigned char)(c))
@@ -808,3 +808,56 @@ extern void lotus_menu(void);
 
 static inline int isalphachar_(char c) { return isalphachar(c) || c == '_'; }
 static inline int isalnumchar_(char c) { return isalnumchar(c) || c == '_'; }
+
+/* char buffer utilities */
+
+/* buf_t structure to collect bufferized output */
+typedef struct buf_t {
+    char *buf;
+    size_t size, len;
+} buf_t[1];
+
+/* define a fixed size buf_t object */
+#define buf_t(name, size) \
+    char name##__buf[size]; \
+    buf_t name = { name##__buf, sizeof(name##__buf), 0 }
+
+/* initialize a buffer with explicit array and size */
+static inline void buf_init(buf_t buf, char *p, size_t size) {
+    buf->buf = p;
+    buf->size = size;
+    buf->len = 0;
+}
+
+/* clear the contents of a buffer */
+static inline void buf_reset(buf_t buf) {
+    buf->buf[buf->len = 0] = '\0';
+}
+
+/* write the contents of a buffer to a system file handle */
+static inline ssize_t buf_write(buf_t buf, int fd) {
+    ssize_t res = write(fd, buf->buf, buf->len);
+    buf->len = 0;
+    return res;
+}
+
+/* append a char to a buffer  */
+int buf_putc(buf_t buf, int c);
+
+/* append a block of bytes to a buffer */
+size_t buf_put(buf_t buf, const char *s, size_t len);
+
+/* append a string to a buffer */
+size_t buf_puts(buf_t buf, const char *s);
+
+/* append a formated string to a buffer */
+size_t buf_printf(buf_t buf, const char *fmt, ...) sc__attr_printf(2,3);
+
+/* set buffer contents to block of bytes */
+size_t buf_set(buf_t buf, const char *s, size_t len);
+
+/* set buffer contents to a string */
+size_t buf_sets(buf_t buf, const char *s);
+
+/* set buffer contents to a formated string */
+size_t buf_setf(buf_t buf, const char *fmt, ...) sc__attr_printf(2,3);

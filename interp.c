@@ -1055,14 +1055,14 @@ static SCXMEM char *doext(struct enode *se) {
                     error("Warning: external function returned nothing");
                 } else {
                     size_t len = strlen(buff);
-                    error(" ");                         /* erase notice */
                     if (len && buff[len - 1] == '\n')   /* contains newline */
                         buff[--len] = '\0';             /* end string there */
-                    // XXX: this test is probably useless
-                    // especially given the overhead of popen()
-                    if (!se->e.o.s || len != strlen(se->e.o.s))
+                    if (!se->e.o.s || strcmp(se->e.o.s, buff)) {
                         se->e.o.s = scxrealloc(se->e.o.s, len + 1);
-                    strlcpy(se->e.o.s, buff, len + 1);
+                        if (se->e.o.s)
+                            memcpy(se->e.o.s, buff, len + 1);
+                    }
+                    error(" "); /* erase notice */
                 }
                 pclose(pf);
             }
