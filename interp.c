@@ -2245,7 +2245,7 @@ void slet(struct ent *v, SCXMEM struct enode *se, int flushdir) {
         savedstcol[28] = savedstcol[27];
     }
     if (constant(se)) {
-        label(v, p, flushdir);
+        set_cell_label(v, p, flushdir);
         scxfree(p);
         efree(se);
         if (v->flags & IS_STREXPR) {
@@ -2304,7 +2304,7 @@ void format_cell(struct ent *v1, struct ent *v2, const char *s) {
 void clearent(struct ent *v) {
     if (!v)
         return;
-    label(v, "", -1);
+    set_cell_label(v, "", -1);
     v->v = 0.0;
     efree(v->expr);
     v->expr = NULL;
@@ -2356,7 +2356,7 @@ void efree(SCXMEM struct enode *e) {
     }
 }
 
-void label(struct ent *v, const char *s, int flushdir) {
+void set_cell_label(struct ent *v, const char *s, int flushdir) {
     if (v) {
         if (flushdir == 0 && (v->flags & IS_VALID)) {
             struct ent *tv;

@@ -174,7 +174,7 @@ void getrange(const char *name, int fd) {
     write(fd, buf, strlen(buf));
 }
 
-void doeval(struct enode *e, const char *fmt, int row, int col, int fd) {
+void cmd_eval(struct enode *e, const char *fmt, int row, int col, int fd) {
     char buf[FBUFLEN];
     double v;
 
@@ -196,11 +196,9 @@ void doeval(struct enode *e, const char *fmt, int row, int col, int fd) {
     }
     strlcat(buf, "\n", sizeof buf);
     write(fd, buf, strlen(buf));
-
-    efree(e);
 }
 
-void doseval(struct enode *e, int row, int col, int fd) {
+void cmd_seval(struct enode *e, int row, int col, int fd) {
     SCXMEM char *s;
 
     gmyrow = row;
@@ -210,13 +208,11 @@ void doseval(struct enode *e, int row, int col, int fd) {
     if (s)
         write(fd, s, strlen(s));
     write(fd, "\n", 1);
-
-    efree(e);
     scxfree(s);
 }
 
 // XXX: this is an ugly hack
-void doquery(const char *s, const char *data, int fd) {
+void cmd_query(const char *s, const char *data, int fd) {
     goraw();
     // XXX: should provide destination buffer
     query(s, data);
@@ -265,7 +261,7 @@ void dogetkey(int fd) {
     write(fd, buf, len);
 }
 
-void dostat(int fd) {
+void cmd_status(int fd) {
     char buf[8];
     char *p = buf;
     if (modflg)                 *p++ = 'm';

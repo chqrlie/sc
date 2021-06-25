@@ -1,5 +1,7 @@
 # TODO
 
+* pass cell locations and ranges as sets of coordinates instead of
+  allocated cell pointers in gram.y
 * change representation for ranges: abs/rel coords instead of pointers
 * change the expression evaluator: use a stack of dynamically types values
 * cell value must be either a number or a string, with an optional expression

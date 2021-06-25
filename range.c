@@ -30,19 +30,27 @@ void add_range(const char *name, struct ent_ptr left, struct ent_ptr right, int 
     struct range *next;
 
     if (left.vp->row < right.vp->row) {
-        minr = left.vp->row; minrf = left.vf & FIX_ROW;
-        maxr = right.vp->row; maxrf = right.vf & FIX_ROW;
+        minr = left.vp->row;
+        minrf = left.vf & FIX_ROW;
+        maxr = right.vp->row;
+        maxrf = right.vf & FIX_ROW;
     } else {
-        minr = right.vp->row; minrf = right.vf & FIX_ROW;
-        maxr = left.vp->row; maxrf = right.vf & FIX_ROW;
+        minr = right.vp->row;
+        minrf = right.vf & FIX_ROW;
+        maxr = left.vp->row;
+        maxrf = right.vf & FIX_ROW;
     }
 
     if (left.vp->col < right.vp->col) {
-        minc = left.vp->col; mincf = left.vf & FIX_COL;
-        maxc = right.vp->col; maxcf = right.vf & FIX_COL;
+        minc = left.vp->col;
+        mincf = left.vf & FIX_COL;
+        maxc = right.vp->col;
+        maxcf = right.vf & FIX_COL;
     } else {
-        minc = right.vp->col; mincf = right.vf & FIX_COL;
-        maxc = left.vp->col; maxcf = left.vf & FIX_COL;
+        minc = right.vp->col;
+        mincf = right.vf & FIX_COL;
+        maxc = left.vp->col;
+        maxcf = left.vf & FIX_COL;
     }
 
     left.vp = lookat(minr, minc);
@@ -55,6 +63,7 @@ void add_range(const char *name, struct ent_ptr left, struct ent_ptr right, int 
         return;
     }
 
+    /* Range name: must contain only letters, digits and _ */
     for (p = name; *p; p++) {
         if (!isalnumchar_(*p)) {
             error("Invalid range name \"%s\" - illegal combination", name);
@@ -62,10 +71,8 @@ void add_range(const char *name, struct ent_ptr left, struct ent_ptr right, int 
         }
     }
 
+    /* Range name must not be cell name nor a valid number */
     p = name;
-    // cell names and numbers:
-    // 1 and 2 letter column names
-    // integers, hex integers, floats and hex floats
     if (isdigitchar(*p) ||
         (isalphachar(*p++) && (isdigitchar(*p) ||
                                (isalphachar(*p++) && isdigitchar(*p))))) {
@@ -74,7 +81,7 @@ void add_range(const char *name, struct ent_ptr left, struct ent_ptr right, int 
             while (isxdigitchar(*++p))
                 continue;
             if (*p == 'p' || *p == 'P') {
-                while (isxdigitchar(*++p))
+                while (isdigitchar(*++p))
                     continue;
             }
         } else {
@@ -94,7 +101,7 @@ void add_range(const char *name, struct ent_ptr left, struct ent_ptr right, int 
     if (autolabel && minc > 0 && !is_range) {
         rcp = lookat(minr, minc - 1);
         if (rcp->label == 0 && rcp->expr == 0 && rcp->v == 0)
-            label(rcp, name, 0);
+            set_cell_label(rcp, name, 0);
     }
 
     r = scxmalloc(sizeof(struct range));

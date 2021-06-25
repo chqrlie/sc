@@ -1282,7 +1282,7 @@ void doend(int rowinc, int colinc) {
 }
 
 /* Modified 9/17/90 THA to handle more formats */
-void doformat(int c1, int c2, int w, int p, int r) {
+void cmd_format(int c1, int c2, int w, int p, int r) {
     int i;
     int crows = 0;
     int ccols = c2;
@@ -1342,7 +1342,7 @@ void ljustify(int sr, int sc, int er, int ec) {
         for (j = sc; j <= ec; j++) {
             p = *ATBL(tbl, i, j);
             if (p && p->label) {
-                p->flags &= ~IS_LABEL;
+                p->flags &= ~(IS_LABEL| IS_LEFTFLUSH);
                 p->flags |= IS_LEFTFLUSH | IS_CHANGED;
                 changed++;
                 modflg++;
@@ -2306,7 +2306,7 @@ void copyent(struct ent *n, struct ent *p, int dr, int dc,
         }
         if (p->label) {
             set_cstring(&n->label, p->label);
-            n->flags &= ~IS_LEFTFLUSH;
+            n->flags &= ~(IS_LABEL | IS_LEFTFLUSH);
             n->flags |= p->flags & (IS_LABEL | IS_LEFTFLUSH);
         } else if (special != 'm') {
             n->label = NULL;
@@ -3247,23 +3247,23 @@ void sc_set_locale(int set) {
     }
 }
 
-int doplugin(const char *str) {
+int cmd_plugin(const char *str) {
     char buf[PATHLEN];
     snprintf(buf, sizeof buf, "|%s", str);
     return readfile(buf, 0);
 }
 
-void domdir(const char *str) {
+void set_mdir(const char *str) {
     set_cstring(&mdir, str && *str ? str : NULL);
     modflg++;
 }
 
-void doautorun(const char *str) {
+void set_autorun(const char *str) {
     set_cstring(&autorun, str && *str ? str : NULL);
     modflg++;
 }
 
-void dofkey(int n, const char *str) {
+void set_fkey(int n, const char *str) {
     if (n > 0 && n <= FKEYS) {
         set_cstring(&fkey[n - 1], str && *str ? str : NULL);
         modflg++;
@@ -3272,11 +3272,11 @@ void dofkey(int n, const char *str) {
     }
 }
 
-void dohistfile(const char *str) {
+void set_histfile(const char *str) {
     strlcpy(histfile, str, sizeof histfile);
 }
 
-void doselect(char c) {
+void cmd_select_qbuf(char c) {
     if (c >= '0' && c <= '9') {
         qbuf = c - '0' + (DELBUFSIZE - 10);
     } else if (c >= 'a' && c <= 'z') {
@@ -3288,7 +3288,7 @@ void doselect(char c) {
     }
 }
 
-void dosetformat(int n, const char *str) {
+void cmd_setformat(int n, const char *str) {
     if (n >= 0 && n < 10) {
         set_cstring(&colformat[n], str && *str ? str : NULL);
         FullUpdate++;
@@ -3298,7 +3298,7 @@ void dosetformat(int n, const char *str) {
     }
 }
 
-void doredraw(void) {
+void cmd_redraw(void) {
     if (usecurses) {
         clearok(stdscr, TRUE);
         //linelim = -1;
@@ -3308,7 +3308,7 @@ void doredraw(void) {
     }
 }
 
-void dorun(const char *str) {
+void cmd_run(const char *str) {
     deraw(1);
     system(str);
     if (*str && str[strlen(str) - 1] != '&') {
@@ -3320,23 +3320,23 @@ void dorun(const char *str) {
     goraw();
 }
 
-void dowhereami(int fd) {
+void cmd_whereami(int fd) {
     char buf[64];
     snprintf(buf, sizeof buf, "%s%d %s%d\n",
              coltoa(curcol), currow, coltoa(stcol), strow);
     write(fd, buf, strlen(buf));
 }
 
-void dodefine(const char *name) {
+void cmd_define(const char *name) {
     struct ent_ptr arg1, arg2;
     arg1.vp = lookat(showsr, showsc);
     arg1.vf = 0;
     arg2.vp = lookat(currow, curcol);
     arg2.vf = 0;
-    if (arg1.vp == arg2.vp || !showrange)
-        add_range(name, arg2, arg2, 0);
-    else
+    if (showrange && arg1.vp != arg2.vp)
         add_range(name, arg1, arg2, 1);
+    else
+        add_range(name, arg2, arg2, 0);
 }
 
 void addnote(struct ent *p, int sr, int sc, int er, int ec) {
@@ -3367,4 +3367,10 @@ char *set_string(SCXMEM char **pp, SCXMEM char *s) {
 char *set_cstring(SCXMEM char **pp, const char *s) {
     scxfree(*pp);
     return *pp = s ? scxdup(s) : NULL;
+}
+
+void cmd_recalc(void) {
+    EvalAll();
+    update(1);
+    changed = 0;
 }

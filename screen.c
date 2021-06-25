@@ -214,9 +214,10 @@ void update(int anychanged) {          /* did any cell really change in value? *
         while (col_hidden[curcol])   /* You can't hide the last row or col */
             curcol++;
         if (fwidth[curcol] > cols - rescol - 2) {
+            // XXX: update should not have a side effect on the database
             error("column %s too wide - resizing", coltoa(curcol));
-            doformat(curcol, curcol, cols - rescol - 2,
-                    precision[curcol], realfmt[curcol]);
+            cmd_format(curcol, curcol, cols - rescol - 2,
+                       precision[curcol], realfmt[curcol]);
         }
 
         /* First see if the last display still covers curcol */
