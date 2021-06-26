@@ -514,10 +514,11 @@ size_t buf_puts(buf_t buf, const char *s) {
 
 /* append a formated string to a buffer */
 size_t buf_printf(buf_t buf, const char *fmt, ...) {
+    size_t len;
     va_list ap;
     va_start(ap, fmt);
     // Prevent warning: format string is not a string literal [-Werror,-Wformat-nonliteral]
-    size_t len = ((int (*)(char *, size_t, const char *, va_list))vsnprintf)
+    len = ((int (*)(char *, size_t, const char *, va_list))vsnprintf)
         (buf->buf + buf->len, buf->size - buf->len, fmt, ap);
     va_end(ap);
     if (len >= buf->size - buf->len)
@@ -542,10 +543,11 @@ size_t buf_sets(buf_t buf, const char *s) {
 
 /* set buffer contents to a formated string */
 size_t buf_setf(buf_t buf, const char *fmt, ...) {
+    size_t len;
     va_list ap;
     va_start(ap, fmt);
     // Prevent warning: format string is not a string literal [-Werror,-Wformat-nonliteral]
-    size_t len = ((int (*)(char *, size_t, const char *, va_list))vsnprintf)
+    len = ((int (*)(char *, size_t, const char *, va_list))vsnprintf)
         (buf->buf, buf->size, fmt, ap);
     va_end(ap);
     if (len >= buf->size)

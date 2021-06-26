@@ -954,8 +954,6 @@ void update(int anychanged) {          /* did any cell really change in value? *
             move(lastmy, lastmx);
     } else {
         if (showtop) {                  /* show top line */
-            int printed = 0;            /* printed something? */
-
             printw("%s%d ", coltoa(curcol), currow);
 
             if ((p = *ATBL(tbl, currow, curcol)) && p->nrow > -1) {
@@ -994,7 +992,6 @@ void update(int anychanged) {          /* did any cell really change in value? *
                     addstr(buf->buf);
                     addch('}');     /* and this '}' is for vi % */
                     addch(' ');     /* separate sexpr and value if any */
-                    printed = 1;
                 } else
                 if (p->label) {
                     /* has constant label only */
@@ -1002,7 +999,6 @@ void update(int anychanged) {          /* did any cell really change in value? *
                     addstr(p->label);
                     addch('\"');
                     addch(' ');     /* separate label and value if any */
-                    printed = 1;
                 }
 
                 /*
@@ -1017,7 +1013,6 @@ void update(int anychanged) {          /* did any cell really change in value? *
                     addch('[');
                     addstr(buf->buf);
                     addch(']');
-                    printed = 1;
                 }
                 /* Display if cell is locked */
                 if (p->flags & IS_LOCKED)
