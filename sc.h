@@ -75,6 +75,11 @@ extern const char *progname;
 #define NOCRYPT
 #endif
 
+/*---------------- Utility macros ----------------*/
+
+/* macro to swap int variables: fails for expressions */
+#define SWAPINT(x, y) do { int x##__##y = x; x = y; y = x##__##y; } while (0)
+
 /*---------------- Memory allocation ----------------*/
 
 #define SCXMEM          /* flag allocated pointers with this */
@@ -217,7 +222,6 @@ struct range_s {
  * Some not too obvious things about the flags:
  *    IS_VALID means there is a valid number in v.
  *    IS_LOCKED means that the cell cannot be edited.
- *    IS_LABEL set means it points to a valid constant string.
  *    IS_STREXPR set means expr yields a string expression.
  *    If IS_STREXPR is not set, and expr points to an expression tree, the
  *        expression yields a numeric expression.
@@ -407,15 +411,18 @@ struct go_save {
 #define RANDBETWEEN  (OP_BASE + 78)
 
 /* flag values (9 bits) */
-#define IS_VALID     0001
-#define IS_CHANGED   0002
-#define IS_STREXPR   0004
-#define IS_LEFTFLUSH 0010  /* align left */
-#define IS_DELETED   0020
-#define IS_LOCKED    0040
-#define IS_LABEL     0100  /* align center */
-#define IS_CLEARED   0200
-#define MAY_SYNC     0400
+#define IS_VALID        0001  /* has a valid number value */
+#define IS_STREXPR      0002  /* has a string expression */
+#define IS_LOCKED       0004  /* is protected from user modification */
+#define IS_CHANGED      0010  /* set when modifying ent, tested and udated in update() for partial screen updates */
+#define IS_DELETED      0020  /* set by free_ent, cleared in move_area, pullcells, tested in eval, decompile */
+#define IS_CLEARED      0040  /* set by clearent, used in syncref */
+#define MAY_SYNC        0100  /* set when deleting cells, used in syncref */
+#define ALIGN_MASK      0600
+#define ALIGN_DEFAULT   0000
+#define ALIGN_LEFT      0200
+#define ALIGN_CENTER    0400
+#define ALIGN_RIGHT     0600
 
 /* cell error (1st generation (ERROR) or 2nd+ (INVALID)) */
 #define CELLOK          0
@@ -733,9 +740,8 @@ extern void initkbd(void);
 extern void insertcol(int arg, int delta);
 extern void insertrow(int arg, int delta);
 extern void kbd_again(void);
-extern void set_cell_label(struct ent *v, const char *s, int flushdir);
 extern void unlet(struct ent *v);
-extern void let(struct ent *v, struct enode *e);
+extern void let(struct ent *v, SCXMEM struct enode *e);
 extern void list_ranges(FILE *f);
 extern void lock_cells(struct ent *v1, struct ent *v2);
 extern void move_area(int dr, int dc, int sr, int sc, int er, int ec);
@@ -755,11 +761,11 @@ extern void setiterations(int i);
 extern void setcalcorder(int i);
 extern void showcol(int c1, int c2);
 extern void showrow(int r1, int r2);
-extern void showstring(const char *string, int dirflush, int hasvalue, int row,
+extern void showstring(const char *string, int align, int hasvalue, int row,
                        int col, int *nextcolp, int mxcol, int *fieldlenp, int r, int c,
                        struct frange *fr, int frightcols, int flcols, int frcols);
 extern void signals(void);
-extern void slet(struct ent *v, struct enode *se, int flushdir);
+extern void slet(struct ent *v, SCXMEM struct enode *se, int align);
 extern void sortrange(struct ent *left, struct ent *right, const char *criteria);
 extern void startdisp(void);
 extern void stopdisp(void);
@@ -837,9 +843,7 @@ extern int VMS_read_raw;   /*sigh*/
 extern void gotonote(void);
 extern void addnote(struct ent *p, int sr, int sc, int er, int ec);
 extern void delnote(struct ent *p);
-extern void center(int sr, int sc, int er, int ec);
-extern void rjustify(int sr, int sc, int er, int ec);
-extern void ljustify(int sr, int sc, int er, int ec);
+extern void range_align(int sr, int sc, int er, int ec, int align);
 extern void yankcols(int c1, int c2);
 extern void yankrows(int r1, int r2);
 extern void list_frames(FILE *fp);

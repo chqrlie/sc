@@ -424,26 +424,28 @@ command:  S_LET var_or_range '=' e
                                 { let($2.left.vp, $4); }
         | S_LET var_or_range '=' { unlet($2.left.vp); }
         | S_LABEL var_or_range '=' e
-                                { slet($2.left.vp, $4, 0); }
+                                { slet($2.left.vp, $4, ALIGN_CENTER); }
         | S_LEFTSTRING var_or_range '=' e
-                                { slet($2.left.vp, $4, -1); }
+                                { slet($2.left.vp, $4, ALIGN_LEFT); }
         | S_RIGHTSTRING var_or_range '=' e
-                                { slet($2.left.vp, $4, 1); }
+                                { slet($2.left.vp, $4, ALIGN_RIGHT); }
         | S_LEFTJUSTIFY var_or_range
-                                { ljustify($2.left.vp->row, $2.left.vp->col,
-                                           $2.right.vp->row, $2.right.vp->col); }
+                                { range_align($2.left.vp->row, $2.left.vp->col,
+                                              $2.right.vp->row, $2.right.vp->col,
+                                              ALIGN_LEFT); }
         | S_LEFTJUSTIFY         { if (showrange)
-                                    ljustify(showsr, showsc, currow, curcol); }
+                                    range_align(showsr, showsc, currow, curcol, ALIGN_LEFT); }
         | S_RIGHTJUSTIFY var_or_range
-                                { rjustify($2.left.vp->row, $2.left.vp->col,
-                                           $2.right.vp->row, $2.right.vp->col); }
+                                { range_align($2.left.vp->row, $2.left.vp->col,
+                                              $2.right.vp->row, $2.right.vp->col,
+                                              ALIGN_RIGHT); }
         | S_RIGHTJUSTIFY        { if (showrange)
-                                    rjustify(showsr, showsc, currow, curcol); }
+                                    range_align(showsr, showsc, currow, curcol, ALIGN_RIGHT); }
         | S_CENTER var_or_range
-                                { center($2.left.vp->row, $2.left.vp->col,
-                                         $2.right.vp->row, $2.right.vp->col); }
+                                { range_align($2.left.vp->row, $2.left.vp->col,
+                                              $2.right.vp->row, $2.right.vp->col, ALIGN_CENTER); }
         | S_CENTER              { if (showrange)
-                                    center(showsr, showsc, currow, curcol); }
+                                    range_align(showsr, showsc, currow, curcol, ALIGN_CENTER); }
         | S_ADDNOTE var         { if (showrange)
                                     addnote($2.vp, currow, curcol, showsr, showsc);
                                   else

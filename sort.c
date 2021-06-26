@@ -20,16 +20,17 @@ static SCXMEM struct sortcrit *sort;
 static int howmany;
 
 void sortrange(struct ent *left, struct ent *right, const char *criteria) {
-    int minr, minc, maxr, maxc, r, c, i;
+    int r, c, i;
     SCXMEM int *rows;
     int nrows, col = 0;
     const char *cp = criteria;
     struct ent *p;
-
-    minr = left->row < right->row ? left->row : right->row;
-    minc = left->col < right->col ? left->col : right->col;
-    maxr = left->row > right->row ? left->row : right->row;
-    maxc = left->col > right->col ? left->col : right->col;
+    int minr = left->row;
+    int minc = left->col;
+    int maxr = right->row;
+    int maxc = right->col;
+    if (minr > maxr) SWAPINT(minr, maxr);
+    if (minc > maxc) SWAPINT(minc, maxc);
     nrows = (maxr - minr + 1);
 
     sort = scxmalloc(2 * sizeof(struct sortcrit));

@@ -786,7 +786,7 @@ void update(int anychanged) {          /* did any cell really change in value? *
                     if (showexpr && p->expr) {
                         buf_reset(buf);
                         decompile(buf, p->expr);
-                        showstring(buf->buf, /* leftflush = */ 1, /* hasvalue = */ 0,
+                        showstring(buf->buf, ALIGN_LEFT, /* hasvalue = */ 0,
                                    row, col, &nextcol, mxcol, &fieldlen, r, c,
                                    fr, frightcols, flcols, frcols);
                     } else {
@@ -826,6 +826,7 @@ void update(int anychanged) {          /* did any cell really change in value? *
                                           field, sizeof(field));
                             }
                             if ((ssize_t)strlen(field) > fwidth[col]) {
+                                // XXX: what is this mess?
                                 for (i = 0; i < fwidth[col]; i++) {
                                     if (note) {
 #ifndef NO_ATTR_GET
@@ -884,11 +885,11 @@ void update(int anychanged) {          /* did any cell really change in value? *
 
                         if (p->label) {
                             showstring(p->label,
-                                       p->flags & (IS_LEFTFLUSH | IS_LABEL),
+                                       p->flags & ALIGN_MASK,
                                        p->flags & IS_VALID,
                                        row, col, &nextcol, mxcol, &fieldlen,
                                        r, c, fr, frightcols, flcols, frcols);
-                        } else      /* repaint a blank cell: */
+                        } else      /* repaint a blank cell: XXX: too complicated */
                         if ((((do_stand || !FullUpdate) && (p->flags & IS_CHANGED)) ||
                              (cr && cr->r_color != 1)) &&
                             !(p->flags & IS_VALID) && !p->label)
@@ -953,51 +954,54 @@ void update(int anychanged) {          /* did any cell really change in value? *
             move(lastmy, lastmx);
     } else {
         if (showtop) {                  /* show top line */
-            struct ent *p1;
             int printed = 0;            /* printed something? */
 
             printw("%s%d ", coltoa(curcol), currow);
 
-            if ((p1 = *ATBL(tbl, currow, curcol)) && p1->nrow > -1) {
-                printw("{*%s} ", r_name(p1->nrow, p1->ncol,
-                                        p1->nlastrow, p1->nlastcol));
+            if ((p = *ATBL(tbl, currow, curcol)) && p->nrow > -1) {
+                /* Show the cell note range */
+                // XXX: should show the note instead?
+                printw("{*%s} ", r_name(p->nrow, p->ncol,
+                                        p->nlastrow, p->nlastcol));
             }
 
             /* show the current cell's format */
-            if (p1 && p1->format) {
-                printw("(%s) ", p1->format);
+            if (p && p->format) {
+                printw("(%s) ", p->format);
             } else {
                 printw("(%d %d %d) ", fwidth[curcol], precision[curcol],
                                       realfmt[curcol]);
             }
-            if (p1) {
+            if (p) {
                 buf_reset(buf);
-                if (p1->expr) {
+                if (p->expr) {
                     /* has expr of some type */
-                    decompile(buf, p1->expr);
+                    decompile(buf, p->expr);
                 }
 
                 /*
                  * Display string part of cell:
                  */
 
-                if (p1->expr && (p1->flags & IS_STREXPR)) {
-                    if (p1->flags & IS_LABEL)
-                        addstr("|{");
-                    else
-                        addstr((p1->flags & IS_LEFTFLUSH) ? "<{" : ">{");
+                switch (p->flags & ALIGN_MASK) {
+                default: if (!p->label) break;
+                case ALIGN_LEFT:    addch('<'); break;
+                case ALIGN_CENTER:  addch('|'); break;
+                case ALIGN_RIGHT:   addch('>'); break;
+                }
+                if (p->expr && (p->flags & IS_STREXPR)) {
+                    addch('{');
                     addstr(buf->buf);
-                    addstr("} ");        /* and this '}' is for vi % */
+                    addch('}');     /* and this '}' is for vi % */
+                    addch(' ');     /* separate sexpr and value if any */
                     printed = 1;
                 } else
-                if (p1->label) {
+                if (p->label) {
                     /* has constant label only */
-                    if (p1->flags & IS_LABEL)
-                        addstr("|\"");
-                    else
-                        addstr((p1->flags & IS_LEFTFLUSH) ? "<\"" : ">\"");
-                    addstr(p1->label);
-                    addstr("\" ");
+                    addch('\"');
+                    addstr(p->label);
+                    addch('\"');
+                    addch(' ');     /* separate label and value if any */
                     printed = 1;
                 }
 
@@ -1005,22 +1009,20 @@ void update(int anychanged) {          /* did any cell really change in value? *
                  * Display value part of cell:
                  */
 
-                if (p1->flags & IS_VALID) {
+                if (p->flags & IS_VALID) {
                     /* has value or num expr */
-                    if (!(p1->expr) || (p1->flags & IS_STREXPR))
-                        buf_setf(buf, "%.15g", p1->v);
+                    if (!p->expr || (p->flags & IS_STREXPR))
+                        buf_setf(buf, "%.15g", p->v);
 
                     addch('[');
                     addstr(buf->buf);
                     addch(']');
                     printed = 1;
                 }
+                /* Display if cell is locked */
+                if (p->flags & IS_LOCKED)
+                    addstr(" locked");
             }
-            if (!printed)
-                addstr("[]");
-            /* Display if cell is locked */
-            if (p1 && (p1->flags & IS_LOCKED))
-                addstr(" locked");
         }
         if (braille)
             if (message)

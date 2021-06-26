@@ -11,7 +11,7 @@
 
 static void sync_enode(struct enode *e);
 static void fix_enode(struct enode *e, int row1, int col1, int row2, int col2,
-               int delta1, int delta2);
+                      int delta1, int delta2);
 
 static struct range *rng_base;
 static struct range *rng_tail;
@@ -25,7 +25,6 @@ void add_range(const char *name, struct ent_ptr left, struct ent_ptr right, int 
     const char *p;
     int minr, minc, maxr, maxc;
     int minrf, mincf, maxrf, maxcf;
-    struct ent *rcp;
     struct range *prev = NULL;
     struct range *next;
 
@@ -99,9 +98,17 @@ void add_range(const char *name, struct ent_ptr left, struct ent_ptr right, int 
     }
 
     if (autolabel && minc > 0 && !is_range) {
-        rcp = lookat(minr, minc - 1);
-        if (rcp->label == 0 && rcp->expr == 0 && rcp->v == 0)
-            set_cell_label(rcp, name, 0);
+        struct ent *cp = lookat(minr, minc - 1);
+        if (!cp->label && !cp->expr && !cp->v && !(cp->flags & IS_VALID)) {
+            /* empty cell to the left of the defined cell:
+               set the cell label to the name.
+             */
+            set_cstring(&cp->label, name);
+            cp->flags &= ~ALIGN_MASK;
+            cp->flags |= ALIGN_DEFAULT;
+            FullUpdate++;
+            modflg++;
+        }
     }
 
     r = scxmalloc(sizeof(struct range));
@@ -128,12 +135,12 @@ void add_range(const char *name, struct ent_ptr left, struct ent_ptr right, int 
 
 void del_range(struct ent *left, struct ent *right) {
     struct range *r;
-    int minr, minc, maxr, maxc;
-
-    minr = left->row < right->row ? left->row : right->row;
-    minc = left->col < right->col ? left->col : right->col;
-    maxr = left->row > right->row ? left->row : right->row;
-    maxc = left->col > right->col ? left->col : right->col;
+    int minr = left->row;
+    int minc = left->col;
+    int maxr = right->row;
+    int maxc = right->col;
+    if (minr > maxr) SWAPINT(minr, maxr);
+    if (minc > maxc) SWAPINT(minc, maxc);
 
     left = lookat(minr, minc);
     right = lookat(maxr, maxc);
@@ -367,17 +374,13 @@ static void fix_enode(struct enode *e, int row1, int col1, int row2, int col2,
 {
     if (e) {
         if ((e->op & REDUCE)) {
-            int r, c;
-            int r1, c1, r2, c2;
-            struct frange *fr;
-
-            fr = find_frange(currow, curcol);
-            r1 = e->e.r.left.vp->row;
-            c1 = e->e.r.left.vp->col;
-            r2 = e->e.r.right.vp->row;
-            c2 = e->e.r.right.vp->col;
-            if (r1 > r2) { r = r2; r2 = r1; r1 = r; }
-            if (c1 > c2) { c = c2; c2 = c1; c1 = c; }
+            struct frange *fr = find_frange(currow, curcol);
+            int r1 = e->e.r.left.vp->row;
+            int c1 = e->e.r.left.vp->col;
+            int r2 = e->e.r.right.vp->row;
+            int c2 = e->e.r.right.vp->col;
+            if (r1 > r2) SWAPINT(r1, r2);
+            if (c1 > c2) SWAPINT(c1, c2);
 
             if (!(fr && (c1 < fr->or_left->col || c1 > fr->or_right->col))) {
                 if (r1 != r2 && r1 >= row1 && r1 <= row2) r1 = row2 - delta1;

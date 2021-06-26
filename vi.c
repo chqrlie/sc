@@ -1155,25 +1155,13 @@ void vi_interaction(void) {
                     }
                     break;
                 case '{':
-                    p = *ATBL(tbl, currow, curcol);
-                    if (p && p->label)
-                        ljustify(currow, curcol, currow, curcol);
-                    else
-                        error("Nothing to justify");
+                    range_align(currow, curcol, currow, curcol, ALIGN_LEFT);
                     break;
                 case '}':
-                    p = *ATBL(tbl, currow, curcol);
-                    if (p && p->label)
-                        rjustify(currow, curcol, currow, curcol);
-                    else
-                        error("Nothing to justify");
+                    range_align(currow, curcol, currow, curcol, ALIGN_RIGHT);
                     break;
                 case '|':
-                    p = *ATBL(tbl, currow, curcol);
-                    if (p && p->label)
-                        center(currow, curcol, currow, curcol);
-                    else
-                        error("Nothing to center");
+                    range_align(currow, curcol, currow, curcol, ALIGN_CENTER);
                     break;
                 case 'e':
                     if (!locked_cell(currow, curcol)) {
@@ -1457,9 +1445,7 @@ void vi_interaction(void) {
                             }
                             copyent(n, p, currow - savedrow[c], c1 - savedcol[c],
                                     0, 0, maxrow, maxcol, 0);
-                            n->flags |= IS_CHANGED;
                         }
-
                         FullUpdate++;
                         modflg++;
                         break;

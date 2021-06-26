@@ -41,23 +41,23 @@ struct ent *lookat(int row, int col) {
     if (*pp == NULL) {
         if ((p = freeents) != NULL) {
             freeents = p->next;
-            p->flags &= ~IS_CLEARED;
-            p->flags |= MAY_SYNC;
         } else {
             p = scxmalloc(sizeof(struct ent));
         }
         if (row > maxrow) maxrow = row;
         if (col > maxcol) maxcol = col;
+        p->v = 0.0;
         p->label = NULL;
+        p->expr = NULL;
+        p->format = NULL;
+        p->cellerror = CELLOK;
+        p->flags = MAY_SYNC;
         p->row = row;
         p->col = col;
         p->nrow = -1;
         p->ncol = -1;
-        p->flags = MAY_SYNC;
-        p->expr = (struct enode *)0;
-        p->v = 0.0;
-        p->format = NULL;
-        p->cellerror = CELLOK;
+        p->nlastrow = -1;
+        p->nlastcol = -1;
         p->next = NULL;
         *pp = p;
     }
@@ -340,15 +340,11 @@ void insertcol(int arg, int delta) {
 
 /* delete rows starting at r1 up to and including r2 */
 void deleterows(int r1, int r2) {
-    int r, nrows, i, save = currow;
+    int nrows, i, save = currow;
     struct frange *fr;
     struct ent *obuf = NULL;
 
-    if (r1 > r2) {
-        r = r1;
-        r1 = r2;
-        r2 = r;
-    }
+    if (r1 > r2) SWAPINT(r1, r2);
     if (r2 > maxrow)
         r2 = maxrow;
     if (r1 > maxrow) {
@@ -614,18 +610,10 @@ void erase_area(int sr, int sc, int er, int ec, int ignorelock) {
     int r, c;
     struct ent **pp;
 
-    if (sr > er) {
-        r = sr; sr = er; er = r;
-    }
-
-    if (sc > ec) {
-        c = sc; sc = ec; ec = c;
-    }
-
-    if (sr < 0)
-        sr = 0;
-    if (sc < 0)
-        sc = 0;
+    if (sr > er) SWAPINT(sr, er);
+    if (sc > ec) SWAPINT(sc, ec);
+    if (sr < 0) sr = 0;
+    if (sc < 0) sc = 0;
     checkbounds(&er, &ec);
 
     /* Do a lookat() for the upper left and lower right cells of the range
@@ -658,18 +646,10 @@ void erase_area(int sr, int sc, int er, int ec, int ignorelock) {
 void yank_area(int sr, int sc, int er, int ec) {
     int r, c;
 
-    if (sr > er) {
-        r = sr; sr = er; er = r;
-    }
-
-    if (sc > ec) {
-        c = sc; sc = ec; ec = c;
-    }
-
-    if (sr < 0)
-        sr = 0;
-    if (sc < 0)
-        sc = 0;
+    if (sr > er) SWAPINT(sr, er);
+    if (sc > ec) SWAPINT(sc, ec);
+    if (sr < 0) sr = 0;
+    if (sc < 0) sc = 0;
     checkbounds(&er, &ec);
 
     r = currow;
@@ -690,18 +670,10 @@ void move_area(int dr, int dc, int sr, int sc, int er, int ec) {
     int deltar, deltac;
     int r, c;
 
-    if (sr > er) {
-        r = sr; sr = er; er = r;
-    }
-
-    if (sc > ec) {
-        c = sc; sc = ec; ec = c;
-    }
-
-    if (sr < 0)
-        sr = 0;
-    if (sc < 0)
-        sc = 0;
+    if (sr > er) SWAPINT(sr, er);
+    if (sc > ec) SWAPINT(sc, ec);
+    if (sr < 0) sr = 0;
+    if (sc < 0) sc = 0;
     checkbounds(&er, &ec);
 
     r = currow;
@@ -745,18 +717,10 @@ void valueize_area(int sr, int sc, int er, int ec) {
     int r, c;
     struct ent *p;
 
-    if (sr > er) {
-        r = sr; sr = er; er= r;
-    }
-
-    if (sc > ec) {
-        c = sc; sc = ec; ec= c;
-    }
-
-    if (sr < 0)
-        sr = 0;
-    if (sc < 0)
-        sc = 0;
+    if (sr > er) SWAPINT(sr, er);
+    if (sc > ec) SWAPINT(sc, ec);
+    if (sr < 0) sr = 0;
+    if (sc < 0) sc = 0;
     checkbounds(&er, &ec);
 
     for (r = sr; r <= er; r++) {
@@ -1060,11 +1024,7 @@ void deletecols(int c1, int c2) {
     struct ent *p;
     struct ent *obuf = NULL;
 
-    if (c1 > c2) {
-        c = c1;
-        c1 = c2;
-        c2 = c;
-    }
+    if (c1 > c2) SWAPINT(c1, c2);
     if (c2 > maxcol)
         c2 = maxcol;
     if (c1 > maxcol) {
@@ -1324,80 +1284,18 @@ void cmd_format(int c1, int c2, int w, int p, int r) {
     modflg++;
 }
 
-void ljustify(int sr, int sc, int er, int ec) {
+void range_align(int sr, int sc, int er, int ec, int align) {
     struct ent *p;
     int i, j;
 
-    if (sr > er) {
-        i = sr;
-        sr = er;
-        er = i;
-    }
-    if (sc > ec) {
-        i = sc;
-        sc = ec;
-        ec = i;
-    }
+    if (sr > er) SWAPINT(sr, er);
+    if (sc > ec) SWAPINT(sc, ec);
     for (i = sr; i <= er; i++) {
         for (j = sc; j <= ec; j++) {
             p = *ATBL(tbl, i, j);
-            if (p && p->label) {
-                p->flags &= ~(IS_LABEL| IS_LEFTFLUSH);
-                p->flags |= IS_LEFTFLUSH | IS_CHANGED;
-                changed++;
-                modflg++;
-            }
-        }
-    }
-}
-
-void rjustify(int sr, int sc, int er, int ec) {
-    struct ent *p;
-    int i, j;
-
-    if (sr > er) {
-        i = sr;
-        sr = er;
-        er = i;
-    }
-    if (sc > ec) {
-        i = sc;
-        sc = ec;
-        ec = i;
-    }
-    for (i = sr; i <= er; i++) {
-        for (j = sc; j <= ec; j++) {
-            p = *ATBL(tbl, i, j);
-            if (p && p->label) {
-                p->flags &= ~(IS_LABEL | IS_LEFTFLUSH);
-                p->flags |= IS_CHANGED;
-                changed++;
-                modflg++;
-            }
-        }
-    }
-}
-
-void center(int sr, int sc, int er, int ec) {
-    struct ent *p;
-    int i, j;
-
-    if (sr > er) {
-        i = sr;
-        sr = er;
-        er = i;
-    }
-    if (sc > ec) {
-        i = sc;
-        sc = ec;
-        ec = i;
-    }
-    for (i = sr; i <= er; i++) {
-        for (j = sc; j <= ec; j++) {
-            p = *ATBL(tbl, i, j);
-            if (p && p->label) {
-                p->flags &= ~IS_LEFTFLUSH;
-                p->flags |= IS_LABEL | IS_CHANGED;
+            if (p) {
+                p->flags &= ~ALIGN_MASK;
+                p->flags |= IS_CHANGED | align;
                 changed++;
                 modflg++;
             }
@@ -1606,12 +1504,14 @@ void printfile(const char *fname, int r0, int c0, int rn, int cn) {
                     }
                     nextcol++;
                 }
-                if (p->flags & IS_LEFTFLUSH) {  /* left align */
+                switch (p->flags & ALIGN_MASK) {
+                default:
+                case ALIGN_LEFT:
                     pad = w - buf->len;
                     if (slen > fieldlen)
                         slen = fieldlen;
-                } else
-                if (p->flags & IS_LABEL) {  /* center */
+                    break;
+                case ALIGN_CENTER:
                     pad = w - buf->len + (fwidth[nextcol] - slen) / 2;
                     if (pad < 0) {
                         soff = -pad;
@@ -1619,13 +1519,15 @@ void printfile(const char *fname, int r0, int c0, int rn, int cn) {
                     }
                     if ((int)buf->len + pad + slen > w + fieldlen)
                         slen = w + fieldlen - buf->len - pad;
-                } else {
+                    break;
+                case ALIGN_RIGHT:
                     pad = w - buf->len + fieldlen - slen;
                     if (pad < 0) {
                         soff = -pad;
                         slen -= soff;
                         pad = 0;
                     }
+                    break;
                 }
 
                 if (buf_extend(buf, w + fieldlen + 2, FBUFLEN))
@@ -2025,15 +1927,14 @@ void sync_refs(void) {
         }
     }
     for (i = 0; i < DELBUFSIZE; i++) {
-        p = delbuf[i];
-        while (p && p->expr) {
-            syncref(p->expr);
-            p = p->next;
+        for (p = delbuf[i]; p; p = p->next) {
+            if (p->expr)
+                syncref(p->expr);
         }
     }
 }
 
-void syncref(struct enode *e) {
+static void syncref(struct enode *e) {
     if (e == NULL)
         return;
     else if (e->op & REDUCE) {
@@ -2046,8 +1947,9 @@ void syncref(struct enode *e) {
                 e->op = ERR_;
                 e->e.o.left = NULL;
                 e->e.o.right = NULL;
-            } else if (e->e.v.vp->flags & MAY_SYNC)
+            } else if (e->e.v.vp->flags & MAY_SYNC) {
                 e->e.v.vp = lookat(e->e.v.vp->row, e->e.v.vp->col);
+            }
             break;
         case 'k':
             break;
@@ -2064,11 +1966,7 @@ void syncref(struct enode *e) {
 /* mark rows as hidden */
 void hiderows(int r1, int r2) {
     int r, a;
-    if (r1 > r2) {
-        r = r2;
-        r2 = r1;
-        r1 = r;
-    }
+    if (r1 > r2) SWAPINT(r1, r2);
     if (r1 < 0) {
         error("Invalid range");
         return;
@@ -2093,11 +1991,7 @@ void hiderows(int r1, int r2) {
 /* mark columns as hidden */
 void hidecols(int c1, int c2) {
     int c, a;
-    if (c1 > c2) {
-        c = c1;
-        c1 = c2;
-        c2 = c;
-    }
+    if (c1 > c2) SWAPINT(c1, c2);
     a = c2 - c1 + 1;
     if (c1 < 0) {
         error("Invalid range");
@@ -2134,8 +2028,8 @@ void showrow(int r1, int r2) {
         error ("Invalid range");
         return;
     }
-    if (r2 > maxrows-1) {
-        r2 = maxrows-1;
+    if (r2 > maxrows - 1) {
+        r2 = maxrows - 1;
     }
     FullUpdate++;
     modflg++;
@@ -2149,8 +2043,8 @@ void showcol(int c1, int c2) {
         error ("Invalid range");
         return;
     }
-    if (c2 > maxcols-1) {
-        c2 = maxcols-1;
+    if (c2 > maxcols - 1) {
+        c2 = maxcols - 1;
     }
     FullUpdate++;
     modflg++;
@@ -2306,18 +2200,18 @@ void copyent(struct ent *n, struct ent *p, int dr, int dc,
         }
         if (p->label) {
             set_cstring(&n->label, p->label);
-            n->flags &= ~(IS_LABEL | IS_LEFTFLUSH);
-            n->flags |= p->flags & (IS_LABEL | IS_LEFTFLUSH);
         } else if (special != 'm') {
-            n->label = NULL;
-            n->flags &= ~(IS_LABEL | IS_LEFTFLUSH);
+            set_cstring(&n->label, NULL);
         }
+        n->flags &= ~ALIGN_MASK;
+        n->flags |= p->flags & ALIGN_MASK;
         n->flags |= p->flags & IS_LOCKED;
     }
     if (p->format) {
         set_cstring(&n->format, p->format);
-    } else if (special != 'm' && special != 'f')
-        n->format = NULL;
+    } else if (special != 'm' && special != 'f') {
+        set_cstring(&n->format, NULL);
+    }
     n->flags |= IS_CHANGED;
 }
 
@@ -2886,7 +2780,7 @@ void gotonote(void) {
  */
 
 void showstring(const char *string,         /* to display */
-                int dirflush,               /* or rightflush or centered */
+                int align,                  /* ALIGN_xxx */
                 int hasvalue,               /* is there a numeric value? */
                 int row, int col,           /* spreadsheet location */
                 int *nextcolp,              /* value returned through it */
@@ -2942,9 +2836,11 @@ void showstring(const char *string,         /* to display */
         slen = fieldlen;
 
     /* Now justify and print */
-    start = (dirflush & IS_LEFTFLUSH) ? field : field + fieldlen - slen;
-    if (dirflush & IS_LABEL)
+    // XXX: should allow center and right to bleed to the left over empty cells
+    if (align == ALIGN_CENTER)
         start = field + ((slen < fwidth[col]) ? (fieldlen - slen) / 2 : 0);
+    else
+        start = (align == ALIGN_RIGHT) ? field + fieldlen - slen : field;
     last = field + fieldlen;
     fp = field;
     if (slen) {
@@ -3340,8 +3236,8 @@ void cmd_define(const char *name) {
 }
 
 void addnote(struct ent *p, int sr, int sc, int er, int ec) {
-    if (sr > er) { int r = sr; sr = er; er = r; }
-    if (sc > ec) { int c = sc; sc = ec; ec = c; }
+    if (sr > er) SWAPINT(sr, er);
+    if (sc > ec) SWAPINT(sc, ec);
     p->nrow = sr;
     p->ncol = sc;
     p->nlastrow = er;

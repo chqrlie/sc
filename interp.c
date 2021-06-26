@@ -769,58 +769,42 @@ double eval(struct enode *e) {
     case LOOKUP:
     case HLOOKUP:
     case VLOOKUP: {
-        int r, c;
-        int maxr, maxc;
-        int minr, minc;
-        maxr = e->e.o.left->e.r.right.vp->row;
-        maxc = e->e.o.left->e.r.right.vp->col;
-        minr = e->e.o.left->e.r.left.vp->row;
-        minc = e->e.o.left->e.r.left.vp->col;
-        if (minr > maxr) { r = maxr; maxr = minr; minr = r; }
-        if (minc > maxc) { c = maxc; maxc = minc; minc = c; }
-        switch (e->op) {
-        case LOOKUP:
-            return dolookup(e->e.o.right, minr, minc, maxr, maxc, 1, minc == maxc);
-        case HLOOKUP:
-            return dolookup(e->e.o.right->e.o.left, minr, minc, maxr, maxc,
-                            (int)eval(e->e.o.right->e.o.right), 0);
-        case VLOOKUP:
-            return dolookup(e->e.o.right->e.o.left, minr, minc, maxr, maxc,
-                            (int)eval(e->e.o.right->e.o.right), 1);
-        case INDEX:
-            return doindex(minr, minc, maxr, maxc, e->e.o.right);
-        case SUM:
-            return dosum(minr, minc, maxr, maxc, e->e.o.right);
-        case PROD:
-            return doprod(minr, minc, maxr, maxc, e->e.o.right);
-        case AVG:
-            return doavg(minr, minc, maxr, maxc, e->e.o.right);
-        case COUNT:
-            return docount(minr, minc, maxr, maxc, e->e.o.right);
-        case STDDEV:
-            return dostddev(minr, minc, maxr, maxc, e->e.o.right);
-        case MAX:
-            return domax(minr, minc, maxr, maxc, e->e.o.right);
-        case MIN:
-            return domin(minr, minc, maxr, maxc, e->e.o.right);
-        }
-    }
-    case REDUCE | 'R':
-    case REDUCE | 'C':
-        {   int r, c;
-            int maxr, maxc;
-            int minr, minc;
-            maxr = e->e.r.right.vp->row;
-            maxc = e->e.r.right.vp->col;
-            minr = e->e.r.left.vp->row;
-            minc = e->e.r.left.vp->col;
-            if (minr > maxr) { r = maxr; maxr = minr; minr = r; }
-            if (minc > maxc) { c = maxc; maxc = minc; minc = c; }
+            int minr = e->e.o.left->e.r.left.vp->row;
+            int minc = e->e.o.left->e.r.left.vp->col;
+            int maxr = e->e.o.left->e.r.right.vp->row;
+            int maxc = e->e.o.left->e.r.right.vp->col;
+            if (minr > maxr) SWAPINT(minr, maxr);
+            if (minc > maxc) SWAPINT(minc, maxc);
             switch (e->op) {
-            case REDUCE | 'R': return maxr - minr + 1;
-            case REDUCE | 'C': return maxc - minc + 1;
+            case SUM:
+                return dosum(minr, minc, maxr, maxc, e->e.o.right);
+            case PROD:
+                return doprod(minr, minc, maxr, maxc, e->e.o.right);
+            case AVG:
+                return doavg(minr, minc, maxr, maxc, e->e.o.right);
+            case COUNT:
+                return docount(minr, minc, maxr, maxc, e->e.o.right);
+            case STDDEV:
+                return dostddev(minr, minc, maxr, maxc, e->e.o.right);
+            case MAX:
+                return domax(minr, minc, maxr, maxc, e->e.o.right);
+            case MIN:
+                return domin(minr, minc, maxr, maxc, e->e.o.right);
+            case LOOKUP:
+                return dolookup(e->e.o.right, minr, minc, maxr, maxc, 1, minc == maxc);
+            case HLOOKUP:
+                return dolookup(e->e.o.right->e.o.left, minr, minc, maxr, maxc,
+                                (int)eval(e->e.o.right->e.o.right), 0);
+            case VLOOKUP:
+                return dolookup(e->e.o.right->e.o.left, minr, minc, maxr, maxc,
+                                (int)eval(e->e.o.right->e.o.right), 1);
+            case INDEX:
+                return doindex(minr, minc, maxr, maxc, e->e.o.right);
             }
         }
+    case REDUCE | 'R': return abs(e->e.r.right.vp->row - e->e.r.left.vp->row) + 1;
+    case REDUCE | 'C': return abs(e->e.r.right.vp->col - e->e.r.left.vp->col) + 1;
+
     case ABS:        return fn1_eval( fabs, eval(e->e.o.left));
     case ACOS:       return fn1_eval( acos, eval(e->e.o.left));
     case ASIN:       return fn1_eval( asin, eval(e->e.o.left));
@@ -1224,12 +1208,12 @@ SCXMEM char *seval(struct enode *se) {
     case LOWER:     return docase(LOWER, seval(se->e.o.left));
     case CAPITAL:   return docapital(seval(se->e.o.left));
     case STINDEX:   {
-                        int maxr = se->e.o.left->e.r.right.vp->row;
-                        int maxc = se->e.o.left->e.r.right.vp->col;
                         int minr = se->e.o.left->e.r.left.vp->row;
                         int minc = se->e.o.left->e.r.left.vp->col;
-                        if (minr > maxr) { int r = maxr; maxr = minr; minr = r; }
-                        if (minc > maxc) { int c = maxc; maxc = minc; minc = c; }
+                        int maxr = se->e.o.left->e.r.right.vp->row;
+                        int maxc = se->e.o.left->e.r.right.vp->col;
+                        if (minr > maxr) SWAPINT(minr, maxr);
+                        if (minc > maxc) SWAPINT(minc, maxc);
                         return dostindex(minr, minc, maxr, maxc, se->e.o.right);
                     }
     case EXT:       return doext(se);
@@ -1453,11 +1437,11 @@ struct SCXMEM enode *new_str(SCXMEM char *s) {
 
 void copy(struct ent *dv1, struct ent *dv2, struct ent *v1, struct ent *v2) {
     struct ent *p;
+    // XXX: get rid of this static mess
     static int minsr = -1, minsc = -1;
     static int maxsr = -1, maxsc = -1;
     int mindr, mindc;
     int maxdr, maxdc;
-    int r, c;
     int deltar, deltac;
 
     if (dv1) {
@@ -1465,8 +1449,8 @@ void copy(struct ent *dv1, struct ent *dv2, struct ent *v1, struct ent *v2) {
         mindc = dv1->col;
         maxdr = dv2->row;
         maxdc = dv2->col;
-        if (mindr > maxdr) { r = maxdr; maxdr = mindr; mindr = r; }
-        if (mindc > maxdc) { c = maxdc; maxdc = mindc; mindc = c; }
+        if (mindr > maxdr) SWAPINT(mindr, maxdr);
+        if (mindc > maxdc) SWAPINT(mindc, maxdc);
     } else {
         if (showrange) {
             showrange = 0;
@@ -1490,8 +1474,8 @@ void copy(struct ent *dv1, struct ent *dv2, struct ent *v1, struct ent *v2) {
         minsc = v1->col;
         maxsr = v2->row;
         maxsc = v2->col;
-        if (minsr > maxsr) { r = maxsr; maxsr = minsr; minsr = r; }
-        if (minsc > maxsc) { c = maxsc; maxsc = minsc; minsc = c; }
+        if (minsr > maxsr) SWAPINT(minsr, maxsr);
+        if (minsc > maxsc) SWAPINT(minsc, maxsc);
     } else if (dv1 == NULL || v2 != NULL) {
         if (qbuf && delbuf[qbuf]) {
             delbuf[++dbidx] = delbuf[qbuf];
@@ -1517,6 +1501,7 @@ void copy(struct ent *dv1, struct ent *dv2, struct ent *v1, struct ent *v2) {
         maxsr = showsr > currow ? showsr : currow;
         maxsc = showsc > curcol ? showsc : curcol;
     } else {
+        // XXX: use static values: check if we can avoid it
         if (minsr == -1)
             return;
     }
@@ -2010,15 +1995,12 @@ void str_search(const char *s, int firstrow, int firstcol, int lastrow, int last
 void fill(struct ent *v1, struct ent *v2, double start, double inc) {
     int r, c;
     struct ent *n;
-    int maxr, maxc;
-    int minr, minc;
-
-    maxr = v2->row;
-    maxc = v2->col;
-    minr = v1->row;
-    minc = v1->col;
-    if (minr > maxr) { r = maxr; maxr = minr; minr = r; }
-    if (minc > maxc) { c = maxc; maxc = minc; minc = c; }
+    int minr = v1->row;
+    int minc = v1->col;
+    int maxr = v2->row;
+    int maxc = v2->col;
+    if (minr > maxr) SWAPINT(minr, maxr);
+    if (minc > maxc) SWAPINT(minc, maxc);
     checkbounds(&maxr, &maxc);
     if (minr < 0) minr = 0;
     if (minc < 0) minc = 0;
@@ -2029,10 +2011,11 @@ void fill(struct ent *v1, struct ent *v2, double start, double inc) {
             for (c = minc; c <= maxc; c++) {
                 n = lookat(r, c);
                 if (n->flags & IS_LOCKED) continue;
+                // XXX: why clear the format and alignment?
                 clearent(n);
                 n->v = start;
                 start += inc;
-                n->flags |= (IS_CHANGED | IS_VALID);
+                n->flags |= IS_CHANGED | IS_VALID;
                 n->flags &= ~IS_CLEARED;
             }
         }
@@ -2041,10 +2024,11 @@ void fill(struct ent *v1, struct ent *v2, double start, double inc) {
         for (c = minc; c <= maxc; c++) {
             for (r = minr; r <= maxr; r++) {
                 n = lookat(r, c);
+                // XXX: why clear the format and alignment?
                 clearent(n);
                 n->v = start;
                 start += inc;
-                n->flags |= (IS_CHANGED | IS_VALID);
+                n->flags |= IS_CHANGED | IS_VALID;
                 n->flags &= ~IS_CLEARED;
             }
         }
@@ -2059,21 +2043,18 @@ void fill(struct ent *v1, struct ent *v2, double start, double inc) {
 void lock_cells(struct ent *v1, struct ent *v2) {
     int r, c;
     struct ent *n;
-    int maxr, maxc;
-    int minr, minc;
-
-    maxr = v2->row;
-    maxc = v2->col;
-    minr = v1->row;
-    minc = v1->col;
-    if (minr > maxr) { r = maxr; maxr = minr; minr = r; }
-    if (minc > maxc) { c = maxc; maxc = minc; minc = c; }
+    int minr = v1->row;
+    int minc = v1->col;
+    int maxr = v2->row;
+    int maxc = v2->col;
+    if (minr > maxr) SWAPINT(minr, maxr);
+    if (minc > maxc) SWAPINT(minc, maxc);
     checkbounds(&maxr, &maxc);
     if (minr < 0) minr = 0;
     if (minc < 0) minc = 0;
 
     for (r = minr; r <= maxr; r++) {
-        for (c = minc; c<=maxc; c++) {
+        for (c = minc; c <= maxc; c++) {
             n = lookat(r, c);
             n->flags |= IS_LOCKED;
         }
@@ -2085,15 +2066,12 @@ void lock_cells(struct ent *v1, struct ent *v2) {
 void unlock_cells(struct ent *v1, struct ent *v2) {
     int r, c;
     struct ent *n;
-    int maxr, maxc;
-    int minr, minc;
-
-    maxr = v2->row;
-    maxc = v2->col;
-    minr = v1->row;
-    minc = v1->col;
-    if (minr > maxr) { r = maxr; maxr = minr; minr = r; }
-    if (minc > maxc) { c = maxc; maxc = minc; minc = c; }
+    int minr = v1->row;
+    int minc = v1->col;
+    int maxr = v2->row;
+    int maxc = v2->col;
+    if (minr > maxr) SWAPINT(minr, maxr);
+    if (minc > maxc) SWAPINT(minc, maxc);
     checkbounds(&maxr, &maxc);
     if (minr < 0) minr = 0;
     if (minc < 0) minc = 0;
@@ -2122,33 +2100,35 @@ void unlet(struct ent *v) {
 }
 
 /* set the numeric part of a cell */
-void let(struct ent *v, struct enode *e) {
+void let(struct ent *v, SCXMEM struct enode *e) {
     double val;
+    // XXX: test for constant expression is potentially incorrect
     unsigned isconstant = constant(e);
 
     if (locked_cell(v->row, v->col))
         return;
     if (v->row == currow && v->col == curcol)
         cellassign = 1;
-    if (loading && !isconstant) {
-        val = 0.0;
-    } else {
+
+    val = 0.0;
+    if (!loading || isconstant) {
         exprerr = 0;
         signal(SIGFPE, eval_fpe);
         if (setjmp(fpe_save)) {
-            error("Floating point exception in cell %s", v_name(v->row, v->col));
-            val = 0.0;
+            error("Floating point exception in cell %s",
+                  v_name(v->row, v->col));
             cellerror = CELLERROR;
+            val = 0.0;
         } else {
             cellerror = CELLOK;
             val = eval(e);
         }
         if (v->cellerror != cellerror) {
+            v->cellerror = cellerror;
             v->flags |= IS_CHANGED;
             changed++;
             modflg++;
             FullUpdate++;
-            v->cellerror = cellerror;
         }
         signal(SIGFPE, doquit);
         if (exprerr) {
@@ -2159,6 +2139,7 @@ void let(struct ent *v, struct enode *e) {
 
     if (isconstant) {
         /* prescale input unless it has a decimal */
+        // XXX: sc_decimal is a horrible hack!
         if (!loading && !sc_decimal && (prescale < 0.9999999))
             val *= prescale;
         sc_decimal = FALSE;
@@ -2178,7 +2159,7 @@ void let(struct ent *v, struct enode *e) {
 
     changed++;
     modflg++;
-    v->flags |= (IS_CHANGED | IS_VALID);
+    v->flags |= IS_CHANGED | IS_VALID;
 
     if (!loading) {
         int i;
@@ -2198,7 +2179,7 @@ void let(struct ent *v, struct enode *e) {
     }
 }
 
-void slet(struct ent *v, SCXMEM struct enode *se, int flushdir) {
+void slet(struct ent *v, SCXMEM struct enode *se, int align) {
     SCXMEM char *p;
 
     if (locked_cell(v->row, v->col))
@@ -2208,7 +2189,9 @@ void slet(struct ent *v, SCXMEM struct enode *se, int flushdir) {
     exprerr = 0;
     signal(SIGFPE, eval_fpe);
     if (setjmp(fpe_save)) {
-        error("Floating point exception in cell %s", v_name(v->row, v->col));
+        // XXX: potential memory leak in the evaluator
+        error("Floating point exception in cell %s",
+              v_name(v->row, v->col));
         cellerror = CELLERROR;
         p = scxdup("");
     } else {
@@ -2216,11 +2199,11 @@ void slet(struct ent *v, SCXMEM struct enode *se, int flushdir) {
         p = seval(se);
     }
     if (v->cellerror != cellerror) {
+        v->cellerror = cellerror;
         v->flags |= IS_CHANGED;
         changed++;
         modflg++;
         FullUpdate++;
-        v->cellerror = cellerror;
     }
     signal(SIGFPE, doquit);
     if (exprerr) {
@@ -2244,28 +2227,21 @@ void slet(struct ent *v, SCXMEM struct enode *se, int flushdir) {
         savedstrow[28] = savedstrow[27];
         savedstcol[28] = savedstcol[27];
     }
-    if (constant(se)) {
-        set_cell_label(v, p, flushdir);
-        scxfree(p);
-        efree(se);
-        if (v->flags & IS_STREXPR) {
-            efree(v->expr);
-            v->expr = NULL;
-            v->flags &= ~IS_STREXPR;
-        }
-        return;
-    }
     set_string(&v->label, p);
-    efree(v->expr);
-    v->expr = se;
-    v->flags |= (IS_CHANGED | IS_STREXPR);
-    if (flushdir < 0)
-        v->flags |= IS_LEFTFLUSH;
-    if (flushdir == 0)
-        v->flags |= IS_LABEL;
-    else
-        v->flags &= ~IS_LABEL;
-
+    v->flags &= ~ALIGN_MASK;
+    v->flags |= IS_CHANGED | align;
+    if (v->expr) {
+        efree(v->expr);
+        v->expr = NULL;
+        v->flags &= ~IS_STREXPR;
+    }
+    // XXX: test for constant expression is potentially incorrect
+    if (constant(se)) {
+        efree(se);
+    } else {
+        v->expr = se;
+        v->flags |= IS_STREXPR;
+    }
     FullUpdate++;
     changed++;
     modflg++;
@@ -2274,15 +2250,12 @@ void slet(struct ent *v, SCXMEM struct enode *se, int flushdir) {
 void format_cell(struct ent *v1, struct ent *v2, const char *s) {
     int r, c;
     struct ent *n;
-    int maxr, maxc;
-    int minr, minc;
-
-    maxr = v2->row;
-    maxc = v2->col;
-    minr = v1->row;
-    minc = v1->col;
-    if (minr > maxr) { r = maxr; maxr = minr; minr = r; }
-    if (minc > maxc) { c = maxc; maxc = minc; minc = c; }
+    int minr = v1->row;
+    int minc = v1->col;
+    int maxr = v2->row;
+    int maxc = v2->col;
+    if (minr > maxr) SWAPINT(minr, maxr);
+    if (minc > maxc) SWAPINT(minc, maxc);
     checkbounds(&maxr, &maxc);
     if (minr < 0) minr = 0;
     if (minc < 0) minc = 0;
@@ -2302,16 +2275,21 @@ void format_cell(struct ent *v1, struct ent *v2, const char *s) {
 }
 
 void clearent(struct ent *v) {
-    if (!v)
-        return;
-    set_cell_label(v, "", -1);
-    v->v = 0.0;
-    efree(v->expr);
-    v->expr = NULL;
-    set_string(&v->format, NULL);
-    v->flags = (IS_CHANGED | IS_CLEARED);
-    changed++;
-    modflg++;
+    if (v) {
+        v->v = 0.0;
+        set_string(&v->label, NULL);
+        efree(v->expr);
+        v->expr = NULL;
+        set_string(&v->format, NULL);
+        v->cellerror = 0;
+        v->flags = IS_CHANGED | IS_CLEARED;
+        // XXX: should clear other fields?
+        //      ncol, nrow, nlastcol, nlastrow
+        //      next
+        FullUpdate++;  // XXX: really?
+        changed++;
+        modflg++;
+    }
 }
 
 /*
@@ -2353,34 +2331,6 @@ void efree(SCXMEM struct enode *e) {
             scxfree(e->e.o.s);
         e->e.o.left = freeenodes;
         freeenodes = e;
-    }
-}
-
-void set_cell_label(struct ent *v, const char *s, int flushdir) {
-    if (v) {
-        if (flushdir == 0 && (v->flags & IS_VALID)) {
-            struct ent *tv;
-            if (v->col > 0 && ((tv = lookat(v->row, v->col - 1))->flags & IS_VALID) == 0) {
-                v = tv;
-                flushdir = 1;
-            }
-            else if (((tv = lookat(v->row, v->col + 1))->flags & IS_VALID) == 0) {
-                v = tv;
-                flushdir = -1;
-            }
-            else flushdir = -1;
-        }
-        set_cstring(&v->label, s && *s ? s : NULL);
-        if (flushdir < 0)
-            v->flags |= IS_LEFTFLUSH;
-        else
-            v->flags &= ~IS_LEFTFLUSH;
-        if (flushdir == 0)
-            v->flags |= IS_LABEL;
-        else
-            v->flags &= ~IS_LABEL;
-        FullUpdate++;
-        modflg++;
     }
 }
 
@@ -2681,11 +2631,15 @@ void editv(buf_t buf, int row, int col) {
 
 void edits(buf_t buf, int row, int col) {
     struct ent *p = lookat(row, col);
+    const char *command;
 
-    buf_setf(buf, "%s %s = ",
-             (p->flags & IS_LABEL) ? "label" :
-             (p->flags & IS_LEFTFLUSH) ? "leftstring" : "rightstring",
-             v_name(row, col));
+    switch (p->flags & ALIGN_MASK) {
+    default:
+    case ALIGN_LEFT:    command = "leftstring";  break;
+    case ALIGN_CENTER:  command = "label";       break;
+    case ALIGN_RIGHT:   command = "rightstring"; break;
+    }
+    buf_setf(buf, "%s %s = ", command, v_name(row, col));
     if ((p->flags & IS_STREXPR) && p->expr) {
         decompile_node(buf, p->expr, 0);
     } else if (p->label) {
