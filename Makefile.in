@@ -312,34 +312,6 @@ YTAB=y.tab
 #LDADD=-lm -lpdcurses
 
 #########################################
-# Use this for OS/X
-#CC=clang
-CC=gcc
-CFLAGS= -O2
-LDFLAGS=
-#__CDBG=-g -O0
-#__CLDBG=-g
-# define as O:=. for debug build
-O:=.obj
-#YACC=bison
-WARNINGS := -Wall -Wextra -Werror
-ifeq ($(CC),clang)
-WARNINGS += -Weverything
-endif
-WARNINGS += -Wno-padded -Wno-missing-prototypes
-WARNINGS += -Wno-vla -Wno-missing-noreturn -Wno-sign-conversion -Wno-conversion
-WARNINGS += -Wwrite-strings -Wno-bad-function-cast
-WARNINGS += -Wno-unused-macros -Wchar-subscripts -Wno-float-equal
-WARNINGS += -Wno-unreachable-code
-WARNINGS += -Wredundant-decls -Wmissing-declarations -Wundef -Wsign-compare
-WARNINGS += -Wunused -Wno-unused-parameter -Wuninitialized
-WARNINGS += -Wformat-nonliteral -Wmissing-format-attribute -Wstrict-prototypes
-WARNINGS += -Wnested-externs -Wdeclaration-after-statement
-ifeq ($(CC),clang)
-WARNINGS += -Wno-shorten-64-to-32 -Wno-reserved-id-macro -Wno-unreachable-code-break
-endif
-
-#########################################
 _CFLAGS= $(CFLAGS) $(WARNINGS) $(INCDIR_CURSES) $(DEFINES) $(__CDBG) $(__CLDBG) \
 	#-DTRACE='"/tmp/trace.txt"'
 _LDFLAGS=$(LDFLAGS) $(__CLDBG)

@@ -91,8 +91,10 @@ static struct key statres[] = {
 static const char *src_line;
 static const char *src_pos;
 
-//should be declared in y.tab.h
-//extern int yyparse(void);
+#if defined OPENBSD || defined FREEBSD
+/* should be declared in y.tab.h */
+extern int yyparse(void);
+#endif
 
 int parse_line(const char *buf) {
     int ret;
