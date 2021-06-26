@@ -1880,6 +1880,7 @@ struct enode *copye(struct enode *e, int Rdelta, int Cdelta,
                 ret->e.s = scxdup(e->e.s);
                 if (e->op == '$')       /* Drop through if ret->op is EXT */
                     break;
+                FALLTHROUGH;
             default:
                 ret->e.o.left = copye(e->e.o.left, Rdelta, Cdelta,
                                       r1, c1, r2, c2, transpose);

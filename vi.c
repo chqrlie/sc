@@ -223,6 +223,7 @@ void vi_interaction(void) {
 #endif
                 case ctl('r'):
                     showneed = 1;
+                    FALLTHROUGH;
                 case ctl('l'):
                     FullUpdate++;
                     clearok(stdscr, 1);
@@ -601,7 +602,7 @@ void vi_interaction(void) {
 
                 case ctl('w'):  /* insert variable expression */
                     if (linelim >= 0) {
-                        struct ent *p = lookat(currow, curcol);
+                        p = lookat(currow, curcol);
                         /* decompile expression into line array */
                         buf_init(buf, line, sizeof line);
                         decompile(buf, p->expr);
@@ -3234,6 +3235,7 @@ static int find_char(int a, int n) {
         switch (dotb[doti - 1]) {
         case 'f': case 'F': case 't': case 'T':
             savedot(findchar);
+            break;
         default:
             break;
         }
@@ -3552,6 +3554,7 @@ static int mouse_sel_cell(int mmode) { /* 0: set, 1: save, 2: cmp and set */
     case 2:
         if (y1 != ty || x1 != tx)
             break;
+        FALLTHROUGH;
     default:
         currow = ty; curcol = tx;
         return 0;
@@ -3568,6 +3571,7 @@ static void mouse_set_pos(int m) {
     case 2:
         if (x0 != mevent.x)
             break;
+        FALLTHROUGH;
     default:
         linelim = mevent.x - 3;
     }
@@ -3839,6 +3843,7 @@ static void vi_select_range(const char *arg) {
                 break;
             }
             /* else drop through */
+            FALLTHROUGH;
         case ctl('m'):
             set_line("put ");
             write_line('.');

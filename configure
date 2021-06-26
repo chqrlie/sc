@@ -20,7 +20,10 @@ usage () {
 	exit $1
 }
 
-[ `uname` = "OpenBSD" ] && CC=gcc
+CC=gcc
+# [ `uname` = "OpenBSD" ] && CC=gcc
+[ `uname` = "FreeBSD" ] && CC=clang
+
 SFLAG=
 MAKE=
 DEFS=
@@ -85,6 +88,7 @@ gen_mk () {
 	for i in $DEFS ; do echo "#define ${i} 1" | sed -e 's/-D//' >> $OUTCONF ; done
 	[ `uname` = "NetBSD" ] && echo "#define NETBSD  1" >> $OUTCONF
 	[ `uname` = "OpenBSD" ] && echo "#define OPENBSD  1" >> $OUTCONF
+	[ `uname` = "FreeBSD" ] && echo "#define FREEBSD  1" >> $OUTCONF
     echo "CC:=$CC" >> $OUTMK
     echo "CFLAGS= -O2" >> $OUTMK
     echo "LDFLAGS=" >> $OUTMK
@@ -103,6 +107,8 @@ gen_mk () {
     echo "WARNINGS += -Wformat-nonliteral -Wmissing-format-attribute -Wstrict-prototypes" >> $OUTMK
     echo "WARNINGS += -Wnested-externs -Wdeclaration-after-statement" >> $OUTMK
     [ "$CC" = "clang" ] && echo "WARNINGS += -Wno-shorten-64-to-32 -Wno-reserved-id-macro -Wno-unreachable-code-break" >> $OUTMK
+    # for yyval on FreeBSD
+    [ `uname` = "FreeBSD" ] && echo "WARNINGS += -Wno-missing-variable-declarations" >> $OUTMK
 	[ -n "$LEX" ] && echo "LEX=$LEX" >> $OUTMK
 	[ -n "$FLOAT_STORE" ] && echo "FLOAT_STORE=$FLOAT_STORE" >> $OUTMK
 	#[ -n "$DEFS" ] && echo "DEFINES=$DEFS" >> $OUTMK

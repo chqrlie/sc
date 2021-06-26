@@ -28,9 +28,10 @@
 #include "compat.h"
 #include "util.h"
 
-#if (defined(__GNUC__) || defined(__TINYC__))
+#if defined(__GNUC__) || defined(__CLANG__) || defined(__TINYC__)
 /* make sure that the keyword is not disabled by glibc (TINYC case) */
 #define sc__attr_printf(a, b)  __attribute__((format(printf, a, b)))
+#define FALLTHROUGH  __attribute__((fallthrough))
 #else
 #define sc__attr_printf(a, b)
 #endif

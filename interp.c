@@ -1694,8 +1694,10 @@ void go_last(void) {
         break;
     case G_XSTR:
         num++;
+        FALLTHROUGH;
     case G_NSTR:
         num++;
+        FALLTHROUGH;
     case G_STR:
         str_search(gs.g_s, gs.g_row, gs.g_col, gs.g_lastrow, gs.g_lastcol, num);
         break;
@@ -1846,9 +1848,9 @@ void str_search(const char *s, int firstrow, int firstcol, int lastrow, int last
 
 #if defined(REGCOMP)
     if ((errcode = regcomp(&preg, s, REG_EXTENDED))) {
-        char buf[160];
-        regerror(errcode, &preg, buf, sizeof(buf));
-        error("%s", buf);
+        char buf1[160];
+        regerror(errcode, &preg, buf1, sizeof(buf1));
+        error("%s", buf1);
         return;
     }
 #endif

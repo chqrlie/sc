@@ -202,6 +202,7 @@ int main(int argc, char **argv) {
         case 'P':
         case 'W':
             popt = 1;
+            break;
         case 'v':
             break;
         case 'q':

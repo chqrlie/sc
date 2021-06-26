@@ -312,6 +312,12 @@ YTAB=y.tab
 #LDADD=-lm -lpdcurses
 
 #########################################
+# Use this for OS/X
+#__CDBG=-g -O0
+#__CLDBG=-g
+# define as O:=. for debug build
+
+#########################################
 _CFLAGS= $(CFLAGS) $(WARNINGS) $(INCDIR_CURSES) $(DEFINES) $(__CDBG) $(__CLDBG) \
 	#-DTRACE='"/tmp/trace.txt"'
 _LDFLAGS=$(LDFLAGS) $(__CLDBG)

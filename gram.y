@@ -15,8 +15,14 @@
 
 #include "sc.h"
 
-//extern int yychar;
-//extern int yynerrs;
+#if defined FREEBSD
+extern int yydebug;
+extern int yynerrs;
+extern int yyerrflag;
+extern int yychar;
+//extern union YYSTYPE yyval;
+//extern union YYSTYPE yylval;
+#endif
 
 static void doerror(SCXMEM char *s) {
     error("%s", s2c(s));
@@ -572,7 +578,7 @@ command:  S_LET var_or_range '=' e
         | S_GOTO '#' STRING     { dostr_search($3, 0, 0, maxrow, maxcol, 1); }
         | S_GOTO '%' STRING     { dostr_search($3, 0, 0, maxrow, maxcol, 2); }
         | S_GOTO                { go_last(); }
-        | S_GOTO WORD           { /* don't repeat last goto on "unintelligible word" */ ; }
+        | S_GOTO WORD           { /* don't repeat last goto on "unintelligible word" */ }
         | S_DEFINE strarg       { dodefine($2); }
         | S_DEFINE strarg range { doadd_range($2, $3.left, $3.right, 1); }
         | S_DEFINE strarg var   { doadd_range($2, $3, $3, 0); }

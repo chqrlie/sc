@@ -983,6 +983,7 @@ void update(int anychanged) {          /* did any cell really change in value? *
 
                 switch (p->flags & ALIGN_MASK) {
                 default: if (!p->label) break;
+                    FALLTHROUGH;
                 case ALIGN_LEFT:    addch('<'); break;
                 case ALIGN_CENTER:  addch('|'); break;
                 case ALIGN_RIGHT:   addch('>'); break;
