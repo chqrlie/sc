@@ -15,7 +15,7 @@
 
 #include "sc.h"
 
-#if defined FREEBSD
+#if defined FREEBSD || defined DARWIN
 extern int yydebug;
 extern int yynerrs;
 extern int yyerrflag;

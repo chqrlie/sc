@@ -35,7 +35,7 @@
 #define sc__attr_printf(a, b)
 #endif
 
-#if defined(__clang__)
+#if defined(__clang__) && __clang_major__ >= 10
 #define FALLTHROUGH  __attribute__((fallthrough))
 #else
 #define FALLTHROUGH

@@ -23,6 +23,7 @@ usage () {
 CC=gcc
 # [ `uname` = "OpenBSD" ] && CC=gcc
 [ `uname` = "FreeBSD" ] && CC=clang
+[ `uname` = "Darwin" ] && CC=clang
 
 SFLAG=
 MAKE=
@@ -89,26 +90,27 @@ gen_mk () {
 	[ `uname` = "NetBSD" ] && echo "#define NETBSD  1" >> $OUTCONF
 	[ `uname` = "OpenBSD" ] && echo "#define OPENBSD  1" >> $OUTCONF
 	[ `uname` = "FreeBSD" ] && echo "#define FREEBSD  1" >> $OUTCONF
-    echo "CC:=$CC" >> $OUTMK
-    echo "CFLAGS= -O2" >> $OUTMK
-    echo "LDFLAGS=" >> $OUTMK
-    echo "O:=.obj" >> $OUTMK
+	[ `uname` = "Darwin" ] && echo "#define DARWIN  1" >> $OUTCONF
+	echo "CC:=$CC" >> $OUTMK
+	echo "CFLAGS= -O2" >> $OUTMK
+	echo "LDFLAGS=" >> $OUTMK
+	echo "O:=.obj" >> $OUTMK
 	echo "WARNINGS := -Wall -Wextra -Werror" >> $OUTMK
 	[ "$CC" = "clang" ] && echo "WARNINGS += -Weverything" >> $OUTMK
-    echo "WARNINGS += -Wno-padded -Wno-missing-prototypes" >> $OUTMK
-    echo "WARNINGS += -Wno-vla -Wno-missing-noreturn -Wno-conversion" >> $OUTMK
-    [ 1 = 1 ] && echo "WARNINGS += -Wno-sign-conversion" >> $OUTMK
-    echo "WARNINGS += -Wwrite-strings -Wno-bad-function-cast" >> $OUTMK
-    echo "WARNINGS += -Wno-unused-macros -Wchar-subscripts -Wno-float-equal" >> $OUTMK
-    echo "WARNINGS += -Wno-unreachable-code" >> $OUTMK
-    [ `uname` = "OpenBSD" ] || echo "WARNINGS += -Wredundant-decls" >> $OUTMK
-    echo "WARNINGS += -Wmissing-declarations -Wundef -Wsign-compare" >> $OUTMK
-    echo "WARNINGS += -Wunused -Wno-unused-parameter -Wuninitialized" >> $OUTMK
-    echo "WARNINGS += -Wformat-nonliteral -Wmissing-format-attribute -Wstrict-prototypes" >> $OUTMK
-    echo "WARNINGS += -Wnested-externs -Wdeclaration-after-statement" >> $OUTMK
-    [ "$CC" = "clang" ] && echo "WARNINGS += -Wno-shorten-64-to-32 -Wno-reserved-id-macro -Wno-unreachable-code-break" >> $OUTMK
-    # for yyval on FreeBSD
-    [ `uname` = "FreeBSD" ] && echo "WARNINGS += -Wno-missing-variable-declarations" >> $OUTMK
+	echo "WARNINGS += -Wno-padded -Wno-missing-prototypes" >> $OUTMK
+	echo "WARNINGS += -Wno-vla -Wno-missing-noreturn -Wno-conversion" >> $OUTMK
+	[ 1 = 1 ] && echo "WARNINGS += -Wno-sign-conversion" >> $OUTMK
+	echo "WARNINGS += -Wwrite-strings -Wno-bad-function-cast" >> $OUTMK
+	echo "WARNINGS += -Wno-unused-macros -Wchar-subscripts -Wno-float-equal" >> $OUTMK
+	echo "WARNINGS += -Wno-unreachable-code" >> $OUTMK
+	[ `uname` = "OpenBSD" ] || echo "WARNINGS += -Wredundant-decls" >> $OUTMK
+	echo "WARNINGS += -Wmissing-declarations -Wundef -Wsign-compare" >> $OUTMK
+	echo "WARNINGS += -Wunused -Wno-unused-parameter -Wuninitialized" >> $OUTMK
+	echo "WARNINGS += -Wformat-nonliteral -Wmissing-format-attribute -Wstrict-prototypes" >> $OUTMK
+	echo "WARNINGS += -Wnested-externs -Wdeclaration-after-statement" >> $OUTMK
+	[ "$CC" = "clang" ] && echo "WARNINGS += -Wno-shorten-64-to-32 -Wno-reserved-id-macro -Wno-unreachable-code-break" >> $OUTMK
+	# for yyval on FreeBSD
+	[ `uname` = "FreeBSD" ] && echo "WARNINGS += -Wno-missing-variable-declarations" >> $OUTMK
 	[ -n "$LEX" ] && echo "LEX=$LEX" >> $OUTMK
 	[ -n "$FLOAT_STORE" ] && echo "FLOAT_STORE=$FLOAT_STORE" >> $OUTMK
 	#[ -n "$DEFS" ] && echo "DEFINES=$DEFS" >> $OUTMK
