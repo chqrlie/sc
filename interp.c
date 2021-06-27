@@ -68,7 +68,7 @@ static double dolookup(struct enode *val, int minr, int minc, int maxr,
 static double fn1_eval(double (*fn)(double), double arg);
 static double fn2_eval(double (*fn)(double, double), double arg1, double arg2);
 static int RealEvalAll(void);
-static int constant(struct enode *e);
+static int constant(struct enode *e, int full);
 static void RealEvalOne(struct ent *p, int i, int j, int *chgct);
 static void copydbuf(int deltar, int deltac);
 
@@ -528,19 +528,23 @@ static double dotts(int hr, int min, int sec) {
     return (double)(sec + min * 60 + hr * 3600);
 }
 
+static double donow(void) {
+    // XXX: should use a more precise time value
+    return (double)time(NULL);
+}
+
 static double dotime(int which, double when) {
     static time_t t_cache;
     static struct tm tm_cache;
-    struct tm *tp;
     time_t tloc;
-
-    if (which == NOW)
-        return (double)time(NULL);
 
     tloc = (time_t)when;
 
+    // XXX: this primitive cacheing system fails
+    //      as soon as there are more than 1 time value
+    //      and it will fail if the current TZ changes
     if (!t_cache || tloc != t_cache) {
-        tp = localtime(&tloc);
+        struct tm *tp = localtime(&tloc);
         tm_cache = *tp;
         t_cache = tloc;
     }
@@ -865,7 +869,7 @@ double eval(struct enode *e) {
     case MONTH:     return dotime(MONTH, eval(e->e.o.left));
     case DAY:       return dotime(DAY, eval(e->e.o.left));
     case YEAR:      return dotime(YEAR, eval(e->e.o.left));
-    case NOW:       return dotime(NOW, 0.0);
+    case NOW:       return donow();
     case DTS:       return dodts((int)eval(e->e.o.left),
                                  (int)eval(e->e.o.right->e.o.left),
                                  (int)eval(e->e.o.right->e.o.right));
@@ -1896,8 +1900,10 @@ void str_search(const char *s, int firstrow, int firstcol, int lastrow, int last
             }
         }
         if (!col_hidden[col] && (p = *ATBL(tbl, row, col))) {
+            /* convert cell contents, do not test width, ignore alignment */
             const char *str = field;
-            int fieldlen = fwidth[col];
+            int align = ALIGN_DEFAULT;
+
             *field = '\0';
             if (gs.g_type == G_NSTR) {
                 if (p->cellerror) {
@@ -1905,18 +1911,10 @@ void str_search(const char *s, int firstrow, int firstcol, int lastrow, int last
                 } else
                 if (p->flags & IS_VALID) {
                     const char *cfmt = p->format;
-                    // XXX: should use colformat[realfmt[col]]
                     if (cfmt) {
-                        if (*cfmt == ctl('d')) {
-                            time_t v = (time_t)(p->v);
-                            // XXX: must check format string
-                            ((size_t (*)(char *, size_t, const char *, const struct tm *tm))strftime)
-                                (field, sizeof(field), cfmt + 1, localtime(&v));
-                        } else {
-                            format(cfmt, precision[col], p->v, field, sizeof(field));
-                        }
+                        format(field, sizeof field, cfmt, precision[col], p->v, &align);
                     } else {
-                        engformat(realfmt[col], fieldlen, precision[col], p->v, field, sizeof(field));
+                        engformat(field, sizeof field, realfmt[col], precision[col], p->v, &align);
                     }
                 }
             } else if (gs.g_type == G_XSTR) {
@@ -2085,7 +2083,7 @@ void unlet(struct ent *v) {
 void let(struct ent *v, SCXMEM struct enode *e) {
     double val;
     // XXX: test for constant expression is potentially incorrect
-    unsigned isconstant = constant(e);
+    unsigned isconstant = constant(e, optimize);
 
     if (locked_cell(v->row, v->col))
         return;
@@ -2218,7 +2216,7 @@ void slet(struct ent *v, SCXMEM struct enode *se, int align) {
         v->flags &= ~IS_STREXPR;
     }
     // XXX: test for constant expression is potentially incorrect
-    if (constant(se)) {
+    if (constant(se, optimize)) {
         efree(se);
     } else {
         v->expr = se;
@@ -2277,15 +2275,16 @@ void clearent(struct ent *v) {
 /*
  * Say if an expression is a constant (return 1) or not.
  */
-static int constant(struct enode *e) {
+static int constant(struct enode *e, int full) {
     return (e == NULL
         ||  e->op == O_CONST
         ||  e->op == O_SCONST
-        ||  (e->op == 'm' && constant(e->e.o.left))
-        ||  (e->op != O_VAR
+        ||  (e->op == 'm' && constant(e->e.o.left, 0)) /* unary minus */
+        ||  (full
+        &&   e->op != O_VAR
         &&   !(e->op & REDUCE)
-        &&   constant(e->e.o.left)
-        &&   constant(e->e.o.right)
+        &&   constant(e->e.o.left, full)
+        &&   constant(e->e.o.right, full)
         &&   e->op != EXT     /* functions look like constants but aren't */
         &&   e->op != NVAL
         &&   e->op != SVAL
@@ -2295,8 +2294,7 @@ static int constant(struct enode *e) {
         &&   e->op != LASTROW
         &&   e->op != LASTCOL
         &&   e->op != NUMITER
-        &&   e->op != FILENAME
-        &&   optimize));
+        &&   e->op != FILENAME));
 }
 
 void efree(SCXMEM struct enode *e) {

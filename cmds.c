@@ -1445,26 +1445,20 @@ void printfile(const char *fname, int r0, int c0, int rn, int cn) {
             //      ALIGN_AUTO, ALIGN_LEFT, ALIGN_CENTER, ALIGN_RIGHT
 
             if (p->flags & IS_VALID) {
+                int align = p->flags & ALIGN_MASK;
+                int len;
+
                 if (p->cellerror) {
                     // XXX: append a space for cell alignment
-                    strlcpy(field, (p->cellerror == CELLERROR ?
-                                    "ERROR " : "INVALID "), sizeof field);
+                    len = strlcpy(field, (p->cellerror == CELLERROR ?
+                                          "ERROR " : "INVALID "), sizeof field);
+                    align |= ALIGN_CLIP;
                 } else {
                     const char *cfmt = p->format;
-                    if (!cfmt && (realfmt[col] >= 0 && realfmt[col] < COLFORMATS))
-                        cfmt = colformat[realfmt[col]];
                     if (cfmt) {
-                        if (*cfmt == ctl('d')) {
-                            // XXX: default alignment was ALIGN_LEFT
-                            time_t v = (time_t)(p->v);
-                            // XXX: must check format string
-                            ((size_t (*)(char *, size_t, const char *, const struct tm *tm))strftime)
-                                (field, sizeof(field), cfmt + 1, localtime(&v));
-                        } else {
-                            format(cfmt, precision[col], p->v, field, sizeof(field));
-                        }
+                        len = format(field, sizeof field, cfmt, precision[col], p->v, &align);
                     } else {
-                        engformat(realfmt[col], fieldlen, precision[col], p->v, field, sizeof(field));
+                        len = engformat(field, sizeof field, realfmt[col], precision[col], p->v, &align);
                     }
                 }
                 if ((int)buf->len < w) {
@@ -1472,8 +1466,26 @@ void printfile(const char *fname, int r0, int c0, int rn, int cn) {
                 } else {
                     buf->buf[buf->len = w] = '\0';
                 }
-                // XXX: should fill fieldlen with * if too long
-                buf_printf(buf, "%*s", fieldlen, field);
+                if (align & ALIGN_CLIP) {
+                    if (len < 0)
+                        len = 0;
+                    if (len > fieldlen)
+                        len = fieldlen;
+                    field[len] = '\0';
+                    align &= ~ALIGN_CLIP;
+                }
+                if (len < 0 || len > fieldlen) {
+                    buf_repc(buf, '*', fieldlen);
+                } else
+                if (align == ALIGN_LEFT) {
+                    buf_printf(buf, "%-*s", fieldlen, field);
+                } else
+                if (align == ALIGN_CENTER) {
+                    int half = (fieldlen - len) / 2;
+                    buf_printf(buf, "%*s%*s", half, field, len - half, "");
+                } else {
+                    buf_printf(buf, "%*s", fieldlen, field);
+                }
             } else
             if ((s = p->label)) {
                 int slen = strlen(s);
@@ -1682,28 +1694,22 @@ void tblprintfile(const char *fname, int r0, int c0, int rn, int cn) {
             }
             if (p) {
                 char field[FBUFLEN];
-                // XXX: alignment should be determined from cell format
-                //      ALIGN_AUTO, ALIGN_LEFT, ALIGN_CENTER, ALIGN_RIGHT
+                int align = p->flags & ALIGN_MASK;
+                int len;
 
                 if (p->flags & IS_VALID) {
+                    /* convert cell contents, do not test width, do not align with spaces */
+                    // XXX: should implement alignment in output format
                     if (p->cellerror) {
-                        strlcpy(field, (p->cellerror == CELLERROR ?
-                                        "ERROR" : "INVALID"), sizeof field);
+                        len = strlcpy(field, (p->cellerror == CELLERROR ?
+                                              "ERROR" : "INVALID"), sizeof field);
+                        align |= ALIGN_CLIP;
                     } else {
-                        // XXX: should also use colformat[realfmt[col]]
                         const char *cfmt = p->format;
                         if (cfmt) {
-                            if (*cfmt == ctl('d')) {
-                                // XXX: default alignment was ALIGN_LEFT
-                                time_t v = (time_t)(p->v);
-                                // XXX: must check format string
-                                ((size_t (*)(char *, size_t, const char *, const struct tm *tm))strftime)
-                                    (field, sizeof(field), cfmt + 1, localtime(&v));
-                            } else {
-                                format(cfmt, precision[col], p->v, field, sizeof(field));
-                            }
+                            len = format(field, sizeof field, cfmt, precision[col], p->v, &align);
                         } else {
-                            engformat(realfmt[col], fieldlen, precision[col], p->v, field, sizeof(field));
+                            len = engformat(field, sizeof field, realfmt[col], precision[col], p->v, &align);
                         }
                     }
                     // XXX: should fill fieldlen with * if too long

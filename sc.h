@@ -429,6 +429,7 @@ struct go_save {
 #define ALIGN_LEFT      0200
 #define ALIGN_CENTER    0400
 #define ALIGN_RIGHT     0600
+#define ALIGN_CLIP     01000  /* clip contents if longer than colwidth instead of displaying '*' */
 
 /* cell error (1st generation (ERROR) or 2nd+ (INVALID)) */
 #define CELLOK          0
@@ -639,12 +640,11 @@ extern int are_ranges(void);
 extern int atocol(const char *string, int len);
 extern int creadfile(const char *save, int eraseflg);
 extern int cwritefilec(const char *fname, int r0, int c0, int rn, int cn);
-extern bool engformat(int fmt, int width, int lprecision, double val,
-                      char *buf, int buflen);
+extern int engformat(char *buf, int buflen, int fmt, int lprecision, double val, int *alignp);
 extern int etype(struct enode *e);
 extern int find_range_name(const char *name, int len, struct range **rng);
 struct range *find_range_coords(const struct ent *lmatch, const struct ent *rmatch);
-extern bool format(const char *fmt, int lprecision, double val, char *buf, size_t buflen);
+extern int format(char *buf, size_t buflen, const char *fmt, int lprecision, double val, int *alignp);
 extern int growtbl(int rowcol, int toprow, int topcol);
 extern int locked_cell(int r, int c);
 extern int modcheck(const char *endstr);

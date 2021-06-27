@@ -688,6 +688,7 @@ void update(int anychanged) {          /* did any cell really change in value? *
             int do_stand = 0;
             int fieldlen;
             int nextcol;
+            int len;
 
 #if 0
             if (row < 0 || row >= maxrows) {
@@ -759,8 +760,9 @@ void update(int anychanged) {          /* did any cell really change in value? *
                         continue;
                     } else
                         do_stand = 1;
-                } else
+                } else {
                     do_stand = 0;
+                }
 
                 if ((cr = find_crange(row, col)))
                     select_style(cr->r_color, 0);
@@ -778,6 +780,7 @@ void update(int anychanged) {          /* did any cell really change in value? *
                      */
 
                     if (p->cellerror) {
+                        // XXX: right alignment is ignored
                         if (colorerr)
                             select_style(STYLE_ERROR, 0);
                         printw("%*.*s", fieldlen, fieldlen,
@@ -794,61 +797,78 @@ void update(int anychanged) {          /* did any cell really change in value? *
                          */
 
                         if (p->flags & IS_VALID) {
-                            char *cfmt;
-                            int note;
+                            const char *cfmt = p->format;
+                            int note = (p->nrow >= 0);
+                            int align = p->flags & ALIGN_MASK;
 
-                            *field = '\0';
-                            note = p->nrow >= 0 ? 1 : 0;
-                            cfmt = p->format ? p->format :
-                                (realfmt[col] >= 0 && realfmt[col] < COLFORMATS &&
-                                 colformat[realfmt[col]]) ?
-                                colformat[realfmt[col]] : NULL;
                             if (colorneg && p->v < 0) {
                                 if (cr)
                                     select_style(((cr->r_color) % CPAIRS) + 1, 0);
                                 else
                                     select_style(STYLE_NEG, 0);
                             }
+                            /* convert cell contents, do not test width, should not align */
+                            *field = '\0';
                             if (cfmt) {
-                                if (*cfmt == ctl('d')) {
-                                    time_t v = (time_t)(p->v);
-                                    // XXX: should check format string
-                                    ((size_t (*)(char *, size_t, const char *, const struct tm *tm))strftime)
-                                        (field, sizeof(field), cfmt + 1, localtime(&v));
-                                } else
-                                    format(cfmt, precision[col], p->v, field, sizeof(field));
+                                len = format(field, sizeof field, cfmt, precision[col], p->v, &align);
                             } else {
-                                engformat(realfmt[col], fieldlen - note, precision[col], p->v, field, sizeof(field));
+                                len = engformat(field, sizeof field, realfmt[col], precision[col], p->v, &align);
                             }
-                            if ((ssize_t)strlen(field) > fieldlen) {
-                                // XXX: what is this mess?
-                                for (i = 0; i < fieldlen; i++) {
-                                    if (note) {
+                            if (align & ALIGN_CLIP) {
+                                align &= ~ALIGN_CLIP;
+                                if (len < 0)
+                                    field[len = 0] = '\0';
+                                // XXX: handle ALIGN_CENTER?
+                                if (len > fieldlen)
+                                    field[len = fieldlen] = '\0';
+                            }
+                            if (len < 0 || len > fieldlen) {
+                                /* fill column with stars, set the color of
+                                   the first one according to note presence */
+                                if (note) {
 #ifndef NO_ATTR_GET
-                                        attr_t attr;
-                                        short curcolor = 0;
-                                        if (!i && color && has_colors()) {
-                                            /* silence warning */
-                                            attr_t *attrp = &attr;
-                                            short *curcolorp = &curcolor;
-                                            attr_get(attrp, curcolorp, NULL);
-                                            select_style(STYLE_NOTE, 0);
-                                        }
-#endif
-                                        addch('*');
-                                        i++;
-#ifndef NO_ATTR_GET
-                                        if (!i)
-                                            select_style(curcolor, 0);
-#endif
+                                    attr_t attr;
+                                    short curcolor = 0;
+                                    if (color && has_colors()) {
+                                        /* silence warning */
+                                        attr_t *attrp = &attr;
+                                        short *curcolorp = &curcolor;
+                                        attr_get(attrp, curcolorp, NULL);
+                                        select_style(STYLE_NOTE, 0);
                                     }
+#endif
+                                    addch('*');
+#ifndef NO_ATTR_GET
+                                    select_style(curcolor, 0);
+#endif
+                                }
+                                for (i = note; i < fieldlen; i++) {
                                     addch('*');
                                 }
                             } else {
-                                if (cfmt && *cfmt != ctl('d')) {
-                                    for (i = 0; i < fieldlen - (ssize_t)strlen(field) - note; i++)
-                                        addch(' ');
+                                int lpad = 0;
+                                int rpad = 0;
+
+                                if (align == ALIGN_LEFT) {
+                                    rpad = fieldlen - len;
+                                } else
+                                if (align == ALIGN_CENTER) {
+                                    lpad = (fieldlen - len) / 2;
+                                    rpad = fieldlen - len - lpad;
+                                } else {
+                                    lpad = fieldlen - len;
                                 }
+                                if (note) {
+                                    if (lpad)
+                                        lpad--;
+                                    else
+                                    if (rpad)
+                                        rpad--;
+                                    else
+                                        note = 0;
+                                }
+                                for (i = 0; i < lpad; i++)
+                                    addch(' ');
                                 if (note) {
 #ifndef NO_ATTR_GET
                                     attr_t attr;
@@ -867,10 +887,8 @@ void update(int anychanged) {          /* did any cell really change in value? *
 #endif
                                 }
                                 addstr(field);
-                                if (cfmt && *cfmt == ctl('d')) {
-                                    for (i = 0; i < fieldlen - (ssize_t)strlen(field) - note; i++)
-                                        addch(' ');
-                                }
+                                for (i = 0; i < rpad; i++)
+                                    addch(' ');
                             }
                         }
 

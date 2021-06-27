@@ -35,13 +35,14 @@ void getnum(int r0, int c0, int rn, int cn, int fd) {
 }
 
 void fgetnum(int r0, int c0, int rn, int cn, int fd) {
-    char field[FBUFLEN+1];  /* for very long format strings */
+    char field[FBUFLEN+1];
     int row, col;
 
     for (row = r0; row <= rn; row++) {
         for (col = c0; col <= cn; col++) {
+            /* convert cell contents, but ignore alignment and width test */
             struct ent *p = *ATBL(tbl, row, col);
-            int fieldlen = fwidth[col];
+            int align = ALIGN_DEFAULT;
 
             *field = '\0';
             if (p) {
@@ -52,16 +53,9 @@ void fgetnum(int r0, int c0, int rn, int cn, int fd) {
                 if (p->flags & IS_VALID) {
                     const char *cfmt = p->format;
                     if (cfmt) {
-                        if (*cfmt == ctl('d')) {
-                            time_t v = (time_t)(p->v);
-                            // XXX: must check format string
-                            ((size_t (*)(char *, size_t, const char *, const struct tm *tm))strftime)
-                                (field, sizeof(field) - 1, cfmt + 1, localtime(&v));
-                        } else {
-                            format(cfmt, precision[col], p->v, field, sizeof(field) - 1);
-                        }
+                        format(field, sizeof(field) - 1, cfmt, precision[col], p->v, &align);
                     } else {
-                        engformat(realfmt[col], fieldlen, precision[col], p->v, field, sizeof(field) - 1);
+                        engformat(field, sizeof(field) - 1, realfmt[col], precision[col], p->v, &align);
                     }
                 }
             }
@@ -179,6 +173,7 @@ void getrange(const char *name, int fd) {
 
 void cmd_eval(struct enode *e, const char *fmt, int row, int col, int fd) {
     char buf[FBUFLEN];
+    int align = ALIGN_DEFAULT;
     double v;
 
     gmyrow = row;
@@ -186,14 +181,8 @@ void cmd_eval(struct enode *e, const char *fmt, int row, int col, int fd) {
 
     v = eval(e);
     if (fmt) {
-        if (*fmt == ctl('d')) {
-            time_t tv = v;
-            // XXX: should check format string
-            ((size_t (*)(char *, size_t, const char *, const struct tm *tm))strftime)
-                (buf, sizeof buf - 1, fmt + 1, localtime(&tv));
-        } else {
-            format(fmt, precision[col], v, buf, sizeof buf - 1);
-        }
+        /* convert cell contents, do not test width, should not align */
+        format(buf, sizeof buf - 1, fmt, precision[col], v, &align);
     } else {
         snprintf(buf, sizeof buf - 1, "%.15g", v);
     }

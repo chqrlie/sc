@@ -5,11 +5,11 @@
  *
  * $Revision: 8.1 $
  *
- * bool format(fmt, precision, num, buf, buflen)
- *  const char *fmt;
- *  double num;
- *  char buf[];
- *  int buflen;
+ * int format(fmt, precision, num, buf, buflen)
+ *            const char *fmt;
+ *            double num;
+ *            char buf[];
+ *            int buflen;
  *
  * The format function will produce a string representation of a number
  * given a _format_ (described below) and a double value.  The result is
@@ -105,7 +105,7 @@ SCXMEM char *colformat[COLFORMATS];
 
 /*****************************************************************************/
 
-bool format(const char *fmt0, int lprecision, double val, char *buf, size_t buflen) {
+int format(char *buf, size_t buflen, const char *fmt0, int lprecision, double val, int *alignp) {
     char *fmt, *cp, *tmp, *tp;
     bool comma = false, negative = false;
     char *integer = NULL, *decimal = NULL;
@@ -118,9 +118,21 @@ bool format(const char *fmt0, int lprecision, double val, char *buf, size_t bufl
     const char *fraction = NULL;
     int zero_pad = 0;
 
+    *buf = '\0';
     if (fmt0 == NULL)
-        return true;
+        return 0;
 
+    if (*fmt0 == ctl('d')) {
+        time_t v = (time_t)val;
+        if (*alignp == ALIGN_DEFAULT)
+            *alignp = ALIGN_LEFT;
+        *alignp |= ALIGN_CLIP;
+        // XXX: must check format string
+        return ((size_t (*)(char *, size_t, const char *, const struct tm *tm))strftime)
+            (buf, buflen, fmt0 + 1, localtime(&v));
+    }
+
+    // XXX: what is this static mess?
     if (strlen(fmt0) >= fmtsize) {
         fmtsize = strlen(fmt0) + 40;
         tmpfmt1 = scxrealloc(tmpfmt1, fmtsize);
@@ -264,18 +276,19 @@ bool format(const char *fmt0, int lprecision, double val, char *buf, size_t bufl
             else
                 break;
         }
-    } else
+    } else {
         fraction = "";
+    }
 
     /*
      * format the puppy
      */
     {
+        // XXX: so much static stuff?
         static char *citmp = NULL, *cftmp = NULL;
         static unsigned cilen = 0, cflen = 0;
         const char *ci, *cf, *ce;
         unsigned int len_ci, len_cf, len_ce;
-        bool ret = false;
 
         ci = fmt_int(integer, fmt, comma, negative);
         len_ci = strlen(ci);
@@ -297,16 +310,7 @@ bool format(const char *fmt0, int lprecision, double val, char *buf, size_t bufl
 
         ce = (exponent) ? fmt_exp(exp_val, exponent) : "";
         len_ce = strlen(ce);
-        /*
-         * Skip copy assuming sprintf doesn't call our format functions
-         *   ce = strcpy(scxmalloc((unsigned)((len_ce = strlen(ce)) + 1)), ce);
-         */
-        if (len_ci + len_cf + len_ce < buflen) {
-            snprintf(buf, buflen, "%s%s%s", ci, cf, ce);
-            ret = true;
-        }
-
-        return ret;
+        return snprintf(buf, buflen, "%s%s%s", ci, cf, ce);
     }
 }
 
@@ -487,27 +491,23 @@ static const char * const engmult[] = {
     "+03", "+06", "+09", "+12", "+15", "+18"
 };
 
-bool engformat(int fmt, int width, int lprecision, double val, char *buf, int buflen) {
+int engformat(char *buf, int buflen, int fmt, int lprecision, double val, int *alignp) {
     int engind = 0;
     double engmant, engabs, engexp;
-    int i;
     time_t secs;
 
     *buf = '\0';
-    if (buflen <= width) return false;
     if (fmt >= 0 && fmt < COLFORMATS && colformat[fmt])
-        return format(colformat[fmt], lprecision, val, buf, buflen);
+        return format(buf, buflen, colformat[fmt], lprecision, val, alignp);
     switch (fmt) {
     case REFMTFIX:
-        snprintf(buf, buflen, "%*.*f", width, lprecision, val);
-        break;
+        return snprintf(buf, buflen, "%.*f", lprecision, val);
     case REFMTFLT:
-        snprintf(buf, buflen, "%*.*E", width, lprecision, val);
-        break;
+        return snprintf(buf, buflen, "%.*E", lprecision, val);
     case REFMTENG:
         if (val == 0e0) {
             /* Hack to get zeroes to line up in engr fmt */
-            snprintf(buf - 1, buflen, "%*.*f ", width, lprecision, val);
+            return snprintf(buf, buflen, "%.*f ", lprecision, val);
         } else {
             // XXX: this method is flawed because of rounding issues
             engabs = (val);
@@ -527,38 +527,27 @@ bool engformat(int fmt, int width, int lprecision, double val, char *buf, int bu
             if ((engabs >= 1e18)  && (engabs <  1e21 )) engind = 12;
             if ((engabs < 1e-18)  || (engabs >= 1e21 )) {
                 /* Revert to floating point */
-                snprintf(buf, buflen, "%*.*E", width, lprecision, val);
+                return snprintf(buf, buflen, "%.*E", lprecision, val);
             } else {
                 engexp = (double)(engind - 6) * 3;
                 engmant = val / pow(10.0e0, engexp);
                 // XXX: why a lower case 'e'?
-                snprintf(buf, buflen, "%*.*fe%s", width - 4,
-                         lprecision, engmant, engmult[engind]);
+                return snprintf(buf, buflen, "%.*fe%s", lprecision,
+                                engmant, engmult[engind]);
             }
         }
-        break;
     case REFMTDATE:
-        if (width < 9) {
-            for (i = 0; i < width; i++) buf[i] = '*';
-            buf[i] = '\0';
-        } else {
-            secs = (time_t)val;
-            strftime(buf, buflen, "%e %b %y", localtime(&secs));
-            for (i = 9; i < width; i++) buf[i] = ' ';
-            buf[i] = '\0';
-        }
-        break;
+        if (*alignp == ALIGN_DEFAULT)
+            *alignp = ALIGN_LEFT;
+        *alignp |= ALIGN_CLIP;
+        secs = (time_t)val;
+        return strftime(buf, buflen, "%e %b %y", localtime(&secs));
     case REFMTLDATE:
-        if (width < 11) {
-            for (i = 0; i < width; i++) buf[i] = '*';
-            buf[i] = '\0';
-        } else {
-            secs = (time_t)val;
-            strftime(buf, buflen, "%e %b %Y", localtime(&secs));
-            for (i = 11; i < width; i++) buf[i] = ' ';
-            buf[i] = '\0';
-        }
-        break;
+        if (*alignp == ALIGN_DEFAULT)
+            *alignp = ALIGN_LEFT;
+        *alignp |= ALIGN_CLIP;
+        secs = (time_t)val;
+        return strftime(buf, buflen, "%e %b %Y", localtime(&secs));
     }
-    return true;
+    return -1;
 }
