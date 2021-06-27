@@ -184,8 +184,8 @@ int buf_extend(buf_t buf, size_t size, size_t blocksize);
 #define REFMTDATE       3
 #define REFMTLDATE      4
 
-#define DEFWIDTH 10     /* Default column width and precision */
-#define DEFPREC   2
+#define DEFWIDTH  10     /* Default column width and precision */
+#define DEFPREC    2
 #define DEFREFMT  REFMTFIX /* Make default format fixed point  THA 10/14/90 */
 
 #define FKEYS            24     /* Number of function keys available */
@@ -565,7 +565,7 @@ extern int colsinrange;         /* Number of cols in target range of a goto */
 extern SCXMEM int *fwidth;
 extern SCXMEM int *precision;
 extern SCXMEM int *realfmt;
-extern SCXMEM char *colformat[10];
+extern SCXMEM char *colformat[COLFORMATS];
 extern SCXMEM unsigned char *col_hidden;
 extern SCXMEM unsigned char *row_hidden;
 extern char line[FBUFLEN];
@@ -690,7 +690,8 @@ extern void copy(struct ent *dv1, struct ent *dv2, struct ent *v1, struct ent *v
 extern void docopy(void);
 extern void copyent(struct ent *n, struct ent *p,
                     int dr, int dc, int r1, int c1, int r2, int c2, int transpose);
-extern void decompile(buf_t buf, struct enode *e);
+extern int decompile(char *dest, size_t size, struct enode *e);
+extern void decompile_node(buf_t buf, struct enode *e, int priority);
 extern void del_range(struct ent *left, struct ent *right);
 extern void del_abbr(const char *abbrev);
 extern void deraw(int ClearLastLine);

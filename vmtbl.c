@@ -43,13 +43,13 @@ void checkbounds(int *rowp, int *colp) {
 }
 
 /* scxrealloc will just scxmalloc if oldptr is == NULL */
-#define GROWALLOC(newptr, oldptr, nelem, type, msg)                 \
-    do { type *newptr = scxrealloc(oldptr, (nelem) * sizeof(type)); \
-       if (newptr == NULL) {                                        \
-           error(msg);                                              \
-           return FALSE;                                            \
-       }                                                            \
-       oldptr = newptr;                                             \
+#define GROWALLOC(ptr, nelem, type, msg)                           \
+    do { type *newptr__ = scxrealloc(ptr, (nelem) * sizeof(type)); \
+       if (newptr__ == NULL) {                                     \
+           error(msg);                                             \
+           return FALSE;                                           \
+       }                                                           \
+       ptr = newptr__;                                             \
     } while (0)
 
 static const char nolonger[] = "The table can't be any longer";
@@ -100,19 +100,19 @@ int growtbl(int rowcol, int toprow, int topcol) {
     }
 
     if (newrows > currows) {
-        GROWALLOC(row_hidden2, row_hidden, newrows, unsigned char, nolonger);
+        GROWALLOC(row_hidden, newrows, unsigned char, nolonger);
         memset(row_hidden + currows, 0, (newrows - currows) * sizeof(*row_hidden));
-        GROWALLOC(tbl2, tbl, newrows, struct ent **, nolonger);
+        GROWALLOC(tbl, newrows, struct ent **, nolonger);
         for (row = currows; row < newrows; row++) {
             tbl[row] = NULL;
         }
     }
 
     if (newcols > curcols) {
-        GROWALLOC(fwidth2, fwidth, newcols, int, nowider);
-        GROWALLOC(precision2, precision, newcols, int, nowider);
-        GROWALLOC(realfmt2, realfmt, newcols, int, nowider);
-        GROWALLOC(col_hidden2, col_hidden, newcols, unsigned char, nowider);
+        GROWALLOC(fwidth, newcols, int, nowider);
+        GROWALLOC(precision, newcols, int, nowider);
+        GROWALLOC(realfmt, newcols, int, nowider);
+        GROWALLOC(col_hidden, newcols, unsigned char, nowider);
         for (col = curcols; col < newcols; col++) {
             col_hidden[col] = 0;
             fwidth[col] = DEFWIDTH;

@@ -71,7 +71,6 @@ static int RealEvalAll(void);
 static int constant(struct enode *e);
 static void RealEvalOne(struct ent *p, int i, int j, int *chgct);
 static void copydbuf(int deltar, int deltac);
-static void decompile_node(buf_t buf, struct enode *e, int priority);
 
 static double finfunc(int fun, double v1, double v2, double v3);
 static SCXMEM char *dostindex(int minr, int minc, int maxr, int maxc, struct enode *val);
@@ -1831,10 +1830,10 @@ void num_search(double n, int firstrow, int firstcol, int lastrow,
 
 /* 'goto' a cell containing a matching string */
 void str_search(const char *s, int firstrow, int firstcol, int lastrow, int lastcol, int num) {
-    buf_t(buf, FBUFLEN);
+    char field[FBUFLEN];
     struct ent *p;
-    int r, c;
-    int endr, endc;
+    int found = 0;
+    int row, col, endr, endc;
 #if defined(RE_COMP) || defined(REGCMP)
     char *tmp = NULL;
 #endif
@@ -1843,14 +1842,11 @@ void str_search(const char *s, int firstrow, int firstcol, int lastrow, int last
     int errcode;
 #endif
 
-    if (!loading)
-        remember(0);
-
 #if defined(REGCOMP)
     if ((errcode = regcomp(&preg, s, REG_EXTENDED))) {
-        char buf1[160];
-        regerror(errcode, &preg, buf1, sizeof(buf1));
-        error("%s", buf1);
+        char buf[160];
+        regerror(errcode, &preg, buf, sizeof(buf));
+        error("%s", buf);
         return;
     }
 #endif
@@ -1867,6 +1863,9 @@ void str_search(const char *s, int firstrow, int firstcol, int lastrow, int last
         return;
     }
 #endif
+    if (!loading)
+        remember(0);
+
     g_free();
     gs.g_type = G_STR + num;
     gs.g_s = scxdup(s);
@@ -1882,114 +1881,95 @@ void str_search(const char *s, int firstrow, int firstcol, int lastrow, int last
         endr = lastrow;
         endc = lastcol;
     }
-    r = endr;
-    c = endc;
-    while (1) {
-        if (c < lastcol) {
-            c++;
+    row = endr;
+    col = endc;
+    for (;;) {
+        if (col < lastcol) {
+            col++;
         } else {
-            if (r < lastrow) {
-                while (++r < lastrow && row_hidden[r])
+            col = firstcol;
+            if (row < lastrow) {
+                while (++row < lastrow && row_hidden[row])
                     continue;
-                c = firstcol;
             } else {
-                r = firstrow;
-                c = firstcol;
+                row = firstrow;
             }
         }
-        p = *ATBL(tbl, r, c);
-        if (gs.g_type == G_NSTR) {
-            buf_reset(buf);
-            if (p) {
+        if (!col_hidden[col] && (p = *ATBL(tbl, row, col))) {
+            const char *str = field;
+            int fieldlen = fwidth[col];
+            *field = '\0';
+            if (gs.g_type == G_NSTR) {
                 if (p->cellerror) {
-                    buf_sets(buf, p->cellerror == CELLERROR ? "ERROR" : "INVALID");
-                } else if (p->flags & IS_VALID) {
-                    if (p->format) {
-                        if (*p->format == ctl('d')) {
-                            time_t i = (time_t)(p->v);
-                            // XXX: should check format string
+                    str = (p->cellerror == CELLERROR) ? "ERROR" : "INVALID";
+                } else
+                if (p->flags & IS_VALID) {
+                    const char *cfmt = p->format;
+                    // XXX: should use colformat[realfmt[col]]
+                    if (cfmt) {
+                        if (*cfmt == ctl('d')) {
+                            time_t v = (time_t)(p->v);
+                            // XXX: must check format string
                             ((size_t (*)(char *, size_t, const char *, const struct tm *tm))strftime)
-                                (buf->buf, buf->size, p->format + 1, localtime(&i));
+                                (field, sizeof(field), cfmt + 1, localtime(&v));
                         } else {
-                            format(p->format, precision[c], p->v, buf->buf, buf->size);
+                            format(cfmt, precision[col], p->v, field, sizeof(field));
                         }
                     } else {
-                        engformat(realfmt[c], fwidth[c], precision[c], p->v, buf->buf, buf->size);
+                        engformat(realfmt[col], fieldlen, precision[col], p->v, field, sizeof(field));
                     }
-                    buf->len = strlen(buf->buf);
+                }
+            } else if (gs.g_type == G_XSTR) {
+                if (p->expr) {
+                    decompile(field, sizeof field, p->expr);
+                    if (*field == '?')
+                        *field = '\0';
                 }
             }
-        } else if (gs.g_type == G_XSTR) {
-            buf_reset(buf);
-            if (p && p->expr) {
-                decompile(buf, p->expr);
-                if (*buf->buf == '?')
-                    buf_reset(buf);
-            }
-        }
-        if (!col_hidden[c]) {
             if (gs.g_type == G_STR) {
-                if (p && p->label
+                str = p->label;
+            }
+            if (str && *str
 #if defined(REGCOMP)
-                &&  (regexec(&preg, p->label, 0, NULL, 0) == 0)
+            &&  (regexec(&preg, str, 0, NULL, 0) == 0)
 #else
 #if defined(RE_COMP)
-                &&  (re_exec(p->label) != 0)
+            &&  (re_exec(str) != 0)
 #else
 #if defined(REGCMP)
-                &&  (regex(tmp, p->label) != NULL)
+            &&  (regex(tmp, str) != NULL)
 #else
-                &&  (strcmp(s, p->label) == 0)
+            &&  (strcmp(s, str) == 0)
 #endif
 #endif
 #endif
-                    )
-                    break;
-            } else {                    /* gs.g_type != G_STR */
-                if (*buf->buf != '\0'
-#if defined(REGCOMP)
-                &&  (regexec(&preg, buf->buf, 0, NULL, 0) == 0)
-#else
-#if defined(RE_COMP)
-                &&  (re_exec(buf->buf) != 0)
-#else
-#if defined(REGCMP)
-                &&  (regex(tmp, buf->buf) != NULL)
-#else
-                &&  (strcmp(s, buf->buf) == 0)
-#endif
-#endif
-#endif
-                    )
-                    break;
+                ) {
+                found = 1;
+                break;
             }
         }
-        if (r == endr && c == endc) {
-            error("String not found");
-#if defined(REGCOMP)
-            regfree(&preg);
-#endif
-#if defined(REGCMP)
-            free(tmp);
-#endif
-            return;
-        }
+        if (row == endr && col == endc)
+            break;
     }
-    currow = r;
-    curcol = c;
-    rowsinrange = 1;
-    colsinrange = fwidth[curcol];
 #if defined(REGCOMP)
     regfree(&preg);
 #endif
 #if defined(REGCMP)
     free(tmp);
 #endif
-    if (loading) {
-        update(1);
-        changed = 0;
+    if (found) {
+        currow = row;
+        curcol = col;
+        rowsinrange = 1;
+        colsinrange = fwidth[col];
+        if (loading) {
+            update(1);
+            changed = 0;
+        } else {
+            remember(1);
+        }
     } else {
-        remember(1);
+        error("String not found");
     }
 }
 
@@ -2602,8 +2582,11 @@ void decompile_node(buf_t buf, struct enode *e, int priority) {
     }
 }
 
-void decompile(buf_t buf, struct enode *e) {
+int decompile(char *dest, size_t size, struct enode *e) {
+    buf_t buf;
+    buf_init(buf, dest, size);
     decompile_node(buf, e, 0);
+    return buf->len;
 }
 
 void editfmt(buf_t buf, int row, int col) {

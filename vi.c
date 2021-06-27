@@ -604,9 +604,7 @@ void vi_interaction(void) {
                     if (linelim >= 0) {
                         p = lookat(currow, curcol);
                         /* decompile expression into line array */
-                        buf_init(buf, line, sizeof line);
-                        decompile(buf, p->expr);
-                        linelim = buf->len;
+                        linelim = decompile(line, sizeof line, p->expr);
                     }
                     break;
 
@@ -1230,9 +1228,7 @@ void vi_interaction(void) {
                     set_line("color %d = ", c);
                     if (cpairs[c] && cpairs[c]->expr) {
                         /* copy color expression into line array */
-                        buf_init(buf, line, sizeof line);
-                        decompile(buf, cpairs[c]->expr);
-                        linelim = buf->len;
+                        linelim = decompile(line, sizeof line, cpairs[c]->expr);
                         edit_mode();
                     } else {
                         insert_mode();
@@ -3700,8 +3696,7 @@ static void formatcol(int arg) {
     int *oldformat;
 
     error("Current format is %d %d %d",
-          fwidth[curcol], precision[curcol],
-          realfmt[curcol]);
+          fwidth[curcol], precision[curcol], realfmt[curcol]);
     refresh();
     oldformat = scxmalloc(arg * 3 * sizeof(int));
     for (i = 0; i < arg; i++) {
@@ -3796,8 +3791,7 @@ static void formatcol(int arg) {
             }
         }
         error("Current format is %d %d %d",
-              fwidth[curcol], precision[curcol],
-              realfmt[curcol]);
+              fwidth[curcol], precision[curcol], realfmt[curcol]);
         FullUpdate++;
         update(1);
         refresh();

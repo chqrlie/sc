@@ -1441,40 +1441,39 @@ void printfile(const char *fname, int r0, int c0, int rn, int cn) {
             if (buf_extend(buf, w + fieldlen + 2, FBUFLEN))
                 goto malloc_error;
 
+            // XXX: alignment should be determined from cell format
+            //      ALIGN_AUTO, ALIGN_LEFT, ALIGN_CENTER, ALIGN_RIGHT
+
             if (p->flags & IS_VALID) {
+                if (p->cellerror) {
+                    // XXX: append a space for cell alignment
+                    strlcpy(field, (p->cellerror == CELLERROR ?
+                                    "ERROR " : "INVALID "), sizeof field);
+                } else {
+                    const char *cfmt = p->format;
+                    if (!cfmt && (realfmt[col] >= 0 && realfmt[col] < COLFORMATS))
+                        cfmt = colformat[realfmt[col]];
+                    if (cfmt) {
+                        if (*cfmt == ctl('d')) {
+                            // XXX: default alignment was ALIGN_LEFT
+                            time_t v = (time_t)(p->v);
+                            // XXX: must check format string
+                            ((size_t (*)(char *, size_t, const char *, const struct tm *tm))strftime)
+                                (field, sizeof(field), cfmt + 1, localtime(&v));
+                        } else {
+                            format(cfmt, precision[col], p->v, field, sizeof(field));
+                        }
+                    } else {
+                        engformat(realfmt[col], fieldlen, precision[col], p->v, field, sizeof(field));
+                    }
+                }
                 if ((int)buf->len < w) {
                     buf_repc(buf, ' ', w - buf->len);
                 } else {
                     buf->buf[buf->len = w] = '\0';
                 }
-                if (p->cellerror) {
-                    buf_printf(buf, "%*s", fieldlen,
-                               (p->cellerror == CELLERROR ? "ERROR " : "INVALID "));
-                } else {
-                    // XXX: should fill fieldlen with * if too long
-                    // XXX: alignment should be determined from cell format
-                    //      ALIGN_AUTO, ALIGN_LEFT, ALIGN_CENTER, ALIGN_RIGHT
-                    char *cfmt = p->format ? p->format :
-                        (realfmt[col] >= 0 && realfmt[col] < COLFORMATS &&
-                         colformat[realfmt[col]]) ?
-                        colformat[realfmt[col]] : NULL;
-                    if (cfmt) {
-                        if (*cfmt == ctl('d')) {
-                            time_t v = (time_t)(p->v);
-                            // XXX: should check format string
-                            ((size_t (*)(char *, size_t, const char *, const struct tm *tm))strftime)
-                            (field, sizeof(field), cfmt + 1, localtime(&v));
-                            buf_printf(buf, "%-*s", fieldlen, field);
-                        } else {
-                            format(cfmt, precision[col], p->v, field, sizeof(field));
-                            buf_printf(buf, "%*s", fieldlen, field);
-                        }
-                    } else {
-                        engformat(realfmt[col], fieldlen, precision[col],
-                                  p->v, field, sizeof(field));
-                        buf_printf(buf, "%*s", fieldlen, field);
-                    }
-                }
+                // XXX: should fill fieldlen with * if too long
+                buf_printf(buf, "%*s", fieldlen, field);
             } else
             if ((s = p->label)) {
                 int slen = strlen(s);
@@ -1656,6 +1655,10 @@ void tblprintfile(const char *fname, int r0, int c0, int rn, int cn) {
     }
 
     for (row = r0; row <= rn; row++) {
+        int fieldlen;
+
+        // XXX: print hidden rows?
+
         if (tbl_style == TEX)
             fprintf(f, "\\+");
         else
@@ -1665,39 +1668,49 @@ void tblprintfile(const char *fname, int r0, int c0, int rn, int cn) {
 
         for (col = c0; col <= cn; col++) {
             struct ent *p = *ATBL(tbl, row, col);
+            char *s;
+
+            // XXX: print hidden columns?
+
+            // XXX: should handle cell fusion
+            fieldlen = fwidth[col];
+
             if (tbl_style == FRAME) {
                 fprintf(f, "    <Cell <CellContent <Para\n");
                 fprintf(f, "       <PgfTag `CellBody'> # in Paragraph Format Catalog\n");
                 fprintf(f, "       <ParaLine <String `");
             }
             if (p) {
-                char *s;
+                char field[FBUFLEN];
+                // XXX: alignment should be determined from cell format
+                //      ALIGN_AUTO, ALIGN_LEFT, ALIGN_CENTER, ALIGN_RIGHT
+
                 if (p->flags & IS_VALID) {
                     if (p->cellerror) {
-                        fprintf(f, "%*s", fwidth[col],
-                                (p->cellerror == CELLERROR ? "ERROR" : "INVALID"));
-                    } else
-                    if (p->format) {
-                        char field[FBUFLEN];
-                        if (*p->format == ctl('d')) {
-                            time_t v = (time_t)(p->v);
-                            // XXX: must check format string
-                            ((size_t (*)(char *, size_t, const char *, const struct tm *tm))strftime)
-                            (field, sizeof(field), p->format + 1, localtime(&v));
-                        } else {
-                            format(p->format, precision[col], p->v,
-                                   field, sizeof(field));
-                        }
-                        unspecial(f, field, coldelim);
+                        strlcpy(field, (p->cellerror == CELLERROR ?
+                                        "ERROR" : "INVALID"), sizeof field);
                     } else {
-                        char field[FBUFLEN];
-                        engformat(realfmt[col], fwidth[col],
-                                  precision[col], p->v,
-                                  field, sizeof(field));
-                        unspecial(f, field, coldelim);
+                        // XXX: should also use colformat[realfmt[col]]
+                        const char *cfmt = p->format;
+                        if (cfmt) {
+                            if (*cfmt == ctl('d')) {
+                                // XXX: default alignment was ALIGN_LEFT
+                                time_t v = (time_t)(p->v);
+                                // XXX: must check format string
+                                ((size_t (*)(char *, size_t, const char *, const struct tm *tm))strftime)
+                                    (field, sizeof(field), cfmt + 1, localtime(&v));
+                            } else {
+                                format(cfmt, precision[col], p->v, field, sizeof(field));
+                            }
+                        } else {
+                            engformat(realfmt[col], fieldlen, precision[col], p->v, field, sizeof(field));
+                        }
                     }
+                    // XXX: should fill fieldlen with * if too long
+                    unspecial(f, field, coldelim);
                 }
                 if ((s = p->label)) {
+                    // XXX: should handle repeated pattern starting with '\'
                     unspecial(f, s, coldelim);
                 }
             }

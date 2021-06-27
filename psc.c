@@ -414,13 +414,13 @@ char *coltoa(int col) {
     return rname;
 }
 
-#define GROWALLOC(newptr, oldptr, nelem, type, msg) \
-    do { type *newptr = realloc(oldptr, (nelem) * sizeof(type)); \
-       if (newptr == NULL) { \
+#define GROWALLOC(ptr, nelem, type, msg) \
+    do { type *newptr__ = realloc(ptr, (nelem) * sizeof(type)); \
+       if (newptr__ == NULL) { \
            error(msg); \
            return FALSE; \
        } \
-       oldptr = newptr; \
+       ptr = newptr__; \
     } while (0)
 
 static const char nowider[] = "The table can't be any wider";
@@ -455,9 +455,9 @@ int growtbl(int rowcol, int toprow, int topcol) {
     }
 
     if ((rowcol == GROWCOL) || (rowcol == GROWBOTH) || (rowcol == GROWNEW)) {
-        GROWALLOC(fwidth2, fwidth, newcols, int, nowider);
-        GROWALLOC(precision2, precision, newcols, int, nowider);
-        GROWALLOC(realfmt2, realfmt, newcols, int, nowider);
+        GROWALLOC(fwidth, newcols, int, nowider);
+        GROWALLOC(precision, newcols, int, nowider);
+        GROWALLOC(realfmt, newcols, int, nowider);
 
         memset(fwidth + maxcols, 0, (newcols - maxcols) * sizeof(*fwidth));
         memset(precision + maxcols, 0, (newcols - maxcols) * sizeof(*precision));

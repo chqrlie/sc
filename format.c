@@ -99,9 +99,9 @@ static char *fmt_int(char *val, char *fmt, bool comma, bool negative);
 static char *fmt_frac(const char *val, const char *fmt, int lprecision);
 static char *fmt_exp(int val, char *fmt);
 
-static void reverse(char *buf);
+static char *reverse(char *buf);
 
-char *colformat[COLFORMATS];
+SCXMEM char *colformat[COLFORMATS];
 
 /*****************************************************************************/
 
@@ -362,9 +362,7 @@ static char *fmt_int(char *val,      /* integer part of the value to be formatte
     if (negative && digit >= 0)
         *bufptr++ = '-';
     *bufptr = EOS;
-    reverse(buf);
-
-    return buf;
+    return reverse(buf);
 }
 
 /*****************************************************************************/
@@ -431,16 +429,17 @@ static char *fmt_exp(int val,        /* value of the exponent */
 
 /*****************************************************************************/
 
-static void reverse(char *buf)
-{
-    char *cp = buf + strlen(buf) - 1;
-    char tmp;
-
-    while (buf < cp) {
-        tmp = *cp;
-        *cp-- = *buf;
-        *buf++ = tmp;
+static char *reverse(char *buf) {
+    if (*buf) {
+        char *a = buf;
+        char *b = buf + strlen(buf) - 1;
+        while (a < b) {
+            char tmp = *b;
+            *b-- = *a;
+            *a++ = tmp;
+        }
     }
+    return buf;
 }
 
 /*****************************************************************************/
@@ -482,27 +481,35 @@ static void reverse(char *buf)
 #define REFMTLDATE      4
 #endif
 
-bool engformat(int fmt, int width, int lprecision, double val, char *buf, int buflen) {
+static const char * const engmult[] = {
+    "-18", "-15", "-12", "-09", "-06", "-03",
+    "+00",
+    "+03", "+06", "+09", "+12", "+15", "+18"
+};
 
-    static const char * const engmult[] = {
-        "-18", "-15", "-12", "-09", "-06", "-03",
-        "+00",
-        "+03", "+06", "+09", "+12", "+15", "+18"
-    };
+bool engformat(int fmt, int width, int lprecision, double val, char *buf, int buflen) {
     int engind = 0;
     double engmant, engabs, engexp;
+    int i;
+    time_t secs;
 
-    if (buflen < width) return false;
+    *buf = '\0';
+    if (buflen <= width) return false;
     if (fmt >= 0 && fmt < COLFORMATS && colformat[fmt])
         return format(colformat[fmt], lprecision, val, buf, buflen);
-    if (fmt == REFMTFIX)
+    switch (fmt) {
+    case REFMTFIX:
         snprintf(buf, buflen, "%*.*f", width, lprecision, val);
-    if (fmt == REFMTFLT)
+        break;
+    case REFMTFLT:
         snprintf(buf, buflen, "%*.*E", width, lprecision, val);
-    if (fmt == REFMTENG) {
-        if (val == 0e0) {       /* Hack to get zeroes to line up in engr fmt */
+        break;
+    case REFMTENG:
+        if (val == 0e0) {
+            /* Hack to get zeroes to line up in engr fmt */
             snprintf(buf - 1, buflen, "%*.*f ", width, lprecision, val);
         } else {
+            // XXX: this method is flawed because of rounding issues
             engabs = (val);
             if ( engabs <  0e0)       engabs = -engabs;
             if ((engabs >= 1e-18) && (engabs <  1e-15)) engind = 0;
@@ -529,34 +536,29 @@ bool engformat(int fmt, int width, int lprecision, double val, char *buf, int bu
                          lprecision, engmant, engmult[engind]);
             }
         }
-    }
-    if (fmt == REFMTDATE) {
-        int i;
-        time_t secs;
-
-        if (buflen < 9) {
+        break;
+    case REFMTDATE:
+        if (width < 9) {
             for (i = 0; i < width; i++) buf[i] = '*';
             buf[i] = '\0';
         } else {
             secs = (time_t)val;
-            strftime(buf,buflen,"%e %b %y",localtime(&secs));
+            strftime(buf, buflen, "%e %b %y", localtime(&secs));
             for (i = 9; i < width; i++) buf[i] = ' ';
             buf[i] = '\0';
         }
-    }
-    if (fmt == REFMTLDATE) {
-        int i;
-        time_t secs;
-
-        if (buflen < 11) {
+        break;
+    case REFMTLDATE:
+        if (width < 11) {
             for (i = 0; i < width; i++) buf[i] = '*';
             buf[i] = '\0';
         } else {
             secs = (time_t)val;
-            strftime(buf,buflen,"%e %b %Y",localtime(&secs));
+            strftime(buf, buflen, "%e %b %Y", localtime(&secs));
             for (i = 11; i < width; i++) buf[i] = ' ';
             buf[i] = '\0';
         }
+        break;
     }
     return true;
 }

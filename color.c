@@ -194,7 +194,7 @@ void write_colors(FILE *f, int indent) {
     for (i = 1; i <= CPAIRS; i++) {
         if (cpairs[i] && cpairs[i]->expr) {
             buf_setf(buf, "color %d = ", i);
-            decompile(buf, cpairs[i]->expr);
+            decompile_node(buf, cpairs[i]->expr, 0);
             fprintf(f, "%*s%s\n", indent, "", buf->buf);
             if (brokenpipe) return;
             count++;

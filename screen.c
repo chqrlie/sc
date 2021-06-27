@@ -83,7 +83,7 @@ void select_style(int n, int rev) {
 static int standlast = FALSE;
 
 void update(int anychanged) {          /* did any cell really change in value? */
-    buf_t(buf, FBUFLEN);
+    char field[FBUFLEN];
     int row, col;
     struct ent *p;
     int mxrow, mxcol;
@@ -754,7 +754,7 @@ void update(int anychanged) {          /* did any cell really change in value? *
                         select_style(STYLE_RANGE, 0);
                     standlast++;
                     if (!p) {     /* no cell, but standing out */
-                        printw("%*s", fwidth[col], "");
+                        printw("%*s", fieldlen, "");
                         select_style(STYLE_CELL, -1);
                         continue;
                     } else
@@ -780,13 +780,12 @@ void update(int anychanged) {          /* did any cell really change in value? *
                     if (p->cellerror) {
                         if (colorerr)
                             select_style(STYLE_ERROR, 0);
-                        printw("%*.*s", fwidth[col], fwidth[col],
+                        printw("%*.*s", fieldlen, fieldlen,
                                p->cellerror == CELLERROR ? "ERROR" : "INVALID");
                     } else
                     if (showexpr && p->expr) {
-                        buf_reset(buf);
-                        decompile(buf, p->expr);
-                        showstring(buf->buf, ALIGN_LEFT, /* hasvalue = */ 0,
+                        decompile(field, sizeof field, p->expr);
+                        showstring(field, ALIGN_LEFT, /* hasvalue = */ 0,
                                    row, col, &nextcol, mxcol, &fieldlen, r, c,
                                    fr, frightcols, flcols, frcols);
                     } else {
@@ -795,7 +794,6 @@ void update(int anychanged) {          /* did any cell really change in value? *
                          */
 
                         if (p->flags & IS_VALID) {
-                            char field[FBUFLEN];
                             char *cfmt;
                             int note;
 
@@ -818,16 +816,13 @@ void update(int anychanged) {          /* did any cell really change in value? *
                                     ((size_t (*)(char *, size_t, const char *, const struct tm *tm))strftime)
                                         (field, sizeof(field), cfmt + 1, localtime(&v));
                                 } else
-                                    format(cfmt, precision[col], p->v,
-                                           field, sizeof(field));
+                                    format(cfmt, precision[col], p->v, field, sizeof(field));
                             } else {
-                                engformat(realfmt[col], fwidth[col] - note,
-                                          precision[col], p->v,
-                                          field, sizeof(field));
+                                engformat(realfmt[col], fieldlen - note, precision[col], p->v, field, sizeof(field));
                             }
-                            if ((ssize_t)strlen(field) > fwidth[col]) {
+                            if ((ssize_t)strlen(field) > fieldlen) {
                                 // XXX: what is this mess?
-                                for (i = 0; i < fwidth[col]; i++) {
+                                for (i = 0; i < fieldlen; i++) {
                                     if (note) {
 #ifndef NO_ATTR_GET
                                         attr_t attr;
@@ -851,7 +846,7 @@ void update(int anychanged) {          /* did any cell really change in value? *
                                 }
                             } else {
                                 if (cfmt && *cfmt != ctl('d')) {
-                                    for (i = 0; i < fwidth[col] - (ssize_t)strlen(field) - note; i++)
+                                    for (i = 0; i < fieldlen - (ssize_t)strlen(field) - note; i++)
                                         addch(' ');
                                 }
                                 if (note) {
@@ -873,7 +868,7 @@ void update(int anychanged) {          /* did any cell really change in value? *
                                 }
                                 addstr(field);
                                 if (cfmt && *cfmt == ctl('d')) {
-                                    for (i = 0; i < fwidth[col] - (ssize_t)strlen(field) - note; i++)
+                                    for (i = 0; i < fieldlen - (ssize_t)strlen(field) - note; i++)
                                         addch(' ');
                                 }
                             }
@@ -894,14 +889,14 @@ void update(int anychanged) {          /* did any cell really change in value? *
                              (cr && cr->r_color != 1)) &&
                             !(p->flags & IS_VALID) && !p->label)
                         {
-                            printw("%*s", fwidth[col], "");
+                            printw("%*s", fieldlen, "");
                         }
                     } /* else */
                 } else
                 if (!p && cr && cr->r_color != 1) {
                     move(r, c);
                     select_style(cr->r_color, 0);
-                    printw("%*s", fwidth[col], "");
+                    printw("%*s", fieldlen, "");
                 }
                 select_style(STYLE_CELL, 0);
                 if (do_stand) {
@@ -971,10 +966,10 @@ void update(int anychanged) {          /* did any cell really change in value? *
                                       realfmt[curcol]);
             }
             if (p) {
-                buf_reset(buf);
+                *field = '\0';
                 if (p->expr) {
                     /* has expr of some type */
-                    decompile(buf, p->expr);
+                    decompile(field, sizeof field, p->expr);
                 }
 
                 /*
@@ -990,7 +985,7 @@ void update(int anychanged) {          /* did any cell really change in value? *
                 }
                 if (p->expr && (p->flags & IS_STREXPR)) {
                     addch('{');
-                    addstr(buf->buf);
+                    addstr(field);
                     addch('}');     /* and this '}' is for vi % */
                     addch(' ');     /* separate sexpr and value if any */
                 } else
@@ -1009,10 +1004,10 @@ void update(int anychanged) {          /* did any cell really change in value? *
                 if (p->flags & IS_VALID) {
                     /* has value or num expr */
                     if (!p->expr || (p->flags & IS_STREXPR))
-                        buf_setf(buf, "%.15g", p->v);
+                        snprintf(field, sizeof field, "%.15g", p->v);
 
                     addch('[');
-                    addstr(buf->buf);
+                    addstr(field);
                     addch(']');
                 }
                 /* Display if cell is locked */

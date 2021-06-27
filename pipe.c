@@ -35,35 +35,38 @@ void getnum(int r0, int c0, int rn, int cn, int fd) {
 }
 
 void fgetnum(int r0, int c0, int rn, int cn, int fd) {
-    char buf[FBUFLEN];  /* for very long format strings */
-    int r, c;
+    char field[FBUFLEN+1];  /* for very long format strings */
+    int row, col;
 
-    for (r = r0; r <= rn; r++) {
-        for (c = c0; c <= cn; c++) {
-            struct ent *p = *ATBL(tbl, r, c);
-            *buf = '\0';
+    for (row = r0; row <= rn; row++) {
+        for (col = c0; col <= cn; col++) {
+            struct ent *p = *ATBL(tbl, row, col);
+            int fieldlen = fwidth[col];
+
+            *field = '\0';
             if (p) {
                 if (p->cellerror) {
-                    snprintf(buf, sizeof buf - 1, "%s",
+                    snprintf(field, sizeof field - 1, "%s",
                              p->cellerror == CELLERROR ? "ERROR" : "INVALID");
                 } else
                 if (p->flags & IS_VALID) {
-                    if (p->format) {
-                        if (*p->format == ctl('d')) {
-                            time_t i = (time_t)(p->v);
-                            // XXX: should check format string
+                    const char *cfmt = p->format;
+                    if (cfmt) {
+                        if (*cfmt == ctl('d')) {
+                            time_t v = (time_t)(p->v);
+                            // XXX: must check format string
                             ((size_t (*)(char *, size_t, const char *, const struct tm *tm))strftime)
-                                (buf, sizeof buf - 1, p->format + 1, localtime(&i));
+                                (field, sizeof(field) - 1, cfmt + 1, localtime(&v));
                         } else {
-                            format(p->format, precision[c], p->v, buf, sizeof buf - 1);
+                            format(cfmt, precision[col], p->v, field, sizeof(field) - 1);
                         }
                     } else {
-                        engformat(realfmt[c], fwidth[c], precision[c], p->v, buf, sizeof buf - 1);
+                        engformat(realfmt[col], fieldlen, precision[col], p->v, field, sizeof(field) - 1);
                     }
                 }
             }
-            strlcat(buf, (c < cn) ? "\t" : "\n", sizeof buf);
-            write(fd, buf, strlen(buf));
+            strlcat(field, (col < cn) ? "\t" : "\n", sizeof field);
+            write(fd, field, strlen(field));
             if (brokenpipe)
                 return;
         }
@@ -97,7 +100,7 @@ void getexp(int r0, int c0, int rn, int cn, int fd) {
             struct ent *p = *ATBL(tbl, r, c);
             buf_reset(buf);
             if (p && p->expr) {
-                decompile(buf, p->expr);
+                decompile_node(buf, p->expr, 0);
                 if (*buf->buf == '?')
                     buf_reset(buf);
             }
