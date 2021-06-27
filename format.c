@@ -95,9 +95,9 @@
 #define EOS     '\0'
 #define MAXBUF  256
 
-static char *fmt_int(char *val, char *fmt, bool comma, bool negative);
+static char *fmt_int(const char *val, const char *fmt, bool comma, bool negative);
 static char *fmt_frac(const char *val, const char *fmt, int lprecision);
-static char *fmt_exp(int val, char *fmt);
+static char *fmt_exp(int val, const char *fmt);
 
 static char *reverse(char *buf);
 
@@ -288,7 +288,7 @@ int format(char *buf, size_t buflen, const char *fmt0, int lprecision, double va
         static char *citmp = NULL, *cftmp = NULL;
         static unsigned cilen = 0, cflen = 0;
         const char *ci, *cf, *ce;
-        unsigned int len_ci, len_cf, len_ce;
+        unsigned int len_ci, len_cf;
 
         ci = fmt_int(integer, fmt, comma, negative);
         len_ci = strlen(ci);
@@ -309,21 +309,22 @@ int format(char *buf, size_t buflen, const char *fmt0, int lprecision, double va
         cf = cftmp;
 
         ce = (exponent) ? fmt_exp(exp_val, exponent) : "";
-        len_ce = strlen(ce);
         return snprintf(buf, buflen, "%s%s%s", ci, cf, ce);
     }
 }
 
 /*****************************************************************************/
 
-static char *fmt_int(char *val,      /* integer part of the value to be formatted */
-                     char *fmt,      /* integer part of the format */
-                     bool comma,     /* true if we should comma-ify the value */
-                     bool negative)  /* true if the value is actually negative */
+// XXX: should take destination array or buf_t
+
+static char *fmt_int(const char *val,  /* integer part of the value to be formatted */
+                     const char *fmt,  /* integer part of the format */
+                     bool comma,       /* true if we should comma-ify the value */
+                     bool negative)    /* true if the value is actually negative */
 {
     int digit, f, v;
     int thousands = 0;
-    char *cp;
+    const char *cp;
     static char buf[MAXBUF];
     char *bufptr = buf;
 
@@ -371,6 +372,8 @@ static char *fmt_int(char *val,      /* integer part of the value to be formatte
 
 /*****************************************************************************/
 
+// XXX: should take destination array or buf_t
+
 static char *fmt_frac(const char *val,     /* fractional part of the value to be formatted */
                       const char *fmt,          /* fractional portion of format */
                       int lprecision)     /* precision, for interpreting the "&" */
@@ -405,8 +408,10 @@ static char *fmt_frac(const char *val,     /* fractional part of the value to be
 
 /*****************************************************************************/
 
-static char *fmt_exp(int val,        /* value of the exponent */
-                     char *fmt)          /* exponent part of the format */
+// XXX: should take destination array or buf_t
+
+static char *fmt_exp(int val,          /* value of the exponent */
+                     const char *fmt)  /* exponent part of the format */
 {
     static char buf[MAXBUF];
     char *bufptr = buf;

@@ -1667,8 +1667,6 @@ void tblprintfile(const char *fname, int r0, int c0, int rn, int cn) {
     }
 
     for (row = r0; row <= rn; row++) {
-        int fieldlen;
-
         // XXX: print hidden rows?
 
         if (tbl_style == TEX)
@@ -1683,9 +1681,7 @@ void tblprintfile(const char *fname, int r0, int c0, int rn, int cn) {
             char *s;
 
             // XXX: print hidden columns?
-
             // XXX: should handle cell fusion
-            fieldlen = fwidth[col];
 
             if (tbl_style == FRAME) {
                 fprintf(f, "    <Cell <CellContent <Para\n");
@@ -1695,21 +1691,20 @@ void tblprintfile(const char *fname, int r0, int c0, int rn, int cn) {
             if (p) {
                 char field[FBUFLEN];
                 int align = p->flags & ALIGN_MASK;
-                int len;
 
                 if (p->flags & IS_VALID) {
                     /* convert cell contents, do not test width, do not align with spaces */
                     // XXX: should implement alignment in output format
                     if (p->cellerror) {
-                        len = strlcpy(field, (p->cellerror == CELLERROR ?
-                                              "ERROR" : "INVALID"), sizeof field);
+                        strlcpy(field, (p->cellerror == CELLERROR ?
+                                        "ERROR" : "INVALID"), sizeof field);
                         align |= ALIGN_CLIP;
                     } else {
                         const char *cfmt = p->format;
                         if (cfmt) {
-                            len = format(field, sizeof field, cfmt, precision[col], p->v, &align);
+                            format(field, sizeof field, cfmt, precision[col], p->v, &align);
                         } else {
-                            len = engformat(field, sizeof field, realfmt[col], precision[col], p->v, &align);
+                            engformat(field, sizeof field, realfmt[col], precision[col], p->v, &align);
                         }
                     }
                     // XXX: should fill fieldlen with * if too long
