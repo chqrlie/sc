@@ -123,13 +123,13 @@ static int doplugin(SCXMEM char *str) {
     return ret;
 }
 
-static void doeval(struct enode *e, SCXMEM char *fmt, int row, int col, int fd) {
+static void doeval(SCXMEM struct enode *e, SCXMEM char *fmt, int row, int col, int fd) {
     cmd_eval(e, s2c(fmt), row, col, fd);
     scxfree(fmt);
     efree(e);
 }
 
-static void doseval(struct enode *e, int row, int col, int fd) {
+static void doseval(SCXMEM struct enode *e, int row, int col, int fd) {
     cmd_seval(e, row, col, fd);
     efree(e);
 }
@@ -166,8 +166,8 @@ static void dohistfile(SCXMEM char *str) {
     int ival;
     double fval;
     struct ent_ptr ent;
-    struct enode *enode;
-    char *sval;
+    SCXMEM struct enode *enode;
+    SCXMEM char *sval;
     struct range_s rval;
 }
 

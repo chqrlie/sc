@@ -904,8 +904,7 @@ void update(int anychanged) {          /* did any cell really change in value? *
                                        r, c, fr, frightcols, flcols, frcols);
                         } else      /* repaint a blank cell: XXX: too complicated */
                         if ((((do_stand || !FullUpdate) && (p->flags & IS_CHANGED)) ||
-                             (cr && cr->r_color != 1)) &&
-                            !(p->flags & IS_VALID) && !p->label)
+                             (cr && cr->r_color != 1)) && !(p->flags & IS_VALID))
                         {
                             printw("%*s", fieldlen, "");
                         }

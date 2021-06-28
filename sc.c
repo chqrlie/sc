@@ -44,9 +44,6 @@ SCXMEM int *realfmt;
 SCXMEM unsigned char *col_hidden;
 SCXMEM unsigned char *row_hidden;
 int changed;
-SCXMEM struct ent *delbuf[DELBUFSIZE];
-SCXMEM char *delbuffmt[DELBUFSIZE];
-int dbidx;
 int qbuf;       /* buffer no. specified by " command */
 int modflg;
 int cellassign;
@@ -265,10 +262,6 @@ int main(int argc, char **argv) {
     if (optind < argc && argv[optind][0] != '|' && strcmp(argv[optind], "-"))
         strlcpy(curfile, argv[optind], sizeof curfile);
 
-    for (dbidx = DELBUFSIZE - 1; dbidx >= 0; ) {
-        delbuf[dbidx] = NULL;
-        delbuffmt[dbidx--] = NULL;
-    }
     if (usecurses && has_colors())
         initcolor(0);
 

@@ -65,7 +65,7 @@ size_t strlen(const char *s);
 #endif
 
 #if defined(BSD42) || defined(BSD43) && !defined(ultrix)
-#define memcpy(dest, source, len)       bcopy(source, dest, (unsigned int)len);
+#define memcpy(dest, source, len)       bcopy(source, dest, (unsigned int)(len));
 #define memset(dest, zero, len)         bzero((dest), (unsigned int)(len));
 #else
 #include <memory.h>
@@ -184,15 +184,15 @@ int buf_extend(buf_t buf, size_t size, size_t blocksize);
 #define REFMTDATE       3
 #define REFMTLDATE      4
 
-#define DEFWIDTH  10     /* Default column width and precision */
-#define DEFPREC    2
-#define DEFREFMT  REFMTFIX /* Make default format fixed point  THA 10/14/90 */
+#define DEFWIDTH    10      /* Default column width */
+#define DEFPREC      2      /* Default precision */
+#define DEFREFMT  REFMTFIX  /* Make default format fixed point  THA 10/14/90 */
 
-#define FKEYS            24     /* Number of function keys available */
-#define HISTLEN         100     /* Number of history entries for vi emulation */
-#define CPAIRS            8     /* Number of color pairs available */
-#define COLFORMATS       10     /* Number of custom column formats */
-#define DELBUFSIZE       40     /* Number of named buffers + 4 */
+#define FKEYS            24   /* Number of function keys available */
+#define HISTLEN         100   /* Number of history entries for vi emulation */
+#define CPAIRS            8   /* Number of color pairs available */
+#define COLFORMATS       10   /* Number of custom column formats */
+#define DELBUFSIZE       40   /* Number of named buffers + 4 */
 
 extern void error(const char *fmt, ...) sc__attr_printf(1,2);
 extern void fatal(const char *str);
@@ -549,7 +549,7 @@ extern void help(int ctx);
    This design is suboptimal in terms of memory space and implies much
    dreaded three star programming.
  */
-extern struct ent ***tbl;       /* data table ref. in vmtbl.c and ATBL() */
+extern SCXMEM struct ent ***tbl;       /* data table ref. in vmtbl.c and ATBL() */
 
 extern char curfile[PATHLEN];
 extern int strow, stcol;
@@ -595,8 +595,6 @@ extern char search_ind;         /* Search indicator */
 extern char mode_ind;           /* Mode indicator */
 extern int seenerr;
 extern int emacs_bindings;      /* use emacs-like bindings */
-/* a linked list of free [struct enodes]'s, uses .e.o.left as the next pointer */
-extern SCXMEM struct enode *freeenodes;
 extern bool sc_decimal;     /* Set if there was a decimal point in the number */
 extern SCXMEM char *scext;
 extern SCXMEM char *ascext;

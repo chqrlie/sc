@@ -19,17 +19,32 @@
 #include <signal.h>
 #include "sc.h"
 
-static void syncref(struct enode *e);
-static void unspecial(FILE *f, char *str, int delim);
-static struct ent *deldata1(void);
-static void deldata2(struct ent *obuf);
-static int any_locked_cells(int r1, int c1, int r2, int c2);
+SCXMEM struct ent *delbuf[DELBUFSIZE];
+SCXMEM char *delbuffmt[DELBUFSIZE];
+int dbidx = -1;
+
+/* Use this structure to save the last 'g' command */
+struct go_save gs;
+
+/* g_type can be: */
+#define G_NONE 0        /* Starting value - must be 0 */
+#define G_NUM 1
+#define G_STR 2
+#define G_NSTR 3
+#define G_XSTR 4
+#define G_CELL 5
 
 #define DEFCOLDELIM ':'
 
 int macrofd;
 int cslop;
 static struct impexfilt *filt = NULL; /* root of list of impex filters */
+
+static void syncref(struct enode *e);
+static void unspecial(FILE *f, const char *str, int delim);
+static struct ent *deldata1(void);
+static void deldata2(struct ent *obuf);
+static int any_locked_cells(int r1, int c1, int r2, int c2);
 
 /* return a pointer to a cell's [struct ent *], creating if needed */
 struct ent *lookat(int row, int col) {
@@ -86,18 +101,19 @@ void flush_saved(void) {
     if (dbidx < 0)
         return;
 
-    if ((p = delbuf[dbidx])) {
-        scxfree(delbuffmt[dbidx]);
-        delbuffmt[dbidx] = NULL;
-    }
+    p = delbuf[dbidx];
+    delbuf[dbidx] = NULL;
     while (p) {
-        clearent(p);
+        // XXX: entries are added to freeents in reverse order
         q = p->next;
+        clearent(p);
         p->next = freeents;     /* put this ent on the front of freeents */
         freeents = p;
         p = q;
     }
-    delbuf[dbidx--] = NULL;
+    scxfree(delbuffmt[dbidx]);
+    delbuffmt[dbidx] = NULL;
+    dbidx--;
 }
 
 /* copy the current row (currow) and place the cursor in the new row */
@@ -433,6 +449,7 @@ static struct ent *deldata1(void) {
     int i;
     struct ent *obuf = NULL;
     if (dbidx < 0) dbidx++;
+    // XXX: not freeing delbuf[dbidx], delbuffmt[dbidx]
     delbuf[dbidx] = delbuf[DELBUFSIZE - 1];
     delbuffmt[dbidx] = delbuffmt[DELBUFSIZE - 1];
     delbuf[DELBUFSIZE - 1] = NULL;
@@ -624,7 +641,9 @@ void erase_area(int sr, int sc, int er, int ec, int ignorelock) {
     lookat(sr, sc);
     lookat(er, ec);
 
-    delbuffmt[++dbidx] = scxmalloc((4*(ec-sc+1)+(er-sr+1))*sizeof(char));
+    ++dbidx;
+    // XXX: not setting delbuf[dbidx]?
+    delbuffmt[dbidx] = scxmalloc((4*(ec-sc+1)+(er-sr+1))*sizeof(char));
     for (c = sc; c <= ec; c++) {
         delbuffmt[dbidx][4*(c-sc)+0] = (char)fwidth[c];
         delbuffmt[dbidx][4*(c-sc)+1] = (char)precision[c];
@@ -706,7 +725,8 @@ void move_area(int dr, int dc, int sr, int sc, int er, int ec) {
         p->flags &= ~IS_DELETED;
     }
     delbuf[dbidx] = NULL;
-    delbuffmt[dbidx--] = NULL;
+    delbuffmt[dbidx] = NULL;
+    dbidx--;
 }
 
 /*
@@ -754,7 +774,8 @@ void pullcells(int to_insert) {
     struct frange *fr;
 
     if (qbuf && delbuf[qbuf]) {
-        delbuf[++dbidx] = delbuf[qbuf];
+        ++dbidx;
+        delbuf[dbidx] = delbuf[qbuf];
         delbuffmt[dbidx] = delbuffmt[qbuf];
     }
     obuf = delbuf[dbidx];       /* orig. contents of the del. buffer */
@@ -923,7 +944,8 @@ void pullcells(int to_insert) {
     }
     if (qbuf && delbuf[qbuf]) {
         delbuf[dbidx] = NULL;
-        delbuffmt[dbidx--] = NULL;
+        delbuffmt[dbidx] = NULL;
+        dbidx--;
     }
     qbuf = 0;
 }
@@ -1425,7 +1447,7 @@ void printfile(const char *fname, int r0, int c0, int rn, int cn) {
         buf_reset(buf);
         for (col = c0; col <= cn; col = nextcol, w += fieldlen) {
             struct ent *p = *ATBL(tbl, row, col);
-            char *s;
+            const char *s;
 
             fieldlen = 0;
             nextcol = col + 1;
@@ -1678,7 +1700,7 @@ void tblprintfile(const char *fname, int r0, int c0, int rn, int cn) {
 
         for (col = c0; col <= cn; col++) {
             struct ent *p = *ATBL(tbl, row, col);
-            char *s;
+            const char *s;
 
             // XXX: print hidden columns?
             // XXX: should handle cell fusion
@@ -1765,7 +1787,7 @@ void tblprintfile(const char *fname, int r0, int c0, int rn, int cn) {
 }
 
 /* unspecial (backquote) things that are special chars in a table */
-static void unspecial(FILE *f, char *str, int delim) {
+static void unspecial(FILE *f, const char *str, int delim) {
     if (*str == '\\') str++; /* delete wheeling string operator, OK? */
     while (*str) {
         if (((tbl_style == LATEX) || (tbl_style == SLATEX) ||
@@ -1779,141 +1801,238 @@ static void unspecial(FILE *f, char *str, int delim) {
     }
 }
 
-struct enode *copye(struct enode *e, int Rdelta, int Cdelta,
-                    int r1, int c1, int r2, int c2, int transpose)
-{
-    struct enode *ret;
-    static struct enode *range = NULL;
+/*---------------- copying and moving ----------------*/
 
-    if (e == NULL)
-        ret = NULL;
-    else if (e->op & REDUCE) {
-        int newrow, newcol;
-        if (freeenodes) {
-            ret = freeenodes;
-            freeenodes = ret->e.o.left;
-        } else
-            ret = scxmalloc(sizeof (struct enode));
-        ret->op = e->op;
-        newrow = e->e.r.left.vf & FIX_ROW ||
-                 e->e.r.left.vp->row < r1 || e->e.r.left.vp->row > r2 ||
-                 e->e.r.left.vp->col < c1 || e->e.r.left.vp->col > c2 ?
-                 e->e.r.left.vp->row :
-                 transpose ? r1 + Rdelta + e->e.r.left.vp->col - c1 :
-                 e->e.r.left.vp->row + Rdelta;
-        newcol = e->e.r.left.vf & FIX_COL ||
-                 e->e.r.left.vp->row < r1 || e->e.r.left.vp->row > r2 ||
-                 e->e.r.left.vp->col < c1 || e->e.r.left.vp->col > c2 ?
-                 e->e.r.left.vp->col :
-                 transpose ? c1 + Cdelta + e->e.r.left.vp->row - r1 :
-                 e->e.r.left.vp->col + Cdelta;
-        ret->e.r.left.vp = lookat(newrow, newcol);
-        ret->e.r.left.vf = e->e.r.left.vf;
-        newrow = e->e.r.right.vf & FIX_ROW ||
-                 e->e.r.right.vp->row < r1 || e->e.r.right.vp->row > r2 ||
-                 e->e.r.right.vp->col < c1 || e->e.r.right.vp->col > c2 ?
-                 e->e.r.right.vp->row :
-                 transpose ? r1 + Rdelta + e->e.r.right.vp->col - c1 :
-                 e->e.r.right.vp->row + Rdelta;
-        newcol = e->e.r.right.vf & FIX_COL ||
-                 e->e.r.right.vp->row < r1 || e->e.r.right.vp->row > r2 ||
-                 e->e.r.right.vp->col < c1 || e->e.r.right.vp->col > c2 ?
-                 e->e.r.right.vp->col :
-                 transpose ? c1 + Cdelta + e->e.r.right.vp->row - r1 :
-                 e->e.r.right.vp->col + Cdelta;
-        ret->e.r.right.vp = lookat(newrow, newcol);
-        ret->e.r.right.vf = e->e.r.right.vf;
+static void copydbuf(int deltar, int deltac) {
+    int vr, vc;
+    struct ent *p = delbuf[dbidx];
+    struct ent *n;
+
+    while (p) {
+        vr = p->row + deltar;
+        vc = p->col + deltac;
+        n = lookat(vr, vc);
+        if (n->flags & IS_LOCKED)
+            continue;
+        copyent(n, p, deltar, deltac, 0, 0, maxrow, maxcol, 0);
+        p = p->next;
+    }
+}
+
+void copy(struct ent *dv1, struct ent *dv2, struct ent *v1, struct ent *v2) {
+    struct ent *p;
+    // XXX: get rid of this static mess
+    static int minsr = -1, minsc = -1;
+    static int maxsr = -1, maxsc = -1;
+    int mindr, mindc;
+    int maxdr, maxdc;
+    int deltar, deltac;
+
+    if (dv1) {
+        mindr = dv1->row;
+        mindc = dv1->col;
+        maxdr = dv2->row;
+        maxdc = dv2->col;
+        if (mindr > maxdr) SWAPINT(mindr, maxdr);
+        if (mindc > maxdc) SWAPINT(mindc, maxdc);
     } else {
-        struct enode *temprange = NULL;
-
-        if (freeenodes) {
-            ret = freeenodes;
-            freeenodes = ret->e.o.left;
-        } else
-            ret = scxmalloc(sizeof (struct enode));
-        ret->op = e->op;
-        switch (ret->op) {
-            case SUM:
-            case PROD:
-            case AVG:
-            case COUNT:
-            case STDDEV:
-            case MAX:
-            case MIN:
-                temprange = range;
-                range = e->e.o.left;
-                r1 = 0;
-                c1 = 0;
-                r2 = maxrow;
-                c2 = maxcol;
-        }
-        switch (ret->op) {
-            case 'v':
-                {
-                    int newrow, newcol;
-                    if (range && e->e.v.vp->row >= range->e.r.left.vp->row &&
-                                 e->e.v.vp->row <= range->e.r.right.vp->row &&
-                                 e->e.v.vp->col >= range->e.r.left.vp->col &&
-                                 e->e.v.vp->col <= range->e.r.right.vp->col) {
-                        newrow = range->e.r.left.vf & FIX_ROW ?
-                                e->e.v.vp->row : e->e.v.vp->row + Rdelta;
-                        newcol = range->e.r.left.vf & FIX_COL ?
-                                e->e.v.vp->col : e->e.v.vp->col + Cdelta;
-                    } else {
-                        newrow = e->e.v.vf & FIX_ROW ||
-                                 e->e.v.vp->row < r1 || e->e.v.vp->row > r2 ||
-                                 e->e.v.vp->col < c1 || e->e.v.vp->col > c2 ?
-                                 e->e.v.vp->row :
-                                 transpose ? r1 + Rdelta + e->e.v.vp->col - c1 :
-                                 e->e.v.vp->row + Rdelta;
-                        newcol = e->e.v.vf & FIX_COL ||
-                                 e->e.v.vp->row < r1 || e->e.v.vp->row > r2 ||
-                                 e->e.v.vp->col < c1 || e->e.v.vp->col > c2 ?
-                                 e->e.v.vp->col :
-                                 transpose ? c1 + Cdelta + e->e.v.vp->row - r1 :
-                                 e->e.v.vp->col + Cdelta;
-                    }
-                    ret->e.v.vp = lookat(newrow, newcol);
-                    ret->e.v.vf = e->e.v.vf;
-                    break;
-                }
-            case 'k':
-                ret->e.k = e->e.k;
-                break;
-            case 'f':
-            case 'F':
-                if (( range && ret->op == 'F') ||
-                    (!range && ret->op == 'f')   )
-                    Rdelta = Cdelta = 0;
-                ret->e.o.left = copye(e->e.o.left, Rdelta, Cdelta,
-                                      r1, c1, r2, c2, transpose);
-                ret->e.o.right = NULL;
-                break;
-            case '$':
-            case EXT:
-                ret->e.s = scxdup(e->e.s);
-                if (e->op == '$')       /* Drop through if ret->op is EXT */
-                    break;
-                FALLTHROUGH;
-            default:
-                ret->e.o.left = copye(e->e.o.left, Rdelta, Cdelta,
-                                      r1, c1, r2, c2, transpose);
-                ret->e.o.right = copye(e->e.o.right, Rdelta, Cdelta,
-                                       r1, c1, r2, c2, transpose);
-                break;
-        }
-        switch (ret->op) {
-        case SUM:
-        case PROD:
-        case AVG:
-        case COUNT:
-        case STDDEV:
-        case MAX:
-        case MIN:
-            range = temprange;
+        if (showrange) {
+            showrange = 0;
+            mindr = showsr < currow ? showsr : currow;
+            mindc = showsc < curcol ? showsc : curcol;
+            maxdr = showsr > currow ? showsr : currow;
+            maxdc = showsc > curcol ? showsc : curcol;
+        } else if (v1) {
+            /* Set up the default source range for the "c." command. */
+            minsr = maxsr = v1->row;
+            minsc = maxsc = v1->col;
+            return;
+        } else {
+            mindr = maxdr = currow;
+            mindc = maxdc = curcol;
         }
     }
-    return ret;
+
+    if (v1) {
+        minsr = v1->row;
+        minsc = v1->col;
+        maxsr = v2->row;
+        maxsc = v2->col;
+        if (minsr > maxsr) SWAPINT(minsr, maxsr);
+        if (minsc > maxsc) SWAPINT(minsc, maxsc);
+    } else if (dv1 == NULL || v2 != NULL) {
+        if (qbuf && delbuf[qbuf]) {
+            ++dbidx;
+            delbuf[dbidx] = delbuf[qbuf];
+            delbuffmt[dbidx] = delbuffmt[qbuf];
+        } else if (dbidx < 0)
+            return;
+        minsr = maxrow;
+        minsc = maxcol;
+        maxsr = 0;
+        maxsc = 0;
+        for (p = delbuf[dbidx]; p; p = p->next) {
+            if (p->row < minsr) minsr = p->row;
+            if (p->row > maxsr) maxsr = p->row;
+            if (p->col < minsc) minsc = p->col;
+            if (p->col > maxsc) maxsc = p->col;
+        }
+    } else if (showrange &&
+               !(showsr == currow && showsc == curcol &&
+                 mindr == currow && mindc == curcol &&
+                 maxdr == currow && maxdc == curcol)) {
+        minsr = showsr < currow ? showsr : currow;
+        minsc = showsc < curcol ? showsc : curcol;
+        maxsr = showsr > currow ? showsr : currow;
+        maxsc = showsc > curcol ? showsc : curcol;
+    } else {
+        // XXX: use static values: check if we can avoid it
+        if (minsr == -1)
+            return;
+    }
+
+    checkbounds(&maxdr, &maxdc);
+
+    if (maxdr - mindr < maxsr - minsr) maxdr = mindr + (maxsr - minsr);
+    if (maxdc - mindc < maxsc - minsc) maxdc = mindc + (maxsc - minsc);
+    if (dv1 && (v1 || !v2))
+        yank_area(minsr, minsc, maxsr, maxsc);
+    erase_area(mindr, mindc, maxdr, maxdc, 0);
+    sync_refs();
+    flush_saved();
+
+    error("Copying...");
+    if (!loading)
+        refresh();
+    p = delbuf[dbidx];
+    if (minsr == maxsr && minsc == maxsc) {
+        /* Source is a single cell */
+        for (deltar = mindr - p->row; deltar <= maxdr - p->row; deltar++) {
+            for (deltac = mindc - p->col; deltac <= maxdc - p->col; deltac++)
+                copydbuf(deltar, deltac);
+        }
+    } else if (minsr == maxsr) {
+        /* Source is a single row */
+        deltac = mindc - p->col;
+        for (deltar = mindr - p->row; deltar <= maxdr - p->row; deltar++)
+            copydbuf(deltar, deltac);
+    } else if (minsc == maxsc) {
+        /* Source is a single column */
+        deltar = mindr - p->row;
+        for (deltac = mindc - p->col; deltac <= maxdc - p->col; deltac++)
+            copydbuf(deltar, deltac);
+    } else {
+        /* Everything else */
+        deltar = mindr - p->row;
+        deltac = mindc - p->col;
+        copydbuf(deltar, deltac);
+    }
+
+    if (dv1 && (v1 || !v2)) {
+        sync_refs();
+        flush_saved();
+    }
+
+    if (dv1 == NULL) {
+        if (qbuf && delbuf[qbuf]) {
+            delbuf[dbidx] = NULL;
+            delbuffmt[dbidx] = NULL;
+            dbidx--;
+        }
+        qbuf = 0;
+    }
+    error("Copy done.");
+}
+
+/* ERASE a Range of cells */
+void eraser(struct ent *v1, struct ent *v2) {
+    int i;
+    struct ent *obuf = NULL;
+
+    if (dbidx < 0) dbidx++;
+    delbuf[dbidx] = delbuf[DELBUFSIZE - 1];
+    delbuf[DELBUFSIZE - 1] = NULL;
+    delbuffmt[dbidx] = delbuffmt[DELBUFSIZE - 1];
+    delbuffmt[DELBUFSIZE - 1] = NULL;
+    for (i = dbidx + 1; i < DELBUFSIZE; i++) {
+        if (delbuf[i] == delbuf[dbidx]) {
+            delbuf[dbidx] = NULL;
+            delbuffmt[dbidx] = NULL;
+            break;
+        }
+    }
+    flush_saved();
+    if (qbuf) {
+        if (dbidx < 0) dbidx++;
+        delbuf[dbidx] = delbuf[qbuf];
+        delbuffmt[dbidx] = delbuffmt[qbuf];
+        flush_saved();
+        obuf = delbuf[qbuf];    /* orig. contents of the del. buffer */
+    }
+    erase_area(v1->row, v1->col, v2->row, v2->col, 0);
+    sync_refs();
+    for (i = 0; i < DELBUFSIZE; i++) {
+        if ((obuf && delbuf[i] == obuf) || (qbuf && i == qbuf)) {
+            delbuf[i] = delbuf[dbidx];
+            delbuffmt[i] = delbuffmt[dbidx];
+        }
+    }
+    qbuf = 0;
+    for (i = DELBUFSIZE - 1; i > DELBUFSIZE - 9; i--) {
+        delbuf[i] = delbuf[i-1];
+        delbuffmt[i] = delbuffmt[i-1];
+    }
+    delbuf[DELBUFSIZE - 9] = delbuf[dbidx];
+    delbuffmt[DELBUFSIZE - 9] = delbuffmt[dbidx];
+    FullUpdate++;
+    modflg++;
+}
+
+/* YANK a Range of cells */
+void yankr(struct ent *v1, struct ent *v2) {
+    int i, qtmp;
+    struct ent *obuf = NULL;
+
+    if (dbidx < 0) dbidx++;
+    delbuf[dbidx] = delbuf[DELBUFSIZE - 10];
+    delbuf[DELBUFSIZE - 10] = NULL;
+    delbuffmt[dbidx] = delbuffmt[DELBUFSIZE - 10];
+    delbuffmt[DELBUFSIZE - 10] = NULL;
+    for (i = dbidx + 1; i < DELBUFSIZE; i++) {
+        if (delbuf[i] == delbuf[dbidx]) {
+            delbuf[dbidx] = NULL;
+            delbuffmt[dbidx] = NULL;
+            break;
+        }
+    }
+    flush_saved();
+    if (qbuf) {
+        if (dbidx < 0) dbidx++;
+        delbuf[dbidx] = delbuf[qbuf];
+        delbuffmt[dbidx] = delbuffmt[qbuf];
+        flush_saved();
+        obuf = delbuf[qbuf];    /* orig. contents of the del. buffer */
+    }
+    qtmp = qbuf;
+    qbuf = 0;
+    yank_area(v1->row, v1->col, v2->row, v2->col);
+    qbuf = qtmp;
+    for (i = 0; i < DELBUFSIZE; i++) {
+        if ((obuf && delbuf[i] == obuf) || (qbuf && i == qbuf)) {
+            delbuf[i] = delbuf[dbidx];
+            delbuffmt[i] = delbuffmt[dbidx];
+        }
+    }
+    qbuf = 0;
+    delbuf[DELBUFSIZE - 10] = delbuf[dbidx];
+    delbuffmt[DELBUFSIZE - 10] = delbuffmt[dbidx];
+}
+
+/* MOVE a Range of cells */
+void mover(struct ent *d, struct ent *v1, struct ent *v2) {
+    move_area(d->row, d->col, v1->row, v1->col, v2->row, v2->col);
+    sync_refs();
+    FullUpdate++;
 }
 
 void docopy(void) {
@@ -1922,6 +2041,447 @@ void docopy(void) {
         copy(lookat(showsr, showsc), lookat(currow, curcol), NULL, NULL);
     } else {
         copy(lookat(currow, curcol), lookat(currow, curcol), NULL, NULL);
+    }
+}
+
+/* Goto subroutines */
+
+static void g_free(void) {
+    switch (gs.g_type) {
+    case G_STR:
+    case G_NSTR: set_string(&gs.g_s, NULL); break;
+    default: break;
+    }
+    gs.g_type = G_NONE;
+    gs.errsearch = 0;
+}
+
+/* repeat the last goto command */
+void go_last(void) {
+    int num = 0;
+
+    switch (gs.g_type) {
+    case G_NONE:
+        error("Nothing to repeat");
+        break;
+    case G_NUM:
+        num_search(gs.g_n, gs.g_row, gs.g_col,
+                   gs.g_lastrow, gs.g_lastcol, gs.errsearch);
+        break;
+    case G_CELL:
+        moveto(gs.g_row, gs.g_col, gs.g_lastrow, gs.g_lastcol, gs.strow, gs.stcol);
+        break;
+    case G_XSTR:
+        num++;
+        FALLTHROUGH;
+    case G_NSTR:
+        num++;
+        FALLTHROUGH;
+    case G_STR:
+        str_search(gs.g_s, gs.g_row, gs.g_col, gs.g_lastrow, gs.g_lastcol, num);
+        break;
+
+    default:
+        error("go_last: internal error");
+        break;
+    }
+}
+
+/* Place the cursor on a given cell.  If cornerrow >= 0, place the cell
+ * at row cornerrow and column cornercol in the upper left corner of the
+ * screen if possible.
+ */
+void moveto(int row, int col, int lastrow, int lastcol,
+            int cornerrow, int cornercol)
+{
+    int i;
+
+    if (!loading && row != -1 && (row != currow || col != curcol))
+        remember(0);
+
+    currow = row;
+    curcol = col;
+    g_free();
+    gs.g_type = G_CELL;
+    gs.g_row = currow;
+    gs.g_col = curcol;
+    gs.g_lastrow = lastrow;
+    gs.g_lastcol = lastcol;
+    gs.strow = cornerrow;
+    gs.stcol = cornercol;
+    if (cornerrow >= 0) {
+        strow = cornerrow;
+        stcol = cornercol;
+        gs.stflag = 1;
+    } else {
+        gs.stflag = 0;
+    }
+    for (rowsinrange = 0, i = row; i <= lastrow; i++) {
+        if (row_hidden[i])
+            continue;
+        rowsinrange++;
+    }
+    for (colsinrange = 0, i = col; i <= lastcol; i++) {
+        if (col_hidden[i])
+            continue;
+        colsinrange += fwidth[i];
+    }
+    FullUpdate++;
+    if (loading) {
+        update(1);
+        changed = 0;
+    } else {
+        remember(1);
+    }
+}
+
+/*
+ * 'goto' either a given number,'error', or 'invalid' starting at currow,curcol
+ */
+void num_search(double n, int firstrow, int firstcol, int lastrow,
+                int lastcol, int errsearch)
+{
+    struct ent *p;
+    int r,c;
+    int endr, endc;
+
+    if (!loading)
+        remember(0);
+
+    g_free();
+    gs.g_type = G_NUM;
+    gs.g_n = n;
+    gs.g_row = firstrow;
+    gs.g_col = firstcol;
+    gs.g_lastrow = lastrow;
+    gs.g_lastcol = lastcol;
+    gs.errsearch = errsearch;
+
+    if (currow >= firstrow && currow <= lastrow &&
+            curcol >= firstcol && curcol <= lastcol) {
+        endr = currow;
+        endc = curcol;
+    } else {
+        endr = lastrow;
+        endc = lastcol;
+    }
+    r = endr;
+    c = endc;
+    while (1) {
+        if (c < lastcol) {
+            c++;
+        } else {
+            if (r < lastrow) {
+                while (++r < lastrow && row_hidden[r])
+                    continue;
+                c = firstcol;
+            } else {
+                r = firstrow;
+                c = firstcol;
+            }
+        }
+        p = *ATBL(tbl, r, c);
+        if (!col_hidden[c] && p && (p->flags & IS_VALID) &&
+                (errsearch || (p->v == n)) && (!errsearch ||
+                (p->cellerror == errsearch)))   /* CELLERROR vs CELLINVALID */
+            break;
+        if (r == endr && c == endc) {
+            if (errsearch) {
+                error("no %s cell found", errsearch == CELLERROR ? "ERROR" :
+                      "INVALID");
+            } else {
+                error("Number not found");
+            }
+            return;
+        }
+    }
+
+    currow = r;
+    curcol = c;
+    rowsinrange = 1;
+    colsinrange = fwidth[curcol];
+    if (loading) {
+        update(1);
+        changed = 0;
+    } else {
+        remember(1);
+    }
+}
+
+/* 'goto' a cell containing a matching string */
+void str_search(const char *s, int firstrow, int firstcol, int lastrow, int lastcol, int num) {
+    char field[FBUFLEN];
+    struct ent *p;
+    int found = 0;
+    int row, col, endr, endc;
+#if defined(RE_COMP) || defined(REGCMP)
+    char *tmp = NULL;
+#endif
+#if defined(REGCOMP)
+    regex_t preg;
+    int errcode;
+#endif
+
+#if defined(REGCOMP)
+    if ((errcode = regcomp(&preg, s, REG_EXTENDED))) {
+        char buf[160];
+        regerror(errcode, &preg, buf, sizeof(buf));
+        error("%s", buf);
+        return;
+    }
+#endif
+#if defined(RE_COMP)
+    if ((tmp = re_comp(s)) != NULL) {
+        error("%s", tmp);
+        return;
+    }
+#endif
+#if defined(REGCMP)
+    if ((tmp = regcmp(s, NULL)) == NULL) {
+        cellerror = CELLERROR;
+        error("Invalid search string");
+        return;
+    }
+#endif
+    if (!loading)
+        remember(0);
+
+    g_free();
+    gs.g_type = G_STR + num;
+    gs.g_s = scxdup(s);
+    gs.g_row = firstrow;
+    gs.g_col = firstcol;
+    gs.g_lastrow = lastrow;
+    gs.g_lastcol = lastcol;
+    if (currow >= firstrow && currow <= lastrow &&
+            curcol >= firstcol && curcol <= lastcol) {
+        endr = currow;
+        endc = curcol;
+    } else {
+        endr = lastrow;
+        endc = lastcol;
+    }
+    row = endr;
+    col = endc;
+    for (;;) {
+        if (col < lastcol) {
+            col++;
+        } else {
+            col = firstcol;
+            if (row < lastrow) {
+                while (++row < lastrow && row_hidden[row])
+                    continue;
+            } else {
+                row = firstrow;
+            }
+        }
+        if (!col_hidden[col] && (p = *ATBL(tbl, row, col))) {
+            /* convert cell contents, do not test width, ignore alignment */
+            const char *str = field;
+            int align = ALIGN_DEFAULT;
+
+            *field = '\0';
+            if (gs.g_type == G_NSTR) {
+                if (p->cellerror) {
+                    str = (p->cellerror == CELLERROR) ? "ERROR" : "INVALID";
+                } else
+                if (p->flags & IS_VALID) {
+                    const char *cfmt = p->format;
+                    if (cfmt) {
+                        format(field, sizeof field, cfmt, precision[col], p->v, &align);
+                    } else {
+                        engformat(field, sizeof field, realfmt[col], precision[col], p->v, &align);
+                    }
+                }
+            } else if (gs.g_type == G_XSTR) {
+                if (p->expr) {
+                    decompile(field, sizeof field, p->expr);
+                    if (*field == '?')
+                        *field = '\0';
+                }
+            }
+            if (gs.g_type == G_STR) {
+                str = p->label;
+            }
+            if (str && *str
+#if defined(REGCOMP)
+            &&  (regexec(&preg, str, 0, NULL, 0) == 0)
+#else
+#if defined(RE_COMP)
+            &&  (re_exec(str) != 0)
+#else
+#if defined(REGCMP)
+            &&  (regex(tmp, str) != NULL)
+#else
+            &&  (strcmp(s, str) == 0)
+#endif
+#endif
+#endif
+                ) {
+                found = 1;
+                break;
+            }
+        }
+        if (row == endr && col == endc)
+            break;
+    }
+#if defined(REGCOMP)
+    regfree(&preg);
+#endif
+#if defined(REGCMP)
+    free(tmp);
+#endif
+    if (found) {
+        currow = row;
+        curcol = col;
+        rowsinrange = 1;
+        colsinrange = fwidth[col];
+        if (loading) {
+            update(1);
+            changed = 0;
+        } else {
+            remember(1);
+        }
+    } else {
+        error("String not found");
+    }
+}
+
+/* fill a range with constants */
+void fill(struct ent *v1, struct ent *v2, double start, double inc) {
+    int r, c;
+    struct ent *n;
+    int minr = v1->row;
+    int minc = v1->col;
+    int maxr = v2->row;
+    int maxc = v2->col;
+    if (minr > maxr) SWAPINT(minr, maxr);
+    if (minc > maxc) SWAPINT(minc, maxc);
+    checkbounds(&maxr, &maxc);
+    if (minr < 0) minr = 0;
+    if (minc < 0) minc = 0;
+
+    FullUpdate++;
+    if (calc_order == BYROWS) {
+        for (r = minr; r <= maxr; r++) {
+            for (c = minc; c <= maxc; c++) {
+                n = lookat(r, c);
+                if (n->flags & IS_LOCKED) continue;
+                // XXX: why clear the format and alignment?
+                clearent(n);
+                n->v = start;
+                start += inc;
+                n->flags |= IS_CHANGED | IS_VALID;
+                n->flags &= ~IS_CLEARED;
+            }
+        }
+    } else
+    if (calc_order == BYCOLS) {
+        for (c = minc; c <= maxc; c++) {
+            for (r = minr; r <= maxr; r++) {
+                n = lookat(r, c);
+                // XXX: why clear the format and alignment?
+                clearent(n);
+                n->v = start;
+                start += inc;
+                n->flags |= IS_CHANGED | IS_VALID;
+                n->flags &= ~IS_CLEARED;
+            }
+        }
+    } else {
+        error(" Internal error calc_order");
+    }
+    changed++;
+}
+
+/* lock a range of cells */
+
+void lock_cells(struct ent *v1, struct ent *v2) {
+    int r, c;
+    struct ent *n;
+    int minr = v1->row;
+    int minc = v1->col;
+    int maxr = v2->row;
+    int maxc = v2->col;
+    if (minr > maxr) SWAPINT(minr, maxr);
+    if (minc > maxc) SWAPINT(minc, maxc);
+    checkbounds(&maxr, &maxc);
+    if (minr < 0) minr = 0;
+    if (minc < 0) minc = 0;
+
+    for (r = minr; r <= maxr; r++) {
+        for (c = minc; c <= maxc; c++) {
+            n = lookat(r, c);
+            n->flags |= IS_LOCKED;
+        }
+    }
+}
+
+/* unlock a range of cells */
+
+void unlock_cells(struct ent *v1, struct ent *v2) {
+    int r, c;
+    struct ent *n;
+    int minr = v1->row;
+    int minc = v1->col;
+    int maxr = v2->row;
+    int maxc = v2->col;
+    if (minr > maxr) SWAPINT(minr, maxr);
+    if (minc > maxc) SWAPINT(minc, maxc);
+    checkbounds(&maxr, &maxc);
+    if (minr < 0) minr = 0;
+    if (minc < 0) minc = 0;
+
+    for (r = minr; r <= maxr; r++) {
+        for (c = minc; c <= maxc; c++) {
+            n = lookat(r, c);
+            n->flags &= ~IS_LOCKED;
+        }
+    }
+}
+
+void format_cell(struct ent *v1, struct ent *v2, const char *s) {
+    int r, c;
+    struct ent *n;
+    int minr = v1->row;
+    int minc = v1->col;
+    int maxr = v2->row;
+    int maxc = v2->col;
+    if (minr > maxr) SWAPINT(minr, maxr);
+    if (minc > maxc) SWAPINT(minc, maxc);
+    checkbounds(&maxr, &maxc);
+    if (minr < 0) minr = 0;
+    if (minc < 0) minc = 0;
+
+    FullUpdate++;
+    modflg++;
+
+    for (r = minr; r <= maxr; r++) {
+        for (c = minc; c <= maxc; c++) {
+            n = lookat(r, c);
+            if (locked_cell(n->row, n->col))
+                continue;
+            set_cstring(&n->format, s && *s ? s : NULL);
+            n->flags |= IS_CHANGED;
+        }
+    }
+}
+
+void clearent(struct ent *v) {
+    if (v) {
+        v->v = 0.0;
+        set_string(&v->label, NULL);
+        efree(v->expr);
+        v->expr = NULL;
+        set_string(&v->format, NULL);
+        v->cellerror = 0;
+        v->flags = IS_CHANGED | IS_CLEARED;
+        // XXX: should clear other fields?
+        //      ncol, nrow, nlastcol, nlastrow
+        //      next
+        FullUpdate++;  // XXX: really?
+        changed++;
+        modflg++;
     }
 }
 
@@ -2216,7 +2776,7 @@ void copyent(struct ent *n, struct ent *p, int dr, int dc,
         if (p->label) {
             set_cstring(&n->label, p->label);
         } else if (special != 'm') {
-            set_cstring(&n->label, NULL);
+            set_string(&n->label, NULL);
         }
         n->flags &= ~ALIGN_MASK;
         n->flags |= p->flags & ALIGN_MASK;
@@ -2225,7 +2785,7 @@ void copyent(struct ent *n, struct ent *p, int dr, int dc,
     if (p->format) {
         set_cstring(&n->format, p->format);
     } else if (special != 'm' && special != 'f') {
-        set_cstring(&n->format, NULL);
+        set_string(&n->format, NULL);
     }
     n->flags |= IS_CHANGED;
 }
@@ -2729,7 +3289,7 @@ void backcol(int arg) {
 
 /* moves curcol forward one displayed column */
 void forwcol(int arg) {
-    while (--arg >= 0) {
+    while (arg-- > 0) {
         if (curcol < maxcols - 1)
             curcol++;
         else
@@ -2746,7 +3306,7 @@ void forwcol(int arg) {
 
 /* moves currow forward one displayed row */
 void forwrow(int arg) {
-    while (--arg >= 0) {
+    while (arg-- > 0) {
         if (currow < maxrows - 1)
             currow++;
         else

@@ -1,41 +1,41 @@
 # TODO
 
-* pass cell locations and ranges as sets of coordinates instead of
-  allocated cell pointers in gram.y
-* change representation for ranges: abs/rel coords instead of pointers
-* change the expression evaluator: use a stack of dynamically types values
-* cell value must be either a number or a string, with an optional expression
-* use an array of format strings, store an index in the cell struct
-* implement virtual space: jagged 2D matrix
-* add emacs keybinding stuff
-* add emacs macro language
-* add emacs command completion
-* add 1-2-3 menus
-* handle dynamic types
-* change functions for API compatibility
-* more efficient cell structure
-* convert help to markdown
-* built-in hyperlinked help system
-* chain cells with formulas into a linked list or dependency tree
-* add undo / autobackup of things typed in.
+[ ] pass cell locations and ranges as sets of coordinates instead of
+    allocated cell pointers in gram.y
+[ ] change representation for ranges: abs/rel coords instead of pointers
+[ ] handle dynamic types
+[ ] change the expression evaluator: use a stack of dynamically types values
+[ ] cell value must be either a number or a string, with an optional expression
+[ ] use an array of format strings, store an index in the cell struct
+[ ] implement virtual space: jagged 2D matrix
+[ ] add emacs keybinding stuff
+[ ] add emacs macro language
+[ ] add emacs command completion
+[/] add 1-2-3 menus
+[ ] change functions for API compatibility
+[ ] more efficient cell structure
+[ ] convert help to markdown
+[ ] built-in hyperlinked help system
+[ ] chain cells with formulas into a linked list or dependency tree
+[ ] add undo / autobackup of things typed in.
 	idea: each cell change output to a stdio open file
 		in the save format, fflush() every so often...
 		(diffs w/r to the original file)
-* make sure ISVALID should <not> be used in place of checkbounds
+[ ] make sure ISVALID should <not> be used in place of checkbounds
 	in interp.c
-* generic formats
-* hide range
-* block moving into range
-* an option to go into a ^R like <mode>
+[ ] generic formats
+[ ] hide range
+[ ] block moving into range
+[ ] an option to go into a ^R like <mode>
 	++data entry fields (highlight entry cells)....
 	++only allow entry in these cells....
-* don't redraw the whole screen all the time
+[ ] don't redraw the whole screen all the time
 	(only cells that change, (in addition to what is in 'fixed #9'))
 	(Note: there was no #9 when I took this over, and I've renumbered
 	things since then, so I'm not sure what this is referring to - CRM)
-* rewrite update() function in screen.c from scratch in a more sane manner
+[ ] rewrite update() function in screen.c from scratch in a more sane manner
 	(the current one is buggy and a headache to debug)
-* add a command line option (possibly -g) to use sc as a sort of grep for
+[ ] add a command line option (possibly -g) to use sc as a sort of grep for
 	formatted or unformatted data in a file or list of files which will
 	output the whole row in which a given number or string is found,
 	formatted as with the write command.

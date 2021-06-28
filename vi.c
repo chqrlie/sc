@@ -1204,6 +1204,7 @@ void vi_interaction(void) {
                 case 'F':
                     p = *ATBL(tbl, currow, curcol);
                     if (p && p->format) {
+                        // XXX: should encode string
                         set_line("fmt [format] %s \"%s", v_name(currow, curcol), p->format);
                         edit_mode();
                     } else {
@@ -1375,7 +1376,7 @@ void vi_interaction(void) {
                     strow = strow + uarg * ps;
                     FullUpdate++;
                     break;
-#ifdef  KEY_PPAGE
+#ifdef KEY_PPAGE
                 case KEY_PPAGE:                 /* previous page */
 #endif
                 case KEY_ALT('v'):
