@@ -478,22 +478,28 @@ void write_cells(FILE *f, int r0, int c0, int rn, int cn, int dr, int dc) {
             struct ent *p = *ATBL(tbl, r, c);
             if (p) {
                 if (p->label || (p->flags & IS_STREXPR)) {
-                    edits(buf, r, c);
+                    edits(buf, r, c, p);
                     fprintf(f, "%s\n", buf->buf);
                 }
                 if (p->flags & IS_VALID) {
-                    editv(buf, r, c);
+                    editv(buf, r, c, p);
+#if 0
+                    // XXX: this ugly hack will patch the value
+                    //      but only a single match in the formula
+                    //      which may not even be a number!
+                    //      should pass localisation context to
+                    //      conversion function
                     if (dpoint != '.') {
-                        // XXX: ugly hack! should pass localisation
-                        //      context to conversion functio
                         char *dpointptr = strchr(buf->buf, dpoint);
                         if (dpointptr != NULL)
                             *dpointptr = '.';
                     }
+#endif
                     fprintf(f, "%s\n", buf->buf);
                 }
                 if (p->format) {
-                    editfmt(buf, r, c);
+                    buf_setf(buf, "fmt %s ", v_name(r, c));
+                    buf_quotestr(buf, '"', p->format, '"');
                     fprintf(f, "%s\n", buf->buf);
                 }
             }

@@ -283,3 +283,27 @@ int buf_extend(buf_t buf, size_t size, size_t blocksize) {
     buf->flags |= BUF_ALLOC;
     return 0;
 }
+
+static int buf_quote(buf_t buf, int c) {
+    // XXX: potentially incorrect for embedded `"` and other control characters
+    buf_putc(buf, c);
+    return 1;
+}
+
+int buf_quotechar(buf_t buf, int c1, int c, int c2) {
+    int res = 0;
+    res += buf_putc(buf, c1);
+    res += buf_quote(buf, c);
+    res += buf_putc(buf, c2);
+    return res;
+}
+
+int buf_quotestr(buf_t buf, int c1, const char *s, int c2) {
+    int res = 0;
+    res += buf_putc(buf, c1);
+    while (*s) {
+        res += buf_quote(buf, *s++);
+    }
+    res += buf_putc(buf, c2);
+    return res;
+}

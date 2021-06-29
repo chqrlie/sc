@@ -684,7 +684,8 @@ void vi_interaction(void) {
                     if (c == '+') {
                         /* copy cell contents into line array */
                         buf_init(buf, line, sizeof line);
-                        editv(buf, currow, curcol);
+                        // XXX: there should be no value yet
+                        editv(buf, currow, curcol, p);
                         linelim = buf->len;
                         insert_mode();
                         write_line(ctl('v'));
@@ -771,7 +772,8 @@ void vi_interaction(void) {
                     numeric_field = 1;
                     /* copy cell contents into line array */
                     buf_init(buf, line, sizeof line);
-                    editv(buf, currow, curcol);
+                    // XXX: the conversion should be localized
+                    editv(buf, currow, curcol, p);
                     linelim = buf->len;
                     insert_mode();
                     if (c == '-' || (p->flags & IS_VALID))
@@ -1174,7 +1176,8 @@ void vi_interaction(void) {
 
                         /* copy cell contents into line array */
                         buf_init(buf, line, sizeof line);
-                        editv(buf, currow, curcol);
+                        // XXX: the conversion should be localized
+                        editv(buf, currow, curcol, p);
                         linelim = buf->len;
 
                         if (!(p->flags & IS_VALID)) {
@@ -1192,8 +1195,9 @@ void vi_interaction(void) {
                         savedstcol[27] = stcol;
 
                         /* copy cell contents into line array */
+                        p = lookat(currow, curcol);
                         buf_init(buf, line, sizeof line);
-                        edits(buf, currow, curcol);
+                        edits(buf, currow, curcol, p);
                         linelim = buf->len;
                         edit_mode();
                     }
@@ -3954,4 +3958,36 @@ int modcheck(const char *endstr) {
             return yn_ans;
     }
     return 0;
+}
+
+void editv(buf_t buf, int row, int col, struct ent *p) {
+    buf_setf(buf, "let %s = ", v_name(row, col));
+    if (p && (p->flags & IS_VALID)) {
+        if ((p->flags & IS_STREXPR) || p->expr == NULL) {
+            buf_printf(buf, "%.15g", p->v);
+        } else {
+            decompile_node(buf, p->expr, 0);
+        }
+    }
+}
+
+void edits(buf_t buf, int row, int col, struct ent *p) {
+    int align = p ? (p->flags & ALIGN_MASK) : ALIGN_DEFAULT;
+    const char *command;
+
+    switch (align) {
+    default:
+    case ALIGN_LEFT:    command = "leftstring";  break;
+    case ALIGN_CENTER:  command = "label";       break;
+    case ALIGN_RIGHT:   command = "rightstring"; break;
+    }
+    buf_setf(buf, "%s %s = ", command, v_name(row, col));
+    if (p && (p->flags & IS_STREXPR) && p->expr) {
+        decompile_node(buf, p->expr, 0);
+    } else if (p && p->label) {
+        buf_quotestr(buf, '"', p->label, '"');
+    } else {
+        /* output a single `"` for the user to start entering the string */
+        buf_putc(buf, '"');
+    }
 }

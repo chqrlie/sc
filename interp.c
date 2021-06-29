@@ -1799,10 +1799,7 @@ static void out_const(buf_t buf, double v) {
 }
 
 static void out_sconst(buf_t buf, const char *s) {
-    // XXX: potentially incorrect for embedded `"` and other control characters
-    buf_putc(buf, '"');
-    buf_puts(buf, s);
-    buf_putc(buf, '"');
+    buf_quotestr(buf, '"', s, '"');
 }
 
 static void out_var(buf_t buf, struct ent_ptr v, int usename) {
@@ -2079,55 +2076,6 @@ int etype(struct enode *e) {
 
     default:
         return NUM;
-    }
-}
-
-// XXX: should remove these functions, inline in file.c and vi.c
-void editfmt(buf_t buf, int row, int col) {
-    //XXX: should not force cell allocation
-    struct ent *p = lookat(row, col);
-
-    if (p->format) {
-        buf_setf(buf, "fmt %s ", v_name(row, col));
-        out_sconst(buf, p->format);
-    } else {
-        buf_reset(buf);
-    }
-}
-
-void editv(buf_t buf, int row, int col) {
-    //XXX: should not force cell allocation
-    struct ent *p = lookat(row, col);
-
-    buf_setf(buf, "let %s = ", v_name(row, col));
-    if (p->flags & IS_VALID) {
-        if ((p->flags & IS_STREXPR) || p->expr == NULL) {
-            out_const(buf, p->v);
-        } else {
-            decompile_node(buf, p->expr, 0);
-        }
-    }
-}
-
-void edits(buf_t buf, int row, int col) {
-    //XXX: should not force cell allocation
-    struct ent *p = lookat(row, col);
-    const char *command;
-
-    switch (p->flags & ALIGN_MASK) {
-    default:
-    case ALIGN_LEFT:    command = "leftstring";  break;
-    case ALIGN_CENTER:  command = "label";       break;
-    case ALIGN_RIGHT:   command = "rightstring"; break;
-    }
-    buf_setf(buf, "%s %s = ", command, v_name(row, col));
-    if ((p->flags & IS_STREXPR) && p->expr) {
-        decompile_node(buf, p->expr, 0);
-    } else if (p->label) {
-        out_sconst(buf, p->label);
-    } else {
-        /* output a single `"` for the user to start entering the string */
-        buf_putc(buf, '"');
     }
 }
 
