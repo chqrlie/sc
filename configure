@@ -524,6 +524,35 @@ curses_mk_compat_h () {
 #  define true 1
 # endif
 #endif
+
+#if (defined(BSD42) || defined(BSD43)) && !defined(strrchr)
+#define strrchr rindex
+#endif
+
+#if (defined(BSD42) || defined(BSD43)) && !defined(strchr)
+#define strchr index
+#endif
+
+#ifdef SYSV4
+size_t strlen(const char *s);
+#endif
+
+#ifdef SIGVOID
+#define sigret_t void
+#else
+#define sigret_t int
+#endif
+
+#if defined(BSD42) || defined(BSD43) && !defined(ultrix)
+#define memcpy(dest, source, len)       bcopy(source, dest, (unsigned int)(len));
+#define memset(dest, zero, len)         bzero((dest), (unsigned int)(len));
+#else
+#include <memory.h>
+#endif
+
+#ifndef HAVE_ISFINITE
+#define isfinite(v)  finite(v)
+#endif
 EOT
 }
 
