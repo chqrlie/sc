@@ -660,7 +660,6 @@ extern SCXMEM struct enode *new_range(int op, struct range_s a1);
 extern SCXMEM struct enode *new_str(SCXMEM char *s);
 extern SCXMEM struct enode *new_var(int op, struct ent_ptr a1);
 /* a linked list of free [struct ent]'s, uses .next as the pointer */
-extern SCXMEM struct ent *freeents;
 extern struct ent *lookat(int row, int col);
 extern struct crange *find_crange(int row, int col);
 extern struct frange *find_frange(int row, int col);
@@ -699,7 +698,7 @@ extern void cmd_setformat(int n, const char *str);
 extern void cmd_redraw(void);
 extern void cmd_select_qbuf(char c);
 extern void cmd_whereami(int fd);
-extern void cmd_define(const char *name);
+extern void cmd_define_range(const char *name);
 extern void dupcol(void);
 extern void duprow(void);
 extern void cmd_query(const char *s, const char *data, int fd);
@@ -766,9 +765,6 @@ extern void setiterations(int i);
 extern void setcalcorder(int i);
 extern void showcol(int c1, int c2);
 extern void showrow(int r1, int r2);
-extern void showstring(const char *string, int align, int hasvalue, int row,
-                       int col, int *nextcolp, int mxcol, int *fieldlenp, int r, int c,
-                       struct frange *fr, int frightcols, int flcols, int frcols);
 extern void signals(void);
 extern void slet(struct ent *v, SCXMEM struct enode *se, int align);
 extern void sortrange(struct ent *left, struct ent *right, const char *criteria);

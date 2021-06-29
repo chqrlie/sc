@@ -1,0 +1,419 @@
+/*      SC      A Spreadsheet Calculator
+ *              Printing routines
+ *
+ *              original by James Gosling, September 1982
+ *              modifications by Mark Weiser and Bruce Israel,
+ *                      University of Maryland
+ *              More mods Robert Bond, 12/86
+ *              updated by Charlie Gordon: June, 2021
+ *
+ *              $Revision: 8.1 $
+ */
+
+#include "sc.h"
+
+#define DEFCOLDELIM ':'
+
+void printfile(const char *fname, int r0, int c0, int rn, int cn) {
+    char field[FBUFLEN];
+    buf_t(buf, FBUFLEN);
+    FILE *f;
+    int pid = -1;
+    int fieldlen, nextcol;
+    int row, col;
+    char path[PATHLEN];
+    char *ext;
+
+    if (fname) {
+        /* printfile will be the [path/]file ---> [path/]file.out */
+        if (*fname == '\0') {
+            strlcpy(path, curfile, sizeof path);
+            ext = get_extension(path);
+
+            /* keep the extension unless .sc or scext */
+            if (strcmp(ext, ".sc") && !(scext && !strcmp(ext, scext)))
+                ext += strlen(ext);
+
+            snprintf(ext, path + sizeof(path) - ext, ".%s",
+                     ascext ? ascext : "asc");
+        } else {
+            /* strarg in gram.y, always size of \0 terminated string. */
+            strlcpy(path, fname, sizeof path);
+        }
+        if (!strcmp(path, curfile) &&
+            !yn_ask("Confirm that you want to destroy the data base: (y,n)")) {
+            return;
+        }
+
+        if ((f = openfile(path, sizeof path, &pid, NULL)) == NULL) {
+            error("Can't create file \"%s\"", path);
+            return;
+        }
+    } else {
+        f = stdout;
+    }
+
+    for (row = r0; row <= rn; row++) {
+        int w = 0;
+
+        if (row_hidden[row])
+            continue;
+
+        buf_reset(buf);
+        for (col = c0; col <= cn; col = nextcol, w += fieldlen) {
+            struct ent *p = *ATBL(tbl, row, col);
+            const char *s;
+
+            fieldlen = 0;
+            nextcol = col + 1;
+            if (col_hidden[col]) {
+                continue;
+            }
+
+            // XXX: should handle cell fusion
+            fieldlen = fwidth[col];
+            if (!p)
+                continue;
+
+            if (buf_extend(buf, w + fieldlen + 2, FBUFLEN))
+                goto malloc_error;
+
+            // XXX: alignment should be determined from cell format
+            //      ALIGN_AUTO, ALIGN_LEFT, ALIGN_CENTER, ALIGN_RIGHT
+
+            if (p->flags & IS_VALID) {
+                int align = p->flags & ALIGN_MASK;
+                int len;
+
+                if (p->cellerror) {
+                    // XXX: append a space for cell alignment
+                    len = strlcpy(field, (p->cellerror == CELLERROR ?
+                                          "ERROR " : "INVALID "), sizeof field);
+                    align |= ALIGN_CLIP;
+                } else {
+                    const char *cfmt = p->format;
+                    if (cfmt) {
+                        len = format(field, sizeof field, cfmt, precision[col], p->v, &align);
+                    } else {
+                        len = engformat(field, sizeof field, realfmt[col], precision[col], p->v, &align);
+                    }
+                }
+                if ((int)buf->len < w) {
+                    buf_repc(buf, ' ', w - buf->len);
+                } else {
+                    buf->buf[buf->len = w] = '\0';
+                }
+                if (align & ALIGN_CLIP) {
+                    if (len < 0)
+                        len = 0;
+                    if (len > fieldlen)
+                        len = fieldlen;
+                    field[len] = '\0';
+                    align &= ~ALIGN_CLIP;
+                }
+                if (len < 0 || len > fieldlen) {
+                    buf_repc(buf, '*', fieldlen);
+                } else
+                if (align == ALIGN_LEFT) {
+                    buf_printf(buf, "%-*s", fieldlen, field);
+                } else
+                if (align == ALIGN_CENTER) {
+                    int half = (fieldlen - len) / 2;
+                    buf_printf(buf, "%*s%*s", half, field, len - half, "");
+                } else {
+                    buf_printf(buf, "%*s", fieldlen, field);
+                }
+            } else
+            if ((s = p->label)) {
+                int slen = strlen(s);
+                int pad = 0;
+                int soff = 0;
+
+                if (*s == '\\' && slen > 1) {
+                    /* A string starting with a backslash is repeated across
+                       the column width. */
+                    int remain = fieldlen;
+                    slen -= 1;  /* skip the '\' */
+                    s += 1;
+                    while (remain > 0) {
+                        int chunk = slen <= remain ? slen : remain;
+                        buf_put(buf, s, chunk);
+                        remain -= chunk;
+                    }
+                    continue;
+                }
+                /* Figure out if the label slops over to a blank field. */
+                while (slen > fieldlen && nextcol <= cn) {
+                    if (!col_hidden[nextcol]) {
+                        struct ent *nc = lookat(row, nextcol);
+                        if ((nc->flags & IS_VALID) || nc->label)
+                            break;
+                        fieldlen += fwidth[nextcol];
+                    }
+                    nextcol++;
+                }
+                switch (p->flags & ALIGN_MASK) {
+                default:
+                case ALIGN_LEFT:
+                    pad = w - buf->len;
+                    if (slen > fieldlen)
+                        slen = fieldlen;
+                    break;
+                case ALIGN_CENTER:
+                    pad = w - buf->len + (fwidth[nextcol] - slen) / 2;
+                    if (pad < 0) {
+                        soff = -pad;
+                        slen -= soff;
+                    }
+                    if ((int)buf->len + pad + slen > w + fieldlen)
+                        slen = w + fieldlen - buf->len - pad;
+                    break;
+                case ALIGN_RIGHT:
+                    pad = w - buf->len + fieldlen - slen;
+                    if (pad < 0) {
+                        soff = -pad;
+                        slen -= soff;
+                        pad = 0;
+                    }
+                    break;
+                }
+
+                if (buf_extend(buf, w + fieldlen + 2, FBUFLEN))
+                    goto malloc_error;
+
+                buf_repc(buf, ' ', pad);
+                buf_put(buf, s + soff, slen);
+                if (nextcol <= cn)
+                    buf_repc(buf, ' ', w + fieldlen - buf->len);
+            }
+        }
+        buf_putc(buf, '\n');
+        fputs(buf->buf, f);
+    }
+    if (0) {
+    malloc_error:
+        error("Realloc failed in printfile()");
+    }
+    buf_free(buf);
+    if (fname) closefile(f, pid, 0);
+}
+
+// XXX: move to print.c
+
+/* unspecial (backquote) things that are special chars in a table */
+static void unspecial(FILE *f, const char *str, int delim) {
+    if (*str == '\\') str++; /* delete wheeling string operator, OK? */
+    while (*str) {
+        if (((tbl_style == LATEX) || (tbl_style == SLATEX) ||
+             (tbl_style == TEX)) &&
+            ((*str == delim) || (*str == '$') || (*str == '#') ||
+             (*str == '%') || (*str == '{') || (*str == '}') ||
+             (*str == '&')))
+            putc('\\', f);
+        putc(*str, f);
+        str++;
+    }
+}
+
+void tblprintfile(const char *fname, int r0, int c0, int rn, int cn) {
+    FILE *f;
+    int pid;
+    int row, col;
+    char coldelim = DEFCOLDELIM;
+    char path[PATHLEN];
+    char *ext;
+
+    /* tblprintfile will be the [path/]file ---> [path/]file.out */
+    if (*fname == '\0') {
+        strlcpy(path, curfile, sizeof path);
+        ext = get_extension(path);
+
+        /* keep the extension unless .sc or scext */
+        if (strcmp(ext, ".sc") && !(scext && !strcmp(ext, scext)))
+            ext += strlen(ext);
+
+        if (tbl_style == 0) {
+            snprintf(ext, path + sizeof(path) - ext, ".%s",
+                     tbl0ext ? tbl0ext : "cln");
+        } else
+        if (tbl_style == TBL) {
+            snprintf(ext, path + sizeof(path) - ext, ".%s",
+                     tblext ? tblext : "tbl");
+        } else
+        if (tbl_style == LATEX) {
+            snprintf(ext, path + sizeof(path) - ext, ".%s",
+                     latexext ? latexext : "lat");
+        } else
+        if (tbl_style == SLATEX) {
+            snprintf(ext, path + sizeof(path) - ext, ".%s",
+                     slatexext ? slatexext : "stx");
+        } else
+        if (tbl_style == TEX) {
+            snprintf(ext, path + sizeof(path) - ext, ".%s",
+                     texext ? texext : "tex");
+        }
+    } else {
+        strlcpy(path, fname, sizeof path);
+    }
+    if (!strcmp(path, curfile) &&
+        !yn_ask("Confirm that you want to destroy the data base: (y,n)"))
+        return;
+
+    if ((f = openfile(path, sizeof path, &pid, NULL)) == NULL) {
+        error("Can't create file \"%s\"", path);
+        return;
+    }
+
+    if (tbl_style == TBL) {
+        fprintf(f, ".\\\" ** %s spreadsheet output \n.TS\n", progname);
+        fprintf(f, "tab(%c);\n", coldelim);
+        for (col = c0; col <= cn; col++)
+            fprintf(f, " n");
+        fprintf(f, ".\n");
+    } else
+    if (tbl_style == LATEX) {
+        fprintf(f, "%% ** %s spreadsheet output\n\\begin{tabular}{", progname);
+        for (col = c0; col <= cn; col++)
+            fprintf(f, "c");
+        fprintf(f, "}\n");
+        coldelim = '&';
+    } else
+    if (tbl_style == SLATEX) {
+        fprintf(f, "%% ** %s spreadsheet output\n!begin<tabular><", progname);
+        for (col = c0; col <= cn; col++)
+            fprintf(f, "c");
+        fprintf(f, ">\n");
+        coldelim = '&';
+    } else
+    if (tbl_style == TEX) {
+        fprintf(f, "{\t%% ** %s spreadsheet output\n\\settabs %d \\columns\n",
+                progname, cn - c0 + 1);
+        coldelim = '&';
+    } else
+    if (tbl_style == FRAME) {
+        fprintf(f, "<MIFFile 3.00> # generated by the sc spreadsheet calculator\n");
+        fprintf(f, "<Tbls\n");
+        fprintf(f, " <Tbl \n");
+        fprintf(f, "  <TblID 1> # This table's ID is 1\n");
+        fprintf(f, "  <TblFormat \n");
+        fprintf(f, "   <TblTag `Format A'> # Table Format Catalog\n");
+        fprintf(f, "  > # end of TblFormat\n");
+        fprintf(f, "  <TblNumColumns %d> # Has %d columns\n", cn-c0+1, cn-c0+1);
+        fprintf(f, "  <TblTitleContent\n");
+        fprintf(f, "   <Para\n");
+        fprintf(f, "    <PgfTag `TableTitle'> # Forces lookup in Paragraph Format Catalog\n");
+        fprintf(f, "    <ParaLine\n");
+        fprintf(f, "     <String `%s'>\n", fname);
+        fprintf(f, "    > # end of ParaLine\n");
+        fprintf(f, "   > # end of Para\n");
+        fprintf(f, "  > # end of TblTitleContent\n");
+        fprintf(f, "  <TblH # The heading\n");
+        fprintf(f, "   <Row # The heading row\n");
+        for (col = c0; col <= cn; col++) {
+            fprintf(f, "    <Cell <CellContent <Para # Cell in column \n");
+            fprintf(f, "       <PgfTag `CellHeading'> # in Paragraph Format Catalog\n");
+            fprintf(f, "       <ParaLine <String `%c'>>\n", 'A'+col);
+            fprintf(f, "    >>> # end of Cell\n");
+        }
+        fprintf(f, "   > # end of Row\n");
+        fprintf(f, "  > # end of TblH\n");
+        fprintf(f, "  <TblBody # The body\n");
+    }
+
+    for (row = r0; row <= rn; row++) {
+        // XXX: print hidden rows?
+
+        if (tbl_style == TEX)
+            fprintf(f, "\\+");
+        else
+        if (tbl_style == FRAME) {
+            fprintf(f, "   <Row # The next body row\n");
+        }
+
+        for (col = c0; col <= cn; col++) {
+            struct ent *p = *ATBL(tbl, row, col);
+            const char *s;
+
+            // XXX: print hidden columns?
+            // XXX: should handle cell fusion
+
+            if (tbl_style == FRAME) {
+                fprintf(f, "    <Cell <CellContent <Para\n");
+                fprintf(f, "       <PgfTag `CellBody'> # in Paragraph Format Catalog\n");
+                fprintf(f, "       <ParaLine <String `");
+            }
+            if (p) {
+                char field[FBUFLEN];
+                int align = p->flags & ALIGN_MASK;
+
+                if (p->flags & IS_VALID) {
+                    /* convert cell contents, do not test width, do not align with spaces */
+                    // XXX: should implement alignment in output format
+                    if (p->cellerror) {
+                        strlcpy(field, (p->cellerror == CELLERROR ?
+                                        "ERROR" : "INVALID"), sizeof field);
+                        align |= ALIGN_CLIP;
+                    } else {
+                        const char *cfmt = p->format;
+                        if (cfmt) {
+                            format(field, sizeof field, cfmt, precision[col], p->v, &align);
+                        } else {
+                            engformat(field, sizeof field, realfmt[col], precision[col], p->v, &align);
+                        }
+                    }
+                    // XXX: should fill fieldlen with * if too long
+                    unspecial(f, field, coldelim);
+                }
+                if ((s = p->label)) {
+                    // XXX: should handle repeated pattern starting with '\'
+                    unspecial(f, s, coldelim);
+                }
+            }
+            if (tbl_style == FRAME) {
+                fprintf(f, "'>>\n");
+                fprintf(f, "    >>> # end of Cell\n");
+            }
+            if (col < cn) {
+                if (tbl_style != FRAME)
+                    fprintf(f, "%c", coldelim);
+            }
+        }
+        if (tbl_style == LATEX) {
+            if (row < rn) fprintf (f, "\\\\");
+        } else
+        if (tbl_style == SLATEX) {
+            if (row < rn) fprintf(f, "!!");
+        } else
+        if (tbl_style == TEX) {
+            fprintf (f, "\\cr");
+        } else
+        if (tbl_style == FRAME) {
+            fprintf(f, "   > # end of Row\n");
+        }
+        fprintf(f, "\n");
+    }
+
+    if (tbl_style == TBL)
+        fprintf (f,".TE\n.\\\" ** end of %s spreadsheet output\n", progname);
+    else
+    if (tbl_style == LATEX)
+        fprintf(f, "\\end{tabular}\n%% ** end of %s spreadsheet output\n", progname);
+    else
+    if (tbl_style == SLATEX)
+        fprintf (f,"!end<tabular>\n%% ** end of %s spreadsheet output\n", progname);
+    else
+    if (tbl_style == TEX)
+        fprintf (f,"}\n%% ** end of %s spreadsheet output\n", progname);
+    else
+    if (tbl_style == FRAME) {
+        fprintf(f, "  > # end of TblBody\n");
+        fprintf(f, " ># end of Tbl\n");
+        fprintf(f, "> # end of Tbls\n");
+        fprintf(f, "<TextFlow <Para \n");
+        fprintf(f, "  <PgfTag Body> \n");
+        fprintf(f, "  <ParaLine <ATbl 1>> # Reference to table ID 1\n");
+        fprintf(f, ">>\n");
+    }
+
+    closefile(f, pid, 0);
+}

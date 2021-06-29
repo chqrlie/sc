@@ -3295,7 +3295,7 @@ static void match_paren(void) {
  * cell has changed since the last remember(0), save the remembered location
  * for the `, ', and c comands.
  */
-// XXX: move out of vi.c
+// XXX: move out of vi.c (maybe navigate.c ?)
 void remember(int save) {
     static int remrow, remcol, remstrow, remstcol;
 
@@ -3815,7 +3815,7 @@ static void formatcol(int arg) {
         CLEAR_LINE;     // XXX: should get rid of this hack
 }
 
-/* called from main() for -P/ option */
+/* called from main() for -P/ option, via sc_cmd_put() */
 static void vi_select_range(const char *arg) {
     int c;
 
@@ -3904,6 +3904,54 @@ void sc_cmd_put(const char *arg) {
 }
 
 void sc_cmd_write(const char *arg) {
-    set_line("write %s", optarg);
-    parse_line(line);
+    char buf[FBUFLEN];
+    snprintf(buf, sizeof buf, "write %s", optarg);
+    parse_line(buf);
+}
+
+/* return 1 if yes given, 0 otherwise */
+int yn_ask(const char *msg) {
+    move(0, 0);
+    clrtoeol();
+    addstr(msg);
+    refresh();
+    // should clear screen row 0 upon returning
+    for (;;) {
+        switch (nmgetch(0)) {
+        case 'y':
+        case 'Y':
+            return 1;
+        case 'n':
+        case 'N':
+            return 0;
+        case ctl('g'):
+        case ESC:
+        case EOF:
+            return -1;
+        }
+    }
+}
+
+/* check if tbl was modified and ask to save */
+int modcheck(const char *endstr) {
+    int yn_ans;
+
+    if (modflg && curfile[0]) {
+        char lin[100];
+
+        snprintf(lin, sizeof lin, "File \"%s\" is modified, save%s? ", curfile, endstr);
+        if ((yn_ans = yn_ask(lin)) < 0)
+            return 1;
+        else
+        if (yn_ans == 1) {
+            if (writefile(curfile, 0, 0, maxrow, maxcol) < 0)
+                return 1;
+        }
+    } else if (modflg) {
+        if ((yn_ans = yn_ask("Do you want a chance to save the data? ")) < 0)
+            return 1;
+        else
+            return yn_ans;
+    }
+    return 0;
 }

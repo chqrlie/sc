@@ -326,12 +326,12 @@ LDADD=-lm $(LIBDIR_CURSES) $(LIB_CURSES)
 # All of the source files for archiving targets (outdated)
 SRCS=Makefile abbrev.c cmds.c color.c crypt.c eres.sed frame.c format.c gram.y \
 	help.c interp.c lex.c pipe.c psc.c range.c sc.c sc.h screen.c sort.c \
-	sres.sed version.c vi.c vmtbl.c xmalloc.c lotus.c
+	sres.sed version.c vi.c vmtbl.c xmalloc.c lotus.c file.c navigate.c print.c
 
 # The objects
 OBJS=$O/abbrev.o $O/cmds.o $O/color.o $(CRYPT_OBJ) $O/format.o $O/frame.o $O/gram.o $O/help.o $O/interp.o \
 	$O/lex.o $O/pipe.o $O/range.o $O/sc.o $O/screen.o $O/sort.o $O/version.o $O/vi.o $O/vmtbl.o \
-	$O/xmalloc.o $O/compat.o $O/lotus.o
+	$O/xmalloc.o $O/compat.o $O/lotus.o $O/file.o $O/navigate.o $O/print.o
 
 # The documents in the Archive
 DOCS=CHANGES README sc.doc psc.doc tutorial.sc VMS_NOTES torev build.com
@@ -378,6 +378,9 @@ $O/color.o: color.c $(DEPENDS)
 $O/crypt.o: crypt.c $(DEPENDS)
 	$(CC) $(_CFLAGS) -o $@ ${CRYPT} -c crypt.c
 
+$O/file.o: format.c $(DEPENDS)
+	$(CC) $(_CFLAGS) -o $@ -c file.c
+
 $O/format.o: format.c $(DEPENDS)
 	$(CC) $(_CFLAGS) -o $@ -c format.c
 
@@ -405,8 +408,14 @@ $O/lex.o: $(YTAB).h $(YTAB).c lex.c $(DEPENDS) $(YTAB).h experres.h statres.h
 $O/lotus.o: lotus.c $(DEPENDS)
 	$(CC) $(_CFLAGS) -o $@ -c lotus.c
 
+$O/navigate.o: navigate.c $(DEPENDS)
+	$(CC) $(_CFLAGS) -o $@ -c navigate.c
+
 $O/pipe.o: pipe.c $(DEPENDS)
 	$(CC) $(_CFLAGS) -o $@ -c pipe.c
+
+$O/print.o: print.c $(DEPENDS)
+	$(CC) $(_CFLAGS) -o $@ -c print.c
 
 $O/range.o: range.c $(DEPENDS)
 	$(CC) $(_CFLAGS) -o $@ -c range.c

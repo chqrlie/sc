@@ -82,7 +82,7 @@ static void doadd_range(SCXMEM char *name,
 }
 
 static void dodefine(SCXMEM char *name) {
-    cmd_define(s2c(name));
+    cmd_define_range(s2c(name));
     scxfree(name);
 }
 

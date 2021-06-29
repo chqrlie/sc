@@ -47,6 +47,9 @@ int framecols;      /* Columns in current frame */
 int rescol = 4;     /* Columns reserved for row numbers */
 
 static void repaint(int x, int y, int len, int attron, int attroff);
+static void showstring(const char *string, int align, int hasvalue, int row,
+                       int col, int *nextcolp, int mxcol, int *fieldlenp, int r, int c,
+                       struct frange *fr, int frightcols, int flcols, int frcols);
 
 void error(const char *fmt, ...) {
     char buf[256];
@@ -1314,4 +1317,126 @@ void sc_setcolor(int set) {
 
 void hidecursor(void) {
     move(lines - 1, cols - 1);
+}
+
+/*
+ * Show a cell's label string or expression value.  May overwrite value if
+ * there is one already displayed in the cell.  Created from old code in
+ * update(), copied with minimal changes.
+ */
+
+static
+void showstring(const char *string,         /* to display */
+                int align,                  /* ALIGN_xxx */
+                int hasvalue,               /* is there a numeric value? */
+                int row, int col,           /* spreadsheet location */
+                int *nextcolp,              /* value returned through it */
+                int mxcol,                  /* last column displayed? */
+                int *fieldlenp,             /* value returned through it */
+                int r, int c,               /* screen row and column */
+                struct frange *fr,          /* frame range we're currently in, if any */
+                int frightcols,             /* number of frame columns to the right */
+                int flcols, int frcols)     /* width of left and right sides of frame */
+{
+    int nextcol  = *nextcolp;
+    int fieldlen = *fieldlenp;
+    char field[FBUFLEN];
+    int slen;
+    char *start, *last, *fp;
+    const char *sp;
+    struct ent *nc;
+    struct crange *cr;
+
+    cr = find_crange(row, col);
+
+    /* This figures out if the label is allowed to
+       slop over into the next blank field */
+
+    slen = strlen(string);
+    for (sp = string; *sp != '\0'; sp++) {
+        if (*sp == '\\' && sp[1] == '"')
+            slen--;
+    }
+    if (*string == '\\' && string[1] != '\0' && string[1] != '"')
+        slen = fwidth[col];
+    if (c + fieldlen == rescol + flcols && nextcol < stcol)
+        nextcol = stcol;
+    if (frightcols &&
+            c + fieldlen + fwidth[nextcol] >= COLS - 1 - frcols &&
+            nextcol < fr->or_right->col - frightcols + 1)
+        nextcol = fr->or_right->col - frightcols + 1;
+    while ((slen > fieldlen) && (nextcol <= mxcol) &&
+            !((nc = lookat(row, nextcol))->flags & IS_VALID) && !(nc->label) &&
+            (cslop || find_crange(row, nextcol) == cr)) {
+
+        if (!col_hidden[nextcol])
+            fieldlen += fwidth[nextcol];
+        nextcol++;
+        if (c + fieldlen == rescol + flcols && nextcol < stcol)
+            nextcol = stcol;
+        if (frightcols &&
+                c + fieldlen + fwidth[nextcol] >= COLS - 1 - frcols &&
+                nextcol < fr->or_right->col - frightcols + 1)
+            nextcol = fr->or_right->col - frightcols + 1;
+    }
+    if (slen > fieldlen)
+        slen = fieldlen;
+
+    /* Now justify and print */
+    // XXX: should allow center and right to bleed to the left over empty cells
+    if (align == ALIGN_CENTER)
+        start = field + ((slen < fwidth[col]) ? (fieldlen - slen) / 2 : 0);
+    else
+        start = (align == ALIGN_RIGHT) ? field + fieldlen - slen : field;
+    last = field + fieldlen;
+    fp = field;
+    if (slen) {
+        while (fp < start)
+            *fp++ = ' ';
+    }
+    if (*string == '\\' && string[1] != '\0' && string[1] != '"') {
+        const char *strt = ++string;
+
+        while (slen--) {
+            if (*string == '\\' && string[1] == '"') {
+                slen++;
+                string++;
+            } else
+                *fp++ = *string++;
+            if (*string == '\0')
+                string = strt;
+        }
+    } else {
+        while (slen--) {
+            if (*string == '\\' && string[1] == '"') {
+                slen++;
+                string++;
+            } else
+                *fp++ = *string++;
+        }
+    }
+
+    if (!hasvalue || fieldlen != fwidth[col]) {
+        while (fp < last)
+            *fp++ = ' ';
+    }
+    *fp = '\0';
+    for (fp = field; *fp != '\0'; fp++) {
+        if (*fp == '\\' && fp[1] == '"')
+            strsplice(field, sizeof field, fp - field, 1, NULL, 0);
+    }
+    mvaddstr(r, c, field);
+
+    *nextcolp  = nextcol;
+    *fieldlenp = fieldlen;
+}
+
+void cmd_redraw(void) {
+    if (usecurses) {
+        clearok(stdscr, TRUE);
+        //linelim = -1;
+        update(1);
+        refresh();
+        changed = 0;
+    }
 }

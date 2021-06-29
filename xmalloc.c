@@ -48,3 +48,13 @@ void scxfree(void *p) {
         free(p);
     }
 }
+
+char *set_string(SCXMEM char **pp, SCXMEM char *s) {
+    scxfree(*pp);
+    return *pp = s;
+}
+
+char *set_cstring(SCXMEM char **pp, const char *s) {
+    scxfree(*pp);
+    return *pp = s ? scxdup(s) : NULL;
+}

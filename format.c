@@ -556,3 +556,23 @@ int engformat(char *buf, int buflen, int fmt, int lprecision, double val, int *a
     }
     return -1;
 }
+
+void sc_set_locale(int set) {
+    dpoint = '.';
+    thsep = ',';
+    FullUpdate++;
+
+    if (set) {
+#ifdef USELOCALE
+        struct lconv *locstruct;
+        char *loc = setlocale(LC_ALL, "");
+        if (loc != NULL) {
+            locstruct = localeconv();
+            dpoint = locstruct->decimal_point[0];
+            thsep = locstruct->thousands_sep[0];
+        }
+#else
+        error("Locale support not available");
+#endif
+    }
+}

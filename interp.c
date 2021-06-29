@@ -619,7 +619,6 @@ static double donval(SCXMEM char *colstr, double rowdoub) {
     return (ep && (ep->flags & IS_VALID)) ? ep->v : 0.0;
 }
 
-
 /*
  *      The list routines (e.g. dolmax) are called with an LMAX enode.
  *      The left pointer is a chain of ELIST nodes, the right pointer
@@ -985,6 +984,7 @@ static SCXMEM char *dofmt(SCXMEM char *fmtstr, double v) {
  */
 
 #ifdef NOEXTFUNCS
+
 static SCXMEM char *doext(struct enode *se) {
     SCXMEM char *command = seval(se->e.o.left);
     double value = eval(se->e.o.right);
@@ -1307,7 +1307,7 @@ static int RealEvalAll(void) {
     return chgct;
 }
 
-void RealEvalOne(struct ent *p, int i, int j, int *chgct) {
+static void RealEvalOne(struct ent *p, int i, int j, int *chgct) {
     gmyrow = i;
     gmycol = j;
 
@@ -1352,6 +1352,18 @@ void RealEvalOne(struct ent *p, int i, int j, int *chgct) {
         }
     }
 }
+
+/* set the calculation order */
+void setcalcorder(int i) {
+    if (i == BYROWS || i == BYCOLS)
+        calc_order = i;
+}
+
+void setautocalc(int i) {
+    autocalc = i;
+}
+
+/*---------------- expression tree construction ----------------*/
 
 SCXMEM struct enode *new(int op, SCXMEM struct enode *a1, SCXMEM struct enode *a2) {
     SCXMEM struct enode *p;
@@ -1606,6 +1618,24 @@ void unlet(struct ent *v) {
     modflg++;
 }
 
+static void push_mark(int row, int col) {
+    int i;
+
+    /* shift saved places */
+    for (i = 36; i > 28; i--) {
+        savedrow[i] = savedrow[i-1];
+        savedcol[i] = savedcol[i-1];
+        savedstrow[i] = savedstrow[i-1];
+        savedstcol[i] = savedstcol[i-1];
+    }
+
+    /* save current cell and screen position */
+    savedrow[28] = row;
+    savedcol[28] = col;
+    savedstrow[28] = savedstrow[27];
+    savedstcol[28] = savedstcol[27];
+}
+
 /* set the numeric part of a cell */
 void let(struct ent *v, SCXMEM struct enode *e) {
     double val;
@@ -1630,6 +1660,7 @@ void let(struct ent *v, SCXMEM struct enode *e) {
             cellerror = CELLOK;
             val = eval(e);
         }
+        signal(SIGFPE, doquit);
         if (v->cellerror != cellerror) {
             v->cellerror = cellerror;
             v->flags |= IS_CHANGED;
@@ -1637,7 +1668,6 @@ void let(struct ent *v, SCXMEM struct enode *e) {
             modflg++;
             FullUpdate++;
         }
-        signal(SIGFPE, doquit);
         if (exprerr) {
             efree(e);
             return;
@@ -1647,12 +1677,15 @@ void let(struct ent *v, SCXMEM struct enode *e) {
     if (isconstant) {
         /* prescale input unless it has a decimal */
         // XXX: sc_decimal is a horrible hack!
+        //      should use a flag in the expression node
         if (!loading && !sc_decimal && (prescale < 0.9999999))
             val *= prescale;
         sc_decimal = FALSE;
 
         v->v = val;
 
+        // XXX: should replace string value with number value
+        //      hence should free expr and clear IS_STREXPR
         if (!(v->flags & IS_STREXPR)) {
             efree(v->expr);
             v->expr = NULL;
@@ -1668,22 +1701,8 @@ void let(struct ent *v, SCXMEM struct enode *e) {
     modflg++;
     v->flags |= IS_CHANGED | IS_VALID;
 
-    if (!loading) {
-        int i;
-
-        // XXX: why 28?
-        for (i = 36; i > 28; i--) {
-            savedrow[i] = savedrow[i-1];
-            savedcol[i] = savedcol[i-1];
-            savedstrow[i] = savedstrow[i-1];
-            savedstcol[i] = savedstcol[i-1];
-        }
-
-        savedrow[28] = v->row;
-        savedcol[28] = v->col;
-        savedstrow[28] = savedstrow[27];
-        savedstcol[28] = savedstcol[27];
-    }
+    if (!loading)
+        push_mark(v->row, v->col);
 }
 
 void slet(struct ent *v, SCXMEM struct enode *se, int align) {
@@ -1718,22 +1737,9 @@ void slet(struct ent *v, SCXMEM struct enode *se, int align) {
         efree(se);
         return;
     }
-    if (!loading) {
-        int i;
+    if (!loading)
+        push_mark(v->row, v->col);
 
-        // XXX: why 28?
-        for (i = 36; i > 28; i--) {
-            savedrow[i] = savedrow[i-1];
-            savedcol[i] = savedcol[i-1];
-            savedstrow[i] = savedstrow[i-1];
-            savedstcol[i] = savedstcol[i-1];
-        }
-
-        savedrow[28] = v->row;
-        savedcol[28] = v->col;
-        savedstrow[28] = savedstrow[27];
-        savedstcol[28] = savedstcol[27];
-    }
     set_string(&v->label, p);
     v->flags &= ~ALIGN_MASK;
     v->flags |= IS_CHANGED | align;
@@ -2044,10 +2050,43 @@ int decompile(char *dest, size_t size, struct enode *e) {
     return buf->len;
 }
 
-void editfmt(buf_t buf, int row, int col) {
-    struct ent *p;
+int etype(struct enode *e) {
+    if (e == NULL)
+        return NUM;
+    switch (e->op) {
+    case UPPER: case LOWER: case CAPITAL:
+    case O_SCONST: case '#': case DATE: case FMT: case STINDEX:
+    case EXT: case SVAL: case SUBSTR:
+        return STR;
 
-    p = lookat(row, col);
+    case '?':
+    case IF:
+        return etype(e->e.o.right->e.o.left);
+
+    case 'f':
+        return etype(e->e.o.right);
+
+    case O_VAR: {
+            struct ent *p;
+            p = e->e.v.vp;
+            if (p->expr)
+                return (p->flags & IS_STREXPR) ? STR : NUM;
+            else if (p->label)
+                return STR;
+            else
+                return NUM;
+        }
+
+    default:
+        return NUM;
+    }
+}
+
+// XXX: should remove these functions, inline in file.c and vi.c
+void editfmt(buf_t buf, int row, int col) {
+    //XXX: should not force cell allocation
+    struct ent *p = lookat(row, col);
+
     if (p->format) {
         buf_setf(buf, "fmt %s ", v_name(row, col));
         out_sconst(buf, p->format);
@@ -2057,6 +2096,7 @@ void editfmt(buf_t buf, int row, int col) {
 }
 
 void editv(buf_t buf, int row, int col) {
+    //XXX: should not force cell allocation
     struct ent *p = lookat(row, col);
 
     buf_setf(buf, "let %s = ", v_name(row, col));
@@ -2070,6 +2110,7 @@ void editv(buf_t buf, int row, int col) {
 }
 
 void edits(buf_t buf, int row, int col) {
+    //XXX: should not force cell allocation
     struct ent *p = lookat(row, col);
     const char *command;
 
@@ -2122,4 +2163,10 @@ static double rand_between(double aa, double bb) {
         return a;
     else
         return a + (long int)rand() * (double)(b - a + 1) / ((double)RAND_MAX + 1);
+}
+
+void cmd_recalc(void) {
+    EvalAll();
+    update(1);
+    changed = 0;
 }

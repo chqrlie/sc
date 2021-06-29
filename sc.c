@@ -33,7 +33,7 @@ static void settcattr(void);
 SCXMEM struct ent ***tbl;
 int strow = 0, stcol = 0;
 int currow = 0, curcol = 0;
-int savedrow[37], savedcol[37];
+int savedrow[37], savedcol[37];     /* stack of marked cells */
 int savedstrow[37], savedstcol[37];
 int FullUpdate = 0;
 int maxrow, maxcol;
@@ -44,6 +44,7 @@ SCXMEM int *realfmt;
 SCXMEM unsigned char *col_hidden;
 SCXMEM unsigned char *row_hidden;
 int changed;
+int cslop;
 int qbuf;       /* buffer no. specified by " command */
 int modflg;
 int cellassign;
@@ -106,9 +107,6 @@ int collimit = -1;
 int rowsinrange = 1;
 int colsinrange = DEFWIDTH;
 int emacs_bindings = 1;      /* use emacs-like bindings */
-
-/* a linked list of free [struct ent]'s, uses .next as the pointer */
-struct ent *freeents = NULL;
 
 #ifdef VMS
 int VMS_read_raw = 0;

@@ -263,3 +263,10 @@ void cmd_status(int fd) {
     *p = '\0';
     write(fd, buf, p - buf);
 }
+
+void cmd_whereami(int fd) {
+    char buf[64];
+    snprintf(buf, sizeof buf, "%s%d %s%d\n",
+             coltoa(curcol), currow, coltoa(stcol), strow);
+    write(fd, buf, strlen(buf));
+}
