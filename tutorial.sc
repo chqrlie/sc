@@ -11,8 +11,11 @@ define "page3" A44:H63
 define "page4" A64:H83
 define "page5" A84:H103
 label A0 = "a"
+let A0 = 2
 label B0 = "b"
+let B0 = 1
 let C0 = A0+B0
+fmt C0 "0.00 \euro;-0.00 \euro;--;@"
 label D0 = A0#B0
 let E0 = -1
 leftstring A1 = "This is a brief sc tutorial, best run in a 24-line window."
@@ -120,4 +123,4 @@ leftstring A89 = "The basic commands.  Much more detail is available"
 leftstring A90 = "in the man page."
 leftstring A92 = "To quit this program, type 'q'."
 leftstring D94 = "GOOD LUCK!"
-goto A9 A0
+goto C0 A0

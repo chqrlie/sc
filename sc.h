@@ -507,7 +507,7 @@ extern int are_ranges(void);
 extern int atocol(const char *string, int len);
 extern int creadfile(const char *save, int eraseflg);
 extern int cwritefilec(const char *fname, int r0, int c0, int rn, int cn);
-extern int engformat(char *buf, int buflen, int fmt, int lprecision, double val, int *alignp);
+extern int engformat(char *buf, size_t size, int fmt, int lprecision, double val, int *alignp);
 extern int etype(struct enode *e);
 extern int find_range_name(const char *name, int len, struct range **rng);
 struct range *find_range_coords(const struct ent *lmatch, const struct ent *rmatch);

@@ -3700,19 +3700,29 @@ static void formatcol(int arg) {
     int mf = modflg;
     int *oldformat;
 
-    error("Current format is %d %d %d",
-          fwidth[curcol], precision[curcol], realfmt[curcol]);
-    refresh();
+    if (arg < 0)
+        arg = 0;
+    else
+    if (arg > maxcol - curcol + 1)
+        arg = maxcol - curcol + 1;
+
+    /* save column widths and formats */
+    // XXX: should check for maxcol?
     oldformat = scxmalloc(arg * 3 * sizeof(int));
     for (i = 0; i < arg; i++) {
         oldformat[i * 3 + 0] = fwidth[i + curcol];
         oldformat[i * 3 + 1] = precision[i + curcol];
         oldformat[i * 3 + 2] = realfmt[i + curcol];
     }
+    error("Current format is %d %d %d",
+          fwidth[curcol], precision[curcol], realfmt[curcol]);
+    refresh();
     c = nmgetch(0);
     //CLEAR_LINE;     // XXX: clear line?
-    while (c >= 0 && c != ctl('m') && c != 'q' && c != ESC &&
-           c != ctl('g') && linelim < 0) {
+    for (;;) {
+        if (c < 0 || c == ctl('m') || c == 'q' || c == ESC ||
+            c == ctl('g') || linelim >= 0)
+            break;
         if (c >= '0' && c <= '9') {
             for (i = curcol; i < curcol + arg; i++)
                 realfmt[i] = c - '0';
@@ -3760,6 +3770,7 @@ static void formatcol(int arg) {
                 modflg++;
                 break;
             case ' ':
+                // XXX: should use current format?
                 if (arg == 1) {
                     set_line("format [for column] %s ", coltoa(curcol));
                 } else {
@@ -3803,6 +3814,7 @@ static void formatcol(int arg) {
         if (linelim < 0) {
             c = nmgetch(0);
             if (c == ESC || c == ctl('g') || c == 'q') {
+                /* restore column widths and formats */
                 for (i = 0; i < arg; i++) {
                     fwidth[i + curcol] = oldformat[i * 3 + 0];
                     precision[i + curcol] = oldformat[i * 3 + 1];
