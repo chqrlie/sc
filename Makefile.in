@@ -324,9 +324,9 @@ _LDFLAGS=$(LDFLAGS) $(__CLDBG)
 LDADD=-lm $(LIBDIR_CURSES) $(LIB_CURSES)
 
 # All of the source files for archiving targets (outdated)
-SRCS=Makefile abbrev.c cmds.c color.c crypt.c eres.sed frame.c format.c gram.y \
+SRCS=Makefile abbrev.c cmds.c color.c crypt.c frame.c format.c gram.y \
 	help.c interp.c lex.c pipe.c psc.c range.c sc.c sc.h screen.c sort.c \
-	sres.sed util.c version.c vi.c vmtbl.c lotus.c file.c navigate.c print.c
+	util.c version.c vi.c vmtbl.c lotus.c file.c navigate.c print.c
 
 # The objects
 OBJS=$O/abbrev.o $O/cmds.o $O/color.o $(CRYPT_OBJ) $O/format.o $O/frame.o $O/gram.o $O/help.o $O/interp.o \
@@ -387,11 +387,13 @@ $O/format.o: format.c $(DEPENDS)
 $O/frame.o: frame.c $(DEPENDS)
 	$(CC) $(_CFLAGS) -o $@ -c frame.c
 
-experres.h: gram.y eres.sed
-	sed < gram.y > experres.h -f eres.sed
+experres.h: gram.y Makefile
+	sed -e '/%token.*K_/!d' -e '/%token.*K_\(.*\)/s//	{ "\1", K_\1 },/' < gram.y > $@
+#	sed -f eres.sed < gram.y > experres.h
 
-statres.h: gram.y sres.sed
-	sed < gram.y > statres.h -f sres.sed
+statres.h: gram.y Makefile
+	sed -e '/%token.*S_/!d' -e '/%token.*S_\(.*\)/s//	{ "\1", S_\1 },/' < gram.y > $@
+#	sed -f sres.sed < gram.y > statres.h
 
 $O/gram.o: $(YTAB).c $(YTAB).h $(DEPENDS)
 	$(CC) $(_CFLAGS) -o $@ ${USELOCALE} -c $(YTAB).c

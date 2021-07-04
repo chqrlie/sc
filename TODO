@@ -23,7 +23,7 @@
 		(diffs w/r to the original file)
 [ ] make sure ISVALID should <not> be used in place of checkbounds
 	in interp.c
-[ ] generic formats
+[/] generic formats
 [ ] hide range
 [ ] block moving into range
 [ ] an option to go into a ^R like <mode>
