@@ -338,7 +338,7 @@ static int fmt_exp(char *dest,      /* destination array */
 
 /*****************************************************************************/
 
-int skip_fmt(const char *p) {
+static int skip_fmt(const char *p) {
     int i = 0;
     char c;
     while ((c = p[i]) != '\0' && c != ';') {
