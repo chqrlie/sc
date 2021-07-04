@@ -98,6 +98,8 @@ extern int yyparse(void);
 
 int parse_line(const char *buf) {
     int ret;
+    while (isspacechar(*buf))
+        buf++;
     src_pos = src_line = buf;
     ret = yyparse();
     src_pos = src_line = "";
@@ -109,8 +111,10 @@ void yyerror(const char *err) {
 }
 
 int yylex(void) {
+    char path[PATHLEN];
     const char *p = src_pos;
     int ret = -1;
+
     // XXX: static data in the lexer is toxic
     static int isfunc = 0;
     static bool isgoto = 0;
@@ -119,201 +123,219 @@ int yylex(void) {
     static const char *tokenst = NULL;
     static size_t tokenl;
 
-    while (isspacechar(*p))
-        p++;
-    if (*p == '\0') {
-        isfunc = isgoto = 0;
-        ret = -1;
-    } else
-    if (isalphachar_(*p)) {
-        const char *la;      /* lookahead pointer */
-        struct key *tblp;
-
-        if (!tokenst) {
-            tokenst = p;
-            tokenl = 0;
-        }
-        /*
-         *  This picks up either 1 or 2 alpha characters (a column) or
-         *  tokens made up of alphanumeric chars and '_' (a function or
-         *  token or command or a range name)
-         */
-        while (isalphachar(*p)) {
+    for (;;) {
+        if (isspacechar(*p)) {
             p++;
-            tokenl++;
+            continue;
         }
-        la = p;
-        while (isdigitchar(*la) || *la == '$')
-            la++;
-        /*
-         * A COL is 1 or 2 char alpha with nothing but digits following
-         * (no alpha or '_')
-         */
-        if (!isdigitchar(*tokenst) && tokenl && tokenl <= 2 &&
-            (colstate || (isdigitchar(la[-1]) && !(isalphachar_(*la))))) {
-            ret = COL;
-            yylval.ival = atocol(tokenst, tokenl);
-        } else {
-            while (isalnumchar_(*p)) {
+        if (*p == '[') {    /* syntax hint comment */
+            while (*p && *p++ != ']')
+                continue;
+            src_pos = p;    // XXX: probably useless
+            tokenst = NULL; // XXX: probably useless
+            continue;
+        }
+        if (*p == '\0') {
+            isfunc = isgoto = 0;
+            ret = -1;
+        } else
+        if (isalphachar_(*p)) {
+            const char *la;      /* lookahead pointer */
+            struct key *tblp;
+
+            if (!tokenst) {
+                tokenst = p;
+                tokenl = 0;
+            }
+            /*
+             *  This picks up either 1 or 2 alpha characters (a column) or
+             *  tokens made up of alphanumeric chars and '_' (a function or
+             *  token or command or a range name)
+             */
+            while (isalphachar(*p)) {
                 p++;
                 tokenl++;
             }
-            ret = WORD;
-            if (src_pos == src_line || isfunc) {
-                if (isfunc) isfunc--;
-                // XXX: initial blanks should be ignored:
-                //      so the test on src_pos is incorrect
-                for (tblp = src_pos > src_line ? experres : statres; tblp->key; tblp++) {
-                    if (((tblp->key[0] ^ tokenst[0]) & 0x5F) == 0) {
-                        /* Commenting the following line makes the search slower */
-                        /* but avoids access outside valid memory. A BST would   */
-                        /* be the better alternative. */
-                        /*  && tblp->key[tokenl] == 0) { */
-                        unsigned int i = 1;
-                        while (i < tokenl && ((tokenst[i] ^ tblp->key[i]) & 0x5F) == 0)
-                            i++;
-                        if (i >= tokenl) {
-                            ret = tblp->val;
-                            yylval.ival = ret;
-                            colstate = (ret <= S_FORMAT);
-                            if (isgoto) {
-                                isfunc = isgoto = 0;
-                                if (ret != K_ERROR && ret != K_INVALID)
-                                    ret = WORD;
+            la = p;
+            while (isdigitchar(*la) || *la == '$')
+                la++;
+            /*
+             * A COL is 1 or 2 char alpha with nothing but digits following
+             * (no alpha or '_')
+             */
+            if (!isdigitchar(*tokenst) && tokenl && tokenl <= 2 &&
+                (colstate || (isdigitchar(la[-1]) && !(isalphachar_(*la))))) {
+                ret = COL;
+                yylval.ival = atocol(tokenst, tokenl);
+            } else {
+                while (isalnumchar_(*p)) {
+                    p++;
+                    tokenl++;
+                }
+                ret = WORD;
+                if (src_pos == src_line || isfunc) {
+                    if (isfunc) isfunc--;
+                    /* initial blanks are ignored, so the test on src_pos is incorrect */
+                    for (tblp = src_pos > src_line ? experres : statres; tblp->key; tblp++) {
+                        // XXX: ugly hard coded case mapped comparison
+                        if (((tblp->key[0] ^ tokenst[0]) & 0x5F) == 0) {
+                            /* Commenting the following line makes the search slower */
+                            /* but avoids access outside valid memory. A BST would   */
+                            /* be the better alternative. */
+                            /*  && tblp->key[tokenl] == 0) { */
+                            unsigned int i = 1;
+                            while (i < tokenl && ((tokenst[i] ^ tblp->key[i]) & 0x5F) == 0)
+                                i++;
+                            // XXX: this is bogus: it allows for partial matches!
+                            if (i >= tokenl) {
+                                ret = tblp->val;
+                                yylval.ival = ret;
+                                colstate = (ret <= S_FORMAT);
+                                if (isgoto) {
+                                    isfunc = isgoto = 0;
+                                    if (ret != K_ERROR && ret != K_INVALID)
+                                        ret = WORD;
+                                }
+                                break;
                             }
-                            break;
                         }
                     }
                 }
-            }
-            if (ret == WORD) {
-                struct range *r;
-                char *path;
-                if (!find_range_name(tokenst, tokenl, &r)) {
-                    yylval.rval.left = r->r_left;
-                    yylval.rval.right = r->r_right;
-                    if (r->r_is_range)
-                        ret = RANGE;
-                    else
-                        ret = VAR;
-                } else if ((path = scxmalloc(PATHLEN)) &&
-                           plugin_exists(tokenst, tokenl, path, PATHLEN)) {
-                    strlcat(path, p, PATHLEN);
-                    yylval.sval = path;
-                    ret = PLUGIN;
-                } else {
-                    scxfree(path);
-                    src_pos = p;
-                    yyerror("Unintelligible word");
+                if (ret == WORD) {
+                    struct range *r;
+                    if (!find_range_name(tokenst, tokenl, &r)) {
+                        yylval.rval.left = r->r_left;
+                        yylval.rval.right = r->r_right;
+                        if (r->r_is_range)
+                            ret = RANGE;
+                        else
+                            ret = VAR;
+                    } else
+                    if (plugin_exists(tokenst, tokenl, path, PATHLEN)) {
+                        // XXX: really catenate the rest of the input line?
+                        strlcat(path, p, PATHLEN);
+                        yylval.sval = scxdup(path);
+                        ret = PLUGIN;
+                    } else {
+                        src_pos = p;
+                        yyerror("Unintelligible word");
+                    }
                 }
             }
-        }
-    } else if ((*p == '.') || isdigitchar(*p)) {
-        sigret_t (*sig_save)(int);
-        double v = 0.0;
-        int temp;
-        const char *nstart = p;
+        } else
+        if ((*p == '.') || isdigitchar(*p)) {
+            sigret_t (*sig_save)(int);
+            double v = 0.0;
+            int temp;
+            const char *nstart = p;
 
-        sig_save = signal(SIGFPE, fpe_trap);
-        if (setjmp(fpe_buf)) {
-            signal(SIGFPE, sig_save);
-            // was: yylval.fval = v; but gcc complains about v getting clobbered
-            yylval.fval = 0.0;
-            error("Floating point exception\n");
-            isfunc = isgoto = 0;
-            tokenst = NULL;
-            return FNUMBER;
-        }
+            sig_save = signal(SIGFPE, fpe_trap);
+            if (setjmp(fpe_buf)) {
+                signal(SIGFPE, sig_save);
+                // was: yylval.fval = v; but gcc complains about v getting clobbered
+                yylval.fval = 0.0;
+                error("Floating point exception\n");
+                isfunc = isgoto = 0;
+                tokenst = NULL;
+                return FNUMBER;
+            }
 
-        v = 0.0;
-        if (*p == '.' && dateflag) {  /* .'s in dates are returned as tokens. */
-            ret = *p++;
-            dateflag--;
-        } else {
-            if (*p != '.') {
-                tokenst = p;
-                tokenl = 0;
-                do {
-                    v = v * 10.0 + (double)((unsigned) *p - '0');
-                    tokenl++;
-                } while (isdigitchar(*++p));
-                if (dateflag) {
-                    ret = NUMBER;
-                    yylval.ival = (int)v;
-                /*
-                 *  If a string of digits is followed by two .'s separated by
-                 *  one or two digits, assume this is a date and return the
-                 *  .'s as tokens instead of interpreting them as decimal
-                 *  points.  dateflag counts the .'s as they're returned.
-                 */
-                } else if (*p == '.' && isdigitchar(p[1]) &&
-                           (p[2] == '.' || (isdigitchar(p[2]) && p[3] == '.'))) {
-                    ret = NUMBER;
-                    yylval.ival = (int)v;
-                    dateflag = 2;
-                } else if (*p == 'e' || *p == 'E') {
-                    while (isdigitchar(*++p))
-                        continue;
+            v = 0.0;
+            if (*p == '.' && dateflag) {  /* .'s in dates are returned as tokens. */
+                ret = *p++;
+                dateflag--;
+            } else {
+                if (*p != '.') {
+                    tokenst = p;
+                    tokenl = 0;
+                    do {
+                        v = v * 10.0 + (double)((unsigned) *p - '0');
+                        tokenl++;
+                    } while (isdigitchar(*++p));
+                    if (dateflag) {
+                        ret = NUMBER;
+                        yylval.ival = (int)v;
+                        /*
+                         *  If a string of digits is followed by two .'s separated by
+                         *  one or two digits, assume this is a date and return the
+                         *  .'s as tokens instead of interpreting them as decimal
+                         *  points.  dateflag counts the .'s as they're returned.
+                         */
+                        // XXX: should parse date and return as such
+                        // XXX: same for xx/xx/xx and xx:xx xx:xx:xx
+                    } else
+                    if (*p == '.' && isdigitchar(p[1]) &&
+                        (p[2] == '.' || (isdigitchar(p[2]) && p[3] == '.'))) {
+                        ret = NUMBER;
+                        yylval.ival = (int)v;
+                        dateflag = 2;
+                    } else
+                    if (*p == 'e' || *p == 'E') {
+                        while (isdigitchar(*++p))
+                            continue;
+                        if (isalphachar_(*p)) {
+                            // XXX: the whole word should be returned as a word.
+                            src_pos = p;
+                            return yylex();     // XXX: why a recursive call?
+                        } else
+                            ret = FNUMBER;
+                    } else
                     if (isalphachar_(*p)) {
+                        // XXX: the whole word should be returned as a word.
                         src_pos = p;
                         return yylex();     // XXX: why a recursive call?
-                    } else
-                        ret = FNUMBER;
-                } else if (isalphachar_(*p)) {
-                    src_pos = p;
-                    return yylex();     // XXX: why a recursive call?
+                    }
                 }
-            }
-            if ((!dateflag && *p == '.') || ret == FNUMBER) {
-                char *endp;
-                ret = FNUMBER;
-                yylval.fval = strtod(nstart, &endp);
-                p = endp;
-                if (!isfinite(yylval.fval))
-                    ret = K_ERR;
-                else
-                    sc_decimal = TRUE;
-            } else {
-                temp = (int)v;
-                if ((double)temp == v) {
-                    /* A NUMBER is an integer in the range of `int`. */
-                    /* it can be used for row numbers */
-                    ret = NUMBER;
-                    yylval.ival = temp;
-                } else {
+                if ((!dateflag && *p == '.') || ret == FNUMBER) {
+                    char *endp;
                     ret = FNUMBER;
-                    yylval.fval = v;
+                    yylval.fval = strtod(nstart, &endp);
+                    p = endp;
+                    if (!isfinite(yylval.fval))
+                        ret = K_ERR;
+                    else
+                        sc_decimal = TRUE;
+                } else {
+                    temp = (int)v;
+                    if ((double)temp == v) {
+                        /* A NUMBER is an integer in the range of `int`. */
+                        /* it can be used for row numbers */
+                        ret = NUMBER;
+                        yylval.ival = temp;
+                    } else {
+                        ret = FNUMBER;
+                        yylval.fval = v;
+                    }
                 }
             }
+            signal(SIGFPE, sig_save);
+        } else
+        if (*p == '"') {
+            const char *p1;
+            size_t size = 1;
+            char *ptr;
+            p++;  /* skip the '"' */
+            /* "string" or "string\"quoted\"" */
+            for (p1 = p; *p1 && *p1 != '"' && *p1 != '\n'; p1++) {
+                if (*p1 == '\\' && (p1[1] == '"' || p1[1] == '\\'))
+                    p1++;
+                size++;
+            }
+            ptr = scxmalloc(size);
+            yylval.sval = ptr;
+            while (*p && *p != '"' && *p != '\n') {
+                if (*p == '\\' && (p[1] == '"' || p[1] == '\\'))
+                    p++;
+                *ptr++ = *p++;
+            }
+            *ptr = '\0';
+            if (*p == '"')
+                p++;
+            ret = STRING;
+        } else {
+            yylval.ival = ret = *p++;
         }
-        signal(SIGFPE, sig_save);
-    } else if (*p == '"') {
-        const char *p1;
-        char *ptr;
-        p1 = p + 1;      /* "string" or "string\"quoted\"" */
-        while (*p1 && ((*p1 != '"') || (p1[-1] == '\\')))
-            p1++;
-        ptr = scxmalloc(p1 - p);
-        yylval.sval = ptr;
-        p++;
-        while (*p && ((*p != '"') ||
-                (p[-1] == '\\' && p[1] != '\0' && p[1] != '\n')))
-            *ptr++ = *p++;
-        *ptr = '\0';
-        if (*p)
-            p++;
-        ret = STRING;
-    } else if (*p == '[') { /* syntax hint comment */
-        while (*p && *p != ']')
-            p++;
-        if (*p)
-            p++;
-        src_pos = p;
-        tokenst = NULL;
-        return yylex();  // XXX: why a recursive call?
-    } else {
-        ret = *p++;
-        yylval.ival = ret;
+        break;
     }
     src_pos = p;
     if (!isfunc) isfunc = ((ret == '@') + (ret == S_GOTO) - (ret == S_SET));

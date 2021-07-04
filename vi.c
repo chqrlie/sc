@@ -1208,8 +1208,10 @@ void vi_interaction(void) {
                 case 'F':
                     p = *ATBL(tbl, currow, curcol);
                     if (p && p->format) {
-                        // XXX: should encode string
-                        set_line("fmt [format] %s \"%s", v_name(currow, curcol), p->format);
+                        buf_init(buf, line, sizeof line);
+                        buf_setf(buf, "fmt [format] %s \"", v_name(currow, curcol));
+                        buf_quotestr(buf, 0, p->format, 0);
+                        linelim = buf->len;
                         edit_mode();
                     } else {
                         set_line("fmt [format] %s \"", v_name(currow, curcol));
@@ -2146,6 +2148,10 @@ static void write_line(int c) {
 }
 
 static void edit_mode(void) {
+    if (emacs_bindings) {
+        insert_mode();
+        return;
+    }
     mode_ind = 'e';
     mode = EDIT_MODE;
     if (linelim < 0)    /* -1 says stop editing, ...so we still aren't */
@@ -3699,6 +3705,7 @@ static void formatcol(int arg) {
     int c, i;
     int mf = modflg;
     int *oldformat;
+    buf_t buf;
 
     if (arg < 0)
         arg = 0;
@@ -3787,7 +3794,10 @@ static void formatcol(int arg) {
                 c = nmgetch(1);
                 if (c >= '0' && c <= '9') {
                     if (colformat[c - '0']) {
-                        set_line("format %c = \"%s\"", c, colformat[c - '0']);
+                        buf_init(buf, line, sizeof line);
+                        buf_setf(buf, "format %c = \"", c);
+                        buf_quotestr(buf, 0, colformat[c - '0'], 0);
+                        linelim = buf->len;
                         edit_mode();
                     } else {
                         set_line("format %c = \"", c);

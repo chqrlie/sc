@@ -5,6 +5,8 @@ set color colorneg colorerr
 abbrev "a123 this is a cell name"
 abbrev "abc this is normal"
 abbrev "xxx this is an error"
+format E 14 2 0
+format F 13 0 0
 define "page1" A0:H23
 define "page2" A24:H43
 define "page3" A44:H63
@@ -15,7 +17,7 @@ let A0 = 2
 label B0 = "b"
 let B0 = 1
 let C0 = A0+B0
-fmt C0 "0.00 \euro;-0.00 \euro;--;@"
+fmt C0 "0.& \euro;-0.& \euro;--;@"
 label D0 = A0#B0
 let E0 = -1
 leftstring A1 = "This is a brief sc tutorial, best run in a 24-line window."
@@ -58,8 +60,16 @@ leftstring A25 = "Cell d22 contains text"
 leftstring D25 = "Text "
 leftstring A26 = "Cell d23 contains a number"
 let D26 = 123.34
+let E26 = 1234.5
+fmt E26 ",#.&"
+let F26 = E26
+fmt F26 ",#.&\"#\""
 leftstring A27 = "Cell d24 contains a formula"
 let D27 = D26+88
+let E27 = 12345678
+fmt E27 ",#.&"
+let F27 = E27
+fmt F27 ",#.&"
 leftstring A29 = "To see what the cell contains, just move the cursor"
 leftstring A30 = "onto the cell.  The contents will show up on line 1 in the brackets."
 leftstring A32 = "You can enter data into cells like this:"
@@ -123,4 +133,4 @@ leftstring A89 = "The basic commands.  Much more detail is available"
 leftstring A90 = "in the man page."
 leftstring A92 = "To quit this program, type 'q'."
 leftstring D94 = "GOOD LUCK!"
-goto C0 A0
+goto F26 A0

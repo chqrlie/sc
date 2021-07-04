@@ -108,9 +108,6 @@
 #include <time.h>
 #include "sc.h"
 
-#define EOS     '\0'
-#define MAXBUF  256
-
 // XXX: should allocate and reallocate this array
 SCXMEM char *colformat[COLFORMATS];
 
@@ -124,64 +121,116 @@ static int fmt_int(char *dest,
                    bool comma,       /* true if we should comma-ify the value */
                    bool negative)    /* true if the value is actually negative */
 {
-    int digit, f, v, i;
-    int thousands = 0;
-    char buf[MAXBUF];
-    char *bufptr = buf + sizeof(buf);
+    int i, j, k, vlen;
+    int mindigits = 0;
+    int digits = 0;
 
     if (thsep == '\0')
         comma = false;
-    /*
-     * locate the leftmost digit placeholder
-     */
-    digit = -1;
-    v = -1;
-    for (i = 0; i < fmt_len; i++) {
-        char c = fmt[i];
-        if (c == '\\' && i + 1 < fmt_len)
-            i++;
-        else
-        if (c == '#' || c == '0') {
-            digit = i;
-            v = strlen(val) - 1;
+
+    /* count the digit placeholders (should be an argument?) */
+    for (i = 0; i < fmt_len;) {
+        char c;
+        switch (c = fmt[i++]) {
+        case '"':
+            while (i < fmt_len) {
+                c = fmt[i++];
+                if (c == '"')
+                    break;
+                if (c == '\\' && i < fmt_len)
+                    i++;
+            }
+            break;
+        case '\\':
+        case '_':
+        case '*':
+            if (i < fmt_len)
+                i++;
+            break;
+        case '#':
+        case '?':
+            digits++;
+            break;
+        case '0':
+            mindigits++;
+            digits++;
             break;
         }
     }
 
-    /*
-     * format the value
-     */
-    // XXX: should protect against buffer overflow
-    *--bufptr = EOS;
-    f = fmt_len - 1;
-    // XXX: scanning from right to left is incorrect
-    //      if the format string contains `\\#`
-    while (f >= 0 || v >= 0) {
-        if (f >= 0) {
-            char c = fmt[f];
-            if (f > 0 && fmt[f-1] == '\\') {
-                *--bufptr = fmt[f--];
-            } else
-            if (c == '#' || c == '0') {
-                if (v >= 0 || c == '0') {
-                    *--bufptr = v < 0 ? '0' : val[v];
-                    if (comma && (++thousands % 3) == 0 && v > 0)
-                        *--bufptr = thsep;
-                    v--;
-                }
-            } else {
-                if (c != ',' && c != '.' && c != '%')
-                    *--bufptr = c;
-            }
-        }
-        if (v < 0 || f != digit)
-            f--;
-    }
-    if (negative && digit >= 0)
-        *--bufptr = '-';
+    /* number of significant digits (should be an argument) */
+    vlen = strlen(val);
 
-    strlcpy(dest, bufptr, size);
-    return buf + sizeof(buf) - 1 - bufptr;
+    for (i = j = k = 0; i < fmt_len;) {
+        char c;
+        switch (c = fmt[i++]) {
+        case '#':
+        case '0':
+        case '?':
+            if (negative) {
+                dest[k++] = '-';
+                negative = false;
+            }
+            while (vlen > digits) {
+                dest[k++] = val[j++];
+                vlen--;
+                if (comma && vlen && !(vlen % 3))
+                    dest[k++] = thsep;
+            }
+            if (vlen >= digits) {
+                dest[k++] = val[j++];
+                vlen--;
+                if (comma && vlen && !(vlen % 3))
+                    dest[k++] = thsep;
+                mindigits--;
+                digits--;
+            } else {
+                if (mindigits > 0) {
+                    dest[k++] = (c == '?') ? ' ' : '0';
+                    mindigits--;
+                    if (comma && mindigits && !(mindigits % 3))
+                        dest[k++] = thsep;
+                }
+                digits--;
+            }
+            break;
+        case ',':
+        case '.':
+        case '%':
+            break;
+        case '"':
+            while (i < fmt_len) {
+                c = fmt[i++];
+                if (c == '"')
+                    break;
+                if (c == '\\' && i < fmt_len)
+                    c = fmt[i++];
+                dest[k++] = c;
+            }
+            break;
+        case '*':
+            if (i < fmt_len) {
+                c = fmt[i++];
+                // XXX: should handle *: return fill char and position
+            }
+            break;
+        case '_':
+            if (i < fmt_len) {
+                c = fmt[i++];
+                dest[k++] = ' ';
+            }
+            break;
+        case '\\':
+            if (i < fmt_len)
+                c = fmt[i++];
+            FALLTHROUGH;
+        default:
+            dest[k++] = c;
+            break;
+        }
+    }
+    dest[k] = '\0';
+    return k;
 }
 
 /*****************************************************************************/
@@ -200,33 +249,66 @@ static int fmt_frac(char *dest,
     int i, j;
     int has_dec = 0;
 
-    for (i = 0; i < fmt_len; i++) {
-        char c = fmt[i];
-        if (c == '&' && lprecision) {
-            if (!has_dec++)
-                *bufptr++ = dpoint;
-            for (j = 0; j < lprecision; j++)
-                *bufptr++ = (*valptr != EOS) ? *valptr++ : '0';
-        } else
-        if (c == '#') {
-            if (*valptr != EOS) {
+    for (i = 0; i < fmt_len;) {
+        char c;
+        switch (c = fmt[i++]) {
+        case '&':
+            if (lprecision) {
+                if (!has_dec++)
+                    *bufptr++ = dpoint;
+                for (j = 0; j < lprecision; j++)
+                    *bufptr++ = (*valptr != '\0') ? *valptr++ : '0';
+            }
+            break;
+        case '#':
+            if (*valptr != '\0') {
                 if (!has_dec++)
                     *bufptr++ = dpoint;
                 *bufptr++ = *valptr++;
             }
-        } else
-        if (c == '0') {
+            break;
+        case '0':
+        case '?':
             if (!has_dec++)
                 *bufptr++ = dpoint;
-            *bufptr++ = *valptr != EOS ? *valptr++ : '0';
-        } else
-        if (c != ',' && c != '.' && c != '%') {
-            if (c == '\\' && i + 1 < fmt_len)
-                c = fmt[++i];
+            *bufptr++ = *valptr != '\0' ? *valptr++ : (c == '?' ? ' ' : '0');
+            break;
+        case ',':
+        case '.':
+        case '%':
+            break;
+        case '"':
+            while (i < fmt_len) {
+                c = fmt[i++];
+                if (c == '"')
+                    break;
+                if (c == '\\' && i < fmt_len)
+                    c = fmt[i++];
+                *bufptr++ = c;
+            }
+            break;
+        case '*':
+            if (i < fmt_len) {
+                c = fmt[i++];
+                // XXX: should handle *: return fill char and position
+            }
+            break;
+        case '_':
+            if (i < fmt_len) {
+                i++;
+                *bufptr++ = ' ';
+            }
+            break;
+        case '\\':
+            if (i < fmt_len)
+                c = fmt[i++];
+            FALLTHROUGH;
+        default:
             *bufptr++ = c;
+            break;
         }
     }
-    *bufptr = EOS;
+    *bufptr = '\0';
     return bufptr - dest;
 }
 
@@ -240,7 +322,6 @@ static int fmt_exp(char *dest,      /* destination array */
 {
     char valbuf[64];
     int i = 0;
-    bool negative = false;  // XXX: negative is always false?
 
     /* fmt points to [Ee][+-] */
     dest[i++] = fmt[0];
@@ -252,29 +333,46 @@ static int fmt_exp(char *dest,      /* destination array */
         dest[i++] = '+';
     }
     snprintf(valbuf, sizeof valbuf, "%u", (unsigned)val);
-    return i + fmt_int(dest + i, size - i, valbuf, fmt + 2, fmt_len - 2, false, negative);
+    return i + fmt_int(dest + i, size - i, valbuf, fmt + 2, fmt_len - 2, false, false);
 }
 
 /*****************************************************************************/
 
-const char *skip_fmt(const char *cp) {
-    while (*cp != ';' && *cp != EOS) {
-        if (*cp == '\\' && cp[1] != EOS)
-            cp++;
-        cp++;
+int skip_fmt(const char *p) {
+    int i = 0;
+    char c;
+    while ((c = p[i]) != '\0' && c != ';') {
+        i++;
+        switch (c) {
+        case '"':
+            while (p[i] != '\0') {
+                c = p[i++];
+                if (c == '"')
+                    break;
+                if (c == '\\' && p[i] != '\0')
+                    i++;
+            }
+            break;
+        case '*':
+        case '\\':
+        case '_':
+            if (p[i] != '\0')
+                i++;
+            break;
+        }
     }
-    return cp;
+    return i;
 }
 
 int format(char *buf, size_t buflen, const char *fmt, int lprecision, double val, int *alignp) {
     char mantissa[FBUFLEN];
-    char *integer;
+    const char *integer;
     const char *fraction;
     const char *fmt2, *ep;
     const char *decfmt;
     const char *expfmt;
-    char *cp;
-    int i, fmt_len, fmt2_len, decfmt_len, expfmt_len, len, zero_pad, exp_val, width;
+    char *cp,  *last_digit;
+    int i, fmt_len, fmt2_len, decfmt_len, expfmt_len, len,  exp_val, prec;
     bool comma = false, negative = false;
 
     *buf = '\0';
@@ -294,48 +392,65 @@ int format(char *buf, size_t buflen, const char *fmt, int lprecision, double val
     /*
      * select positive, negative or zero format if avalable
      */
-    ep = skip_fmt(fmt);
-    fmt_len = ep - fmt;
+    fmt_len = skip_fmt(fmt);
+    ep = fmt + fmt_len;
     if (*ep == ';') {
         if (val <= 0.0) {
-            ep = skip_fmt(fmt2 = ep + 1);
-            fmt2_len = ep - fmt2;
+            fmt2_len = skip_fmt(fmt2 = ep + 1);
+            ep = fmt2 + fmt2_len;
             if (val < 0.0) {
                 val = -val;   /* format should provide sign if desired */
                 fmt = fmt2;
                 fmt_len = fmt2_len;
             } else {
                 if (*ep == ';') {
-                    ep = skip_fmt(fmt = ep + 1);
-                    fmt_len = ep - fmt;
+                    fmt_len = skip_fmt(fmt = ep + 1);
                 }
             }
         }
     }
 
-    /*
-     * extract other information from format
-     */
+    /* split the format into integer, fraction and exponent parts */
     decfmt = NULL;
     decfmt_len = 0;
-    for (i = 0; i < fmt_len; i++) {
-        switch (fmt[i]) {
+    expfmt = NULL;
+    expfmt_len = 0;
+    for (i = 0; i < fmt_len;) {
+        char c;
+        switch (c = fmt[i++]) {
+        case '"':
+            while (i < fmt_len) {
+                c = fmt[i++];
+                if (c == '"')
+                    break;
+                if (c == '\\' && i < fmt_len)
+                    i++;
+            }
+            break;
         case '\\':
-            if (i + 1 < fmt_len)
+        case '_':
+        case '*':
+            if (i < fmt_len)
                 ++i;
             break;
-
         case ',':
-            comma = true;
+            if (!decfmt && !expfmt)
+                comma = true;
             break;
-
         case '.':
-            if (decfmt == NULL)
-                decfmt = fmt + i;
+            if (!decfmt && !expfmt)
+                decfmt = fmt + i - 1;
             break;
-
         case '%':
-            val *= 100.0;
+            if (!expfmt)
+                val *= 100.0;
+            break;
+        case 'e':
+        case 'E':
+            if (!expfmt && i + 1 < fmt_len
+            &&  (fmt[i] == '+' || fmt[i] == '-')) {
+                expfmt = fmt + i - 1;
+            }
             break;
         }
     }
@@ -347,37 +462,25 @@ int format(char *buf, size_t buflen, const char *fmt, int lprecision, double val
     // XXX: this hack may be catastrophic for very small values
     val = (val + 1.0) - 1.0;
     if (val < 0.0) {
+        /* negative is set but will be cleared if the value rounds to zero */
         negative = true;
         val = -val;
     }
-    /* split the exponent format from fmt if present */
-    expfmt = NULL;
-    expfmt_len = 0;
+
     exp_val = 0;
-    for (i = 0; i < fmt_len; i++) {
-        char c = fmt[i];
-        if (c == '\\' && i + 1 < fmt_len)
-            i++;
-        else
-        if (c == 'e' || c == 'E') {
-            if (fmt[i + 1] == '+' || fmt[i + 1] == '-') {
-                // XXX: should use format length
-                expfmt = fmt + i;
-                expfmt_len = fmt_len - i;
-                fmt_len = i;
-                if (val != 0.0) {
-                    // XXX: very crude base 10 exponent computation
-                    //      fails for many cases because of rounding
-                    while (val < 1.0) {
-                        val *= 10.0;
-                        exp_val--;
-                    }
-                    while (val >= 10.0) {
-                        val /= 10.0;
-                        exp_val++;
-                    }
-                }
-                break;
+    if (expfmt) {
+        expfmt_len = fmt + fmt_len - expfmt;
+        fmt_len = expfmt - fmt;
+        if (val != 0.0) {
+            // XXX: very crude base 10 exponent computation
+            //      fails for many cases because of rounding
+            while (val < 1.0) {
+                val *= 10.0;
+                exp_val--;
+            }
+            while (val >= 10.0) {
+                val /= 10.0;
+                exp_val++;
             }
         }
     }
@@ -386,47 +489,62 @@ int format(char *buf, size_t buflen, const char *fmt, int lprecision, double val
      * determine maximum decimal places and use sprintf
      * to build initial character form of formatted value.
      */
-    width = 0;
-    zero_pad = 0;
+    prec = 0;
     if (decfmt) {
         decfmt++;
         decfmt_len = fmt + fmt_len - decfmt;
         fmt_len = decfmt - fmt - 1;
-        for (i = 0; i < decfmt_len; i++) {
-            switch (decfmt[i]) {
+        for (i = 0; i < decfmt_len;) {
+            char c;
+            switch (c = decfmt[i++]) {
+            case '"':
+                while (i < fmt_len) {
+                    c = fmt[i++];
+                    if (c == '"')
+                        break;
+                    if (c == '\\' && i < fmt_len)
+                        i++;
+                }
+                break;
             case '\\':
-                if (i + 1 < decfmt_len) i++;
+            case '_':
+            case '*':
+                if (i < decfmt_len)
+                    i++;
                 break;
+            case '?':
             case '#':
-                width++;
-                break;
             case '0':
-                zero_pad = ++width;
+                prec++;
                 break;
             case '&':
-                width += lprecision;
-                zero_pad = width;
+                prec += lprecision;
                 break;
             }
         }
-        // XXX: this is bogus: zero_pad would include non digits
-        zero_pad = decfmt_len - zero_pad;
     }
-    snprintf(mantissa, sizeof mantissa, "%.*lf", width, val);
+    // XXX: should handle NaNs and infinities
+    snprintf(mantissa, sizeof mantissa, "%.*lf", prec, val);
+    fraction = "";
+    last_digit = NULL;
     integer = mantissa;
     if (*integer == '0')
         integer++;
-    fraction = "";
-    for (cp = integer; *cp != EOS; cp++) {
+    for (cp = mantissa; *cp != '\0'; cp++) {
         if (*cp == dpoint) {
-            *cp++ = EOS;
+            *cp++ = '\0';
             fraction = cp;
-            cp += strlen(cp);
-            for (; zero_pad > 0 && cp[-1] == '0'; zero_pad--) {
-                *--cp = EOS;
-            }
-            break;
+        } else {
+            if (*cp != '0')
+                last_digit = cp;
         }
+    }
+    if (last_digit) {
+        /* truncate insignificant zeroes */
+        if (last_digit >= fraction)
+            last_digit[1] = '\0';
+    } else {
+        negative = false;
     }
     len = fmt_int(buf, buflen, integer, fmt, fmt_len, comma, negative);
     if (decfmt)
