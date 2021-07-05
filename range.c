@@ -20,7 +20,10 @@ int are_ranges(void) {
     return rng_base != NULL;
 }
 
-void add_range(const char *name, struct ent_ptr left, struct ent_ptr right, int is_range) {
+void add_range(const char *name, int r1, int c1, int vf1,
+               int r2, int c2, int vf2, int is_range)
+{
+    struct ent_ptr left, right;
     struct range *r;
     const char *p;
     int minr, minc, maxr, maxc;
@@ -28,28 +31,28 @@ void add_range(const char *name, struct ent_ptr left, struct ent_ptr right, int 
     struct range *prev = NULL;
     struct range *next;
 
-    if (left.vp->row < right.vp->row) {
-        minr = left.vp->row;
-        minrf = left.vf & FIX_ROW;
-        maxr = right.vp->row;
-        maxrf = right.vf & FIX_ROW;
+    if (r1 <= r2) {
+        minr = r1;
+        minrf = vf1 & FIX_ROW;
+        maxr = r2;
+        maxrf = vf2 & FIX_ROW;
     } else {
-        minr = right.vp->row;
-        minrf = right.vf & FIX_ROW;
-        maxr = left.vp->row;
-        maxrf = right.vf & FIX_ROW;
+        minr = r2;
+        minrf = vf2 & FIX_ROW;
+        maxr = r1;
+        maxrf = vf1 & FIX_ROW;
     }
 
-    if (left.vp->col < right.vp->col) {
-        minc = left.vp->col;
-        mincf = left.vf & FIX_COL;
-        maxc = right.vp->col;
-        maxcf = right.vf & FIX_COL;
+    if (c1 <= c2) {
+        minc = c1;
+        mincf = vf1 & FIX_COL;
+        maxc = c2;
+        maxcf = vf2 & FIX_COL;
     } else {
-        minc = right.vp->col;
-        mincf = right.vf & FIX_COL;
-        maxc = left.vp->col;
-        maxcf = left.vf & FIX_COL;
+        minc = c2;
+        mincf = vf2 & FIX_COL;
+        maxc = c1;
+        maxcf = vf1 & FIX_COL;
     }
 
     left.vp = lookat(minr, minc);
@@ -133,18 +136,16 @@ void add_range(const char *name, struct ent_ptr left, struct ent_ptr right, int 
     modflg++;
 }
 
-void del_range(struct ent *left, struct ent *right) {
+void del_range(int r1, int c1, int r2, int c2) {
     struct range *r;
-    int minr = left->row;
-    int minc = left->col;
-    int maxr = right->row;
-    int maxc = right->col;
+    int minr = r1;
+    int minc = c1;
+    int maxr = r2;
+    int maxc = c2;
     if (minr > maxr) SWAPINT(minr, maxr);
     if (minc > maxc) SWAPINT(minc, maxc);
 
-    left = lookat(minr, minc);
-    right = lookat(maxr, maxc);
-    r = find_range_coords(left, right);
+    r = find_range_coords(lookat(minr, minc), lookat(maxr, maxc));
     if (!r)
         return;
 

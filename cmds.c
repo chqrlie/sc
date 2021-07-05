@@ -80,6 +80,13 @@ void clearent(struct ent *v) {
     }
 }
 
+struct ent *lookat_nc(int row, int col) {
+    if (row >= 0 && row <= maxrow && col >= 0 && col <= maxcol)
+        return *ATBL(tbl, row, col);
+    else
+        return NULL;
+}
+
 /* return a pointer to a cell's [struct ent *], creating if needed */
 struct ent *lookat(int row, int col) {
     struct ent **pp;
@@ -1267,6 +1274,7 @@ void copy(struct ent *dv1, struct ent *dv2, struct ent *v1, struct ent *v2) {
     // XXX: get rid of this static mess
     static int minsr = -1, minsc = -1;
     static int maxsr = -1, maxsc = -1;
+    // XXX: mindr and mindc are never set if (!dv1 && !showrange && v1)
     int mindr, mindc;
     int maxdr, maxdc;
     int deltar, deltac;
@@ -1303,7 +1311,8 @@ void copy(struct ent *dv1, struct ent *dv2, struct ent *v1, struct ent *v2) {
         maxsc = v2->col;
         if (minsr > maxsr) SWAPINT(minsr, maxsr);
         if (minsc > maxsc) SWAPINT(minsc, maxsc);
-    } else if (dv1 == NULL || v2 != NULL) {
+    } else
+    if (dv1 == NULL || v2 != NULL) {
         if (qbuf && delbuf[qbuf]) {
             ++dbidx;
             delbuf[dbidx] = delbuf[qbuf];
@@ -1354,12 +1363,14 @@ void copy(struct ent *dv1, struct ent *dv2, struct ent *v1, struct ent *v2) {
             for (deltac = mindc - p->col; deltac <= maxdc - p->col; deltac++)
                 copydbuf(deltar, deltac);
         }
-    } else if (minsr == maxsr) {
+    } else
+    if (minsr == maxsr) {
         /* Source is a single row */
         deltac = mindc - p->col;
         for (deltar = mindr - p->row; deltar <= maxdr - p->row; deltar++)
             copydbuf(deltar, deltac);
-    } else if (minsc == maxsc) {
+    } else
+    if (minsc == maxsc) {
         /* Source is a single column */
         deltar = mindr - p->row;
         for (deltac = mindc - p->col; deltac <= maxdc - p->col; deltac++)
@@ -1388,7 +1399,7 @@ void copy(struct ent *dv1, struct ent *dv2, struct ent *v1, struct ent *v2) {
 }
 
 /* ERASE a Range of cells */
-void eraser(struct ent *v1, struct ent *v2) {
+void eraser(int r1, int c1, int r2, int c2) {
     int i;
     struct ent *obuf = NULL;
 
@@ -1412,7 +1423,7 @@ void eraser(struct ent *v1, struct ent *v2) {
         flush_saved();
         obuf = delbuf[qbuf];    /* orig. contents of the del. buffer */
     }
-    erase_area(v1->row, v1->col, v2->row, v2->col, 0);
+    erase_area(r1, c1, r2, c2, 0);
     sync_refs();
     for (i = 0; i < DELBUFSIZE; i++) {
         if ((obuf && delbuf[i] == obuf) || (qbuf && i == qbuf)) {
@@ -1432,7 +1443,7 @@ void eraser(struct ent *v1, struct ent *v2) {
 }
 
 /* YANK a Range of cells */
-void yankr(struct ent *v1, struct ent *v2) {
+void yankr(int r1, int c1, int r2, int c2) {
     int i, qtmp;
     struct ent *obuf = NULL;
 
@@ -1458,7 +1469,7 @@ void yankr(struct ent *v1, struct ent *v2) {
     }
     qtmp = qbuf;
     qbuf = 0;
-    yank_area(v1->row, v1->col, v2->row, v2->col);
+    yank_area(r1, c1, r2, c2);
     qbuf = qtmp;
     for (i = 0; i < DELBUFSIZE; i++) {
         if ((obuf && delbuf[i] == obuf) || (qbuf && i == qbuf)) {
@@ -1472,29 +1483,20 @@ void yankr(struct ent *v1, struct ent *v2) {
 }
 
 /* MOVE a Range of cells */
-void mover(struct ent *d, struct ent *v1, struct ent *v2) {
-    move_area(d->row, d->col, v1->row, v1->col, v2->row, v2->col);
+void mover(int dr, int dc, int r1, int c1, int r2, int c2) {
+    move_area(dr, dc, r1, c1, r2, c2);
     sync_refs();
     FullUpdate++;
 }
 
-void docopy(void) {
-    if (showrange) {
-        showrange = 0;
-        copy(lookat(showsr, showsc), lookat(currow, curcol), NULL, NULL);
-    } else {
-        copy(lookat(currow, curcol), lookat(currow, curcol), NULL, NULL);
-    }
-}
-
 /* fill a range with constants */
-void fill(struct ent *v1, struct ent *v2, double start, double inc) {
+void fill(int r1, int c1, int r2, int c2, double start, double inc) {
     int r, c;
     struct ent *n;
-    int minr = v1->row;
-    int minc = v1->col;
-    int maxr = v2->row;
-    int maxc = v2->col;
+    int minr = r1;
+    int minc = c1;
+    int maxr = r2;
+    int maxc = c2;
     if (minr > maxr) SWAPINT(minr, maxr);
     if (minc > maxc) SWAPINT(minc, maxc);
     checkbounds(&maxr, &maxc);
@@ -1536,13 +1538,13 @@ void fill(struct ent *v1, struct ent *v2, double start, double inc) {
 
 /* lock a range of cells */
 
-void lock_cells(struct ent *v1, struct ent *v2) {
+void lock_cells(int r1, int c1, int r2, int c2) {
     int r, c;
     struct ent *n;
-    int minr = v1->row;
-    int minc = v1->col;
-    int maxr = v2->row;
-    int maxc = v2->col;
+    int minr = r1;
+    int minc = c1;
+    int maxr = r2;
+    int maxc = c2;
     if (minr > maxr) SWAPINT(minr, maxr);
     if (minc > maxc) SWAPINT(minc, maxc);
     checkbounds(&maxr, &maxc);
@@ -1559,13 +1561,13 @@ void lock_cells(struct ent *v1, struct ent *v2) {
 
 /* unlock a range of cells */
 
-void unlock_cells(struct ent *v1, struct ent *v2) {
+void unlock_cells(int r1, int c1, int r2, int c2) {
     int r, c;
     struct ent *n;
-    int minr = v1->row;
-    int minc = v1->col;
-    int maxr = v2->row;
-    int maxc = v2->col;
+    int minr = r1;
+    int minc = c1;
+    int maxr = r2;
+    int maxc = c2;
     if (minr > maxr) SWAPINT(minr, maxr);
     if (minc > maxc) SWAPINT(minc, maxc);
     checkbounds(&maxr, &maxc);
@@ -1574,19 +1576,21 @@ void unlock_cells(struct ent *v1, struct ent *v2) {
 
     for (r = minr; r <= maxr; r++) {
         for (c = minc; c <= maxc; c++) {
-            n = lookat(r, c);
-            n->flags &= ~IS_LOCKED;
+            n = lookat_nc(r, c);
+            if (n) {
+                n->flags &= ~IS_LOCKED;
+            }
         }
     }
 }
 
-void format_cell(struct ent *v1, struct ent *v2, const char *s) {
+void format_cell(int r1, int c1, int r2, int c2, const char *s) {
     int r, c;
     struct ent *n;
-    int minr = v1->row;
-    int minc = v1->col;
-    int maxr = v2->row;
-    int maxc = v2->col;
+    int minr = r1;
+    int minc = c1;
+    int maxr = r2;
+    int maxc = c2;
     if (minr > maxr) SWAPINT(minr, maxr);
     if (minc > maxc) SWAPINT(minc, maxc);
     checkbounds(&maxr, &maxc);
@@ -1599,7 +1603,7 @@ void format_cell(struct ent *v1, struct ent *v2, const char *s) {
     for (r = minr; r <= maxr; r++) {
         for (c = minc; c <= maxc; c++) {
             n = lookat(r, c);
-            if (locked_cell(n->row, n->col))
+            if (locked_cell(n))
                 continue;
             set_cstring(&n->format, s && *s ? s : NULL);
             n->flags |= IS_CHANGED;
@@ -1877,10 +1881,9 @@ void erasedb(void) {
 }
 
 /* Returns 1 if cell is locked, 0 otherwise */
-int locked_cell(int r, int c) {
-    struct ent *p = *ATBL(tbl, r, c);
+int locked_cell(struct ent *p) {
     if (p && (p->flags & IS_LOCKED)) {
-        error("Cell %s%d is locked", coltoa(c), r);
+        error("Cell %s%d is locked", coltoa(p->col), p->row);
         return 1;
     }
     return 0;
@@ -1959,30 +1962,27 @@ void cmd_run(const char *str) {
 }
 
 void cmd_define_range(const char *name) {
-    struct ent_ptr arg1, arg2;
-    arg1.vp = lookat(showsr, showsc);
-    arg1.vf = 0;
-    arg2.vp = lookat(currow, curcol);
-    arg2.vf = 0;
-    if (showrange && arg1.vp != arg2.vp)
-        add_range(name, arg1, arg2, 1);
-    else
-        add_range(name, arg2, arg2, 0);
+    int is_range = (showrange && (showsr != currow || showsc != curcol));
+    add_range(name, showsr, showsc, 0, currow, curcol, 0, is_range);
 }
 
-void addnote(struct ent *p, int sr, int sc, int er, int ec) {
-    if (sr > er) SWAPINT(sr, er);
-    if (sc > ec) SWAPINT(sc, ec);
-    p->nrow = sr;
-    p->ncol = sc;
-    p->nlastrow = er;
-    p->nlastcol = ec;
-    p->flags |= IS_CHANGED;
-    FullUpdate++;
-    modflg++;
+void addnote(int row, int col, int sr, int sc, int er, int ec) {
+    struct ent *p = lookat(row, col);
+    if (p) {
+        if (sr > er) SWAPINT(sr, er);
+        if (sc > ec) SWAPINT(sc, ec);
+        p->nrow = sr;
+        p->ncol = sc;
+        p->nlastrow = er;
+        p->nlastcol = ec;
+        p->flags |= IS_CHANGED;
+        FullUpdate++;
+        modflg++;
+    }
 }
 
-void delnote(struct ent *p) {
+void delnote(int row, int col) {
+    struct ent *p = lookat_nc(row, col);
     if (p) {
         p->nrow = p->ncol = -1;
         p->flags |= IS_CHANGED;

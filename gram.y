@@ -51,13 +51,13 @@ static void dotblprintfile(SCXMEM char *fname, int r0, int c0, int rn, int cn) {
     scxfree(fname);
 }
 
-static void dosortrange(struct ent *left, struct ent *right, SCXMEM char *criteria) {
-    sortrange(left, right, s2c(criteria));
+static void dosortrange(int r1, int c1, int r2, int c2, SCXMEM char *criteria) {
+    sortrange(r1, c1, r2, c2, s2c(criteria));
     scxfree(criteria);
 }
 
-static void doformat_cell(struct ent *v1, struct ent *v2, SCXMEM char *s) {
-    format_cell(v1, v2, s2c(s));
+static void doformat_cell(int r1, int c1, int r2, int c2, SCXMEM char *s) {
+    format_cell(r1, c1, r2, c2, s2c(s));
     scxfree(s);
 }
 
@@ -73,11 +73,10 @@ static void dosetformat(int n, SCXMEM char *s) {
     scxfree(s);
 }
 
-static void doadd_range(SCXMEM char *name,
-                        struct ent_ptr left, struct ent_ptr right,
-                        int is_range)
+static void doadd_range(SCXMEM char *name, int r1, int c1, int vf1,
+                        int r2, int c2, int vf2, int is_range)
 {
-    add_range(s2c(name), left, right, is_range);
+    add_range(s2c(name), r1, c1, vf1, r2, c2, vf2, is_range);
     scxfree(name);
 }
 
@@ -427,14 +426,14 @@ static void dohistfile(SCXMEM char *str) {
 %%
 
 command:  S_LET var_or_range '=' e
-                                { let($2.left.vp, $4); }
-        | S_LET var_or_range '=' { unlet($2.left.vp); }
+                                { let($2.left.vp->row, $2.left.vp->col, $4); }
+        | S_LET var_or_range '=' { unlet($2.left.vp->row, $2.left.vp->col); }
         | S_LABEL var_or_range '=' e
-                                { slet($2.left.vp, $4, ALIGN_CENTER); }
+                                { slet($2.left.vp->row, $2.left.vp->col, $4, ALIGN_CENTER); }
         | S_LEFTSTRING var_or_range '=' e
-                                { slet($2.left.vp, $4, ALIGN_LEFT); }
+                                { slet($2.left.vp->row, $2.left.vp->col, $4, ALIGN_LEFT); }
         | S_RIGHTSTRING var_or_range '=' e
-                                { slet($2.left.vp, $4, ALIGN_RIGHT); }
+                                { slet($2.left.vp->row, $2.left.vp->col, $4, ALIGN_RIGHT); }
         | S_LEFTJUSTIFY var_or_range
                                 { range_align($2.left.vp->row, $2.left.vp->col,
                                               $2.right.vp->row, $2.right.vp->col,
@@ -453,14 +452,15 @@ command:  S_LET var_or_range '=' e
         | S_CENTER              { if (showrange)
                                     range_align(showsr, showsc, currow, curcol, ALIGN_CENTER); }
         | S_ADDNOTE var         { if (showrange)
-                                    addnote($2.vp, currow, curcol, showsr, showsc);
+                                    addnote($2.vp->row, $2.vp->col, currow, curcol, showsr, showsc);
                                   else
-                                    addnote($2.vp, currow, curcol, currow, curcol); }
+                                    addnote($2.vp->row, $2.vp->col, currow, curcol, currow, curcol); }
         | S_ADDNOTE var var_or_range
-                                { addnote($2.vp, $3.left.vp->row, $3.left.vp->col,
+                                { addnote($2.vp->row, $2.vp->col,
+                                          $3.left.vp->row, $3.left.vp->col,
                                           $3.right.vp->row, $3.right.vp->col); }
-        | S_DELNOTE var         { delnote($2.vp); }
-        | S_DELNOTE             { delnote(lookat(currow, curcol)); }
+        | S_DELNOTE var         { delnote($2.vp->row, $2.vp->col); }
+        | S_DELNOTE             { delnote(currow, curcol); }
         | S_FORMAT COL ':' COL NUMBER NUMBER NUMBER
                                 { cmd_format($2, $4, $5, $6, $7); }
         | S_FORMAT COL NUMBER NUMBER NUMBER
@@ -524,37 +524,48 @@ command:  S_LET var_or_range '=' e
         | S_HIDE COL ':' COL    { hidecols($2, $4); }
         | S_HIDE NUMBER         { hiderows($2, $2); }
         | S_HIDE NUMBER ':' NUMBER { hiderows($2, $4); }
-        | S_COPY                { docopy(); }
-        | S_COPY range          { copy($2.left.vp, $2.right.vp, NULL, NULL); }
+        | S_COPY                { if (showrange) {
+                                    showrange = 0;
+                                    copy(lookat(showsr, showsc), lookat(currow, curcol), NULL, NULL);  // XXXX
+                                  } else {
+                                    copy(lookat(currow, curcol), lookat(currow, curcol), NULL, NULL);  // XXXX
+                                  }
+                                }
+        | S_COPY range          { copy($2.left.vp, $2.right.vp, NULL, NULL); }  // XXXX
         | S_COPY range var_or_range
                                 { copy($2.left.vp, $2.right.vp,
-                                       $3.left.vp, $3.right.vp); }
-        | S_MOVE var            { mover($2.vp, lookat(showsr, showsc),
-                                        lookat(currow, curcol)); }
-        | S_MOVE var var_or_range { mover($2.vp, $3.left.vp, $3.right.vp); }
-        | S_ERASE               { eraser(lookat(showsr, showsc),
-                                         lookat(currow, curcol)); }
-        | S_ERASE var_or_range  { eraser($2.left.vp, $2.right.vp); }
-        | S_YANK                { yankr(lookat(showsr, showsc),
-                                        lookat(currow, curcol)); }
-        | S_YANK var_or_range   { yankr($2.left.vp, $2.right.vp); }
+                                       $3.left.vp, $3.right.vp); }  // XXXX
+        | S_MOVE var            { mover($2.vp->row, $2.vp->col,
+                                        showsr, showsc, currow, curcol); }
+        | S_MOVE var var_or_range { mover($2.vp->row, $2.vp->col,
+                                          $3.left.vp->row, $3.left.vp->col,
+                                          $3.right.vp->row, $3.right.vp->col); }
+        | S_ERASE               { eraser(showsr, showsc, currow, curcol); }
+        | S_ERASE var_or_range  { eraser($2.left.vp->row, $2.left.vp->col,
+                                         $2.right.vp->row, $2.right.vp->col); }
+        | S_YANK                { yankr(showsr, showsc, currow, curcol); }
+        | S_YANK var_or_range   { yankr($2.left.vp->row, $2.left.vp->col,
+                                        $2.right.vp->row, $2.right.vp->col); }
         | S_VALUE               { valueize_area(showsr, showsc, currow, curcol); }
         | S_VALUE var_or_range  { valueize_area($2.left.vp->row, $2.left.vp->col,
                                                 $2.right.vp->row, $2.right.vp->col); }
         | S_FILL var_or_range num num
-                                { fill($2.left.vp, $2.right.vp, $3, $4); }
-        | S_SORT                { dosortrange(lookat(showsr, showsc),
-                                              lookat(currow, curcol), NULL); }
-        | S_SORT range          { dosortrange($2.left.vp, $2.right.vp, NULL); }
-        | S_SORT range strarg   { dosortrange($2.left.vp, $2.right.vp, $3); }
+                                { fill($2.left.vp->row, $2.left.vp->col,
+                                       $2.right.vp->row, $2.right.vp->col, $3, $4); }
+        | S_SORT                { dosortrange(showsr, showsc, currow, curcol, NULL); }
+        | S_SORT range          { dosortrange($2.left.vp->row, $2.left.vp->col,
+                                              $2.right.vp->row, $2.right.vp->col, NULL); }
+        | S_SORT range strarg   { dosortrange($2.left.vp->row, $2.left.vp->col,
+                                              $2.right.vp->row, $2.right.vp->col, $3); }
         | S_FMT var_or_range STRING
-                                { doformat_cell($2.left.vp, $2.right.vp, $3); }
-        | S_LOCK                { lock_cells(lookat(showsr, showsc),
-                                             lookat(currow, curcol)); }
-        | S_LOCK var_or_range   { lock_cells($2.left.vp, $2.right.vp); }
-        | S_UNLOCK              { unlock_cells(lookat(showsr, showsc),
-                                               lookat(currow, curcol)); }
-        | S_UNLOCK var_or_range { unlock_cells($2.left.vp, $2.right.vp); }
+                                { doformat_cell($2.left.vp->row, $2.left.vp->col,
+                                                $2.right.vp->row, $2.right.vp->col, $3); }
+        | S_LOCK                { lock_cells(showsr, showsc, currow, curcol); }
+        | S_LOCK var_or_range   { lock_cells($2.left.vp->row, $2.left.vp->col,
+                                             $2.right.vp->row, $2.right.vp->col); }
+        | S_UNLOCK              { unlock_cells(showsr, showsc, currow, curcol); }
+        | S_UNLOCK var_or_range { unlock_cells($2.left.vp->row, $2.left.vp->col,
+                                               $2.right.vp->row, $2.right.vp->col); }
         | S_GOTO var_or_range var_or_range
                                 { moveto($2.left.vp->row, $2.left.vp->col,
                                          $2.right.vp->row, $2.right.vp->col,
@@ -580,28 +591,30 @@ command:  S_LET var_or_range '=' e
         | S_GOTO                { go_last(); }
         | S_GOTO WORD           { /* don't repeat last goto on "unintelligible word" */ }
         | S_DEFINE strarg       { dodefine($2); }
-        | S_DEFINE strarg range { doadd_range($2, $3.left, $3.right, 1); }
-        | S_DEFINE strarg var   { doadd_range($2, $3, $3, 0); }
+        | S_DEFINE strarg range { doadd_range($2, $3.left.vp->row, $3.left.vp->col, $3.left.vf,
+                                              $3.right.vp->row, $3.right.vp->col, $3.right.vf, 1); }
+        | S_DEFINE strarg var   { doadd_range($2, $3.vp->row, $3.vp->col, $3.vf,
+                                              $3.vp->row, $3.vp->col, $3.vf, 0); }
         | S_UNDEFINE var_or_range
-                                { del_range($2.left.vp, $2.right.vp); }
+                                { del_range($2.left.vp->row, $2.left.vp->col,
+                                            $2.right.vp->row, $2.right.vp->col); }
         | S_ABBREV STRING       { doadd_abbr($2); }
         | S_ABBREV              { doadd_abbr(NULL); }
         | S_UNABBREV STRING     { dodel_abbr($2); }
         | S_FRAME range range   { add_frange($2.left.vp, $2.right.vp,
                                              $3.left.vp, $3.right.vp,
-                                             0, 0, 0, 0); }
+                                             0, 0, 0, 0); }  // XXXX
         | S_FRAME range         { if (showrange) {
                                     showrange = 0;
                                     add_frange($2.left.vp, $2.right.vp,
-                                               lookat(showsr, showsc),
-                                               lookat(currow, curcol),
-                                               0, 0, 0, 0);
+                                               lookat(showsr, showsc), lookat(currow, curcol),
+                                               0, 0, 0, 0);  // XXXX
                                   } else {
                                     struct frange *cfr = find_frange(currow, curcol);
                                     if (cfr) {
                                         add_frange(cfr->or_left, cfr->or_right,
                                                    $2.left.vp, $2.right.vp,
-                                                   0, 0, 0, 0);
+                                                   0, 0, 0, 0);  // XXXX
                                     }
                                   }
                                 }
@@ -609,9 +622,8 @@ command:  S_LET var_or_range '=' e
                                   if (showrange && cfr) {
                                       showrange = 0;
                                       add_frange(cfr->or_left, cfr->or_right,
-                                                 lookat(showsr, showsc),
-                                                 lookat(currow, curcol),
-                                                 0, 0, 0, 0);
+                                                 lookat(showsr, showsc), lookat(currow, curcol),
+                                                 0, 0, 0, 0);  // XXXX
                                   } else {
                                       error("Need both outer and inner"
                                             " ranges to create frame");
@@ -619,41 +631,42 @@ command:  S_LET var_or_range '=' e
                                 }
         | S_FRAMETOP range NUMBER
                                 { add_frange($2.left.vp, $2.right.vp,
-                                             NULL, NULL, $3, -1, -1, -1); }
+                                             NULL, NULL, $3, -1, -1, -1); }  // XXXX
         | S_FRAMETOP NUMBER     { struct frange *cfr = find_frange(currow, curcol);
                                   if (cfr)
                                       add_frange(cfr->or_left, cfr->or_right,
-                                                 NULL, NULL, $2, -1, -1, -1); }
+                                                 NULL, NULL, $2, -1, -1, -1); }  // XXXX
         | S_FRAMEBOTTOM range NUMBER
                                 { add_frange($2.left.vp, $2.right.vp,
-                                             NULL, NULL, -1, $3, -1, -1); }
+                                             NULL, NULL, -1, $3, -1, -1); }  // XXXX
         | S_FRAMEBOTTOM NUMBER  { struct frange *cfr = find_frange(currow, curcol);
                                   if (cfr)
                                       add_frange(cfr->or_left, cfr->or_right,
-                                                 NULL, NULL, -1, $2, -1, -1); }
+                                                 NULL, NULL, -1, $2, -1, -1); }  // XXXX
         | S_FRAMELEFT range NUMBER
                                 { add_frange($2.left.vp, $2.right.vp,
-                                             NULL, NULL, -1, -1, $3, -1); }
+                                             NULL, NULL, -1, -1, $3, -1); }  // XXXX
         | S_FRAMELEFT NUMBER    { struct frange *cfr = find_frange(currow, curcol);
                                   if (cfr)
                                       add_frange(cfr->or_left, cfr->or_right,
-                                                 NULL, NULL, -1, -1, $2, -1); }
+                                                 NULL, NULL, -1, -1, $2, -1); }  // XXXX
         | S_FRAMERIGHT range NUMBER
                                 { add_frange($2.left.vp, $2.right.vp,
-                                             NULL, NULL, -1, -1, -1, $3); }
+                                             NULL, NULL, -1, -1, -1, $3); }  // XXXX
         | S_FRAMERIGHT NUMBER   { struct frange *cfr = find_frange(currow, curcol);
                                   if (cfr)
                                       add_frange(cfr->or_left, cfr->or_right,
-                                                 NULL, NULL, -1, -1, -1, $2); }
+                                                 NULL, NULL, -1, -1, -1, $2); }  // XXXX
         | S_UNFRAME range       { add_frange($2.left.vp, $2.right.vp,
-                                             NULL, NULL, 0, 0, 0, 0); }
+                                             NULL, NULL, 0, 0, 0, 0); }  // XXXX
         | S_UNFRAME             { struct frange *cfr = find_frange(currow, curcol);
                                   if (cfr)
                                       add_frange(cfr->or_left, cfr->or_right,
-                                                 NULL, NULL, 0, 0, 0, 0); }
+                                                 NULL, NULL, 0, 0, 0, 0); }  // XXXX
         | S_COLOR NUMBER '='    { initcolor($2); }
         | S_COLOR NUMBER '=' e  { change_color($2, $4); }
-        | S_COLOR range NUMBER  { add_crange($2.left.vp, $2.right.vp, $3); }
+        | S_COLOR range NUMBER  { add_crange($2.left.vp->row, $2.left.vp->col,
+                                             $2.right.vp->row, $2.right.vp->col, $3); }
         | S_SET setlist         { modflg++; }
         | S_UP                  { backrow(1); }
         | S_UP NUMBER           { backrow($2); }
@@ -717,7 +730,7 @@ command:  S_LET var_or_range '=' e
         | S_PULLFMT             { pullcells('f'); }
         | S_PULLCOPY            { copy(NULL, NULL, NULL, NULL); }
         | S_PULLCOPY var_or_range { // XXX: fix this ugly hack
-                                    copy($2.left.vp, $2.right.vp, NULL, (struct ent *)1); }
+                                    copy($2.left.vp, $2.right.vp, NULL, (struct ent *)1); }  // XXXX
         | S_WHEREAMI            { cmd_whereami(macrofd); }
         | S_WHEREAMI '|' NUMBER { cmd_whereami($3); }
         | S_GETNUM var_or_range { getnum($2.left.vp->row, $2.left.vp->col,
@@ -976,15 +989,15 @@ range:    var ':' var     { $$.left = $1; $$.right = $3; }
         | RANGE           { $$ = $1; }
         ;
 
-var:      COL NUMBER        { $$.vp = lookat($2, $1); $$.vf = 0; }
-        | '$' COL NUMBER    { $$.vp = lookat($3, $2); $$.vf = FIX_COL; }
-        | COL '$' NUMBER    { $$.vp = lookat($3, $1); $$.vf = FIX_ROW; }
-        | '$' COL '$' NUMBER { $$.vp = lookat($4, $2); $$.vf = FIX_ROW | FIX_COL; }
-        | VAR               { $$ = $1.left; }
+var:      COL NUMBER        { $$.vp = lookat($2, $1); $$.vf = 0; }  // XXXX
+        | '$' COL NUMBER    { $$.vp = lookat($3, $2); $$.vf = FIX_COL; }  // XXXX
+        | COL '$' NUMBER    { $$.vp = lookat($3, $1); $$.vf = FIX_ROW; }  // XXXX
+        | '$' COL '$' NUMBER { $$.vp = lookat($4, $2); $$.vf = FIX_ROW | FIX_COL; }  // XXXX
+        | VAR               { $$ = $1.left; }  // XXXX
         ;
 
-var_or_range: range         { $$ = $1; }
-        |     var           { $$.left = $1; $$.right = $1; }
+var_or_range: range         { $$ = $1; }  // XXXX
+        |     var           { $$.left = $1; $$.right = $1; }  // XXXX
         ;
 
 not:      '!' | '~'

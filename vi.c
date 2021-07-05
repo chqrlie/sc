@@ -745,7 +745,7 @@ void vi_interaction(void) {
                 case '0': case '1': case '2': case '3': case '4':
                 case '5': case '6': case '7': case '8': case '9':
                 case '.':
-                    if (locked_cell(currow, curcol))
+                    if (locked_cell(lookat(currow, curcol)))
                         break;
                     /* set mark 0 */
                     savedrow[27] = currow;
@@ -760,9 +760,8 @@ void vi_interaction(void) {
 
                 case '+':
                 case '-':
-                    if (locked_cell(currow, curcol))
+                    if (locked_cell(p = lookat(currow, curcol)))
                         break;
-                    p = lookat(currow, curcol);
                     /* set mark 0 */
                     savedrow[27] = currow;
                     savedcol[27] = curcol;
@@ -783,7 +782,7 @@ void vi_interaction(void) {
                     break;
 
                 case '=':
-                    if (locked_cell(currow, curcol))
+                    if (locked_cell(lookat(currow, curcol)))
                         break;
                     /* set mark 0 */
                     savedrow[27] = currow;
@@ -1118,7 +1117,7 @@ void vi_interaction(void) {
                     help(HELP_INTRO);
                     break;
                 case '\\':
-                    if (!locked_cell(currow, curcol)) {
+                    if (!locked_cell(lookat(currow, curcol))) {
                         /* set mark 0 */
                         savedrow[27] = currow;
                         savedcol[27] = curcol;
@@ -1131,7 +1130,7 @@ void vi_interaction(void) {
                     break;
 
                 case '<':
-                    if (!locked_cell(currow, curcol)) {
+                    if (!locked_cell(lookat(currow, curcol))) {
                         /* set mark 0 */
                         savedrow[27] = currow;
                         savedcol[27] = curcol;
@@ -1144,7 +1143,7 @@ void vi_interaction(void) {
                     break;
 
                 case '>':
-                    if (!locked_cell(currow, curcol)) {
+                    if (!locked_cell(lookat(currow, curcol))) {
                         /* set mark 0 */
                         savedrow[27] = currow;
                         savedcol[27] = curcol;
@@ -1165,9 +1164,7 @@ void vi_interaction(void) {
                     range_align(currow, curcol, currow, curcol, ALIGN_CENTER);
                     break;
                 case 'e':
-                    if (!locked_cell(currow, curcol)) {
-                        p = lookat(currow, curcol);
-
+                    if (!locked_cell(p = lookat(currow, curcol))) {
                         /* set mark 0 */
                         savedrow[27] = currow;
                         savedcol[27] = curcol;
@@ -1187,7 +1184,7 @@ void vi_interaction(void) {
                     }
                     break;
                 case 'E':
-                    if (!locked_cell(currow, curcol)) {
+                    if (!locked_cell(p = lookat(currow, curcol))) {
                         /* set mark 0 */
                         savedrow[27] = currow;
                         savedcol[27] = curcol;
@@ -1195,7 +1192,6 @@ void vi_interaction(void) {
                         savedstcol[27] = stcol;
 
                         /* copy cell contents into line array */
-                        p = lookat(currow, curcol);
                         buf_init(buf, line, sizeof line);
                         edits(buf, currow, curcol, p);
                         linelim = buf->len;
@@ -1347,11 +1343,9 @@ void vi_interaction(void) {
 #endif
                 case 'x':
                     if (calc_order == BYROWS) {
-                        eraser(lookat(currow, curcol),
-                                lookat(currow, curcol + uarg - 1));
+                        eraser(currow, curcol, currow, curcol + uarg - 1);
                     } else {
-                        eraser(lookat(currow, curcol),
-                               lookat(currow + uarg - 1, curcol));
+                        eraser(currow, curcol, currow + uarg - 1, curcol);
                     }
                     break;
                 case 'Q':
@@ -3634,8 +3628,7 @@ static int get_rcqual(int ch) {
                         return 0;
 
     case 'y':       if (ch == 'y') {
-                        yankr(lookat(currow, curcol),
-                              lookat(currow, curcol));
+                        yankr(currow, curcol, currow, curcol);
                         return ESC;
                     } else
                         return 0;

@@ -93,21 +93,22 @@ void change_color(int pair, struct enode *e) {
     FullUpdate++;
 }
 
-void add_crange(struct ent *r_left, struct ent *r_right, int pair) {
+void add_crange(int r1, int c1, int r2, int c2, int pair) {
     struct crange *r;
-    int minr, minc, maxr, maxc;
-
-    minr = r_left->row < r_right->row ? r_left->row : r_right->row;
-    minc = r_left->col < r_right->col ? r_left->col : r_right->col;
-    maxr = r_left->row > r_right->row ? r_left->row : r_right->row;
-    maxc = r_left->col > r_right->col ? r_left->col : r_right->col;
+    int minr = r1;
+    int minc = c1;
+    int maxr = r2;
+    int maxc = c2;
+    if (minr > maxr) SWAPINT(minr, maxr);
+    if (minc > maxc) SWAPINT(minc, maxc);
+    checkbounds(&maxr, &maxc);
+    if (minr < 0) minr = 0;
+    if (minc < 0) minc = 0;
 
     if (!pair) {
         for (r = color_base; r; r = r->r_next) {
-            if ((r->r_left->row == r_left->row) &&
-                (r->r_left->col == r_left->col) &&
-                (r->r_right->row == r_right->row) &&
-                (r->r_right->col == r_right->col))
+            if ((r->r_left->row == minr) && (r->r_left->col == minc) &&
+                (r->r_right->row == maxr) && (r->r_right->col == maxc))
             {
                 if (r->r_next)
                     r->r_next->r_prev = r->r_prev;
@@ -255,7 +256,8 @@ void fix_colors(int row1, int col1, int row2, int col2, int delta1, int delta2) 
             (col1 >= 0 && col2 >= 0 && col1 <= c1 && col2 >= c2))
         {
             /* the 0 means delete color range */
-            add_crange(cr->r_left, cr->r_right, 0);
+            add_crange(cr->r_left->row, cr->r_left->col,
+                       cr->r_right->row, cr->r_right->col, 0);
         } else {
             cr->r_left = lookat(r1, c1);
             cr->r_right = lookat(r2, c2);

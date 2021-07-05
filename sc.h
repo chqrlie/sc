@@ -515,7 +515,7 @@ extern int find_range_name(const char *name, int len, struct range **rng);
 struct range *find_range_coords(const struct ent *lmatch, const struct ent *rmatch);
 extern int format(char *buf, size_t buflen, const char *fmt, int lprecision, double val, int *alignp);
 extern int growtbl(int rowcol, int toprow, int topcol);
-extern int locked_cell(int r, int c);
+extern int locked_cell(struct ent *v);
 extern int modcheck(const char *endstr);
 extern int plugin_exists(const char *name, int len, char *path, size_t size);
 extern int readfile(const char *fname, int eraseflg);
@@ -531,17 +531,17 @@ extern SCXMEM struct enode *new_range(int op, struct range_s a1);
 extern SCXMEM struct enode *new_str(SCXMEM char *s);
 extern SCXMEM struct enode *new_var(int op, struct ent_ptr a1);
 /* a linked list of free [struct ent]'s, uses .next as the pointer */
-extern struct ent *lookat(int row, int col);
+extern struct ent *lookat(int row, int col);    /* allocates the cell */
+extern struct ent *lookat_nc(int row, int col); /* does not allocate the cell */
 extern struct crange *find_crange(int row, int col);
 extern struct frange *find_frange(int row, int col);
 extern void EvalAll(void);
-extern void add_crange(struct ent *r_left, struct ent *r_right, int pair);
+extern void add_crange(int r1, int c1, int r2, int c2, int pair);
 extern void add_frange(struct ent *or_left, struct ent *or_right,
                        struct ent *ir_left, struct ent *ir_right,
-                       int toprows, int bottomrows,
-                       int leftcols, int rightcols);
-extern void add_range(const char *name, struct ent_ptr left, struct ent_ptr right,
-                      int is_range);
+                       int toprows, int bottomrows, int leftcols, int rightcols);
+extern void add_range(const char *name, int r1, int c1, int vf1,
+                      int r2, int c2, int vf2, int is_range);
 extern void addplugin(const char *ext, const char *plugin, char type);
 extern void backcol(int arg);
 extern void backrow(int arg);
@@ -555,12 +555,11 @@ extern void closefile(FILE *f, int pid, int rfd);
 extern void closerow(int r, int numrow);
 extern void deleterows(int r1, int r2);
 extern void copy(struct ent *dv1, struct ent *dv2, struct ent *v1, struct ent *v2);
-extern void docopy(void);
 extern void copyent(struct ent *n, struct ent *p,
                     int dr, int dc, int r1, int c1, int r2, int c2, int transpose);
 extern int decompile(char *dest, size_t size, struct enode *e);
 extern void decompile_node(buf_t buf, struct enode *e, int priority);
-extern void del_range(struct ent *left, struct ent *right);
+extern void del_range(int r1, int c1, int r2, int c2);
 extern void del_abbr(const char *abbrev);
 extern void deraw(int ClearLastLine);
 extern void doend(int rowinc, int colinc);
@@ -586,9 +585,9 @@ extern void editv(buf_t buf, int row, int col, struct ent *p);
 extern void efree(SCXMEM struct enode *e);
 extern void erase_area(int sr, int sc, int er, int ec, int ignorelock);
 extern void erasedb(void);
-extern void eraser(struct ent *v1, struct ent *v2);
+extern void eraser(int r1, int c1, int r2, int c2);
 extern void fgetnum(int r0, int c0, int rn, int cn, int fd);
-extern void fill(struct ent *v1, struct ent *v2, double start, double inc);
+extern void fill(int r1, int c1, int r2, int c2, double start, double inc);
 extern void fix_colors(int row1, int col1, int row2, int col2,
                        int delta1, int delta2);
 extern void fix_frames(int row1, int col1, int row2, int col2,
@@ -596,7 +595,7 @@ extern void fix_frames(int row1, int col1, int row2, int col2,
 extern void fix_ranges(int row1, int col1, int row2, int col2,
                        int delta1, int delta2);
 extern void flush_saved(void);
-extern void format_cell(struct ent *v1, struct ent *v2, const char *s);
+extern void format_cell(int r1, int c1, int r2, int c2, const char *s);
 extern void forwcol(int arg);
 extern void forwrow(int arg);
 extern void free_ent(struct ent *p, int unlock);
@@ -614,12 +613,12 @@ extern void initkbd(void);
 extern void insertcol(int arg, int delta);
 extern void insertrow(int arg, int delta);
 extern void kbd_again(void);
-extern void unlet(struct ent *v);
-extern void let(struct ent *v, SCXMEM struct enode *e);
+extern void unlet(int row, int col);
+extern void let(int row, int col, SCXMEM struct enode *e);
 extern void list_ranges(FILE *f);
-extern void lock_cells(struct ent *v1, struct ent *v2);
+extern void lock_cells(int r1, int c1, int r2, int c2);
 extern void move_area(int dr, int dc, int sr, int sc, int er, int ec);
-extern void mover(struct ent *d, struct ent *v1, struct ent *v2);
+extern void mover(int dr, int dc, int r1, int c1, int r2, int c2);
 extern void moveto(int row, int col, int lastrow, int lastcol,
                    int cornrow, int corncol);
 extern void num_search(double n, int firstrow, int firstcol, int lastrow,
@@ -636,8 +635,8 @@ extern void setcalcorder(int i);
 extern void showcol(int c1, int c2);
 extern void showrow(int r1, int r2);
 extern void signals(void);
-extern void slet(struct ent *v, SCXMEM struct enode *se, int align);
-extern void sortrange(struct ent *left, struct ent *right, const char *criteria);
+extern void slet(int row, int col, SCXMEM struct enode *se, int align);
+extern void sortrange(int r0, int c0, int rn, int cn, const char *criteria);
 extern void startdisp(void);
 extern void stopdisp(void);
 extern void str_search(const char *s, int firstrow, int firstcol, int lastrow,
@@ -647,7 +646,7 @@ extern void sync_franges(void);
 extern void sync_ranges(void);
 extern void sync_refs(void);
 extern void tblprintfile(const char *fname, int r0, int c0, int rn, int cn);
-extern void unlock_cells(struct ent *v1, struct ent *v2);
+extern void unlock_cells(int r1, int c1, int r2, int c2);
 extern void update(int anychanged);
 extern void valueize_area(int sr, int sc, int er, int ec);
 extern void write_abbrevs(FILE *f);
@@ -712,13 +711,13 @@ extern int VMS_read_raw;   /*sigh*/
 #endif
 
 extern void gotonote(void);
-extern void addnote(struct ent *p, int sr, int sc, int er, int ec);
-extern void delnote(struct ent *p);
+extern void addnote(int row, int col, int sr, int sc, int er, int ec);
+extern void delnote(int row, int col);
 extern void range_align(int sr, int sc, int er, int ec, int align);
 extern void yankcols(int c1, int c2);
 extern void yankrows(int r1, int r2);
 extern void list_frames(FILE *fp);
-extern void yankr(struct ent *v1, struct ent *v2);
+extern void yankr(int r1, int c1, int r2, int c2);
 extern void dogetkey(int fd);
 extern void cmd_seval(struct enode *e, int row, int col, int fd);
 extern void cmd_eval(struct enode *e, const char *fmt, int row, int col, int fd);

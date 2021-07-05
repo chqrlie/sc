@@ -17,9 +17,9 @@ int are_frames(void) {
     return frame_base != NULL;
 }
 
-void add_frange(struct ent *or_left, struct ent *or_right, struct ent *ir_left,
-                struct ent *ir_right, int toprows, int bottomrows, int leftcols,
-                int rightcols)
+void add_frange(struct ent *or_left, struct ent *or_right,
+                struct ent *ir_left, struct ent *ir_right,
+                int toprows, int bottomrows, int leftcols, int rightcols)
 {
     struct frange *r;
     int minr, minc, maxr, maxc;
