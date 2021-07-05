@@ -224,7 +224,7 @@ int yylex(void) {
         } else
         if ((*p == '.') || isdigitchar(*p)) {
             sigret_t (*sig_save)(int);
-            double v = 0.0;
+            volatile double v = 0.0;
             int temp;
             const char *nstart = p;
 
@@ -232,7 +232,7 @@ int yylex(void) {
             if (setjmp(fpe_buf)) {
                 signal(SIGFPE, sig_save);
                 // XXX: was: yylval.fval = v; but gcc complains about v getting clobbered
-                yylval.fval = 0.0;
+                yylval.fval = v;
                 error("Floating point exception\n");
                 isfunc = isgoto = 0;
                 tokenst = NULL;
