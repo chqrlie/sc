@@ -459,9 +459,9 @@ int growtbl(int rowcol, int toprow, int topcol) {
         GROWALLOC(precision, newcols, int, nowider);
         GROWALLOC(realfmt, newcols, int, nowider);
 
-        memset(fwidth + maxcols, 0, (newcols - maxcols) * sizeof(*fwidth));
-        memset(precision + maxcols, 0, (newcols - maxcols) * sizeof(*precision));
-        memset(realfmt + maxcols, 0, (newcols - maxcols) * sizeof(*realfmt));
+        memzero(fwidth + maxcols, (newcols - maxcols) * sizeof(*fwidth));
+        memzero(precision + maxcols, (newcols - maxcols) * sizeof(*precision));
+        memzero(realfmt + maxcols, (newcols - maxcols) * sizeof(*realfmt));
     }
 
     maxcols = newcols;

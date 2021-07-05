@@ -63,6 +63,8 @@ extern const char *progname;
 #define COLFORMATS       10   /* Number of custom column formats */
 #define DELBUFSIZE       40   /* Number of named buffers + 4 */
 
+typedef unsigned char sc_bool_t;
+
 extern void error(const char *fmt, ...) sc__attr_printf(1,2);
 extern void fatal(const char *str);
 
@@ -464,7 +466,7 @@ extern char search_ind;         /* Search indicator */
 extern char mode_ind;           /* Mode indicator */
 extern int seenerr;
 extern int emacs_bindings;      /* use emacs-like bindings */
-extern bool sc_decimal;     /* Set if there was a decimal point in the number */
+extern sc_bool_t sc_decimal;    /* Set if there was a decimal point in the number */
 extern SCXMEM char *scext;
 extern SCXMEM char *ascext;
 extern SCXMEM char *tbl0ext;

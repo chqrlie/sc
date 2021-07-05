@@ -200,8 +200,9 @@ int buf_putc(buf_t buf, int c) {
 int buf_repc(buf_t buf, int c, int count) {
     if (buf->len + count >= buf->size)
         count = buf->size - buf->len - 1;
-    memset(buf->buf + buf->len, c, count);
-    buf->buf[buf->len += count] = '\0';
+    while (count --> 0)
+        buf->buf[buf->len++] = c;
+    buf->buf[buf->len] = '\0';
     return count;
 }
 

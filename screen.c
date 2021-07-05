@@ -36,7 +36,7 @@ static int lastfleftcols = 0;      /* Columns in left side of frame cursor was
                                     in last */
 static int lastfrightcols = 0;
 struct frange *lastfr = 0;     /* Last framed range we were in */
-static bool frTooLarge = 0; /* If set, either too many rows or too many columns
+static sc_bool_t frTooLarge = 0; /* If set, either too many rows or too many columns
                         exist in frame to allow room for the scrolling
                         portion of the framed range */
 #ifdef RIGHT_CBUG
@@ -96,7 +96,7 @@ void update(int anychanged) {          /* did any cell really change in value? *
     struct crange *cr;
     int ftoprows, fbottomrows, fleftcols, frightcols;
     int ftrows, fbrows, flcols, frcols;
-    bool message;
+    sc_bool_t message;
 
     /*
      * If receiving input from a pipeline, don't display spreadsheet data
@@ -1440,3 +1440,367 @@ void cmd_redraw(void) {
         changed = 0;
     }
 }
+
+/*---------------- keyboard input ----------------*/
+
+// XXX: should move the keyboard stuff to the curses module
+
+#ifdef SIMPLE
+
+void initkbd(void) {}
+void kbd_again(void) {}
+void resetkbd(void) {}
+
+# ifndef VMS
+
+int nmgetch(int clearline) {
+    int c = getchar();
+    if (clearline) CLEAR_LINE;
+    return c;
+}
+
+# else /* VMS */
+
+/*
+   This is not perfect, it doesn't move the cursor when goraw changes
+   over to deraw, but it works well enough since the whole sc package
+   is incredibly stable (loop constantly positions cursor).
+
+   Question, why didn't the VMS people just implement cbreak?
+
+   NOTE: During testing it was discovered that the DEBUGGER and curses
+   and this method of reading would collide (the screen was not updated
+   when continuing from screen mode in the debugger).
+*/
+int nmgetch(int clearline) {
+    short c;
+    static int key_id = 0;
+    int status;
+#  define VMScheck(a) {if (~(status = (a)) & 1) VMS_MSG (status);}
+
+    if (VMS_read_raw) {
+        VMScheck(smg$read_keystroke (&stdkb->_id, &c, 0, 0, 0));
+    } else {
+        c = getchar();
+    }
+
+    switch (c) {
+    case SMG$K_TRM_LEFT:  c = KEY_LEFT;  break;
+    case SMG$K_TRM_RIGHT: c = KEY_RIGHT; break;
+    case SMG$K_TRM_UP:    c = ctl('p');  break;
+    case SMG$K_TRM_DOWN:  c = ctl('n');  break;
+    default:   c = c & A_CHARTEXT;
+    }
+    if (clearline) CLEAR_LINE;
+    return c;
+}
+
+
+VMS_MSG (int status)
+/*
+   Routine to put out the VMS operating system error (if one occurs).
+*/
+{
+#  include <descrip.h>
+   char errstr[81], buf[120];
+   $DESCRIPTOR(errdesc, errstr);
+   short length;
+#  define err_out(msg) fprintf (stderr,msg)
+
+/* Check for no error or standard error */
+
+    if (~status & 1) {
+        status = status & 0x8000 ? status & 0xFFFFFFF : status & 0xFFFF;
+        if (SYS$GETMSG(status, &length, &errdesc, 1, 0) == SS$_NORMAL) {
+            errstr[length] = '\0';
+            snprintf(buf, sizeof buf, "<0x%x> %s", status,
+                     errdesc.dsc$a_pointer);
+            err_out(buf);
+        } else {
+            err_out("System error");
+        }
+    }
+}
+# endif /* VMS */
+
+#else /*SIMPLE*/
+
+# if defined(BSD42) || defined (SYSIII) || defined(BSD43)
+
+#  define N_KEY 4
+
+struct key_map {
+    char *k_str;
+    int k_val;
+    char k_index;
+};
+
+struct key_map km[N_KEY];
+
+char keyarea[N_KEY*30];
+
+char *ks;
+char ks_buf[20];
+char *ke;
+char ke_buf[20];
+
+#  ifdef TIOCSLTC
+struct ltchars old_chars, new_chars;
+#  endif
+
+char dont_use[] = {
+    ctl('['), ctl('a'), ctl('b'), ctl('c'), ctl('e'), ctl('f'), ctl('g'),
+    ctl('h'), ctl('i'), ctl('j'), ctl('l'), ctl('m'), ctl('n'), ctl('p'),
+    ctl('q'), ctl('r'), ctl('s'), ctl('t'), ctl('u'), ctl('v'), ctl('w'),
+    ctl('x'), ctl('z'), 0
+};
+
+int charout(int c) {
+    return putchar(c);
+}
+
+void initkbd(void) {
+    struct key_map *kp;
+    int i, j;
+    char *p = keyarea;
+    char *ktmp;
+    static char buf[1024]; /* Why do I have to do this again? */
+
+    if (!(ktmp = getenv("TERM"))) {
+        fprintf(stderr, "TERM environment variable not set\n");
+        exit(1);
+    }
+    if (tgetent(buf, ktmp) <= 0)
+        return;
+
+    km[0].k_str = tgetstr("kl", &p); km[0].k_val = KEY_LEFT;
+    km[1].k_str = tgetstr("kr", &p); km[1].k_val = KEY_RIGHT;
+    km[2].k_str = tgetstr("ku", &p); km[2].k_val = ctl('p');
+    km[3].k_str = tgetstr("kd", &p); km[3].k_val = ctl('n');
+
+    ktmp = tgetstr("ks", &p);
+    if (ktmp) {
+        strlcpy(ks_buf, ktmp, sizeof ks_buf);
+        ks = ks_buf;
+        tputs(ks, 1, charout);
+    }
+    ktmp = tgetstr("ke", &p);
+    if (ktmp) {
+        strlcpy(ke_buf, ktmp, sizeof ke_buf);
+        ke = ke_buf;
+    }
+
+    /* Unmap arrow keys which conflict with our ctl keys   */
+    /* Ignore unset, longer than length 1, and 1-1 mapped keys */
+
+    for (i = 0; i < N_KEY; i++) {
+        kp = &km[i];
+        if (kp->k_str && (kp->k_str[1] == 0) && (kp->k_str[0] != kp->k_val)) {
+            for (j = 0; dont_use[j] != 0; j++) {
+                if (kp->k_str[0] == dont_use[j]) {
+                     kp->k_str = NULL;
+                     break;
+                }
+            }
+        }
+    }
+
+#  ifdef TIOCSLTC
+    ioctl(fileno(stdin), TIOCGLTC, (char *)&old_chars);
+    new_chars = old_chars;
+    if (old_chars.t_lnextc == ctl('v'))
+        new_chars.t_lnextc = -1;
+    if (old_chars.t_rprntc == ctl('r'))
+        new_chars.t_rprntc = -1;
+    ioctl(fileno(stdin), TIOCSLTC, (char *)&new_chars);
+#  endif
+}
+
+void kbd_again(void) {
+    if (ks)
+        tputs(ks, 1, charout);
+
+#  ifdef TIOCSLTC
+    ioctl(fileno(stdin), TIOCSLTC, (char *)&new_chars);
+#  endif
+}
+
+void resetkbd(void) {
+    if (ke)
+        tputs(ke, 1, charout);
+
+#  ifdef TIOCSLTC
+    ioctl(fileno(stdin), TIOCSLTC, (char *)&old_chars);
+#  endif
+}
+
+int nmgetch(int clearline) {
+    int c;
+    struct key_map *kp;
+    struct key_map *biggest;
+    int i;
+    int almost;
+    int maybe;
+
+    static char dumpbuf[10];
+    static char *dumpindex;
+
+    if (dumpindex && *dumpindex) {
+        if (clearline) CLEAR_LINE;
+        return *dumpindex++;
+    }
+
+    c = getchar();
+    biggest = 0;
+    almost = 0;
+
+    for (kp = &km[0]; kp < &km[N_KEY]; kp++) {
+        if (!kp->k_str)
+            continue;
+        if (c == kp->k_str[kp->k_index]) {
+            almost = 1;
+            kp->k_index++;
+            if (kp->k_str[kp->k_index] == 0) {
+                c = kp->k_val;
+                for (kp = &km[0]; kp < &km[N_KEY]; kp++)
+                    kp->k_index = 0;
+                return c;
+            }
+        }
+        if (!biggest && kp->k_index)
+            biggest = kp;
+        else if (kp->k_index && biggest->k_index < kp->k_index)
+            biggest = kp;
+    }
+
+    if (almost) {
+        signal(SIGALRM, time_out);
+        alarm(1);
+
+        if (setjmp(wakeup) == 0) {
+            maybe = nmgetch(clearline);
+            alarm(0);
+            return maybe;
+        }
+    }
+
+    if (biggest) {
+        for (i = 0; i < biggest->k_index; i++)
+            dumpbuf[i] = biggest->k_str[i];
+        if (!almost)
+            dumpbuf[i++] = c;
+        dumpbuf[i] = '\0';
+        dumpindex = &dumpbuf[1];
+        for (kp = &km[0]; kp < &km[N_KEY]; kp++)
+            kp->k_index = 0;
+        return dumpbuf[0];
+    }
+
+    if (clearline) CLEAR_LINE;
+    return c;
+}
+
+# endif /* if defined(BSD42) || defined (SYSIII) || defined(BSD43) */
+
+void initkbd(void) {
+#ifdef HAVE_ESCDELAY
+    /*
+     * If ncurses exports the ESCDELAY variable, it should be set to
+     * a low value, or you'll experience a delay in processing escape
+     * sequences that are recognized by mc (e.g. Esc-Esc).  On the other
+     * hand, making ESCDELAY too small can result in some sequences
+     * (e.g. cursor arrows) being reported as separate keys under heavy
+     * processor load, and this can be a problem if mc hasn't learned
+     * them in the "Learn Keys" dialog.  The value is in milliseconds.
+     */
+    ESCDELAY = 100;
+#endif /* HAVE_ESCDELAY */
+    keypad(stdscr, TRUE);
+#ifndef NONOTIMEOUT
+    notimeout(stdscr,TRUE);
+#endif
+}
+
+void kbd_again(void) {
+    keypad(stdscr, TRUE);
+#ifndef NONOTIMEOUT
+    notimeout(stdscr,TRUE);
+#endif
+}
+
+void resetkbd(void) {
+    keypad(stdscr, FALSE);
+#ifndef NONOTIMEOUT
+    notimeout(stdscr, FALSE);
+#endif
+}
+
+static int kbhit(void) {
+#if 0
+    /* this does not work because getch() already read pending input */
+    struct timeval tv;
+    fd_set fds;
+    tv.tv_sec = 0;
+    tv.tv_usec = 0;
+    FD_ZERO(&fds);
+    FD_SET(STDIN_FILENO, &fds); //STDIN_FILENO is 0
+    return (select(STDIN_FILENO+1, &fds, NULL, NULL, &tv) == 1 &&
+            FD_ISSET(STDIN_FILENO, &fds));
+#else
+    return 1;
+#endif
+}
+
+int nmgetch(int clearline) {
+    int c;
+
+    c = getch();
+    switch (c) {
+# ifdef KEY_SELECT
+    case KEY_SELECT:
+        c = 'm';
+        break;
+# endif
+# ifdef KEY_C1
+/* This stuff works for a wyse wy75 in ANSI mode under 5.3.  Good luck. */
+/* It is supposed to map the curses keypad back to the numeric equiv. */
+
+/* I had to disable this to make programmable function keys work.  I'm
+ * not familiar with the wyse wy75 terminal.  Does anyone know how to
+ * make this work without causing problems with programmable function
+ * keys on everything else?  - CRM
+
+        case KEY_C1:    c = '0'; break;
+        case KEY_A1:    c = '1'; break;
+        case KEY_B2:    c = '2'; break;
+        case KEY_A3:    c = '3'; break;
+        case KEY_F(5):  c = '4'; break;
+        case KEY_F(6):  c = '5'; break;
+        case KEY_F(7):  c = '6'; break;
+        case KEY_F(9):  c = '7'; break;
+        case KEY_F(10): c = '8'; break;
+        case KEY_F0:    c = '9'; break;
+        case KEY_C3:    c = '.'; break;
+        case KEY_ENTER: c = ctl('m'); break;
+
+ *
+ *
+ */
+# endif
+    case 27:
+        // XXX: should check for available input from curses to distinguish
+        //      ESC hit by the user from alt and special keys
+        if (kbhit()) {
+            c = getch();
+            if (c != 27)
+                c = KEY_ALT(c);
+        }
+        break;
+    default:
+        break;
+    }
+    if (clearline) CLEAR_LINE;
+    return c;
+}
+
+#endif /* SIMPLE */

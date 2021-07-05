@@ -511,18 +511,16 @@ curses_mk_compat_h () {
 # include <ncurses/curses.h>
 #else
 # include <curses.h>
+#endif
 
-# ifndef bool
-#  define bool unsigned char
-# endif
+#ifdef SIGVOID
+#define sigret_t void
+#else
+#define sigret_t int
+#endif
 
-# ifndef false
-#  define false 0
-# endif
-
-# ifndef true
-#  define true 1
-# endif
+#ifdef SYSV4
+size_t strlen(const char *s);
 #endif
 
 #if (defined(BSD42) || defined(BSD43)) && !defined(strrchr)
@@ -533,21 +531,12 @@ curses_mk_compat_h () {
 #define strchr index
 #endif
 
-#ifdef SYSV4
-size_t strlen(const char *s);
-#endif
-
-#ifdef SIGVOID
-#define sigret_t void
-#else
-#define sigret_t int
-#endif
-
-#if defined(BSD42) || defined(BSD43) && !defined(ultrix)
-#define memcpy(dest, source, len)       bcopy(source, dest, (unsigned int)(len));
-#define memset(dest, zero, len)         bzero((dest), (unsigned int)(len));
+#if (defined(BSD42) || defined(BSD43)) && !defined(ultrix)
+#define memcpy(dest, source, len)   bcopy(source, dest, (unsigned int)(len))
+#define memzero(dest, len)          bzero((dest), (unsigned int)(len))
 #else
 #include <memory.h>
+#define memzero(dest, len)          memset(dest, 0, len)
 #endif
 
 #ifndef HAVE_ISFINITE

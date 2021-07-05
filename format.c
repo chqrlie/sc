@@ -118,15 +118,15 @@ static int fmt_int(char *dest,
                    const char *val,  /* integer part of the value to be formatted */
                    const char *fmt,  /* integer part of the format */
                    int fmt_len,
-                   bool comma,       /* true if we should comma-ify the value */
-                   bool negative)    /* true if the value is actually negative */
+                   sc_bool_t comma,       /* true if we should comma-ify the value */
+                   sc_bool_t negative)    /* true if the value is actually negative */
 {
     int i, j, k, vlen;
     int mindigits = 0;
     int digits = 0;
 
     if (thsep == '\0')
-        comma = false;
+        comma = FALSE;
 
     /* count the digit placeholders (should be an argument?) */
     for (i = 0; i < fmt_len;) {
@@ -169,7 +169,7 @@ static int fmt_int(char *dest,
         case '?':
             if (negative) {
                 dest[k++] = '-';
-                negative = false;
+                negative = FALSE;
             }
             while (vlen > digits) {
                 dest[k++] = val[j++];
@@ -333,7 +333,7 @@ static int fmt_exp(char *dest,      /* destination array */
         dest[i++] = '+';
     }
     snprintf(valbuf, sizeof valbuf, "%u", (unsigned)val);
-    return i + fmt_int(dest + i, size - i, valbuf, fmt + 2, fmt_len - 2, false, false);
+    return i + fmt_int(dest + i, size - i, valbuf, fmt + 2, fmt_len - 2, FALSE, FALSE);
 }
 
 /*****************************************************************************/
@@ -373,7 +373,7 @@ int format(char *buf, size_t buflen, const char *fmt, int lprecision, double val
     const char *expfmt;
     char *cp,  *last_digit;
     int i, fmt_len, fmt2_len, decfmt_len, expfmt_len, len,  exp_val, prec;
-    bool comma = false, negative = false;
+    sc_bool_t comma = FALSE, negative = FALSE;
 
     *buf = '\0';
     if (fmt == NULL)
@@ -435,7 +435,7 @@ int format(char *buf, size_t buflen, const char *fmt, int lprecision, double val
             break;
         case ',':
             if (!decfmt && !expfmt)
-                comma = true;
+                comma = TRUE;
             break;
         case '.':
             if (!decfmt && !expfmt)
@@ -463,7 +463,7 @@ int format(char *buf, size_t buflen, const char *fmt, int lprecision, double val
     val = (val + 1.0) - 1.0;
     if (val < 0.0) {
         /* negative is set but will be cleared if the value rounds to zero */
-        negative = true;
+        negative = TRUE;
         val = -val;
     }
 
@@ -544,7 +544,7 @@ int format(char *buf, size_t buflen, const char *fmt, int lprecision, double val
         if (last_digit >= fraction)
             last_digit[1] = '\0';
     } else {
-        negative = false;
+        negative = FALSE;
     }
     len = fmt_int(buf, buflen, integer, fmt, fmt_len, comma, negative);
     if (decfmt)

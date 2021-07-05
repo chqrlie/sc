@@ -55,7 +55,7 @@ static void replace_mode(void);
 static void restore_it(void);
 static void savedot(int c);
 static void save_hist(void);
-static void search_again(bool reverse);
+static void search_again(sc_bool_t reverse);
 static void search_hist(void);
 static void search_mode(char sind);
 static void stop_edit(void);
@@ -1759,7 +1759,7 @@ static void write_line(int c) {
         case 'F':       linelim = find_char(uarg, -1);                  break;
         case 'G':       if (histp > 0) histp = lasthist; forw_hist();   break;
         case 'I':       u_save(c); col_0(); insert_mode();              break;
-        case 'N':       search_again(true);                             break;
+        case 'N':       search_again(TRUE);                             break;
         case 'P':       u_save(c);
                         ins_string(putbuf);
                         linelim = back_line(1);                         break;
@@ -1787,7 +1787,7 @@ static void write_line(int c) {
         case ctl('f'):
         case ' ':
         case 'l':       linelim = forw_line(uarg, 0);                   break;
-        case 'n':       search_again(false);                            break;
+        case 'n':       search_again(FALSE);                            break;
         case 'p':       u_save(c);
                         linelim = forw_line(1, 1);
                         ins_string(putbuf);
@@ -3059,12 +3059,12 @@ static void search_hist(void) {
     strlcpy(last_search, line, lastsrchlen);
 #endif
     strlcpy(line, history[0].histline, sizeof line);
-    search_again(false);
+    search_again(FALSE);
     if (mode != EDIT_MODE) edit_mode();
     search_ind = ' ';
 }
 
-static void search_again(bool reverse) {
+static void search_again(sc_bool_t reverse) {
     int prev_match;
     int found_it = 0;
 #if !defined(REGCOMP) && !defined(RE_COMP) && !defined(REGCMP)

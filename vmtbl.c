@@ -101,7 +101,7 @@ int growtbl(int rowcol, int toprow, int topcol) {
 
     if (newrows > currows) {
         GROWALLOC(row_hidden, newrows, unsigned char, nolonger);
-        memset(row_hidden + currows, 0, (newrows - currows) * sizeof(*row_hidden));
+        memzero(row_hidden + currows, (newrows - currows) * sizeof(*row_hidden));
         GROWALLOC(tbl, newrows, struct ent **, nolonger);
         for (row = currows; row < newrows; row++) {
             tbl[row] = NULL;
