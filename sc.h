@@ -537,8 +537,11 @@ extern struct crange *find_crange(int row, int col);
 extern struct frange *find_frange(int row, int col);
 extern void EvalAll(void);
 extern void add_crange(int r1, int c1, int r2, int c2, int pair);
-extern void add_frange(struct ent *or_left, struct ent *or_right,
-                       struct ent *ir_left, struct ent *ir_right,
+#define FRANGE_DIRECT  0
+#define FRANGE_FIND    1
+#define FRANGE_INNER   2
+extern void add_frange(int flags, int or1, int oc1, int or2, int oc2,
+                       int ir1, int ic1, int ir2, int ic2,
                        int toprows, int bottomrows, int leftcols, int rightcols);
 extern void add_range(const char *name, int r1, int c1, int vf1,
                       int r2, int c2, int vf2, int is_range);

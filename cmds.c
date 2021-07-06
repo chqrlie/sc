@@ -388,15 +388,20 @@ void deleterows(int r1, int r2) {
             deldata2(obuf);
             if (r1 + nrows > fr->ir_right->row && fr->ir_right->row >= r1)
                 fr->ir_right = lookat(r1 - 1, fr->ir_right->col);
-            if (r1 + nrows > fr->or_right->row)
+            if (r1 + nrows > fr->or_right->row) {
                 fr->or_right = lookat(r1 - 1, fr->or_right->col);
-            else
+            } else {
                 move_area(r1, fr->or_left->col,
                           r1 + nrows, fr->or_left->col,
                           fr->or_right->row, fr->or_right->col);
-            if (fr->ir_left->row > fr->ir_right->row)
-                add_frange(fr->or_left, fr->or_right, NULL, NULL, 0, 0, 0, 0);
-
+            }
+            if (fr->ir_left->row > fr->ir_right->row) {
+                // XXX: del_frange
+                add_frange(FRANGE_DIRECT,
+                           fr->or_left->row, fr->or_left->col,
+                           fr->or_right->row, fr->or_right->col,
+                           0, 0, 0, 0, 0, 0, 0, 0);
+            }
             /* Update all marked cells. */
             for (i = 0; i < 37; i++) {
                 if (savedcol[i] >= fr->or_left->col &&

@@ -17,26 +17,39 @@ int are_frames(void) {
     return frame_base != NULL;
 }
 
-void add_frange(struct ent *or_left, struct ent *or_right,
-                struct ent *ir_left, struct ent *ir_right,
+void add_frange(int flags, int or1, int oc1, int or2, int oc2,
+                int ir1, int ic1, int ir2, int ic2,
                 int toprows, int bottomrows, int leftcols, int rightcols)
 {
+    struct ent *or_left, *or_right, *ir_left = NULL, *ir_right = NULL;
     struct frange *r;
     int minr, minc, maxr, maxc;
-
-    minr = or_left->row < or_right->row ? or_left->row : or_right->row;
-    minc = or_left->col < or_right->col ? or_left->col : or_right->col;
-    maxr = or_left->row > or_right->row ? or_left->row : or_right->row;
-    maxc = or_left->col > or_right->col ? or_left->col : or_right->col;
+    if (flags & FRANGE_FIND) {
+        r = find_frange(or1, oc1);
+        if (!r)
+            return;
+        or1 = r->or_left->row;
+        oc1 = r->or_left->col;
+        or2 = r->or_right->row;
+        oc2 = r->or_right->col;
+    }
+    minr = or1;
+    minc = oc1;
+    maxr = or2;
+    maxc = oc2;
+    if (minr > maxr) SWAPINT(minr, maxr);
+    if (minc > maxc) SWAPINT(minc, maxc);
 
     or_left = lookat(minr, minc);
     or_right = lookat(maxr, maxc);
 
-    if (ir_left) {
-        minr = ir_left->row < ir_right->row ? ir_left->row : ir_right->row;
-        minc = ir_left->col < ir_right->col ? ir_left->col : ir_right->col;
-        maxr = ir_left->row > ir_right->row ? ir_left->row : ir_right->row;
-        maxc = ir_left->col > ir_right->col ? ir_left->col : ir_right->col;
+    if (flags & FRANGE_INNER) {
+        minr = ir1;
+        minc = ic1;
+        maxr = ir2;
+        maxc = ic2;
+        if (minr > maxr) SWAPINT(minr, maxr);
+        if (minc > maxc) SWAPINT(minc, maxc);
 
         ir_left = lookat(minr, minc);
         ir_right = lookat(maxr, maxc);

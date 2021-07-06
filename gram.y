@@ -601,68 +601,77 @@ command:  S_LET var_or_range '=' e
         | S_ABBREV STRING       { doadd_abbr($2); }
         | S_ABBREV              { doadd_abbr(NULL); }
         | S_UNABBREV STRING     { dodel_abbr($2); }
-        | S_FRAME range range   { add_frange($2.left.vp, $2.right.vp,
-                                             $3.left.vp, $3.right.vp,
-                                             0, 0, 0, 0); }  // XXXX
+        | S_FRAME range range   { add_frange(FRANGE_DIRECT | FRANGE_INNER,
+                                             $2.left.vp->row, $2.left.vp->col,
+                                             $2.right.vp->row, $2.right.vp->col,
+                                             $3.left.vp->row, $3.left.vp->col,
+                                             $3.right.vp->row, $3.right.vp->col,
+                                             0, 0, 0, 0); }
         | S_FRAME range         { if (showrange) {
                                     showrange = 0;
-                                    add_frange($2.left.vp, $2.right.vp,
-                                               lookat(showsr, showsc), lookat(currow, curcol),
-                                               0, 0, 0, 0);  // XXXX
+                                    add_frange(FRANGE_DIRECT | FRANGE_INNER,
+                                               $2.left.vp->row, $2.left.vp->col,
+                                               $2.right.vp->row, $2.right.vp->col,
+                                               showsr, showsc, currow, curcol,
+                                               0, 0, 0, 0);
                                   } else {
-                                    struct frange *cfr = find_frange(currow, curcol);
-                                    if (cfr) {
-                                        add_frange(cfr->or_left, cfr->or_right,
-                                                   $2.left.vp, $2.right.vp,
-                                                   0, 0, 0, 0);  // XXXX
-                                    }
+                                      add_frange(FRANGE_FIND | FRANGE_INNER,
+                                                 currow, curcol, currow, curcol,
+                                                 $2.left.vp->row, $2.left.vp->col,
+                                                 $2.right.vp->row, $2.right.vp->col,
+                                                 0, 0, 0, 0);
                                   }
                                 }
-        | S_FRAME               { struct frange *cfr = find_frange(currow, curcol);
-                                  if (showrange && cfr) {
+        | S_FRAME               { if (showrange && find_frange(currow, curcol)) {
                                       showrange = 0;
-                                      add_frange(cfr->or_left, cfr->or_right,
-                                                 lookat(showsr, showsc), lookat(currow, curcol),
-                                                 0, 0, 0, 0);  // XXXX
+                                      add_frange(FRANGE_FIND | FRANGE_INNER,
+                                                 currow, curcol, currow, curcol,
+                                                 showsr, showsc, currow, curcol,
+                                                 0, 0, 0, 0);
                                   } else {
                                       error("Need both outer and inner"
                                             " ranges to create frame");
                                   }
                                 }
         | S_FRAMETOP range NUMBER
-                                { add_frange($2.left.vp, $2.right.vp,
-                                             NULL, NULL, $3, -1, -1, -1); }  // XXXX
-        | S_FRAMETOP NUMBER     { struct frange *cfr = find_frange(currow, curcol);
-                                  if (cfr)
-                                      add_frange(cfr->or_left, cfr->or_right,
-                                                 NULL, NULL, $2, -1, -1, -1); }  // XXXX
+                                { add_frange(FRANGE_DIRECT,
+                                             $2.left.vp->row, $2.left.vp->col,
+                                             $2.right.vp->row, $2.right.vp->col,
+                                             0, 0, 0, 0, $3, -1, -1, -1); }
+        | S_FRAMETOP NUMBER     { add_frange(FRANGE_FIND,
+                                             currow, curcol, currow, curcol,
+                                             0, 0, 0, 0, $2, -1, -1, -1); }
         | S_FRAMEBOTTOM range NUMBER
-                                { add_frange($2.left.vp, $2.right.vp,
-                                             NULL, NULL, -1, $3, -1, -1); }  // XXXX
-        | S_FRAMEBOTTOM NUMBER  { struct frange *cfr = find_frange(currow, curcol);
-                                  if (cfr)
-                                      add_frange(cfr->or_left, cfr->or_right,
-                                                 NULL, NULL, -1, $2, -1, -1); }  // XXXX
+                                { add_frange(FRANGE_DIRECT,
+                                             $2.left.vp->row, $2.left.vp->col,
+                                             $2.right.vp->row, $2.right.vp->col,
+                                             0, 0, 0, 0, -1, $3, -1, -1); }
+        | S_FRAMEBOTTOM NUMBER  { add_frange(FRANGE_FIND,
+                                             currow, curcol, currow, curcol,
+                                             0, 0, 0, 0, -1, $2, -1, -1); }
         | S_FRAMELEFT range NUMBER
-                                { add_frange($2.left.vp, $2.right.vp,
-                                             NULL, NULL, -1, -1, $3, -1); }  // XXXX
-        | S_FRAMELEFT NUMBER    { struct frange *cfr = find_frange(currow, curcol);
-                                  if (cfr)
-                                      add_frange(cfr->or_left, cfr->or_right,
-                                                 NULL, NULL, -1, -1, $2, -1); }  // XXXX
+                                { add_frange(FRANGE_DIRECT,
+                                             $2.left.vp->row, $2.left.vp->col,
+                                             $2.right.vp->row, $2.right.vp->col,
+                                             0, 0, 0, 0, -1, -1, $3, -1); }
+        | S_FRAMELEFT NUMBER    { add_frange(FRANGE_FIND,
+                                             currow, curcol, currow, curcol,
+                                             0, 0, 0, 0, -1, -1, $2, -1); }
         | S_FRAMERIGHT range NUMBER
-                                { add_frange($2.left.vp, $2.right.vp,
-                                             NULL, NULL, -1, -1, -1, $3); }  // XXXX
-        | S_FRAMERIGHT NUMBER   { struct frange *cfr = find_frange(currow, curcol);
-                                  if (cfr)
-                                      add_frange(cfr->or_left, cfr->or_right,
-                                                 NULL, NULL, -1, -1, -1, $2); }  // XXXX
-        | S_UNFRAME range       { add_frange($2.left.vp, $2.right.vp,
-                                             NULL, NULL, 0, 0, 0, 0); }  // XXXX
-        | S_UNFRAME             { struct frange *cfr = find_frange(currow, curcol);
-                                  if (cfr)
-                                      add_frange(cfr->or_left, cfr->or_right,
-                                                 NULL, NULL, 0, 0, 0, 0); }  // XXXX
+                                { add_frange(FRANGE_DIRECT,
+                                             $2.left.vp->row, $2.left.vp->col,
+                                             $2.right.vp->row, $2.right.vp->col,
+                                             0, 0, 0, 0, -1, -1, -1, $3); }
+        | S_FRAMERIGHT NUMBER   { add_frange(FRANGE_FIND,
+                                             currow, curcol, currow, curcol,
+                                             0, 0, 0, 0, -1, -1, -1, $2); }
+        | S_UNFRAME range       { add_frange(FRANGE_DIRECT,
+                                             $2.left.vp->row, $2.left.vp->col,
+                                             $2.right.vp->row, $2.right.vp->col,
+                                             0, 0, 0, 0, 0, 0, 0, 0); }
+        | S_UNFRAME             { add_frange(FRANGE_FIND,
+                                             currow, curcol, currow, curcol,
+                                             0, 0, 0, 0, 0, 0, 0, 0); }
         | S_COLOR NUMBER '='    { initcolor($2); }
         | S_COLOR NUMBER '=' e  { change_color($2, $4); }
         | S_COLOR range NUMBER  { add_crange($2.left.vp->row, $2.left.vp->col,
