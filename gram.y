@@ -524,17 +524,18 @@ command:  S_LET var_or_range '=' e
         | S_HIDE COL ':' COL    { hidecols($2, $4); }
         | S_HIDE NUMBER         { hiderows($2, $2); }
         | S_HIDE NUMBER ':' NUMBER { hiderows($2, $4); }
-        | S_COPY                { if (showrange) {
-                                    showrange = 0;
-                                    copy(lookat(showsr, showsc), lookat(currow, curcol), NULL, NULL);  // XXXX
-                                  } else {
-                                    copy(lookat(currow, curcol), lookat(currow, curcol), NULL, NULL);  // XXXX
-                                  }
-                                }
-        | S_COPY range          { copy($2.left.vp, $2.right.vp, NULL, NULL); }  // XXXX
+        | S_COPY                { copy(COPY_TO_CURRENT | COPY_FROM_DEF,
+                                       0, 0, 0, 0, 0, 0, 0, 0); }
+        | S_COPY range          { copy(COPY_TO_RANGE | COPY_FROM_DEF,
+                                       $2.left.vp->row, $2.left.vp->col,
+                                       $2.right.vp->row, $2.right.vp->col,
+                                       0, 0, 0, 0); }
         | S_COPY range var_or_range
-                                { copy($2.left.vp, $2.right.vp,
-                                       $3.left.vp, $3.right.vp); }  // XXXX
+                                { copy(COPY_TO_RANGE | COPY_FROM_RANGE,
+                                       $2.left.vp->row, $2.left.vp->col,
+                                       $2.right.vp->row, $2.right.vp->col,
+                                       $3.left.vp->row, $3.left.vp->col,
+                                       $3.right.vp->row, $3.right.vp->col); }
         | S_MOVE var            { mover($2.vp->row, $2.vp->col,
                                         showsr, showsc, currow, curcol); }
         | S_MOVE var var_or_range { mover($2.vp->row, $2.vp->col,
@@ -737,9 +738,12 @@ command:  S_LET var_or_range '=' e
         | S_PULLXCHG            { pullcells('x'); }
         | S_PULLTP              { pullcells('t'); }
         | S_PULLFMT             { pullcells('f'); }
-        | S_PULLCOPY            { copy(NULL, NULL, NULL, NULL); }
-        | S_PULLCOPY var_or_range { // XXX: fix this ugly hack
-                                    copy($2.left.vp, $2.right.vp, NULL, (struct ent *)1); }  // XXXX
+        | S_PULLCOPY            { copy(COPY_TO_CURRENT | COPY_FROM_QBUF,
+                                       0, 0, 0, 0, 0, 0, 0, 0); }
+        | S_PULLCOPY var_or_range { copy(COPY_TO_RANGE | COPY_FROM_QBUF,
+                                         $2.left.vp->row, $2.left.vp->col,
+                                         $2.right.vp->row, $2.right.vp->col,
+                                         0, 0, 0, 0); }
         | S_WHEREAMI            { cmd_whereami(macrofd); }
         | S_WHEREAMI '|' NUMBER { cmd_whereami($3); }
         | S_GETNUM var_or_range { getnum($2.left.vp->row, $2.left.vp->col,

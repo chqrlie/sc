@@ -21,7 +21,8 @@
 void checkbounds(int *rowp, int *colp) {
     if (*rowp < 0)
         *rowp = 0;
-    else if (*rowp >= maxrows) {
+    else
+    if (*rowp >= maxrows) {
         if (*colp >= maxcols) {
             if (!growtbl(GROWBOTH, *rowp, *colp)) {
                 *rowp = maxrows - 1;
@@ -36,7 +37,8 @@ void checkbounds(int *rowp, int *colp) {
     }
     if (*colp < 0)
         *colp = 0;
-    else if (*colp >= maxcols) {
+    else
+    if (*colp >= maxcols) {
         if (!growtbl(GROWCOL, 0, *colp))
             *colp = maxcols - 1;
     }

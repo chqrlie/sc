@@ -122,48 +122,57 @@ struct ent *lookat(int row, int col) {
 
 /* copy the current row (currow) and place the cursor in the new row */
 void duprow(void) {
-    int c1, c2, coltmp = curcol;
+    int row = currow, col = curcol;
+    int c1 = 0;
+    int c2 = maxcol;
     struct frange *fr;
 
-    fr = find_frange(currow, curcol);
-    c1 = fr ? fr->or_left->col : 0;
-    c2 = fr ? fr->or_right->col : maxcol;
+    if ((fr = find_frange(row, col))) {
+        c1 = fr->or_left->col;
+        c2 = fr->or_right->col;
+    }
 
-    if (currow >= maxrows - 1 || (!fr && maxrow >= maxrows - 1) ||
-        (fr && fr->or_right->row >= maxrows - 1)) {
+    // XXX: get rid of this test and check insertrow return value
+    if (row + 1 >= maxrows
+    ||  (!fr && maxrow + 1 >= maxrows)
+    ||  (fr && fr->or_right->row + 1 >= maxrows)) {
         if (!growtbl(GROWROW, 0, 0))
             return;
     }
-    modflg++;
     insertrow(1, 1);
-    for (curcol = c1; curcol <= c2; curcol++) {
-        struct ent *p = *ATBL(tbl, currow - 1, curcol);
+    modflg++;
+    // XXX: should use copy(row + 1, c1, row + 1, c2, row, c1, row, c2)
+    for (col = c1; col <= c2; col++) {
+        struct ent *p = *ATBL(tbl, row, col);
         if (p) {
-            struct ent *n = lookat(currow, curcol);
+            struct ent *n = lookat(row + 1, col);
             copyent(n, p, 1, 0, 0, 0, maxrow, maxcol, 0);
         }
     }
-    curcol = coltmp;
+    currow = row + 1;
 }
 
 /* copy the current column (curcol) and place the cursor in the new column */
 void dupcol(void) {
-    int rowtmp = currow;
+    int row, col = curcol;
 
-    if (curcol >= maxcols - 1 || maxcol >= maxcols - 1) {
+    // XXX: get rid of this test and check insertcol return value
+    if (col + 1 >= maxcols || maxcol + 1 >= maxcols) {
         if (!growtbl(GROWCOL, 0, 0))
             return;
     }
     modflg++;
     insertcol(1, 1);
-    for (currow = 0; currow <= maxrow; currow++) {
-        struct ent *p = *ATBL(tbl, currow, curcol - 1);
+    // XXX: should use copy(0, col + 1, maxrow, col + 1,
+    //                      0, col, maxrow, col)
+    for (row = 0; row <= maxrow; row++) {
+        struct ent *p = *ATBL(tbl, row, col);
         if (p) {
-            struct ent *n = lookat(currow, curcol);
+            struct ent *n = lookat(row, col + 1);
             copyent(n, p, 0, 1, 0, 0, maxrow, maxcol, 0);
         }
     }
-    currow = rowtmp;
+    curcol = col + 1;
 }
 
 /* Insert 'arg' rows.  The row(s) will be inserted before currow if delta
@@ -175,6 +184,7 @@ void insertrow(int arg, int delta) {
     int lim = maxrow - currow + 1;
     struct frange *fr;
 
+    // XXX: this is bogus! maxrow should never be >= maxrows
     if (currow > maxrow)
         maxrow = currow;
     maxrow += arg;
@@ -1274,50 +1284,56 @@ static void copydbuf(int deltar, int deltac) {
     }
 }
 
-void copy(struct ent *dv1, struct ent *dv2, struct ent *v1, struct ent *v2) {
+// XXX: get rid of this static mess
+static int copy_minsr = -1, copy_minsc = -1;
+static int copy_maxsr = -1, copy_maxsc = -1;
+
+void copy_set_source_range(int r1, int c1, int r2, int c2) {
+    copy_minsr = r1;
+    copy_minsc = c1;
+    copy_maxsr = r2;
+    copy_maxsc = c2;
+}
+
+void copy(int flags, int dr1, int dc1, int dr2, int dc2,
+          int sr1, int sc1, int sr2, int sc2)
+{
     struct ent *p;
-    // XXX: get rid of this static mess
-    static int minsr = -1, minsc = -1;
-    static int maxsr = -1, maxsc = -1;
-    // XXX: mindr and mindc are never set if (!dv1 && !showrange && v1)
-    int mindr, mindc;
-    int maxdr, maxdc;
+    int mindr, mindc, maxdr, maxdc;
+    int minsr, minsc, maxsr, maxsc;
     int deltar, deltac;
 
-    if (dv1) {
-        mindr = dv1->row;
-        mindc = dv1->col;
-        maxdr = dv2->row;
-        maxdc = dv2->col;
+    if (flags & COPY_TO_RANGE) {
+        mindr = dr1;
+        mindc = dc1;
+        maxdr = dr2;
+        maxdc = dc2;
         if (mindr > maxdr) SWAPINT(mindr, maxdr);
         if (mindc > maxdc) SWAPINT(mindc, maxdc);
-    } else {
+    } else
+    if (flags & COPY_TO_CURRENT) {
         if (showrange) {
             showrange = 0;
             mindr = showsr < currow ? showsr : currow;
             mindc = showsc < curcol ? showsc : curcol;
             maxdr = showsr > currow ? showsr : currow;
             maxdc = showsc > curcol ? showsc : curcol;
-        } else if (v1) {
-            /* Set up the default source range for the "c." command. */
-            minsr = maxsr = v1->row;
-            minsc = maxsc = v1->col;
-            return;
         } else {
             mindr = maxdr = currow;
             mindc = maxdc = curcol;
         }
-    }
+    } else
+        return;
 
-    if (v1) {
-        minsr = v1->row;
-        minsc = v1->col;
-        maxsr = v2->row;
-        maxsc = v2->col;
+    if (flags & COPY_FROM_RANGE) {
+        minsr = sr1;
+        minsc = sc1;
+        maxsr = sr2;
+        maxsc = sc2;
         if (minsr > maxsr) SWAPINT(minsr, maxsr);
         if (minsc > maxsc) SWAPINT(minsc, maxsc);
     } else
-    if (dv1 == NULL || v2 != NULL) {
+    if (flags & COPY_FROM_QBUF) {
         if (qbuf && delbuf[qbuf]) {
             ++dbidx;
             delbuf[dbidx] = delbuf[qbuf];
@@ -1328,22 +1344,33 @@ void copy(struct ent *dv1, struct ent *dv2, struct ent *v1, struct ent *v2) {
         minsc = maxcol;
         maxsr = 0;
         maxsc = 0;
+        // XXX: delbufs should behave like worksheets
+        //      there should be a defined range,
+        //      col and row properties and
+        //      a sparse cell array.
         for (p = delbuf[dbidx]; p; p = p->next) {
             if (p->row < minsr) minsr = p->row;
             if (p->row > maxsr) maxsr = p->row;
             if (p->col < minsc) minsc = p->col;
             if (p->col > maxsc) maxsc = p->col;
         }
-    } else if (showrange &&
-               !(showsr == currow && showsc == curcol &&
-                 mindr == currow && mindc == curcol &&
-                 maxdr == currow && maxdc == curcol)) {
-        minsr = showsr < currow ? showsr : currow;
-        minsc = showsc < curcol ? showsc : curcol;
-        maxsr = showsr > currow ? showsr : currow;
-        maxsc = showsc > curcol ? showsc : curcol;
+    } else
+    if (flags & COPY_FROM_CURRENT) {
+        if (showrange) {
+             minsr = showsr < currow ? showsr : currow;
+             minsc = showsc < curcol ? showsc : curcol;
+             maxsr = showsr > currow ? showsr : currow;
+             maxsc = showsc > curcol ? showsc : curcol;
+         } else {
+             minsr = maxsr = currow;
+             minsc = maxsc = curcol;
+         }
     } else {
         // XXX: use static values: check if we can avoid it
+        minsr = copy_minsr;
+        minsc = copy_minsc;
+        maxsr = copy_maxsr;
+        maxsc = copy_maxsc;
         if (minsr == -1)
             return;
     }
@@ -1352,8 +1379,13 @@ void copy(struct ent *dv1, struct ent *dv2, struct ent *v1, struct ent *v2) {
 
     if (maxdr - mindr < maxsr - minsr) maxdr = mindr + (maxsr - minsr);
     if (maxdc - mindc < maxsc - minsc) maxdc = mindc + (maxsc - minsc);
-    if (dv1 && (v1 || !v2))
+    if (!(flags & COPY_FROM_QBUF)) {
+        /* copy source cells to qbuf */
+        // XXX: should not be necessary if copy order is well chosen
+        //      or if source and destination do not overlap
         yank_area(minsr, minsc, maxsr, maxsc);
+    }
+
     erase_area(mindr, mindc, maxdr, maxdc, 0);
     sync_refs();
     flush_saved();
@@ -1387,12 +1419,12 @@ void copy(struct ent *dv1, struct ent *dv2, struct ent *v1, struct ent *v2) {
         copydbuf(deltar, deltac);
     }
 
-    if (dv1 && (v1 || !v2)) {
+    if (!(flags & COPY_FROM_QBUF)) {
         sync_refs();
         flush_saved();
     }
 
-    if (dv1 == NULL) {
+    if (flags & COPY_FROM_QBUF) {
         if (qbuf && delbuf[qbuf]) {
             delbuf[dbidx] = NULL;
             delbuffmt[dbidx] = NULL;

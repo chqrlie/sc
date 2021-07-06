@@ -1410,7 +1410,10 @@ void vi_interaction(void) {
                         break;
                     }
                     if (c == '.') {
-                        copy(NULL, NULL, lookat(currow, curcol), NULL);
+                        // XXX: horrible hack to set the copy()'s internal
+                        // static variables for the default source range
+                        // should get rid of this
+                        copy_set_source_range(currow, curcol, currow, curcol);
                         set_line("copy [dest_range src_range] ");
                         insert_mode();
                         startshow();
@@ -1427,6 +1430,11 @@ void vi_interaction(void) {
                     {
                         int c1;
                         struct ent *n;
+                        // XXX: incorrect: should first check for locked cells
+                        //      in destination area
+                        // XXX: should just use
+                        // copy(currow, curcol, currow, curcol + uarg - 1,
+                        //      savedrow[c], savedcol[c], savedrow[c], savedcol[c]);
 
                         p = *ATBL(tbl, savedrow[c], savedcol[c]);
                         for (c1 = curcol; uarg-- && c1 < maxcols; c1++) {

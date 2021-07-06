@@ -557,7 +557,15 @@ extern void deletecols(int c1, int c2);
 extern void closefile(FILE *f, int pid, int rfd);
 extern void closerow(int r, int numrow);
 extern void deleterows(int r1, int r2);
-extern void copy(struct ent *dv1, struct ent *dv2, struct ent *v1, struct ent *v2);
+extern void copy_set_source_range(int r1, int c1, int r2, int c2);
+#define COPY_FROM_RANGE   0x01
+#define COPY_FROM_QBUF    0x02
+#define COPY_FROM_CURRENT 0x04
+#define COPY_FROM_DEF     0x08
+#define COPY_TO_RANGE     0x10
+#define COPY_TO_CURRENT   0x20
+extern void copy(int flags, int dr1, int dc1, int dr2, int dc2,
+                 int sr1, int sc1, int sr2, int sc2);
 extern void copyent(struct ent *n, struct ent *p,
                     int dr, int dc, int r1, int c1, int r2, int c2, int transpose);
 extern int decompile(char *dest, size_t size, struct enode *e);
