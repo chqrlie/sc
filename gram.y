@@ -159,6 +159,16 @@ static void dohistfile(SCXMEM char *str) {
     scxfree(str);
 }
 
+static SCXMEM char *get_strarg(int row, int col) {
+    struct ent *p = lookat_nc(row, col);
+    if (p && p->label) {
+        return scxdup(p->label);
+    } else {
+        // XXX: should convert numeric value to string according to format?
+        return scxdup("NULL_STRING");
+    }
+}
+
 %}
 
 %union {
@@ -452,7 +462,7 @@ command:  S_LET var_or_range '=' e
         | S_CENTER              { if (showrange)
                                     range_align(showsr, showsc, currow, curcol, ALIGN_CENTER); }
         | S_ADDNOTE var         { if (showrange)
-                                    addnote($2.vp->row, $2.vp->col, currow, curcol, showsr, showsc);
+                                    addnote($2.vp->row, $2.vp->col, showsr, showsc, currow, curcol);
                                   else
                                     addnote($2.vp->row, $2.vp->col, currow, curcol, currow, curcol); }
         | S_ADDNOTE var var_or_range
@@ -1023,8 +1033,7 @@ num:      NUMBER            { $$ = (double)$1; }
         ;
 
 strarg:   STRING            { $$ = $1; }
-        | var               { // XXX: should convert numeric value to string according to format
-                              $$ = scxdup($1.vp->label ? $1.vp->label : "NULL_STRING"); }
+        | var               { $$ = get_strarg($1.vp->row, $1.vp->col); }
         ;
 
 /* allows >=1 'setitem's to be listed in the same 'set' command */
