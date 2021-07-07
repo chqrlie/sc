@@ -77,6 +77,34 @@ extern void fatal(const char *str);
 
 #define MAXCMD 160      /* for ! command and commands that use the pager */
 
+/* a cellref has a row, column, flags and sheet */
+typedef struct cellref cellref_t;
+struct cellref {
+    int row;
+    short col;
+    unsigned char sheet;
+    unsigned char vf;
+};
+
+#define FIX_ROW 1
+#define FIX_COL 2
+
+/* a rangeref has 2 cell references. The sheet should be identical */
+typedef struct rangeref rangeref_t;
+struct rangeref {
+    struct cellref left, right;
+};
+
+static inline cellref_t cellref(int row, int col, int vf) {
+    cellref_t cell = { row, col, vf, 0 };
+    return cell;
+}
+
+static inline rangeref_t rangeref(int r1, int c1, int vf1, int r2, int c2, int vf2) {
+    rangeref_t range = { { r1, c1, vf1, 0 }, { r2, c2, vf2, 0 } };
+    return range;
+}
+
 /*
  * ent_ptr holds the row/col # and address type of a cell
  *
@@ -121,9 +149,6 @@ struct ent {
     int row, nrow, nlastrow;    /* ncol/nrow:nlastcol/nlastrow link to note */
     struct ent *next;           /* next deleted ent (pulled, deleted cells) */
 };
-
-#define FIX_ROW 1
-#define FIX_COL 2
 
 /* stores type of operation this cell will perform */
 struct enode {
@@ -527,9 +552,9 @@ extern struct enode *copye(struct enode *e, int Rdelta, int Cdelta,
 
 extern SCXMEM struct enode *new(int op, SCXMEM struct enode *a1, SCXMEM struct enode *a2);
 extern SCXMEM struct enode *new_const(int op, double a1);
-extern SCXMEM struct enode *new_range(int op, struct range_s a1);
+extern SCXMEM struct enode *new_range(int op, rangeref_t rr);
 extern SCXMEM struct enode *new_str(SCXMEM char *s);
-extern SCXMEM struct enode *new_var(int op, struct ent_ptr a1);
+extern SCXMEM struct enode *new_var(int op, cellref_t cr);
 /* a linked list of free [struct ent]'s, uses .next as the pointer */
 extern struct ent *lookat(int row, int col);    /* allocates the cell */
 extern struct ent *lookat_nc(int row, int col); /* does not allocate the cell */

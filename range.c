@@ -23,7 +23,6 @@ int are_ranges(void) {
 void add_range(const char *name, int r1, int c1, int vf1,
                int r2, int c2, int vf2, int is_range)
 {
-    struct ent_ptr left, right;
     struct range *r;
     const char *p;
     int minr, minc, maxr, maxc;
@@ -54,11 +53,6 @@ void add_range(const char *name, int r1, int c1, int vf1,
         maxc = c1;
         maxcf = vf1 & FIX_COL;
     }
-
-    left.vp = lookat(minr, minc);
-    left.vf = minrf | mincf;
-    right.vp = lookat(maxr, maxc);
-    right.vf = maxrf | maxcf;
 
     if (!find_range_name(name, strlen(name), &prev)) {
         error("Error: range name \"%s\" already defined", name);
@@ -116,8 +110,10 @@ void add_range(const char *name, int r1, int c1, int vf1,
 
     r = scxmalloc(sizeof(struct range));
     r->r_name = scxdup(name);
-    r->r_left = left;
-    r->r_right = right;
+    r->r_left.vp = lookat(minr, minc);
+    r->r_left.vf = minrf | mincf;
+    r->r_right.vp = lookat(maxr, maxc);
+    r->r_right.vf = maxrf | maxcf;
     r->r_is_range = is_range;
     // link in doubly linked list
     if (prev) {

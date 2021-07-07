@@ -1381,7 +1381,7 @@ SCXMEM struct enode *new(int op, SCXMEM struct enode *a1, SCXMEM struct enode *a
     return p;
 }
 
-struct SCXMEM enode *new_var(int op, struct ent_ptr a1) {
+struct SCXMEM enode *new_var(int op, cellref_t cr) {
     SCXMEM struct enode *p;
 
     if (freeenodes) {
@@ -1391,11 +1391,12 @@ struct SCXMEM enode *new_var(int op, struct ent_ptr a1) {
         p = scxmalloc(sizeof(struct enode));
     }
     p->op = op;
-    p->e.v = a1;
+    p->e.v.vf = cr.vf;
+    p->e.v.vp = lookat(cr.row, cr.col);
     return p;
 }
 
-struct SCXMEM enode *new_range(int op, struct range_s a1) {
+struct SCXMEM enode *new_range(int op, rangeref_t rr) {
     SCXMEM struct enode *p;
 
     if (freeenodes) {
@@ -1405,7 +1406,10 @@ struct SCXMEM enode *new_range(int op, struct range_s a1) {
         p = scxmalloc(sizeof(struct enode));
     }
     p->op = op;
-    p->e.r = a1;
+    p->e.r.left.vf = rr.left.vf;
+    p->e.r.left.vp = lookat(rr.left.row, rr.left.col);
+    p->e.r.right.vf = rr.right.vf;
+    p->e.r.right.vp = lookat(rr.right.row, rr.right.col);
     return p;
 }
 

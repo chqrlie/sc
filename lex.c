@@ -33,10 +33,10 @@ static sigret_t fpe_trap(int);
 typedef union {
     int ival;
     double fval;
-    struct ent *ent;
-    struct enode *enode;
-    char *sval;
-    struct range_s rval;
+    SCXMEM char *sval;
+    SCXMEM struct enode *enode;
+    struct cellref cval;
+    struct rangeref rval;
 } YYSTYPE;
 extern YYSTYPE yylval;
 #else   /* VMS */
@@ -93,14 +93,24 @@ static struct key statres[] = {
     { 0, 0 }
 };
 
+/* Lexer context */
+// XXX: should warp in a structure for recursive calls to parse_line()
 static const char *src_line;
 static const char *src_pos;
+static int isfunc;
+static sc_bool_t isgoto;
+static sc_bool_t colstate;
+static int dateflag;
 
 int parse_line(const char *buf) {
     int ret;
     while (isspacechar(*buf))
         buf++;
     src_pos = src_line = buf;
+    isfunc = 0;
+    isgoto = 0;
+    colstate = 0;
+    dateflag = 0;
     ret = yyparse();
     src_pos = src_line = "";
     return ret;
@@ -110,18 +120,70 @@ void yyerror(const char *err) {
     parse_error(err, src_line, src_pos);
 }
 
+static int parse_col(const char *p, int len) {
+    int col;
+    if (len < 1 || !isalphachar(*p))
+        return -1;
+    col = toupperchar(p[0]) - 'A';
+    if (len == 1)
+        return col;
+    if (len > 2 || !isalphachar(p[1]))
+        return -1;
+    return (col + 1) * 26 + (toupperchar(p[1]) - 'A');
+}
+
+static int parse_cellref(const char *p, int len, cellref_t *cp) {
+    int i = 0, row, col, vf = 0;
+    if (i < len && p[i] == '$') {
+        i++;
+        vf |= FIX_COL;
+    }
+    if (!(i < len && isalphachar(p[i])))
+        return 0;
+    col = toupperchar(p[i++]) - 'A';
+    if (i < len && isalphachar(p[i])) {
+        col = (col + 1) * 26 + (toupperchar(p[i++]) - 'A');
+    }
+    if (i < len && p[i] == '$') {
+        i++;
+        vf |= FIX_ROW;
+    }
+    if (!(i < len && isdigitchar(p[i])))
+        return 0;
+    row = p[i++] - '0';
+    while (i < len && isdigitchar(p[i])) {
+        row = row * 10 + (p[i++] - '0');
+    }
+    if (i != len)
+        return 0;
+    *cp = cellref(row, col, vf);
+    return 1;
+}
+
+static int lookup_name(struct key *tblp, const char *p, int len) {
+    for (; tblp->key; tblp++) {
+        // XXX: ugly hard coded case mapped comparison
+        // XXX: the length test is bogus, accesses beyond the end of the string
+        if (((tblp->key[0] ^ p[0]) & 0x5F) == 0 && tblp->key[len] == '\0') {
+            /* Commenting the following line makes the search slower */
+            /* but avoids access outside valid memory. A binary lookup would   */
+            /* be the better alternative. */
+            int i;
+            for (i = 1; i < len && ((p[i] ^ tblp->key[i]) & 0x5F) == 0; i++)
+                continue;
+            if (i == len)
+                return tblp->val;
+        }
+    }
+    return -1;
+}
+
 int yylex(void) {
     char path[PATHLEN];
     const char *p = src_pos;
+    const char *p0;
     int ret = -1;
-
-    // XXX: static data in the lexer is toxic
-    static int isfunc = 0;
-    static sc_bool_t isgoto = 0;
-    static sc_bool_t colstate = 0;
-    static int dateflag;
-    static const char *tokenst = NULL;
-    static size_t tokenl;
+    struct range *r;
 
     for (;;) {
         if (isspacechar(*p)) {
@@ -131,100 +193,83 @@ int yylex(void) {
         if (*p == '[') {    /* syntax hint comment */
             while (*p && *p++ != ']')
                 continue;
-            src_pos = p;    // XXX: probably useless
-            tokenst = NULL; // XXX: probably useless
             continue;
         }
         if (*p == '\0') {
-            isfunc = isgoto = 0;
             ret = -1;
-        } else
-        if (isalphachar_(*p)) {
-            const char *la;      /* lookahead pointer */
-            struct key *tblp;
+            break;
+        }
+        src_pos = p0 = p;
+        if (isalphachar_(*p) || *p == '$') {
+            // XXX: should only accept '$' in cell references
+            for (p += 1; isalnumchar_(*p) || *p == '$'; p++)
+                continue;
 
-            if (!tokenst) {
-                tokenst = p;
-                tokenl = 0;
+            if (p0 == src_line) {
+                /* look up command name */
+                if ((ret = lookup_name(statres, p0, p - p0)) >= 0) {
+                    yylval.ival = ret;
+                    /* accept column names for some commands */
+                    colstate = (ret <= S_FORMAT);
+                    /* goto only accepts ERROR and INVALID as keywords */
+                    // XXX: should use proper context
+                    if (ret == S_GOTO) {
+                        isgoto = 1;
+                        isfunc = 1;
+                    }
+                    /* set accepts multiple keywords */
+                    if (ret == S_SET) isfunc = 100;
+                    break;
+                }
             }
-            /*
-             *  This picks up either 1 or 2 alpha characters (a column) or
-             *  tokens made up of alphanumeric chars and '_' (a function or
-             *  token or command or a range name)
-             */
-            while (isalphachar(*p)) {
-                p++;
-                tokenl++;
+            if (parse_cellref(p0, p - p0, &yylval.cval)) {
+                ret = VAR;
+                break;
             }
-            la = p;
-            while (isdigitchar(*la) || *la == '$')
-                la++;
-            /*
-             * A COL is 1 or 2 char alpha with nothing but digits following
-             * (no alpha or '_')
-             */
-            if (!isdigitchar(*tokenst) && tokenl && tokenl <= 2 &&
-                (colstate || (isdigitchar(la[-1]) && !(isalphachar_(*la))))) {
+            if (colstate && (yylval.ival = parse_col(p0, p - p0)) >= 0) {
                 ret = COL;
-                yylval.ival = atocol(tokenst, tokenl);
-            } else {
-                while (isalnumchar_(*p)) {
-                    p++;
-                    tokenl++;
-                }
-                ret = WORD;
-                if (src_pos == src_line || isfunc) {
-                    if (isfunc) isfunc--;
-                    /* initial blanks are ignored, so the test on src_pos is incorrect */
-                    for (tblp = src_pos > src_line ? experres : statres; tblp->key; tblp++) {
-                        // XXX: ugly hard coded case mapped comparison
-                        // XXX: the length test is bogus, accesses beyond the end of the string
-                        if (((tblp->key[0] ^ tokenst[0]) & 0x5F) == 0 && tblp->key[tokenl] == 0) {
-                            /* Commenting the following line makes the search slower */
-                            /* but avoids access outside valid memory. A BST would   */
-                            /* be the better alternative. */
-                            unsigned int i = 1;
-                            while (i < tokenl && ((tokenst[i] ^ tblp->key[i]) & 0x5F) == 0)
-                                i++;
-                            if (i >= tokenl) {
-                                ret = tblp->val;
-                                yylval.ival = ret;
-                                colstate = (ret <= S_FORMAT);
-                                if (isgoto) {
-                                    isfunc = isgoto = 0;
-                                    if (ret != K_ERROR && ret != K_INVALID)
-                                        ret = WORD;
-                                }
-                                break;
-                            }
-                        }
-                    }
-                }
-                if (ret == WORD) {
-                    struct range *r;
-                    if (!find_range_name(tokenst, tokenl, &r)) {
-                        yylval.rval.left = r->r_left;
-                        yylval.rval.right = r->r_right;
-                        if (r->r_is_range)
-                            ret = RANGE;
-                        else
-                            ret = VAR;
-                    } else
-                    if (plugin_exists(tokenst, tokenl, path, PATHLEN)) {
-                        // XXX: really catenate the rest of the input line?
-                        strlcat(path, p, PATHLEN);
-                        yylval.sval = scxdup(path);
-                        ret = PLUGIN;
+                break;
+            }
+            if (isfunc) {
+                isfunc--;
+                if ((yylval.ival = lookup_name(experres, p0, p - p0)) >= 0) {
+                    ret = yylval.ival;
+                    if (isgoto) {
+                        isfunc = isgoto = 0;
+                        if (ret == K_ERROR || ret == K_INVALID)
+                            break;
                     } else {
-                        src_pos = p;
-                        yyerror("Unintelligible word");
+                        break;
                     }
                 }
+            }
+            if (!find_range_name(p0, p - p0, &r)) {
+                if (r->r_is_range) {
+                    yylval.rval = rangeref(r->r_left.vp->row, r->r_left.vp->col, 0,
+                                           r->r_right.vp->row, r->r_right.vp->col, 0);
+                    ret = RANGE;
+                    break;
+                } else {
+                    yylval.cval = cellref(r->r_left.vp->row, r->r_left.vp->col, 0);
+                    ret = VAR;
+                    break;
+                }
+            } else
+            if (plugin_exists(p0, p - p0, path, PATHLEN)) {
+                // XXX: really catenate the rest of the input line?
+                strlcat(path, p, PATHLEN);
+                yylval.sval = scxdup(path);
+                ret = PLUGIN;
+                break;
+            } else {
+                yyerror("Unintelligible word");
+                ret = -1;
+                break;
             }
         } else
-        if ((*p == '.') || isdigitchar(*p)) {
+        if ((*p == '.' && isdigitchar(p[1])) || isdigitchar(*p)) {
             sigret_t (*sig_save)(int);
-            volatile double v = 0.0;
+            double v = 0.0;
             int temp;
             const char *nstart = p;
 
@@ -232,10 +277,9 @@ int yylex(void) {
             if (setjmp(fpe_buf)) {
                 signal(SIGFPE, sig_save);
                 // XXX: was: yylval.fval = v; but gcc complains about v getting clobbered
-                yylval.fval = v;
+                yylval.fval = 0.0;
                 error("Floating point exception\n");
                 isfunc = isgoto = 0;
-                tokenst = NULL;
                 return FNUMBER;
             }
 
@@ -244,12 +288,10 @@ int yylex(void) {
                 dateflag--;
             } else {
                 if (*p != '.') {
-                    tokenst = p;
-                    tokenl = 0;
+                    p0 = p;
                     do {
-                        v = v * 10.0 + (double)((unsigned) *p - '0');
-                        tokenl++;
-                    } while (isdigitchar(*++p));
+                        v = v * 10.0 + (double)((unsigned)*p++ - '0');
+                    } while (isdigitchar(*p));
                     if (dateflag) {
                         ret = NUMBER;
                         yylval.ival = (int)v;
@@ -307,6 +349,7 @@ int yylex(void) {
                 }
             }
             signal(SIGFPE, sig_save);
+            break;
         } else
         if (*p == '"') {
             const char *p1;
@@ -332,13 +375,12 @@ int yylex(void) {
             ret = STRING;
         } else {
             yylval.ival = ret = *p++;
+            if (ret == '@')
+                isfunc = 1;
         }
         break;
     }
     src_pos = p;
-    if (!isfunc) isfunc = ((ret == '@') + (ret == S_GOTO) - (ret == S_SET));
-    if (ret == S_GOTO) isgoto = TRUE;
-    tokenst = NULL;
     return ret;
 }
 
