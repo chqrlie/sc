@@ -269,7 +269,7 @@ int yylex(void) {
         } else
         if ((*p == '.' && isdigitchar(p[1])) || isdigitchar(*p)) {
             sigret_t (*sig_save)(int);
-            double v = 0.0;
+            volatile double v = 0.0;
             int temp;
             const char *nstart = p;
 
