@@ -14,7 +14,7 @@
 
 #define DEFCOLDELIM ':'
 
-void printfile(const char *fname, int r0, int c0, int rn, int cn) {
+void printfile(const char *fname, rangeref_t rr) {
     char field[FBUFLEN];
     buf_t(buf, FBUFLEN);
     FILE *f;
@@ -53,14 +53,14 @@ void printfile(const char *fname, int r0, int c0, int rn, int cn) {
         f = stdout;
     }
 
-    for (row = r0; row <= rn; row++) {
+    for (row = rr.left.row; row <= rr.right.row; row++) {
         int w = 0;
 
         if (row_hidden[row])
             continue;
 
         buf_reset(buf);
-        for (col = c0; col <= cn; col = nextcol, w += fieldlen) {
+        for (col = rr.left.col; col <= rr.right.col; col = nextcol, w += fieldlen) {
             struct ent *p = *ATBL(tbl, row, col);
             const char *s;
 
@@ -143,7 +143,7 @@ void printfile(const char *fname, int r0, int c0, int rn, int cn) {
                     continue;
                 }
                 /* Figure out if the label slops over to a blank field. */
-                while (slen > fieldlen && nextcol <= cn) {
+                while (slen > fieldlen && nextcol <= rr.right.col) {
                     if (!col_hidden[nextcol]) {
                         struct ent *nc = lookat(row, nextcol);
                         if ((nc->flags & IS_VALID) || nc->label)
@@ -183,7 +183,7 @@ void printfile(const char *fname, int r0, int c0, int rn, int cn) {
 
                 buf_repc(buf, ' ', pad);
                 buf_put(buf, s + soff, slen);
-                if (nextcol <= cn)
+                if (nextcol <= rr.right.col)
                     buf_repc(buf, ' ', w + fieldlen - buf->len);
             }
         }
@@ -215,10 +215,10 @@ static void unspecial(FILE *f, const char *str, int delim) {
     }
 }
 
-void tblprintfile(const char *fname, int r0, int c0, int rn, int cn) {
+void tblprintfile(const char *fname, rangeref_t rr) {
     FILE *f;
     int pid;
-    int row, col;
+    int row, col, ncols = rr.right.col - rr.left.col + 1;
     char coldelim = DEFCOLDELIM;
     char path[PATHLEN];
     char *ext;
@@ -267,27 +267,27 @@ void tblprintfile(const char *fname, int r0, int c0, int rn, int cn) {
     if (tbl_style == TBL) {
         fprintf(f, ".\\\" ** %s spreadsheet output \n.TS\n", progname);
         fprintf(f, "tab(%c);\n", coldelim);
-        for (col = c0; col <= cn; col++)
+        for (col = rr.left.col; col <= rr.right.col; col++)
             fprintf(f, " n");
         fprintf(f, ".\n");
     } else
     if (tbl_style == LATEX) {
         fprintf(f, "%% ** %s spreadsheet output\n\\begin{tabular}{", progname);
-        for (col = c0; col <= cn; col++)
+        for (col = rr.left.col; col <= rr.right.col; col++)
             fprintf(f, "c");
         fprintf(f, "}\n");
         coldelim = '&';
     } else
     if (tbl_style == SLATEX) {
         fprintf(f, "%% ** %s spreadsheet output\n!begin<tabular><", progname);
-        for (col = c0; col <= cn; col++)
+        for (col = rr.left.col; col <= rr.right.col; col++)
             fprintf(f, "c");
         fprintf(f, ">\n");
         coldelim = '&';
     } else
     if (tbl_style == TEX) {
         fprintf(f, "{\t%% ** %s spreadsheet output\n\\settabs %d \\columns\n",
-                progname, cn - c0 + 1);
+                progname, ncols);
         coldelim = '&';
     } else
     if (tbl_style == FRAME) {
@@ -298,7 +298,7 @@ void tblprintfile(const char *fname, int r0, int c0, int rn, int cn) {
         fprintf(f, "  <TblFormat \n");
         fprintf(f, "   <TblTag `Format A'> # Table Format Catalog\n");
         fprintf(f, "  > # end of TblFormat\n");
-        fprintf(f, "  <TblNumColumns %d> # Has %d columns\n", cn-c0+1, cn-c0+1);
+        fprintf(f, "  <TblNumColumns %d> # Has %d columns\n", ncols, ncols);
         fprintf(f, "  <TblTitleContent\n");
         fprintf(f, "   <Para\n");
         fprintf(f, "    <PgfTag `TableTitle'> # Forces lookup in Paragraph Format Catalog\n");
@@ -309,9 +309,10 @@ void tblprintfile(const char *fname, int r0, int c0, int rn, int cn) {
         fprintf(f, "  > # end of TblTitleContent\n");
         fprintf(f, "  <TblH # The heading\n");
         fprintf(f, "   <Row # The heading row\n");
-        for (col = c0; col <= cn; col++) {
+        for (col = rr.left.col; col <= rr.right.col; col++) {
             fprintf(f, "    <Cell <CellContent <Para # Cell in column \n");
             fprintf(f, "       <PgfTag `CellHeading'> # in Paragraph Format Catalog\n");
+            // XXX: incorrect for columns beyond 25
             fprintf(f, "       <ParaLine <String `%c'>>\n", 'A'+col);
             fprintf(f, "    >>> # end of Cell\n");
         }
@@ -320,7 +321,7 @@ void tblprintfile(const char *fname, int r0, int c0, int rn, int cn) {
         fprintf(f, "  <TblBody # The body\n");
     }
 
-    for (row = r0; row <= rn; row++) {
+    for (row = rr.left.row; row <= rr.right.row; row++) {
         // XXX: print hidden rows?
 
         if (tbl_style == TEX)
@@ -330,7 +331,7 @@ void tblprintfile(const char *fname, int r0, int c0, int rn, int cn) {
             fprintf(f, "   <Row # The next body row\n");
         }
 
-        for (col = c0; col <= cn; col++) {
+        for (col = rr.left.col; col <= rr.right.col; col++) {
             struct ent *p = *ATBL(tbl, row, col);
             const char *s;
 
@@ -373,16 +374,16 @@ void tblprintfile(const char *fname, int r0, int c0, int rn, int cn) {
                 fprintf(f, "'>>\n");
                 fprintf(f, "    >>> # end of Cell\n");
             }
-            if (col < cn) {
+            if (col < rr.right.col) {
                 if (tbl_style != FRAME)
                     fprintf(f, "%c", coldelim);
             }
         }
         if (tbl_style == LATEX) {
-            if (row < rn) fprintf (f, "\\\\");
+            if (row < rr.right.row) fprintf (f, "\\\\");
         } else
         if (tbl_style == SLATEX) {
-            if (row < rn) fprintf(f, "!!");
+            if (row < rr.right.row) fprintf(f, "!!");
         } else
         if (tbl_style == TEX) {
             fprintf (f, "\\cr");

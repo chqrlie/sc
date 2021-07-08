@@ -93,32 +93,32 @@ void change_color(int pair, struct enode *e) {
     FullUpdate++;
 }
 
-void add_crange(int r1, int c1, int r2, int c2, int pair) {
+void del_crange(struct crange *r) {
+    if (r) {
+        if (r->r_next)
+            r->r_next->r_prev = r->r_prev;
+        else
+            color_tail = r->r_prev;
+        if (r->r_prev)
+            r->r_prev->r_next = r->r_next;
+        else
+            color_base = r->r_next;
+        scxfree(r);
+    }
+}
+
+void add_crange(rangeref_t rr, int pair) {
     struct crange *r;
-    int minr = r1;
-    int minc = c1;
-    int maxr = r2;
-    int maxc = c2;
-    if (minr > maxr) SWAPINT(minr, maxr);
-    if (minc > maxc) SWAPINT(minc, maxc);
-    checkbounds(&maxr, &maxc);
-    if (minr < 0) minr = 0;
-    if (minc < 0) minc = 0;
+
+    range_normalize(&rr);
 
     if (!pair) {
+        /* remove color range */
         for (r = color_base; r; r = r->r_next) {
-            if ((r->r_left->row == minr) && (r->r_left->col == minc) &&
-                (r->r_right->row == maxr) && (r->r_right->col == maxc))
+            if ((r->r_left->row == rr.left.row) && (r->r_left->col == rr.left.col)
+            &&  (r->r_right->row == rr.right.row) && (r->r_right->col == rr.right.col))
             {
-                if (r->r_next)
-                    r->r_next->r_prev = r->r_prev;
-                else
-                    color_tail = r->r_prev;
-                if (r->r_prev)
-                    r->r_prev->r_next = r->r_next;
-                else
-                    color_base = r->r_next;
-                scxfree(r);
+                del_crange(r);
                 modflg++;
                 FullUpdate++;
                 return;
@@ -129,8 +129,8 @@ void add_crange(int r1, int c1, int r2, int c2, int pair) {
     }
 
     r = scxmalloc(sizeof(struct crange));
-    r->r_left = lookat(minr, minc);
-    r->r_right = lookat(maxr, maxc);
+    r->r_left = lookat(rr.left.row, rr.left.col);
+    r->r_right = lookat(rr.right.row, rr.right.col);
     r->r_color = pair;
 
     r->r_next = color_base;
@@ -232,6 +232,7 @@ void fix_colors(int row1, int col1, int row2, int col2, int delta1, int delta2) 
     struct crange *cr, *ncr;
     struct frange *fr;
 
+    // XXX: this should be an argument
     fr = find_frange(currow, curcol);
 
     for (cr = color_base; cr; cr = ncr) {
@@ -255,9 +256,7 @@ void fix_colors(int row1, int col1, int row2, int col2, int delta1, int delta2) 
             (row1 >= 0 && row2 >= 0 && row1 <= r1 && row2 >= r2) ||
             (col1 >= 0 && col2 >= 0 && col1 <= c1 && col2 >= c2))
         {
-            /* the 0 means delete color range */
-            add_crange(cr->r_left->row, cr->r_left->col,
-                       cr->r_right->row, cr->r_right->col, 0);
+            del_crange(cr);
         } else {
             cr->r_left = lookat(r1, c1);
             cr->r_right = lookat(r2, c2);

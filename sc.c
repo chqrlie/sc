@@ -342,7 +342,7 @@ int main(int argc, char **argv) {
 
     if (!isatty(STDOUT_FILENO)) {
         stopdisp();
-        write_fd(stdout, 0, 0, maxrow, maxcol);
+        write_fd(stdout, rangeref_total());
         return EXIT_SUCCESS;
     }
 
@@ -358,9 +358,9 @@ static void diesave(void) {
 
     if (modcheck(" before Spreadsheet dies") == 1) {
         snprintf(path, sizeof path, "~/%s", SAVENAME);
-        if (writefile(path, 0, 0, maxrow, maxcol) < 0) {
+        if (writefile(path, rangeref_total()) < 0) {
             snprintf(path, sizeof path, "/tmp/%s", SAVENAME);
-            if (writefile(path, 0, 0, maxrow, maxcol) < 0)
+            if (writefile(path, rangeref_total()) < 0)
                 error("Couldn't save current spreadsheet, Sorry");
         }
     }

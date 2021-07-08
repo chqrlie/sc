@@ -1,5 +1,7 @@
 # TODO
 
+[ ] use rangeref_t and HAS_NOTE flag for notes
+[ ] use rangeref_t for find_range_coords()
 [ ] pass cell locations and ranges as sets of coordinates instead of
     allocated cell pointers in gram.y
 [ ] change representation for ranges: abs/rel coords instead of pointers

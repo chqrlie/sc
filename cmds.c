@@ -120,6 +120,25 @@ struct ent *lookat(int row, int col) {
     return *pp;
 }
 
+void range_normalize(rangeref_t *rr) {
+    if (rr->left.row > rr->right.row) {
+        int row = rr->left.row;
+        rr->left.row = rr->right.row;
+        rr->right.row = row;
+        rr->left.vf ^= rr->right.vf & FIX_ROW;
+        rr->right.vf ^= rr->left.vf & FIX_ROW;
+        rr->left.vf ^= rr->right.vf & FIX_ROW;
+    }
+    if (rr->left.col > rr->right.col) {
+        int col = rr->left.col;
+        rr->left.col = rr->right.col;
+        rr->right.col = col;
+        rr->left.vf ^= rr->right.vf & FIX_COL;
+        rr->right.vf ^= rr->left.vf & FIX_COL;
+        rr->left.vf ^= rr->right.vf & FIX_COL;
+    }
+}
+
 /* copy the current row (currow) and place the cursor in the new row */
 void duprow(void) {
     int row = currow, col = curcol;
@@ -211,14 +230,14 @@ void insertrow(int arg, int delta) {
                 savedstcol[i] <= fr->or_right->col)
                 savedstrow[i] += arg;
         }
-        if (gs.g_row >= currow + delta &&
-            gs.g_col >= fr->or_left->col &&
-            gs.g_col <= fr->or_right->col)
-            gs.g_row += arg;
-        if (gs.g_lastrow >= currow + delta &&
-            gs.g_lastcol >= fr->or_left->col &&
-            gs.g_lastcol <= fr->or_right->col)
-            gs.g_lastrow += arg;
+        if (gs.g_rr.left.row >= currow + delta &&
+            gs.g_rr.left.col >= fr->or_left->col &&
+            gs.g_rr.left.col <= fr->or_right->col)
+            gs.g_rr.left.row += arg;
+        if (gs.g_rr.right.row >= currow + delta &&
+            gs.g_rr.right.col >= fr->or_left->col &&
+            gs.g_rr.right.col <= fr->or_right->col)
+            gs.g_rr.right.row += arg;
         if (gs.strow >= currow + delta &&
             gs.stcol >= fr->or_left->col &&
             gs.stcol <= fr->or_right->col)
@@ -263,10 +282,10 @@ void insertrow(int arg, int delta) {
             if (savedstrow[i] >= currow + delta)
                 savedstrow[i] += arg;
         }
-        if (gs.g_row >= currow + delta)
-            gs.g_row += arg;
-        if (gs.g_lastrow >= currow + delta)
-            gs.g_lastrow += arg;
+        if (gs.g_rr.left.row >= currow + delta)
+            gs.g_rr.left.row += arg;
+        if (gs.g_rr.right.row >= currow + delta)
+            gs.g_rr.right.row += arg;
         if (gs.strow >= currow + delta)
             gs.strow += arg;
         for (r = 0; r <= maxrow; r++) {
@@ -336,10 +355,10 @@ void insertcol(int arg, int delta) {
         if (savedstcol[c] >= curcol + delta)
             savedstcol[c] += arg;
     }
-    if (gs.g_col >= curcol + delta)
-        gs.g_col += arg;
-    if (gs.g_lastcol >= curcol + delta)
-        gs.g_lastcol += arg;
+    if (gs.g_rr.left.col >= curcol + delta)
+        gs.g_rr.left.col += arg;
+    if (gs.g_rr.right.col >= curcol + delta)
+        gs.g_rr.right.col += arg;
     if (gs.stcol >= curcol + delta)
         gs.stcol += arg;
 
@@ -355,11 +374,9 @@ void insertcol(int arg, int delta) {
             }
         }
     }
-    if (!delta && (fr = find_frange(currow, curcol)) &&
-            fr->ir_left->col == curcol + arg)
+    if (!delta && (fr = find_frange(currow, curcol)) && fr->ir_left->col == curcol + arg)
         fr->ir_left = lookat(fr->ir_left->row, fr->ir_left->col - arg);
-    if (delta && (fr = find_frange(currow, curcol)) &&
-            fr->ir_right->col == curcol)
+    if (delta && (fr = find_frange(currow, curcol)) && fr->ir_right->col == curcol)
         fr->ir_right = lookat(fr->ir_right->row, fr->ir_right->col + arg);
     fix_ranges(-1, curcol + arg * (1 - delta), -1, curcol + arg * (1 - delta),
                delta ? 0 : arg, delta ? arg : 0);
@@ -406,11 +423,8 @@ void deleterows(int r1, int r2) {
                           fr->or_right->row, fr->or_right->col);
             }
             if (fr->ir_left->row > fr->ir_right->row) {
-                // XXX: del_frange
-                add_frange(FRANGE_DIRECT,
-                           fr->or_left->row, fr->or_left->col,
-                           fr->or_right->row, fr->or_right->col,
-                           0, 0, 0, 0, 0, 0, 0, 0);
+                del_frange(fr);
+                fr = NULL;
             }
             /* Update all marked cells. */
             for (i = 0; i < 37; i++) {
@@ -429,20 +443,20 @@ void deleterows(int r1, int r2) {
                         savedstrow[i] -= nrows;
                 }
             }
-            if (gs.g_col >= fr->or_left->col && gs.g_col <= fr->or_right->col) {
-                if (gs.g_row >= r1 && gs.g_row <= r2)
-                    gs.g_row = r1;
-                if (gs.g_row > r2)
-                    gs.g_row -= nrows;
+            if (gs.g_rr.left.col >= fr->or_left->col && gs.g_rr.left.col <= fr->or_right->col) {
+                if (gs.g_rr.left.row >= r1 && gs.g_rr.left.row <= r2)
+                    gs.g_rr.left.row = r1;
+                if (gs.g_rr.left.row > r2)
+                    gs.g_rr.left.row -= nrows;
             }
-            if (gs.g_lastcol >= fr->or_left->col && gs.g_lastcol <= fr->or_right->col) {
-                if (gs.g_lastrow >= r1 && gs.g_lastrow <= r2)
-                    gs.g_lastrow = r1 - 1;
-                if (gs.g_lastrow > r2)
-                    gs.g_lastrow -= nrows;
+            if (gs.g_rr.right.col >= fr->or_left->col && gs.g_rr.right.col <= fr->or_right->col) {
+                if (gs.g_rr.right.row >= r1 && gs.g_rr.right.row <= r2)
+                    gs.g_rr.right.row = r1 - 1;
+                if (gs.g_rr.right.row > r2)
+                    gs.g_rr.right.row -= nrows;
             }
-            if (gs.g_row > gs.g_lastrow)
-                gs.g_row = gs.g_col = -1;
+            if (gs.g_rr.left.row > gs.g_rr.right.row)
+                gs.g_rr.left.row = gs.g_rr.left.col = -1;
             if (gs.stcol >= fr->or_left->col && gs.stcol <= fr->or_right->col) {
                 if (gs.strow >= r1 && gs.strow <= r2)
                     gs.strow = r1;
@@ -752,29 +766,21 @@ void move_area(int dr, int dc, int sr, int sc, int er, int ec) {
  * deletes the expression associated w/ a cell and turns it into a constant
  * containing whatever was on the screen
  */
-void valueize_area(int sr, int sc, int er, int ec) {
+void valueize_area(rangeref_t rr) {
     int r, c;
-    struct ent *p;
 
-    if (sr > er) SWAPINT(sr, er);
-    if (sc > ec) SWAPINT(sc, ec);
-    if (sr < 0) sr = 0;
-    if (sc < 0) sc = 0;
-    checkbounds(&er, &ec);
-
-    for (r = sr; r <= er; r++) {
-        for (c = sc; c <= ec; c++) {
-            p = *ATBL(tbl, r, c);
-            if (p) {
+    range_normalize(&rr);
+    for (r = rr.left.row; r <= rr.right.row; r++) {
+        for (c = rr.left.col; c <= rr.right.col; c++) {
+            struct ent *p = *ATBL(tbl, r, c);
+            if (p && p->expr) {
                 if (p->flags & IS_LOCKED) {
                     error(" Cell %s%d is locked", coltoa(c), r);
                     continue;
                 }
-                if (p->expr) {
-                    efree(p->expr);
-                    p->expr = NULL;
-                    p->flags &= ~IS_STREXPR;
-                }
+                efree(p->expr);
+                p->expr = NULL;
+                p->flags &= ~IS_STREXPR;
             }
         }
     }
@@ -1019,16 +1025,16 @@ void closerow(int rs, int numrow) {
         if (savedstrow[i] >= rs + numrow)
             savedstrow[i] -= numrow;
     }
-    if (gs.g_row >= rs && gs.g_row < rs + numrow)
-        gs.g_row = rs;
-    if (gs.g_row >= rs + numrow)
-        gs.g_row -= numrow;
-    if (gs.g_lastrow >= rs && gs.g_lastrow < rs + numrow)
-        gs.g_lastrow = rs - 1;
-    if (gs.g_lastrow >= rs + numrow)
-        gs.g_lastrow -= numrow;
-    if (gs.g_row > gs.g_lastrow)
-        gs.g_row = gs.g_col = -1;
+    if (gs.g_rr.left.row >= rs && gs.g_rr.left.row < rs + numrow)
+        gs.g_rr.left.row = rs;
+    if (gs.g_rr.left.row >= rs + numrow)
+        gs.g_rr.left.row -= numrow;
+    if (gs.g_rr.right.row >= rs && gs.g_rr.right.row < rs + numrow)
+        gs.g_rr.right.row = rs - 1;
+    if (gs.g_rr.right.row >= rs + numrow)
+        gs.g_rr.right.row -= numrow;
+    if (gs.g_rr.left.row > gs.g_rr.right.row)
+        gs.g_rr.left.row = gs.g_rr.left.col = -1;
     if (gs.strow >= rs && gs.strow < rs + numrow)
         gs.strow = rs;
     if (gs.strow >= rs + numrow)
@@ -1161,16 +1167,16 @@ void deletecols(int c1, int c2) {
         if (savedstcol[i] > c2)
             savedstcol[i] -= ncols;
     }
-    if (gs.g_col >= c1 && gs.g_col <= c2)
-        gs.g_col = c1;
-    if (gs.g_col > c2)
-        gs.g_col -= ncols;
-    if (gs.g_lastcol >= c1 && gs.g_lastcol <= c2)
-        gs.g_lastcol = c1 - 1;
-    if (gs.g_lastcol > c2)
-        gs.g_lastcol -= ncols;
-    if (gs.g_col > gs.g_lastcol)
-        gs.g_row = gs.g_col = -1;
+    if (gs.g_rr.left.col >= c1 && gs.g_rr.left.col <= c2)
+        gs.g_rr.left.col = c1;
+    if (gs.g_rr.left.col > c2)
+        gs.g_rr.left.col -= ncols;
+    if (gs.g_rr.right.col >= c1 && gs.g_rr.right.col <= c2)
+        gs.g_rr.right.col = c1 - 1;
+    if (gs.g_rr.right.col > c2)
+        gs.g_rr.right.col -= ncols;
+    if (gs.g_rr.left.col > gs.g_rr.right.col)
+        gs.g_rr.left.row = gs.g_rr.left.col = -1;
     if (gs.stcol >= c1 && gs.stcol <= c2)
         gs.stcol = c1;
     if (gs.stcol > c2)
@@ -1247,16 +1253,14 @@ void cmd_format(int c1, int c2, int w, int p, int r) {
     modflg++;
 }
 
-void range_align(int sr, int sc, int er, int ec, int align) {
-    struct ent *p;
-    int i, j;
+void range_align(rangeref_t rr, int align) {
+    int r, c;
 
-    if (sr > er) SWAPINT(sr, er);
-    if (sc > ec) SWAPINT(sc, ec);
-    for (i = sr; i <= er; i++) {
-        for (j = sc; j <= ec; j++) {
-            p = *ATBL(tbl, i, j);
-            if (p) {
+    range_normalize(&rr);
+    for (r = rr.left.row; r <= rr.right.row; r++) {
+        for (c = rr.left.col; c <= rr.right.col; c++) {
+            struct ent *p = *ATBL(tbl, r, c);
+            if (p && (p->flags & ALIGN_MASK) != align) {
                 p->flags &= ~ALIGN_MASK;
                 p->flags |= IS_CHANGED | align;
                 changed++;
@@ -1295,43 +1299,24 @@ void copy_set_source_range(int r1, int c1, int r2, int c2) {
     copy_maxsc = c2;
 }
 
-void copy(int flags, int dr1, int dc1, int dr2, int dc2,
-          int sr1, int sc1, int sr2, int sc2)
-{
+void copy(int flags, rangeref_t drr, rangeref_t srr) {
     struct ent *p;
     int mindr, mindc, maxdr, maxdc;
     int minsr, minsc, maxsr, maxsc;
     int deltar, deltac;
 
-    if (flags & COPY_TO_RANGE) {
-        mindr = dr1;
-        mindc = dc1;
-        maxdr = dr2;
-        maxdc = dc2;
-        if (mindr > maxdr) SWAPINT(mindr, maxdr);
-        if (mindc > maxdc) SWAPINT(mindc, maxdc);
-    } else
-    if (flags & COPY_TO_CURRENT) {
-        if (showrange) {
-            showrange = 0;
-            mindr = showsr < currow ? showsr : currow;
-            mindc = showsc < curcol ? showsc : curcol;
-            maxdr = showsr > currow ? showsr : currow;
-            maxdc = showsc > curcol ? showsc : curcol;
-        } else {
-            mindr = maxdr = currow;
-            mindc = maxdc = curcol;
-        }
-    } else
-        return;
+    range_normalize(&drr);
+    mindr = drr.left.row;
+    mindc = drr.left.col;
+    maxdr = drr.right.row;
+    maxdc = drr.right.col;
 
     if (flags & COPY_FROM_RANGE) {
-        minsr = sr1;
-        minsc = sc1;
-        maxsr = sr2;
-        maxsc = sc2;
-        if (minsr > maxsr) SWAPINT(minsr, maxsr);
-        if (minsc > maxsc) SWAPINT(minsc, maxsc);
+        range_normalize(&drr);
+        minsr = srr.left.row;
+        minsc = srr.left.col;
+        maxsr = srr.right.row;
+        maxsc = srr.right.col;
     } else
     if (flags & COPY_FROM_QBUF) {
         if (qbuf && delbuf[qbuf]) {
@@ -1355,17 +1340,7 @@ void copy(int flags, int dr1, int dc1, int dr2, int dc2,
             if (p->col > maxsc) maxsc = p->col;
         }
     } else
-    if (flags & COPY_FROM_CURRENT) {
-        if (showrange) {
-             minsr = showsr < currow ? showsr : currow;
-             minsc = showsc < curcol ? showsc : curcol;
-             maxsr = showsr > currow ? showsr : currow;
-             maxsc = showsc > curcol ? showsc : curcol;
-         } else {
-             minsr = maxsr = currow;
-             minsc = maxsc = curcol;
-         }
-    } else {
+    if (flags & COPY_FROM_DEF) {
         // XXX: use static values: check if we can avoid it
         minsr = copy_minsr;
         minsc = copy_minsc;
@@ -1373,6 +1348,8 @@ void copy(int flags, int dr1, int dc1, int dr2, int dc2,
         maxsc = copy_maxsc;
         if (minsr == -1)
             return;
+    } else {
+        return;
     }
 
     checkbounds(&maxdr, &maxdc);
@@ -1387,6 +1364,7 @@ void copy(int flags, int dr1, int dc1, int dr2, int dc2,
     }
 
     erase_area(mindr, mindc, maxdr, maxdc, 0);
+
     sync_refs();
     flush_saved();
 
@@ -1436,7 +1414,7 @@ void copy(int flags, int dr1, int dc1, int dr2, int dc2,
 }
 
 /* ERASE a Range of cells */
-void eraser(int r1, int c1, int r2, int c2) {
+void eraser(rangeref_t rr) {
     int i;
     struct ent *obuf = NULL;
 
@@ -1460,7 +1438,7 @@ void eraser(int r1, int c1, int r2, int c2) {
         flush_saved();
         obuf = delbuf[qbuf];    /* orig. contents of the del. buffer */
     }
-    erase_area(r1, c1, r2, c2, 0);
+    erase_area(rr.left.row, rr.left.col, rr.right.row, rr.right.col, 0);
     sync_refs();
     for (i = 0; i < DELBUFSIZE; i++) {
         if ((obuf && delbuf[i] == obuf) || (qbuf && i == qbuf)) {
@@ -1480,7 +1458,7 @@ void eraser(int r1, int c1, int r2, int c2) {
 }
 
 /* YANK a Range of cells */
-void yankr(int r1, int c1, int r2, int c2) {
+void yankr(rangeref_t rr) {
     int i, qtmp;
     struct ent *obuf = NULL;
 
@@ -1506,7 +1484,7 @@ void yankr(int r1, int c1, int r2, int c2) {
     }
     qtmp = qbuf;
     qbuf = 0;
-    yank_area(r1, c1, r2, c2);
+    yank_area(rr.left.row, rr.left.col, rr.right.row, rr.right.col);
     qbuf = qtmp;
     for (i = 0; i < DELBUFSIZE; i++) {
         if ((obuf && delbuf[i] == obuf) || (qbuf && i == qbuf)) {
@@ -1520,31 +1498,24 @@ void yankr(int r1, int c1, int r2, int c2) {
 }
 
 /* MOVE a Range of cells */
-void mover(int dr, int dc, int r1, int c1, int r2, int c2) {
-    move_area(dr, dc, r1, c1, r2, c2);
+void mover(cellref_t cr, rangeref_t rr) {
+    move_area(cr.row, cr.col,
+              rr.left.row, rr.left.col, rr.right.row, rr.right.col);
     sync_refs();
     FullUpdate++;
 }
 
 /* fill a range with constants */
-void fill(int r1, int c1, int r2, int c2, double start, double inc) {
+void fillr(rangeref_t rr, double start, double inc) {
     int r, c;
-    struct ent *n;
-    int minr = r1;
-    int minc = c1;
-    int maxr = r2;
-    int maxc = c2;
-    if (minr > maxr) SWAPINT(minr, maxr);
-    if (minc > maxc) SWAPINT(minc, maxc);
-    checkbounds(&maxr, &maxc);
-    if (minr < 0) minr = 0;
-    if (minc < 0) minc = 0;
+
+    range_normalize(&rr);
 
     FullUpdate++;
     if (calc_order == BYROWS) {
-        for (r = minr; r <= maxr; r++) {
-            for (c = minc; c <= maxc; c++) {
-                n = lookat(r, c);
+        for (r = rr.left.row; r <= rr.right.row; r++) {
+            for (c = rr.left.col; c <= rr.right.col; c++) {
+                struct ent *n = lookat(r, c);
                 if (n->flags & IS_LOCKED) continue;
                 // XXX: why clear the format and alignment?
                 clearent(n);
@@ -1556,9 +1527,9 @@ void fill(int r1, int c1, int r2, int c2, double start, double inc) {
         }
     } else
     if (calc_order == BYCOLS) {
-        for (c = minc; c <= maxc; c++) {
-            for (r = minr; r <= maxr; r++) {
-                n = lookat(r, c);
+        for (c = rr.left.col; c <= rr.right.col; c++) {
+            for (r = rr.left.row; r <= rr.right.row; r++) {
+                struct ent *n = lookat(r, c);
                 // XXX: why clear the format and alignment?
                 clearent(n);
                 n->v = start;
@@ -1575,22 +1546,14 @@ void fill(int r1, int c1, int r2, int c2, double start, double inc) {
 
 /* lock a range of cells */
 
-void lock_cells(int r1, int c1, int r2, int c2) {
+void lock_cells(rangeref_t rr) {
     int r, c;
-    struct ent *n;
-    int minr = r1;
-    int minc = c1;
-    int maxr = r2;
-    int maxc = c2;
-    if (minr > maxr) SWAPINT(minr, maxr);
-    if (minc > maxc) SWAPINT(minc, maxc);
-    checkbounds(&maxr, &maxc);
-    if (minr < 0) minr = 0;
-    if (minc < 0) minc = 0;
 
-    for (r = minr; r <= maxr; r++) {
-        for (c = minc; c <= maxc; c++) {
-            n = lookat(r, c);
+    range_normalize(&rr);
+    for (r = rr.left.row; r <= rr.right.row; r++) {
+        for (c = rr.left.col; c <= rr.right.col; c++) {
+            struct ent *n = lookat(r, c);
+            // XXX: update IS_CHANGED?
             n->flags |= IS_LOCKED;
         }
     }
@@ -1598,48 +1561,31 @@ void lock_cells(int r1, int c1, int r2, int c2) {
 
 /* unlock a range of cells */
 
-void unlock_cells(int r1, int c1, int r2, int c2) {
+void unlock_cells(rangeref_t rr) {
     int r, c;
-    struct ent *n;
-    int minr = r1;
-    int minc = c1;
-    int maxr = r2;
-    int maxc = c2;
-    if (minr > maxr) SWAPINT(minr, maxr);
-    if (minc > maxc) SWAPINT(minc, maxc);
-    checkbounds(&maxr, &maxc);
-    if (minr < 0) minr = 0;
-    if (minc < 0) minc = 0;
 
-    for (r = minr; r <= maxr; r++) {
-        for (c = minc; c <= maxc; c++) {
-            n = lookat_nc(r, c);
+    range_normalize(&rr);
+    for (r = rr.left.row; r <= rr.right.row; r++) {
+        for (c = rr.left.col; c <= rr.right.col; c++) {
+            struct ent *n = lookat_nc(r, c);
             if (n) {
+                // XXX: update IS_CHANGED?
                 n->flags &= ~IS_LOCKED;
             }
         }
     }
 }
 
-void format_cell(int r1, int c1, int r2, int c2, const char *s) {
+void format_cells(rangeref_t rr, const char *s) {
     int r, c;
-    struct ent *n;
-    int minr = r1;
-    int minc = c1;
-    int maxr = r2;
-    int maxc = c2;
-    if (minr > maxr) SWAPINT(minr, maxr);
-    if (minc > maxc) SWAPINT(minc, maxc);
-    checkbounds(&maxr, &maxc);
-    if (minr < 0) minr = 0;
-    if (minc < 0) minc = 0;
 
     FullUpdate++;
     modflg++;
 
-    for (r = minr; r <= maxr; r++) {
-        for (c = minc; c <= maxc; c++) {
-            n = lookat(r, c);
+    range_normalize(&rr);
+    for (r = rr.left.row; r <= rr.right.row; r++) {
+        for (c = rr.left.col; c <= rr.right.col; c++) {
+            struct ent *n = lookat(r, c);
             if (locked_cell(n))
                 continue;
             set_cstring(&n->format, s && *s ? s : NULL);
@@ -1998,28 +1944,22 @@ void cmd_run(const char *str) {
     goraw();
 }
 
-void cmd_define_range(const char *name) {
-    int is_range = (showrange && (showsr != currow || showsc != curcol));
-    add_range(name, showsr, showsc, 0, currow, curcol, 0, is_range);
-}
-
-void addnote(int row, int col, int sr, int sc, int er, int ec) {
-    struct ent *p = lookat(row, col);
+void addnote(cellref_t cr, rangeref_t rr) {
+    struct ent *p = lookat(cr.row, cr.col);
     if (p) {
-        if (sr > er) SWAPINT(sr, er);
-        if (sc > ec) SWAPINT(sc, ec);
-        p->nrow = sr;
-        p->ncol = sc;
-        p->nlastrow = er;
-        p->nlastcol = ec;
+        range_normalize(&rr);
+        p->nrow = rr.left.row;
+        p->ncol = rr.left.col;
+        p->nlastrow = rr.right.row;
+        p->nlastcol = rr.right.col;
         p->flags |= IS_CHANGED;
         FullUpdate++;
         modflg++;
     }
 }
 
-void delnote(int row, int col) {
-    struct ent *p = lookat_nc(row, col);
+void delnote(cellref_t cr) {
+    struct ent *p = lookat_nc(cr.row, cr.col);
     if (p) {
         p->nrow = p->ncol = -1;
         p->flags |= IS_CHANGED;

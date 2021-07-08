@@ -291,7 +291,7 @@ void update(int anychanged) {          /* did any cell really change in value? *
 
         while (stcol < 0 || curcol < stcol || stcol + lcols - 1 < curcol ||
                 (colsinrange != fwidth[curcol] && stcol != curcol &&
-                stcol + lcols - 1 < gs.g_lastcol)) {
+                stcol + lcols - 1 < gs.g_rr.right.col)) {
 
             FullUpdate++;
 
@@ -307,7 +307,7 @@ void update(int anychanged) {          /* did any cell really change in value? *
                             fr->or_left->col) {
                 while ((stcol + lcols < fr->ir_left->col && !frTooLarge) ||
                         (colsinrange != fwidth[curcol] && stcol != curcol &&
-                        stcol + lcols - 1 < gs.g_lastcol)) {
+                        stcol + lcols - 1 < gs.g_rr.right.col)) {
                     if (col_hidden[++stcol]) lcols--;
                 }
             } else {
@@ -447,7 +447,7 @@ void update(int anychanged) {          /* did any cell really change in value? *
                             fr->or_left->row) {
                 while ((strow + rows < fr->ir_left->row && !frTooLarge) ||
                         (rowsinrange > 1 && strow != currow &&
-                        strow + rows - 1 < gs.g_lastrow)) {
+                        strow + rows - 1 < gs.g_rr.right.row)) {
                     if (row_hidden[++strow]) rows--;
                 }
             } else {

@@ -11,12 +11,12 @@
 #include <time.h>
 #include "sc.h"
 
-void getnum(int r0, int c0, int rn, int cn, int fd) {
+void getnum(rangeref_t rr, int fd) {
     char buf[32];
     int r, c;
 
-    for (r = r0; r <= rn; r++) {
-        for (c = c0; c <= cn; c++) {
+    for (r = rr.left.row; r <= rr.right.row; r++) {
+        for (c = rr.left.col; c <= rr.right.col; c++) {
             struct ent *p = *ATBL(tbl, r, c);
             *buf = '\0';
             if (p) {
@@ -26,7 +26,7 @@ void getnum(int r0, int c0, int rn, int cn, int fd) {
                 else if (p->flags & IS_VALID)
                     snprintf(buf, sizeof buf - 1, "%.15g", p->v);
             }
-            strlcat(buf, (c < cn) ? "\t" : "\n", sizeof buf);
+            strlcat(buf, (c < rr.right.col) ? "\t" : "\n", sizeof buf);
             write(fd, buf, strlen(buf));
             if (brokenpipe)
                 return;
@@ -34,12 +34,12 @@ void getnum(int r0, int c0, int rn, int cn, int fd) {
     }
 }
 
-void fgetnum(int r0, int c0, int rn, int cn, int fd) {
+void fgetnum(rangeref_t rr, int fd) {
     char field[FBUFLEN+1];
     int row, col;
 
-    for (row = r0; row <= rn; row++) {
-        for (col = c0; col <= cn; col++) {
+    for (row = rr.left.row; row <= rr.right.row; row++) {
+        for (col = rr.left.col; col <= rr.right.col; col++) {
             /* convert cell contents, but ignore alignment and width test */
             struct ent *p = *ATBL(tbl, row, col);
             int align = ALIGN_DEFAULT;
@@ -59,7 +59,7 @@ void fgetnum(int r0, int c0, int rn, int cn, int fd) {
                     }
                 }
             }
-            strlcat(field, (col < cn) ? "\t" : "\n", sizeof field);
+            strlcat(field, (col < rr.right.col) ? "\t" : "\n", sizeof field);
             write(fd, field, strlen(field));
             if (brokenpipe)
                 return;
@@ -67,17 +67,17 @@ void fgetnum(int r0, int c0, int rn, int cn, int fd) {
     }
 }
 
-void getstring(int r0, int c0, int rn, int cn, int fd) {
+void getstring(rangeref_t rr, int fd) {
     char buf[FBUFLEN];  /* for very long labels */
     int r, c;
 
-    for (r = r0; r <= rn; r++) {
-        for (c = c0; c <= cn; c++) {
+    for (r = rr.left.row; r <= rr.right.row; r++) {
+        for (c = rr.left.col; c <= rr.right.col; c++) {
             struct ent *p = *ATBL(tbl, r, c);
             *buf = '\0';
             if (p && p->label)
                 snprintf(buf, sizeof buf - 1, "%s", p->label);
-            strlcat(buf, (c < cn) ? "\t" : "\n", sizeof buf);
+            strlcat(buf, (c < rr.right.col) ? "\t" : "\n", sizeof buf);
             write(fd, buf, strlen(buf));
             if (brokenpipe)
                 return;
@@ -85,12 +85,12 @@ void getstring(int r0, int c0, int rn, int cn, int fd) {
     }
 }
 
-void getexp(int r0, int c0, int rn, int cn, int fd) {
+void getexp(rangeref_t rr, int fd) {
     buf_t(buf, FBUFLEN);
     int r, c;
 
-    for (r = r0; r <= rn; r++) {
-        for (c = c0; c <= cn; c++) {
+    for (r = rr.left.row; r <= rr.right.row; r++) {
+        for (c = rr.left.col; c <= rr.right.col; c++) {
             struct ent *p = *ATBL(tbl, r, c);
             buf_reset(buf);
             if (p && p->expr) {
@@ -99,7 +99,7 @@ void getexp(int r0, int c0, int rn, int cn, int fd) {
                     buf_reset(buf);
             }
             // XXX: should force separator output even if buffer is full
-            buf_putc(buf, (c < cn) ? '\t' : '\n');
+            buf_putc(buf, (c < rr.right.col) ? '\t' : '\n');
             buf_write(buf, fd);
             if (brokenpipe)
                 return;
@@ -113,17 +113,17 @@ void getformat(int col, int fd) {
     write(fd, buf, strlen(buf));
 }
 
-void getfmt(int r0, int c0, int rn, int cn, int fd) {
+void getfmt(rangeref_t rr, int fd) {
     char buf[FBUFLEN];  /* for very long format strings */
     int r, c;
 
-    for (r = r0; r <= rn; r++) {
-        for (c = c0; c <= cn; c++) {
+    for (r = rr.left.row; r <= rr.right.row; r++) {
+        for (c = rr.left.col; c <= rr.right.col; c++) {
             struct ent *p = *ATBL(tbl, r, c);
             *buf = '\0';
             if (p && p->format)
                 snprintf(buf, sizeof buf - 1, "%s", p->format);
-            strlcat(buf, (c < cn) ? "\t" : "\n", sizeof buf);
+            strlcat(buf, (c < rr.right.col) ? "\t" : "\n", sizeof buf);
             write(fd, buf, strlen(buf));
             if (brokenpipe)
                 return;

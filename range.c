@@ -20,39 +20,13 @@ int are_ranges(void) {
     return rng_base != NULL;
 }
 
-void add_range(const char *name, int r1, int c1, int vf1,
-               int r2, int c2, int vf2, int is_range)
-{
+void add_range(const char *name, rangeref_t rr, int is_range) {
     struct range *r;
     const char *p;
-    int minr, minc, maxr, maxc;
-    int minrf, mincf, maxrf, maxcf;
     struct range *prev = NULL;
     struct range *next;
 
-    if (r1 <= r2) {
-        minr = r1;
-        minrf = vf1 & FIX_ROW;
-        maxr = r2;
-        maxrf = vf2 & FIX_ROW;
-    } else {
-        minr = r2;
-        minrf = vf2 & FIX_ROW;
-        maxr = r1;
-        maxrf = vf1 & FIX_ROW;
-    }
-
-    if (c1 <= c2) {
-        minc = c1;
-        mincf = vf1 & FIX_COL;
-        maxc = c2;
-        maxcf = vf2 & FIX_COL;
-    } else {
-        minc = c2;
-        mincf = vf2 & FIX_COL;
-        maxc = c1;
-        maxcf = vf1 & FIX_COL;
-    }
+    range_normalize(&rr);
 
     if (!find_range_name(name, strlen(name), &prev)) {
         error("Error: range name \"%s\" already defined", name);
@@ -94,8 +68,8 @@ void add_range(const char *name, int r1, int c1, int vf1,
         }
     }
 
-    if (autolabel && minc > 0 && !is_range) {
-        struct ent *cp = lookat(minr, minc - 1);
+    if (autolabel && rr.left.col > 0 && !is_range) {
+        struct ent *cp = lookat(rr.left.row, rr.left.col - 1);
         if (!cp->label && !cp->expr && !cp->v && !(cp->flags & IS_VALID)) {
             /* empty cell to the left of the defined cell:
                set the cell label to the name.
@@ -110,10 +84,10 @@ void add_range(const char *name, int r1, int c1, int vf1,
 
     r = scxmalloc(sizeof(struct range));
     r->r_name = scxdup(name);
-    r->r_left.vp = lookat(minr, minc);
-    r->r_left.vf = minrf | mincf;
-    r->r_right.vp = lookat(maxr, maxc);
-    r->r_right.vf = maxrf | maxcf;
+    r->r_left.vp = lookat(rr.left.row, rr.left.col);
+    r->r_left.vf = rr.left.vf;
+    r->r_right.vp = lookat(rr.right.row, rr.right.col);
+    r->r_right.vf = rr.right.vf;
     r->r_is_range = is_range;
     // link in doubly linked list
     if (prev) {
@@ -132,16 +106,11 @@ void add_range(const char *name, int r1, int c1, int vf1,
     modflg++;
 }
 
-void del_range(int r1, int c1, int r2, int c2) {
+void del_range(rangeref_t rr) {
     struct range *r;
-    int minr = r1;
-    int minc = c1;
-    int maxr = r2;
-    int maxc = c2;
-    if (minr > maxr) SWAPINT(minr, maxr);
-    if (minc > maxc) SWAPINT(minc, maxc);
 
-    r = find_range_coords(lookat(minr, minc), lookat(maxr, maxc));
+    range_normalize(&rr);
+    r = find_range_coords(lookat(rr.left.row, rr.left.col), lookat(rr.right.row, rr.right.col));
     if (!r)
         return;
 
@@ -197,6 +166,7 @@ int find_range_name(const char *name, int len, struct range **rng) {
     return -1;
 }
 
+// XXX: should take rangeref_t and a boolean to check flags
 struct range *find_range_coords(const struct ent *lmatch, const struct ent *rmatch) {
     struct range *r;
 
@@ -291,6 +261,8 @@ void list_ranges(FILE *f) {
     }
 }
 
+// XXX: should take cellref_t and a boolean to check and/or print flags
+//      and/or print named cells
 char *v_name(int row, int col) {
     struct ent *v;
     struct range *r;
@@ -308,6 +280,8 @@ char *v_name(int row, int col) {
     }
 }
 
+// XXX: should take rangeref_t and a boolean to check and/or print flags
+//      and/or print named cells
 char *r_name(int r1, int c1, int r2, int c2) {
     struct ent *v1, *v2;
     struct range *r;
@@ -331,6 +305,7 @@ void fix_ranges(int row1, int col1, int row2, int col2, int delta1, int delta2) 
     struct frange *fr;
     struct ent *p;
 
+    // XXX: this should be an argument
     fr = find_frange(currow, curcol);
 
     /* First we fix all of the named ranges. */

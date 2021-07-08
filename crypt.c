@@ -92,7 +92,7 @@ void creadfile(const char *save, int eraseflg) {
     }
 }
 
-int cwritefile(char *fname, int r0, int c0, int rn, int cn) {
+int cwritefile(char *fname, rangeref_t rr) {
     FILE *f;
     int pipefd[2];
     int fildes;
@@ -157,7 +157,7 @@ int cwritefile(char *fname, int r0, int c0, int rn, int cn) {
         }
     }
 
-    write_fd(f, r0, c0, rn, cn);
+    write_fd(f, rr);
 
     if (fclose(f) == EOF) {
         error("fclose(pipefd): %s", strerror(errno));

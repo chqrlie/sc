@@ -44,11 +44,10 @@ void go_last(void) {
         error("Nothing to repeat");
         break;
     case G_NUM:
-        num_search(gs.g_n, gs.g_row, gs.g_col,
-                   gs.g_lastrow, gs.g_lastcol, gs.errsearch);
+        num_search(gs.g_n, gs.g_rr, gs.errsearch);
         break;
     case G_CELL:
-        moveto(gs.g_row, gs.g_col, gs.g_lastrow, gs.g_lastcol, gs.strow, gs.stcol);
+        moveto(gs.g_rr, gs.strow, gs.stcol);
         break;
     case G_XSTR:
         num++;
@@ -57,7 +56,7 @@ void go_last(void) {
         num++;
         FALLTHROUGH;
     case G_STR:
-        str_search(gs.g_s, gs.g_row, gs.g_col, gs.g_lastrow, gs.g_lastcol, num);
+        str_search(gs.g_s, gs.g_rr, num);
         break;
 
     default:
@@ -70,22 +69,17 @@ void go_last(void) {
  * at row cornerrow and column cornercol in the upper left corner of the
  * screen if possible.
  */
-void moveto(int row, int col, int lastrow, int lastcol,
-            int cornerrow, int cornercol)
-{
+void moveto(rangeref_t rr, int cornerrow, int cornercol) {
     int i;
 
-    if (!loading && row != -1 && (row != currow || col != curcol))
+    if (!loading && rr.left.row != -1 && (rr.left.row != currow || rr.left.col != curcol))
         remember(0);
 
-    currow = row;
-    curcol = col;
+    currow = rr.left.row;
+    curcol = rr.left.col;
     g_free();
     gs.g_type = G_CELL;
-    gs.g_row = currow;
-    gs.g_col = curcol;
-    gs.g_lastrow = lastrow;
-    gs.g_lastcol = lastcol;
+    gs.g_rr = rr;
     gs.strow = cornerrow;
     gs.stcol = cornercol;
     if (cornerrow >= 0) {
@@ -95,12 +89,12 @@ void moveto(int row, int col, int lastrow, int lastcol,
     } else {
         gs.stflag = 0;
     }
-    for (rowsinrange = 0, i = row; i <= lastrow; i++) {
+    for (rowsinrange = 0, i = rr.left.row; i <= rr.right.row; i++) {
         if (row_hidden[i])
             continue;
         rowsinrange++;
     }
-    for (colsinrange = 0, i = col; i <= lastcol; i++) {
+    for (colsinrange = 0, i = rr.left.col; i <= rr.right.col; i++) {
         if (col_hidden[i])
             continue;
         colsinrange += fwidth[i];
@@ -117,12 +111,10 @@ void moveto(int row, int col, int lastrow, int lastcol,
 /*
  * 'goto' either a given number,'error', or 'invalid' starting at currow,curcol
  */
-void num_search(double n, int firstrow, int firstcol, int lastrow,
-                int lastcol, int errsearch)
-{
+void num_search(double n, rangeref_t rr, int errsearch) {
     struct ent *p;
-    int r,c;
-    int endr, endc;
+    int firstrow, firstcol, lastrow, lastcol;
+    int r, c, endr, endc;
 
     if (!loading)
         remember(0);
@@ -130,11 +122,13 @@ void num_search(double n, int firstrow, int firstcol, int lastrow,
     g_free();
     gs.g_type = G_NUM;
     gs.g_n = n;
-    gs.g_row = firstrow;
-    gs.g_col = firstcol;
-    gs.g_lastrow = lastrow;
-    gs.g_lastcol = lastcol;
+    gs.g_rr = rr;
     gs.errsearch = errsearch;
+
+    firstrow = rr.left.row;
+    firstcol = rr.left.col;
+    lastrow = rr.right.row;
+    lastcol = rr.right.col;
 
     if (currow >= firstrow && currow <= lastrow &&
             curcol >= firstcol && curcol <= lastcol) {
@@ -188,10 +182,11 @@ void num_search(double n, int firstrow, int firstcol, int lastrow,
 }
 
 /* 'goto' a cell containing a matching string */
-void str_search(const char *s, int firstrow, int firstcol, int lastrow, int lastcol, int num) {
+void str_search(const char *s, rangeref_t rr, int num) {
     char field[FBUFLEN];
     struct ent *p;
     int found = 0;
+    int firstrow, firstcol, lastrow, lastcol;
     int row, col, endr, endc;
 #if defined(RE_COMP) || defined(REGCMP)
     char *tmp = NULL;
@@ -228,10 +223,11 @@ void str_search(const char *s, int firstrow, int firstcol, int lastrow, int last
     g_free();
     gs.g_type = G_STR + num;
     gs.g_s = scxdup(s);
-    gs.g_row = firstrow;
-    gs.g_col = firstcol;
-    gs.g_lastrow = lastrow;
-    gs.g_lastcol = lastcol;
+    gs.g_rr = rr;
+    firstrow = rr.left.row;
+    firstcol = rr.left.col;
+    lastrow = rr.right.row;
+    lastcol = rr.right.col;
     if (currow >= firstrow && currow <= lastrow &&
             curcol >= firstcol && curcol <= lastcol) {
         endr = currow;
@@ -477,6 +473,6 @@ void gotonote(void) {
     if (p->nrow == -1) {
         error("No note attached");
     } else {
-        moveto(p->nrow, p->ncol, p->nlastrow, p->nlastcol, -1, -1);
+        moveto(rangeref(p->nrow, p->ncol, p->nlastrow, p->nlastcol), -1, -1);
     }
 }

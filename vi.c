@@ -1029,12 +1029,12 @@ void vi_interaction(void) {
                                 struct frange *fr;
 
                                 if ((fr = find_frange(currow, curcol)))
-                                    valueize_area(currow, fr->or_left->col,
-                                                  currow + uarg - 1, fr->or_right->col);
+                                    valueize_area(rangeref(currow, fr->or_left->col,
+                                                           currow + uarg - 1, fr->or_right->col));
                                 else
-                                    valueize_area(currow, 0, currow + uarg - 1, maxcol);
+                                    valueize_area(rangeref(currow, 0, currow + uarg - 1, maxcol));
                             } else
-                                valueize_area(0, curcol, maxrow, curcol + uarg - 1);
+                                valueize_area(rangeref(0, curcol, maxrow, curcol + uarg - 1));
                             break;
 
                         case 'Z':
@@ -1042,7 +1042,7 @@ void vi_interaction(void) {
                             case 'r':   hiderows(currow, currow + uarg - 1); break;
                             case 'c':   hidecols(curcol, curcol + uarg - 1); break;
                             case 'Z':   if (modflg && curfile[0]) {
-                                            writefile(curfile, 0, 0, maxrow, maxcol);
+                                            writefile(curfile, rangeref_total());
                                             running = 0;
                                         } else if (modflg) {
                                             error("No file name.");
@@ -1155,13 +1155,13 @@ void vi_interaction(void) {
                     }
                     break;
                 case '{':
-                    range_align(currow, curcol, currow, curcol, ALIGN_LEFT);
+                    range_align(rangeref_current(), ALIGN_LEFT);
                     break;
                 case '}':
-                    range_align(currow, curcol, currow, curcol, ALIGN_RIGHT);
+                    range_align(rangeref_current(), ALIGN_RIGHT);
                     break;
                 case '|':
-                    range_align(currow, curcol, currow, curcol, ALIGN_CENTER);
+                    range_align(rangeref_current(), ALIGN_CENTER);
                     break;
                 case 'e':
                     if (!locked_cell(p = lookat(currow, curcol))) {
@@ -1343,9 +1343,9 @@ void vi_interaction(void) {
 #endif
                 case 'x':
                     if (calc_order == BYROWS) {
-                        eraser(currow, curcol, currow, curcol + uarg - 1);
+                        eraser(rangeref(currow, curcol, currow, curcol + uarg - 1));
                     } else {
-                        eraser(currow, curcol, currow + uarg - 1, curcol);
+                        eraser(rangeref(currow, curcol, currow + uarg - 1, curcol));
                     }
                     break;
                 case 'Q':
@@ -3636,13 +3636,13 @@ static int get_rcqual(int ch) {
                         return 0;
 
     case 'y':       if (ch == 'y') {
-                        yankr(currow, curcol, currow, curcol);
+                        yankr(rangeref_current());
                         return ESC;
                     } else
                         return 0;
 
     case 'v':       if (ch == 'v') {
-                        valueize_area(currow, curcol, currow, curcol);
+                        valueize_area(rangeref_current());
                         return ESC;
                     } else
                         return 0;
@@ -3971,7 +3971,7 @@ int modcheck(const char *endstr) {
             return 1;
         else
         if (yn_ans == 1) {
-            if (writefile(curfile, 0, 0, maxrow, maxcol) < 0)
+            if (writefile(curfile, rangeref_total()) < 0)
                 return 1;
         }
     } else if (modflg) {

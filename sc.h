@@ -95,16 +95,6 @@ struct rangeref {
     struct cellref left, right;
 };
 
-static inline cellref_t cellref(int row, int col, int vf) {
-    cellref_t cell = { row, col, vf, 0 };
-    return cell;
-}
-
-static inline rangeref_t rangeref(int r1, int c1, int vf1, int r2, int c2, int vf2) {
-    rangeref_t range = { { r1, c1, vf1, 0 }, { r2, c2, vf2, 0 } };
-    return range;
-}
-
 /*
  * ent_ptr holds the row/col # and address type of a cell
  *
@@ -214,10 +204,7 @@ struct go_save {
     int g_type;
     double g_n;
     SCXMEM char *g_s;
-    int g_row;
-    int g_col;
-    int g_lastrow;
-    int g_lastcol;
+    rangeref_t g_rr;
     int strow;
     int stcol;
     int stflag;
@@ -502,6 +489,56 @@ extern SCXMEM char *texext;
 extern int Vopt;
 extern struct go_save gs;
 
+static inline cellref_t cellref(int row, int col) {
+    cellref_t cell = { row, col, 0, 0 };
+    return cell;
+}
+
+static inline cellref_t cellref1(int row, int col, int vf) {
+    cellref_t cell = { row, col, vf, 0 };
+    return cell;
+}
+
+static inline rangeref_t rangeref(int r1, int c1, int r2, int c2) {
+    rangeref_t range = { { r1, c1, 0, 0 }, { r2, c2, 0, 0 } };
+    return range;
+}
+
+static inline rangeref_t rangeref1(int r1, int c1, int vf1, int r2, int c2, int vf2) {
+    rangeref_t range = { { r1, c1, vf1, 0 }, { r2, c2, vf2, 0 } };
+    return range;
+}
+
+static inline rangeref_t rangeref2(cellref_t left, cellref_t right) {
+    rangeref_t range;
+    range.left = left;
+    range.right = right;
+    return range;
+}
+
+static inline cellref_t cellref_current(void) {
+    return cellref(currow, curcol);
+}
+
+static inline rangeref_t rangeref_current(void) {
+    if (showrange) {
+        showrange = 0;
+        return rangeref(showsr, showsc, currow, curcol);
+    } else {
+        return rangeref(currow, curcol, currow, curcol);
+    }
+}
+
+static inline rangeref_t rangeref_total(void) {
+    return rangeref(0, 0, maxrow, maxcol);
+}
+
+static inline rangeref_t rangeref_empty(void) {
+    return rangeref(0, 0, -1, -1);
+}
+
+void range_normalize(rangeref_t *rr);
+
 /* styles */
 extern struct SCXMEM colorpair *cpairs[CPAIRS + 1];
 extern int are_colors(void);
@@ -533,7 +570,7 @@ extern int are_frames(void);
 extern int are_ranges(void);
 extern int atocol(const char *string, int len);
 extern int creadfile(const char *save, int eraseflg);
-extern int cwritefilec(const char *fname, int r0, int c0, int rn, int cn);
+extern int cwritefile(const char *fname, rangeref_t rr);
 extern int engformat(char *buf, size_t size, int fmt, int lprecision, double val, int *alignp);
 extern int etype(struct enode *e);
 extern int find_range_name(const char *name, int len, struct range **rng);
@@ -544,7 +581,7 @@ extern int locked_cell(struct ent *v);
 extern int modcheck(const char *endstr);
 extern int plugin_exists(const char *name, int len, char *path, size_t size);
 extern int readfile(const char *fname, int eraseflg);
-extern int writefile(const char *fname, int r0, int c0, int rn, int cn);
+extern int writefile(const char *fname, rangeref_t rr);
 extern int yn_ask(const char *msg);
 extern struct abbrev *find_abbr(const char *abbrev, int len, struct abbrev **prev);
 extern struct enode *copye(struct enode *e, int Rdelta, int Cdelta,
@@ -561,15 +598,15 @@ extern struct ent *lookat_nc(int row, int col); /* does not allocate the cell */
 extern struct crange *find_crange(int row, int col);
 extern struct frange *find_frange(int row, int col);
 extern void EvalAll(void);
-extern void add_crange(int r1, int c1, int r2, int c2, int pair);
+extern void add_crange(rangeref_t rr, int pair);
+extern void del_crange(struct crange *r);
 #define FRANGE_DIRECT  0
 #define FRANGE_FIND    1
 #define FRANGE_INNER   2
-extern void add_frange(int flags, int or1, int oc1, int or2, int oc2,
-                       int ir1, int ic1, int ir2, int ic2,
+extern void add_frange(int flags, rangeref_t orr, rangeref_t irr,
                        int toprows, int bottomrows, int leftcols, int rightcols);
-extern void add_range(const char *name, int r1, int c1, int vf1,
-                      int r2, int c2, int vf2, int is_range);
+extern void del_frange(struct frange *r);
+extern void add_range(const char *name, rangeref_t rr, int is_range);
 extern void addplugin(const char *ext, const char *plugin, char type);
 extern void backcol(int arg);
 extern void backrow(int arg);
@@ -585,17 +622,13 @@ extern void deleterows(int r1, int r2);
 extern void copy_set_source_range(int r1, int c1, int r2, int c2);
 #define COPY_FROM_RANGE   0x01
 #define COPY_FROM_QBUF    0x02
-#define COPY_FROM_CURRENT 0x04
-#define COPY_FROM_DEF     0x08
-#define COPY_TO_RANGE     0x10
-#define COPY_TO_CURRENT   0x20
-extern void copy(int flags, int dr1, int dc1, int dr2, int dc2,
-                 int sr1, int sc1, int sr2, int sc2);
+#define COPY_FROM_DEF     0x04
+extern void copy(int flags, rangeref_t drr, rangeref_t srr);
 extern void copyent(struct ent *n, struct ent *p,
                     int dr, int dc, int r1, int c1, int r2, int c2, int transpose);
 extern int decompile(char *dest, size_t size, struct enode *e);
 extern void decompile_node(buf_t buf, struct enode *e, int priority);
-extern void del_range(int r1, int c1, int r2, int c2);
+extern void del_range(rangeref_t rr);
 extern void del_abbr(const char *abbrev);
 extern void deraw(int ClearLastLine);
 extern void doend(int rowinc, int colinc);
@@ -604,7 +637,6 @@ extern void cmd_setformat(int n, const char *str);
 extern void cmd_redraw(void);
 extern void cmd_select_qbuf(char c);
 extern void cmd_whereami(int fd);
-extern void cmd_define_range(const char *name);
 extern void dupcol(void);
 extern void duprow(void);
 extern void cmd_query(const char *s, const char *data, int fd);
@@ -621,25 +653,22 @@ extern void editv(buf_t buf, int row, int col, struct ent *p);
 extern void efree(SCXMEM struct enode *e);
 extern void erase_area(int sr, int sc, int er, int ec, int ignorelock);
 extern void erasedb(void);
-extern void eraser(int r1, int c1, int r2, int c2);
-extern void fgetnum(int r0, int c0, int rn, int cn, int fd);
-extern void fill(int r1, int c1, int r2, int c2, double start, double inc);
-extern void fix_colors(int row1, int col1, int row2, int col2,
-                       int delta1, int delta2);
-extern void fix_frames(int row1, int col1, int row2, int col2,
-                       int delta1, int delta2);
-extern void fix_ranges(int row1, int col1, int row2, int col2,
-                       int delta1, int delta2);
+extern void eraser(rangeref_t rr);
+extern void fgetnum(rangeref_t rr, int fd);
+extern void fillr(rangeref_t rr, double start, double inc);
+extern void fix_colors(int row1, int col1, int row2, int col2, int delta1, int delta2);
+extern void fix_frames(int row1, int col1, int row2, int col2, int delta1, int delta2);
+extern void fix_ranges(int row1, int col1, int row2, int col2, int delta1, int delta2);
 extern void flush_saved(void);
-extern void format_cell(int r1, int c1, int r2, int c2, const char *s);
+extern void format_cells(rangeref_t rr, const char *s);
 extern void forwcol(int arg);
 extern void forwrow(int arg);
 extern void free_ent(struct ent *p, int unlock);
-extern void getexp(int r0, int c0, int rn, int cn, int fd);
-extern void getfmt(int r0, int c0, int rn, int cn, int fd);
+extern void getexp(rangeref_t rr, int fd);
+extern void getfmt(rangeref_t rr, int fd);
 extern void getformat(int col, int fd);
-extern void getnum(int r0, int c0, int rn, int cn, int fd);
-extern void getstring(int r0, int c0, int rn, int cn, int fd);
+extern void getnum(rangeref_t rr, int fd);
+extern void getstring(rangeref_t rr, int fd);
 extern void go_last(void);
 extern void goraw(void);
 extern void dohide(void);
@@ -649,17 +678,15 @@ extern void initkbd(void);
 extern void insertcol(int arg, int delta);
 extern void insertrow(int arg, int delta);
 extern void kbd_again(void);
-extern void unlet(int row, int col);
-extern void let(int row, int col, SCXMEM struct enode *e);
+extern void unlet(cellref_t cr);
+extern void let(cellref_t cr, SCXMEM struct enode *e);
 extern void list_ranges(FILE *f);
-extern void lock_cells(int r1, int c1, int r2, int c2);
+extern void lock_cells(rangeref_t rr);
 extern void move_area(int dr, int dc, int sr, int sc, int er, int ec);
-extern void mover(int dr, int dc, int r1, int c1, int r2, int c2);
-extern void moveto(int row, int col, int lastrow, int lastcol,
-                   int cornrow, int corncol);
-extern void num_search(double n, int firstrow, int firstcol, int lastrow,
-                       int lastcol, int errsearch);
-extern void printfile(const char *fname, int r0, int c0, int rn, int cn);
+extern void mover(cellref_t cr, rangeref_t rr);
+extern void moveto(rangeref_t rr, int strow, int stcol);
+extern void num_search(double n, rangeref_t rr, int errsearch);
+extern void printfile(const char *fname, rangeref_t rr);
 extern void pullcells(int to_insert);
 extern void query(const char *s, const char *data);
 extern void read_hist(void);
@@ -671,26 +698,24 @@ extern void setcalcorder(int i);
 extern void showcol(int c1, int c2);
 extern void showrow(int r1, int r2);
 extern void signals(void);
-extern void slet(int row, int col, SCXMEM struct enode *se, int align);
-extern void sortrange(int r0, int c0, int rn, int cn, const char *criteria);
+extern void slet(cellref_t cr, SCXMEM struct enode *se, int align);
+extern void sortrange(rangeref_t rr, const char *criteria);
 extern void startdisp(void);
 extern void stopdisp(void);
-extern void str_search(const char *s, int firstrow, int firstcol, int lastrow,
-                       int lastcol, int num);
+extern void str_search(const char *s, rangeref_t rr, int num);
 extern void sync_cranges(void);
 extern void sync_franges(void);
 extern void sync_ranges(void);
 extern void sync_refs(void);
-extern void tblprintfile(const char *fname, int r0, int c0, int rn, int cn);
-extern void unlock_cells(int r1, int c1, int r2, int c2);
+extern void tblprintfile(const char *fname, rangeref_t rr);
+extern void unlock_cells(rangeref_t rr);
 extern void update(int anychanged);
-extern void valueize_area(int sr, int sc, int er, int ec);
+extern void valueize_area(rangeref_t rr);
 extern void write_abbrevs(FILE *f);
 extern void clean_abbrevs(void);
-extern void write_cells(FILE *f, int r0, int c0, int rn, int cn,
-                        int dr, int dc);
+extern void write_cells(FILE *f, rangeref_t rr, cellref_t cr);
 extern void write_cranges(FILE *f);
-extern void write_fd(FILE *f, int r0, int c0, int rn, int cn);
+extern void write_fd(FILE *f, rangeref_t rr);
 extern void write_franges(FILE *f);
 extern void write_hist(void);
 extern void write_ranges(FILE *f);
@@ -747,13 +772,13 @@ extern int VMS_read_raw;   /*sigh*/
 #endif
 
 extern void gotonote(void);
-extern void addnote(int row, int col, int sr, int sc, int er, int ec);
-extern void delnote(int row, int col);
-extern void range_align(int sr, int sc, int er, int ec, int align);
+extern void addnote(cellref_t cr, rangeref_t rr);
+extern void delnote(cellref_t cr);
+extern void range_align(rangeref_t rr, int align);
 extern void yankcols(int c1, int c2);
 extern void yankrows(int r1, int r2);
 extern void list_frames(FILE *fp);
-extern void yankr(int r1, int c1, int r2, int c2);
+extern void yankr(rangeref_t rr);
 extern void dogetkey(int fd);
 extern void cmd_seval(struct enode *e, int row, int col, int fd);
 extern void cmd_eval(struct enode *e, const char *fmt, int row, int col, int fd);

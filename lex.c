@@ -156,7 +156,7 @@ static int parse_cellref(const char *p, int len, cellref_t *cp) {
     }
     if (i != len)
         return 0;
-    *cp = cellref(row, col, vf);
+    *cp = cellref1(row, col, vf);
     return 1;
 }
 
@@ -245,12 +245,12 @@ int yylex(void) {
             }
             if (!find_range_name(p0, p - p0, &r)) {
                 if (r->r_is_range) {
-                    yylval.rval = rangeref(r->r_left.vp->row, r->r_left.vp->col, 0,
-                                           r->r_right.vp->row, r->r_right.vp->col, 0);
+                    yylval.rval = rangeref(r->r_left.vp->row, r->r_left.vp->col,
+                                           r->r_right.vp->row, r->r_right.vp->col);
                     ret = RANGE;
                     break;
                 } else {
-                    yylval.cval = cellref(r->r_left.vp->row, r->r_left.vp->col, 0);
+                    yylval.cval = cellref(r->r_left.vp->row, r->r_left.vp->col);
                     ret = VAR;
                     break;
                 }

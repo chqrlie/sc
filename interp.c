@@ -1608,8 +1608,8 @@ static int constant_expr(struct enode *e, int full) {
 // XXX: all these should go to cmds.c
 
 /* clear the numeric part of a cell */
-void unlet(int row, int col) {
-    struct ent *v = lookat(row, col);
+void unlet(cellref_t cr) {
+    struct ent *v = lookat_nc(cr.row, cr.col);
     if (v == NULL)
         return;
     v->v = 0.0;
@@ -1644,8 +1644,8 @@ static void push_mark(int row, int col) {
 }
 
 /* set the numeric part of a cell */
-void let(int row, int col, SCXMEM struct enode *e) {
-    struct ent *v = lookat(row, col);
+void let(cellref_t cr, SCXMEM struct enode *e) {
+    struct ent *v = lookat(cr.row, cr.col);
     double val;
     // XXX: test for constant expression is potentially incorrect
     unsigned isconstant = constant_expr(e, optimize);
@@ -1655,7 +1655,7 @@ void let(int row, int col, SCXMEM struct enode *e) {
     if (locked_cell(v))
         return;
 
-    if (row == currow && col == curcol)
+    if (cr.row == currow && cr.col == curcol)
         cellassign = 1;
 
     val = 0.0;
@@ -1663,7 +1663,8 @@ void let(int row, int col, SCXMEM struct enode *e) {
         exprerr = 0;
         signal(SIGFPE, eval_fpe);
         if (setjmp(fpe_save)) {
-            error("Floating point exception in cell %s", v_name(row, col));
+            error("Floating point exception in cell %s",
+                  v_name(cr.row, cr.col));
             cellerror = CELLERROR;
             val = 0.0;
         } else {
@@ -1712,24 +1713,25 @@ void let(int row, int col, SCXMEM struct enode *e) {
     v->flags |= IS_CHANGED | IS_VALID;
 
     if (!loading)
-        push_mark(row, col);
+        push_mark(cr.row, cr.col);
 }
 
-void slet(int row, int col, SCXMEM struct enode *se, int align) {
-    struct ent *v = lookat(row, col);
+void slet(cellref_t cr, SCXMEM struct enode *se, int align) {
+    struct ent *v = lookat(cr.row, cr.col);
     SCXMEM char *p;
 
     if (v == NULL)
         return;
     if (locked_cell(v))
         return;
-    if (row == currow && col == curcol)
+    if (cr.row == currow && cr.col == curcol)
         cellassign = 1;
     exprerr = 0;
     signal(SIGFPE, eval_fpe);
     if (setjmp(fpe_save)) {
         // XXX: potential memory leak in the evaluator
-        error("Floating point exception in cell %s", v_name(row, col));
+        error("Floating point exception in cell %s",
+              v_name(cr.row, cr.col));
         cellerror = CELLERROR;
         p = scxdup("");
     } else {
@@ -1750,7 +1752,7 @@ void slet(int row, int col, SCXMEM struct enode *se, int align) {
         return;
     }
     if (!loading)
-        push_mark(row, col);
+        push_mark(cr.row, cr.col);
 
     set_string(&v->label, p);
     v->flags &= ~ALIGN_MASK;
@@ -1821,6 +1823,7 @@ static void out_var(buf_t buf, struct ent_ptr v, int usename) {
         buf_puts(buf, "@ERR");
     } else
     if (usename && (r = find_range_coords(v.vp, v.vp)) != NULL && !r->r_is_range) {
+        // XXX: this is incorrect if the named range has different flags
         buf_puts(buf, r->r_name);
     } else {
         buf_printf(buf, "%s%s%s%d",
@@ -1833,6 +1836,7 @@ static void out_range(buf_t buf, struct enode *e) {
     struct range *r;
 
     if ((r = find_range_coords(e->e.r.left.vp, e->e.r.right.vp)) != NULL && r->r_is_range) {
+        // XXX: this is incorrect if the named range has different flags
         buf_puts(buf, r->r_name);
     } else {
         out_var(buf, e->e.r.left, 0);

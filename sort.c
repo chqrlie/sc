@@ -19,19 +19,20 @@ struct sortcrit {
 static SCXMEM struct sortcrit *sort;
 static int howmany;
 
-void sortrange(int r1, int c1, int r2, int c2, const char *criteria) {
+void sortrange(rangeref_t rr, const char *criteria) {
     int r, c, i;
     SCXMEM int *rows;
+    int minr, minc, maxr, maxc;
     int nrows, col = 0;
     const char *cp = criteria;
     struct ent *p;
-    int minr = r1;
-    int minc = c1;
-    int maxr = r2;
-    int maxc = c2;
-    if (minr > maxr) SWAPINT(minr, maxr);
-    if (minc > maxc) SWAPINT(minc, maxc);
-    nrows = (maxr - minr + 1);
+
+    range_normalize(&rr);
+    minr = rr.left.row;
+    minc = rr.left.col;
+    maxr = rr.right.row;
+    maxc = rr.right.col;
+    nrows = maxr - minr + 1;
 
     sort = scxmalloc(2 * sizeof(struct sortcrit));
     rows = scxmalloc(nrows * sizeof(int));
@@ -114,6 +115,7 @@ void sortrange(int r1, int c1, int r2, int c2, const char *criteria) {
     flush_saved();
 
     /* Restore current cell. */
+    // XXX: should actually move to the new position of the same cell
     currow = r;
     curcol = c;
 

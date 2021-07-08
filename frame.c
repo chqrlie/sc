@@ -17,45 +17,52 @@ int are_frames(void) {
     return frame_base != NULL;
 }
 
-void add_frange(int flags, int or1, int oc1, int or2, int oc2,
-                int ir1, int ic1, int ir2, int ic2,
+void del_frange(struct frange *r) {
+    if (r) {
+        if (r->r_next)
+            r->r_next->r_prev = r->r_prev;
+        else
+            frame_tail = r->r_prev;
+        if (r->r_prev)
+            r->r_prev->r_next = r->r_next;
+        else
+            frame_base = r->r_next;
+        scxfree(r);
+        if (lastfr == r)
+            lastfr = NULL;
+    }
+}
+
+void add_frange(int flags, rangeref_t orr, rangeref_t irr,
                 int toprows, int bottomrows, int leftcols, int rightcols)
 {
     struct ent *or_left, *or_right, *ir_left = NULL, *ir_right = NULL;
     struct frange *r;
-    int minr, minc, maxr, maxc;
+
     if (flags & FRANGE_FIND) {
-        r = find_frange(or1, oc1);
+        r = find_frange(orr.left.row, orr.left.col);
         if (!r)
             return;
-        or1 = r->or_left->row;
-        oc1 = r->or_left->col;
-        or2 = r->or_right->row;
-        oc2 = r->or_right->col;
+        orr.left.row = r->or_left->row;
+        orr.left.col = r->or_left->col;
+        orr.right.row = r->or_right->row;
+        orr.right.col = r->or_right->col;
     }
-    minr = or1;
-    minc = oc1;
-    maxr = or2;
-    maxc = oc2;
-    if (minr > maxr) SWAPINT(minr, maxr);
-    if (minc > maxc) SWAPINT(minc, maxc);
+    range_normalize(&orr);
 
-    or_left = lookat(minr, minc);
-    or_right = lookat(maxr, maxc);
+    or_left = lookat(orr.left.row, orr.left.col);
+    or_right = lookat(orr.right.row, orr.right.col);
 
     if (flags & FRANGE_INNER) {
-        minr = ir1;
-        minc = ic1;
-        maxr = ir2;
-        maxc = ic2;
-        if (minr > maxr) SWAPINT(minr, maxr);
-        if (minc > maxc) SWAPINT(minc, maxc);
+        range_normalize(&irr);
 
-        ir_left = lookat(minr, minc);
-        ir_right = lookat(maxr, maxc);
+        ir_left = lookat(irr.left.row, irr.left.col);
+        ir_right = lookat(irr.right.row, irr.right.col);
 
-        if (ir_left->row < or_left->row || ir_left->col < or_left->col ||
-            ir_right->row > or_right->row || ir_right->col > or_right->col) {
+        if (irr.left.row < orr.left.row || irr.left.col < orr.left.col
+        ||  irr.right.row > orr.right.row || irr.right.col > orr.right.col) {
+            // XXX: should also detect if irr is strictly included
+            //      and not empty
             error("Invalid parameters");
             return;
         }
@@ -87,17 +94,7 @@ void add_frange(int flags, int or1, int oc1, int or2, int oc2,
 
             /* If all frame sides are 0, delete the frange */
             if (r->ir_left == r->or_left && r->ir_right == r->or_right) {
-                if (r->r_next)
-                    r->r_next->r_prev = r->r_prev;
-                else
-                    frame_tail = r->r_prev;
-                if (r->r_prev)
-                    r->r_prev->r_next = r->r_next;
-                else
-                    frame_base = r->r_next;
-                scxfree(r);
-                if (lastfr == r)
-                    lastfr = NULL;
+                del_frange(r);
             }
             modflg++;
             FullUpdate++;
@@ -108,8 +105,8 @@ void add_frange(int flags, int or1, int oc1, int or2, int oc2,
      * See if the specified range overlaps any previously created frange.
      */
     for (r = frame_base; r; r = r->r_next) {
-        if (!(r->or_left->row > or_right->row || r->or_right->row < or_left->row ||
-              r->or_left->col > or_right->col || r->or_right->col < or_left->col))
+        if (!(r->or_left->row > orr.right.row || r->or_right->row < orr.left.row ||
+              r->or_left->col > orr.right.col || r->or_right->col < orr.left.col))
         {
             error("Framed ranges may not be nested or overlapping");
             return;
@@ -223,7 +220,9 @@ void fix_frames(int row1, int col1, int row2, int col2, int delta1, int delta2) 
     int r1, r2, c1, c2;
     struct frange *fr, *cfr;
 
+    // XXX: this should be an argument
     cfr = find_frange(currow, curcol);
+
     for (fr = frame_base; fr; fr = fr->r_next) {
         r1 = fr->or_left->row;
         c1 = fr->or_left->col;
