@@ -13,22 +13,22 @@ static void sync_enode(struct enode *e);
 static void fix_enode(struct enode *e, int row1, int col1, int row2, int col2,
                       int delta1, int delta2);
 
-static struct range *rng_base;
-static struct range *rng_tail;
+static struct nrange *rng_base;
+static struct nrange *rng_tail;
 
-int are_ranges(void) {
+int are_nranges(void) {
     return rng_base != NULL;
 }
 
-void add_range(const char *name, rangeref_t rr, int is_range) {
-    struct range *r;
+void add_nrange(const char *name, rangeref_t rr, int is_range) {
+    struct nrange *r;
     const char *p;
-    struct range *prev = NULL;
-    struct range *next;
+    struct nrange *prev = NULL;
+    struct nrange *next;
 
     range_normalize(&rr);
 
-    if (!find_range_name(name, strlen(name), &prev)) {
+    if (!find_nrange_name(name, strlen(name), &prev)) {
         error("Error: range name \"%s\" already defined", name);
         return;
     }
@@ -82,7 +82,7 @@ void add_range(const char *name, rangeref_t rr, int is_range) {
         }
     }
 
-    r = scxmalloc(sizeof(struct range));
+    r = scxmalloc(sizeof(struct nrange));
     r->r_name = scxdup(name);
     r->r_left.vp = lookat(rr.left.row, rr.left.col);
     r->r_left.vf = rr.left.vf;
@@ -106,11 +106,11 @@ void add_range(const char *name, rangeref_t rr, int is_range) {
     modflg++;
 }
 
-void del_range(rangeref_t rr) {
-    struct range *r;
+void del_nrange(rangeref_t rr) {
+    struct nrange *r;
 
     range_normalize(&rr);
-    r = find_range_coords(lookat(rr.left.row, rr.left.col), lookat(rr.right.row, rr.right.col));
+    r = find_nrange_coords(lookat(rr.left.row, rr.left.col), lookat(rr.right.row, rr.right.col));
     if (!r)
         return;
 
@@ -127,9 +127,9 @@ void del_range(rangeref_t rr) {
     modflg++;
 }
 
-void clean_range(void) {
-    struct range *r;
-    struct range *nextr;
+void clean_nrange(void) {
+    struct nrange *r;
+    struct nrange *nextr;
 
     r = rng_base;
     rng_base = rng_tail = NULL;
@@ -144,8 +144,8 @@ void clean_range(void) {
 
 /* Match on name or lmatch, rmatch */
 
-int find_range_name(const char *name, int len, struct range **rng) {
-    struct range *r;
+int find_nrange_name(const char *name, int len, struct nrange **rng) {
+    struct nrange *r;
     int cmp;
     int exact = TRUE;
 
@@ -167,8 +167,8 @@ int find_range_name(const char *name, int len, struct range **rng) {
 }
 
 // XXX: should take rangeref_t and a boolean to check flags
-struct range *find_range_coords(const struct ent *lmatch, const struct ent *rmatch) {
-    struct range *r;
+struct nrange *find_nrange_coords(const struct ent *lmatch, const struct ent *rmatch) {
+    struct nrange *r;
 
     for (r = rng_base; r; r = r->r_next) {
         if ((lmatch == r->r_left.vp) && (rmatch == r->r_right.vp)) {
@@ -180,7 +180,7 @@ struct range *find_range_coords(const struct ent *lmatch, const struct ent *rmat
 
 void sync_ranges(void) {
     int i, j;
-    struct range *r;
+    struct nrange *r;
     struct ent *p;
 
     for (r = rng_base; r; r = r->r_next) {
@@ -209,8 +209,8 @@ static void sync_enode(struct enode *e) {
     }
 }
 
-void write_ranges(FILE *f) {
-    struct range *r;
+void write_nranges(FILE *f) {
+    struct nrange *r;
 
     for (r = rng_tail; r; r = r->r_prev) {
         fprintf(f, "define \"%s\" %s%s%s%d",
@@ -230,10 +230,10 @@ void write_ranges(FILE *f) {
     }
 }
 
-void list_ranges(FILE *f) {
-    struct range *r;
+void list_nranges(FILE *f) {
+    struct nrange *r;
 
-    if (!are_ranges()) {
+    if (!are_nranges()) {
         fprintf(f, "  No ranges defined");
         return;
     }
@@ -265,12 +265,12 @@ void list_ranges(FILE *f) {
 //      and/or print named cells
 char *v_name(int row, int col) {
     struct ent *v;
-    struct range *r;
+    struct nrange *r;
     static unsigned int bufn;
     static char buf[4][20];
 
     v = lookat(row, col);
-    r = find_range_coords(v, v);
+    r = find_nrange_coords(v, v);
     if (r) {
         return r->r_name;
     } else {
@@ -284,12 +284,12 @@ char *v_name(int row, int col) {
 //      and/or print named cells
 char *r_name(int r1, int c1, int r2, int c2) {
     struct ent *v1, *v2;
-    struct range *r;
+    struct nrange *r;
     static char buf[100];
 
     v1 = lookat(r1, c1);
     v2 = lookat(r2, c2);
-    r = find_range_coords(v1, v2);
+    r = find_nrange_coords(v1, v2);
     if (r) {
         return r->r_name;
     } else {
@@ -299,14 +299,11 @@ char *r_name(int r1, int c1, int r2, int c2) {
     }
 }
 
-void fix_ranges(int row1, int col1, int row2, int col2, int delta1, int delta2) {
-    int r1, r2, c1, c2, i, j;
-    struct range *r;
-    struct frange *fr;
-    struct ent *p;
-
-    // XXX: this should be an argument
-    fr = find_frange(currow, curcol);
+void fix_ranges(int row1, int col1, int row2, int col2,
+                int delta1, int delta2, struct frange *fr)
+{
+    int r1, c1, r2, c2, i, j;
+    struct nrange *r;
 
     /* First we fix all of the named ranges. */
     for (r = rng_base; r; r = r->r_next) {
@@ -315,12 +312,12 @@ void fix_ranges(int row1, int col1, int row2, int col2, int delta1, int delta2) 
         r2 = r->r_right.vp->row;
         c2 = r->r_right.vp->col;
 
-        if (!(fr && (c1 < fr->or_left->col || c1 > fr->or_right->col))) {
+        if (!fr || (c1 >= fr->or_left->col && c1 <= fr->or_right->col)) {
             if (r1 >= row1 && r1 <= row2) r1 = row2 - delta1;
             if (c1 >= col1 && c1 <= col2) c1 = col2 - delta1;
         }
 
-        if (!(fr && (c2 < fr->or_left->col || c2 > fr->or_right->col))) {
+        if (!fr || (c2 >= fr->or_left->col && c2 <= fr->or_right->col)) {
             if (r2 >= row1 && r2 <= row2) r2 = row1 + delta2;
             if (c2 >= col1 && c2 <= col2) c2 = col1 + delta2;
         }
@@ -333,12 +330,13 @@ void fix_ranges(int row1, int col1, int row2, int col2, int delta1, int delta2) 
      */
     for (i = 0; i <= maxrow; i++) {
         for (j = 0; j <= maxcol; j++) {
-            if ((p = *ATBL(tbl,i,j)) && p->expr)
+            struct ent *p = *ATBL(tbl, i, j);
+            if (p && p->expr)
                 fix_enode(p->expr, row1, col2, row2, col2, delta1, delta2);
         }
     }
-    fix_frames(row1, col1, row2, col2, delta1, delta2);
-    fix_colors(row1, col1, row2, col2, delta1, delta2);
+    fix_frames(row1, col1, row2, col2, delta1, delta2, fr);
+    fix_colors(row1, col1, row2, col2, delta1, delta2, fr);
 }
 
 static void fix_enode(struct enode *e, int row1, int col1, int row2, int col2,

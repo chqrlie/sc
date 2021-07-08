@@ -2228,9 +2228,9 @@ static void toggle_navigate_mode(void) {
 }
 
 static void dotab(void) {
-    static struct range *firstmatch;
-    static struct range *lastmatch;
-    static struct range *nextmatch;
+    static struct nrange *firstmatch;
+    static struct nrange *lastmatch;
+    static struct nrange *nextmatch;
     int len;
 
     if ((linelim > 0 && isalnumchar_(line[linelim-1])) ||
@@ -2242,7 +2242,7 @@ static void dotab(void) {
                 continue;
             completethis++;
             len = line + linelim - completethis;
-            if (!find_range_name(completethis, -len, &lastmatch)) {
+            if (!find_nrange_name(completethis, -len, &lastmatch)) {
                 firstmatch = lastmatch;
                 while (firstmatch->r_next &&
                        !strncmp(completethis, firstmatch->r_next->r_name, len))
@@ -2923,7 +2923,7 @@ static void list_all(void) {
 
     /* Show color definitions and various types of ranges */
     // XXX: deal with raw mode switch?
-    if (!are_ranges() && !are_frames() && !are_colors()) {
+    if (!are_nranges() && !are_frames() && !are_colors()) {
         error("Nothing to show");
         return;
     }
@@ -2936,7 +2936,7 @@ static void list_all(void) {
         return;
     }
     if (!brokenpipe) fprintf(f, "Named Ranges:\n=============\n\n");
-    if (!brokenpipe) list_ranges(f);
+    if (!brokenpipe) list_nranges(f);
     if (!brokenpipe) fprintf(f, "\n\nFrames:\n=======\n\n");
     if (!brokenpipe) list_frames(f);
     if (!brokenpipe) fprintf(f, "\n\nColors:\n=======\n\n");

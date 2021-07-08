@@ -216,48 +216,47 @@ void list_frames(FILE *f) {
     }
 }
 
-void fix_frames(int row1, int col1, int row2, int col2, int delta1, int delta2) {
-    int r1, r2, c1, c2;
-    struct frange *fr, *cfr;
+void fix_frames(int row1, int col1, int row2, int col2,
+                int delta1, int delta2, struct frange *fr)
+{
+    int r1, c1, r2, c2;
+    struct frange *r;
 
-    // XXX: this should be an argument
-    cfr = find_frange(currow, curcol);
+    for (r = frame_base; r; r = r->r_next) {
+        r1 = r->or_left->row;
+        c1 = r->or_left->col;
+        r2 = r->or_right->row;
+        c2 = r->or_right->col;
 
-    for (fr = frame_base; fr; fr = fr->r_next) {
-        r1 = fr->or_left->row;
-        c1 = fr->or_left->col;
-        r2 = fr->or_right->row;
-        c2 = fr->or_right->col;
-
-        if (!(cfr && (c1 < cfr->or_left->col || c1 > cfr->or_right->col))) {
+        if (!fr || (c1 >= fr->or_left->col && c1 <= fr->or_right->col)) {
             if (r1 >= row1 && r1 <= row2) r1 = row2 - delta1;
             if (c1 >= col1 && c1 <= col2) c1 = col2 - delta1;
         }
 
-        if (!(cfr && (c2 < cfr->or_left->col || c2 > cfr->or_right->col))) {
+        if (!fr || (c2 >= fr->or_left->col && c2 <= fr->or_right->col)) {
             if (r2 >= row1 && r2 <= row2) r2 = row1 + delta2;
             if (c2 >= col1 && c2 <= col2) c2 = col1 + delta2;
         }
 
-        fr->or_left = lookat(r1, c1);
-        fr->or_right = lookat(r2, c2);
+        r->or_left = lookat(r1, c1);
+        r->or_right = lookat(r2, c2);
 
-        r1 = fr->ir_left->row;
-        c1 = fr->ir_left->col;
-        r2 = fr->ir_right->row;
-        c2 = fr->ir_right->col;
+        r1 = r->ir_left->row;
+        c1 = r->ir_left->col;
+        r2 = r->ir_right->row;
+        c2 = r->ir_right->col;
 
-        if (!(cfr && (c1 < cfr->or_left->col || c1 > cfr->or_right->col))) {
+        if (!fr || (c1 >= fr->or_left->col && c1 <= fr->or_right->col)) {
             if (r1 >= row1 && r1 <= row2) r1 = row2 - delta1;
             if (c1 >= col1 && c1 <= col2) c1 = col2 - delta1;
         }
 
-        if (!(cfr && (c2 < cfr->or_left->col || c2 > cfr->or_right->col))) {
+        if (!fr || (c2 >= fr->or_left->col && c2 <= fr->or_right->col)) {
             if (r2 >= row1 && r2 <= row2) r2 = row1 + delta2;
             if (c2 >= col1 && c2 <= col2) c2 = col1 + delta2;
         }
 
-        fr->ir_left = lookat(r1, c1);
-        fr->ir_right = lookat(r2, c2);
+        r->ir_left = lookat(r1, c1);
+        r->ir_right = lookat(r2, c2);
     }
 }

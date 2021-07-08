@@ -1817,12 +1817,12 @@ static void out_sconst(buf_t buf, const char *s) {
 }
 
 static void out_var(buf_t buf, struct ent_ptr v, int usename) {
-    struct range *r;
+    struct nrange *r;
 
     if (!v.vp || (v.vp->flags & IS_DELETED)) {
         buf_puts(buf, "@ERR");
     } else
-    if (usename && (r = find_range_coords(v.vp, v.vp)) != NULL && !r->r_is_range) {
+    if (usename && (r = find_nrange_coords(v.vp, v.vp)) != NULL && !r->r_is_range) {
         // XXX: this is incorrect if the named range has different flags
         buf_puts(buf, r->r_name);
     } else {
@@ -1833,9 +1833,9 @@ static void out_var(buf_t buf, struct ent_ptr v, int usename) {
 }
 
 static void out_range(buf_t buf, struct enode *e) {
-    struct range *r;
+    struct nrange *r;
 
-    if ((r = find_range_coords(e->e.r.left.vp, e->e.r.right.vp)) != NULL && r->r_is_range) {
+    if ((r = find_nrange_coords(e->e.r.left.vp, e->e.r.right.vp)) != NULL && r->r_is_range) {
         // XXX: this is incorrect if the named range has different flags
         buf_puts(buf, r->r_name);
     } else {

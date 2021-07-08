@@ -227,13 +227,11 @@ void list_colors(FILE *f) {
     }
 }
 
-void fix_colors(int row1, int col1, int row2, int col2, int delta1, int delta2) {
+void fix_colors(int row1, int col1, int row2, int col2,
+                int delta1, int delta2, struct frange *fr)
+{
     int r1, c1, r2, c2;
     struct crange *cr, *ncr;
-    struct frange *fr;
-
-    // XXX: this should be an argument
-    fr = find_frange(currow, curcol);
 
     for (cr = color_base; cr; cr = ncr) {
         ncr = cr->r_next;
@@ -242,19 +240,19 @@ void fix_colors(int row1, int col1, int row2, int col2, int delta1, int delta2) 
         r2 = cr->r_right->row;
         c2 = cr->r_right->col;
 
-        if (!(fr && (c1 < fr->or_left->col || c1 > fr->or_right->col))) {
+        if (!fr || (c1 >= fr->or_left->col && c1 <= fr->or_right->col)) {
             if (r1 != r2 && r1 >= row1 && r1 <= row2) r1 = row2 - delta1;
             if (c1 != c2 && c1 >= col1 && c1 <= col2) c1 = col2 - delta1;
         }
 
-        if (!(fr && (c2 < fr->or_left->col || c2 > fr->or_right->col))) {
+        if (!fr || (c2 >= fr->or_left->col && c2 <= fr->or_right->col)) {
             if (r1 != r2 && r2 >= row1 && r2 <= row2) r2 = row1 + delta2;
             if (c1 != c2 && c2 >= col1 && c2 <= col2) c2 = col1 + delta2;
         }
 
         if (r1 > r2 || c1 > c2 ||
-            (row1 >= 0 && row2 >= 0 && row1 <= r1 && row2 >= r2) ||
-            (col1 >= 0 && col2 >= 0 && col1 <= c1 && col2 >= c2))
+            (row1 >= 0 && row2 >= 0 && r1 >= row1 && r2 <= row2) ||
+            (col1 >= 0 && col2 >= 0 && c1 >= col1 && c2 <= col2))
         {
             del_crange(cr);
         } else {

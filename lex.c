@@ -183,7 +183,7 @@ int yylex(void) {
     const char *p = src_pos;
     const char *p0;
     int ret = -1;
-    struct range *r;
+    struct nrange *r;
 
     for (;;) {
         if (isspacechar(*p)) {
@@ -243,7 +243,7 @@ int yylex(void) {
                     }
                 }
             }
-            if (!find_range_name(p0, p - p0, &r)) {
+            if (!find_nrange_name(p0, p - p0, &r)) {
                 if (r->r_is_range) {
                     yylval.rval = rangeref(r->r_left.vp->row, r->r_left.vp->col,
                                            r->r_right.vp->row, r->r_right.vp->col);

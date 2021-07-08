@@ -422,7 +422,7 @@ void write_fd(FILE *f, rangeref_t rr) {
         if (row_hidden[r])
             fprintf(f, "hide %d\n", r);
     }
-    write_ranges(f);
+    write_nranges(f);
     write_franges(f);
     write_colors(f, 0);
     write_cranges(f);

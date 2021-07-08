@@ -149,10 +149,10 @@ void getframe(int fd) {
 
 void getrange(const char *name, int fd) {
     char buf[100];
-    struct range *r;
+    struct nrange *r;
 
     *buf = '\0';
-    if (!find_range_name(name, strlen(name), &r)) {
+    if (!find_nrange_name(name, strlen(name), &r)) {
         snprintf(buf, sizeof buf - 1, "%s%s%s%d",
                 r->r_left.vf & FIX_COL ? "$" : "",
                 coltoa(r->r_left.vp->col),

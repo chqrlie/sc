@@ -191,6 +191,17 @@ void dupcol(void) {
     curcol = col + 1;
 }
 
+#if 0
+static void fix_cellref(cellref_t *rp, rangeref_t rr, int dr, int dc) {
+    /* if a cell reference is inside the target range, shift it */
+    if (rp->row >= rr.left.row && rp->row <= rr.right.row
+    &&  rp->col >= rr.left.col && rp->col <= rr.right.col) {
+        rp->row += dr;
+        rp->col += dc;
+    }
+}
+#endif
+
 /* Insert 'arg' rows.  The row(s) will be inserted before currow if delta
  * is 0; after if it is 1.
  */
@@ -198,6 +209,7 @@ void insertrow(int arg, int delta) {
     int r, c, i;
     struct ent **tmprow;
     int lim = maxrow - currow + 1;
+    rangeref_t rr = rangeref(currow + delta, 0, maxrow, maxcol);
     struct frange *fr;
 
     // XXX: this is bogus! maxrow should never be >= maxrows
@@ -210,46 +222,48 @@ void insertrow(int arg, int delta) {
         return;
 
     if ((fr = find_frange(currow + delta, curcol))) {
-        move_area(currow + arg + delta, fr->or_left->col, currow + delta,
-                  fr->or_left->col, fr->or_right->row, fr->or_right->col);
+        rr = rangeref(currow + delta, fr->or_left->col,
+                      fr->or_right->row, fr->or_right->col);
+        move_area(rr.left.row + arg, rr.left.col,
+                  rr.left.row, rr.left.col, rr.right.row, rr.right.col);
         if (!delta && fr->ir_left->row == currow + arg)
             fr->ir_left = lookat(fr->ir_left->row - arg, fr->ir_left->col);
         if (delta && fr->ir_right->row == currow)
             fr->ir_right = lookat(fr->ir_right->row + arg, fr->ir_right->col);
 
         for (i = 0; i < 37; i++) {      /* update all marked cells */
-            if (savedrow[i] >= currow + delta &&
-                savedcol[i] >= fr->or_left->col &&
-                savedcol[i] <= fr->or_right->col)
+            if (savedrow[i] >= rr.left.row &&
+                savedcol[i] >= rr.left.col &&
+                savedcol[i] <= rr.right.col)
                 savedrow[i] += arg;
-            if (savedstrow[i] >= currow + delta &&
-                savedstcol[i] >= fr->or_left->col &&
-                savedstcol[i] <= fr->or_right->col)
+            if (savedstrow[i] >= rr.left.row &&
+                savedstcol[i] >= rr.left.col &&
+                savedstcol[i] <= rr.right.col)
                 savedstrow[i] += arg;
         }
-        if (gs.g_rr.left.row >= currow + delta &&
-            gs.g_rr.left.col >= fr->or_left->col &&
-            gs.g_rr.left.col <= fr->or_right->col)
+        if (gs.g_rr.left.row >= rr.left.row &&
+            gs.g_rr.left.col >= rr.left.col &&
+            gs.g_rr.left.col <= rr.right.col)
             gs.g_rr.left.row += arg;
-        if (gs.g_rr.right.row >= currow + delta &&
-            gs.g_rr.right.col >= fr->or_left->col &&
-            gs.g_rr.right.col <= fr->or_right->col)
+        if (gs.g_rr.right.row >= rr.left.row &&
+            gs.g_rr.right.col >= rr.left.col &&
+            gs.g_rr.right.col <= rr.right.col)
             gs.g_rr.right.row += arg;
-        if (gs.strow >= currow + delta &&
-            gs.stcol >= fr->or_left->col &&
-            gs.stcol <= fr->or_right->col)
+        if (gs.strow >= rr.left.row &&
+            gs.stcol >= rr.left.col &&
+            gs.stcol <= rr.right.col)
             gs.strow += arg;
         for (r = 0; r <= maxrow; r++) {
             for (c = 0; c <= maxcol; c++) {
                 struct ent *p = *ATBL(tbl, r, c);
-                if (p) {
-                    if (p->nrr.left.row >= currow + delta &&
-                        p->nrr.left.col >= fr->or_left->col &&
-                        p->nrr.left.col <= fr->or_right->col)
+                if (p && (p->flags & HAS_NOTE)) {
+                    if (p->nrr.left.row >= rr.left.row &&
+                        p->nrr.left.col >= rr.left.col &&
+                        p->nrr.left.col <= rr.right.col)
                         p->nrr.left.row += arg;
-                    if (p->nrr.right.row >= currow + delta &&
-                        p->nrr.right.col >= fr->or_left->col &&
-                        p->nrr.right.col <= fr->or_right->col)
+                    if (p->nrr.right.row >= rr.left.row &&
+                        p->nrr.right.col >= rr.left.col &&
+                        p->nrr.right.col <= rr.right.col)
                         p->nrr.right.row += arg;
                 }
             }
@@ -274,32 +288,37 @@ void insertrow(int arg, int delta) {
         tbl[r] = tmprow;                /* the last row was never used.... */
 
         for (i = 0; i < 37; i++) {      /* update all marked cells */
-            if (savedrow[i] >= currow + delta)
+            if (savedrow[i] >= rr.left.row)
                 savedrow[i] += arg;
-            if (savedstrow[i] >= currow + delta)
+            if (savedstrow[i] >= rr.left.row)
                 savedstrow[i] += arg;
         }
-        if (gs.g_rr.left.row >= currow + delta)
+        if (gs.g_rr.left.row >= rr.left.row)
             gs.g_rr.left.row += arg;
-        if (gs.g_rr.right.row >= currow + delta)
+        if (gs.g_rr.right.row >= rr.left.row)
             gs.g_rr.right.row += arg;
-        if (gs.strow >= currow + delta)
+        if (gs.strow >= rr.left.row)
             gs.strow += arg;
         for (r = 0; r <= maxrow; r++) {
             for (c = 0; c <= maxcol; c++) {
                 struct ent *p = *ATBL(tbl, r, c);
-                if (p) {
-                    if (p->nrr.left.row >= currow + delta)
+                if (p && (p->flags & HAS_NOTE)) {
+                    if (p->nrr.left.row >= rr.left.row)
                         p->nrr.left.row += arg;
-                    if (p->nrr.right.row >= currow + delta)
+                    if (p->nrr.right.row >= rr.left.row)
                         p->nrr.right.row += arg;
                 }
             }
         }
     }
-    fix_ranges(currow + arg * (1 - delta), -1, currow + arg * (1 - delta), -1,
-               delta ? 0 : arg, delta ? arg : 0);
-    currow += delta;
+    // XXX: cell coordinates have been updated
+    fr = find_frange(currow, curcol);
+    if (delta) {
+        fix_ranges(currow, -1, currow, -1, 0, arg, fr);
+        currow += delta;
+    } else {
+        fix_ranges(currow + arg, -1, currow + arg, -1, arg, 0, fr);
+    }
     FullUpdate++;
     modflg++;
 }
@@ -363,7 +382,7 @@ void insertcol(int arg, int delta) {
     for (r = 0; r <= maxrow; r++) {
         for (c = 0; c <= maxcol; c++) {
             struct ent *p = *ATBL(tbl, r, c);
-            if (p) {
+            if (p && (p->flags & HAS_NOTE)) {
                 if (p->nrr.left.col >= curcol + delta)
                     p->nrr.left.col += arg;
                 if (p->nrr.right.col >= curcol + delta)
@@ -371,13 +390,19 @@ void insertcol(int arg, int delta) {
             }
         }
     }
-    if (!delta && (fr = find_frange(currow, curcol)) && fr->ir_left->col == curcol + arg)
-        fr->ir_left = lookat(fr->ir_left->row, fr->ir_left->col - arg);
-    if (delta && (fr = find_frange(currow, curcol)) && fr->ir_right->col == curcol)
-        fr->ir_right = lookat(fr->ir_right->row, fr->ir_right->col + arg);
-    fix_ranges(-1, curcol + arg * (1 - delta), -1, curcol + arg * (1 - delta),
-               delta ? 0 : arg, delta ? arg : 0);
-    curcol += delta;
+
+    // XXX: cell coordinates have been updated
+    fr = find_frange(currow, curcol);
+    if (delta) {
+        if (fr && fr->ir_right->col == curcol)
+            fr->ir_right = lookat(fr->ir_right->row, fr->ir_right->col + arg);
+        fix_ranges(-1, curcol, -1, curcol, 0, arg, fr);
+        curcol += delta;
+    } else {
+        if (fr && fr->ir_left->col == curcol + arg)
+            fr->ir_left = lookat(fr->ir_left->row, fr->ir_left->col - arg);
+        fix_ranges(-1, curcol + arg, -1, curcol + arg, arg, 0, fr);
+    }
     FullUpdate++;
     modflg++;
 }
@@ -408,7 +433,7 @@ void deleterows(int r1, int r2) {
             modflg++;
             obuf = deldata1();
             erase_area(r1, fr->or_left->col, r2, fr->or_right->col, 0);
-            fix_ranges(r1, -1, r2, -1, -1, -1);
+            fix_ranges(r1, -1, r2, -1, -1, -1, fr);
             deldata2(obuf);
             if (r1 + nrows > fr->ir_right->row && fr->ir_right->row >= r1)
                 fr->ir_right = lookat(r1 - 1, fr->ir_right->col);
@@ -467,7 +492,7 @@ void deleterows(int r1, int r2) {
         } else {
             obuf = deldata1();
             erase_area(r1, 0, r2, maxcol, 0);
-            fix_ranges(r1, -1, r2, -1, -1, -1);
+            fix_ranges(r1, -1, r2, -1, -1, -1, NULL);
             closerow(r1, nrows);
             deldata2(obuf);
         }
@@ -1043,7 +1068,7 @@ void closerow(int rs, int numrow) {
     for (r = 0; r <= maxrow; r++) {
         for (c = 0; c <= maxcol; c++) {
             struct ent *p = *ATBL(tbl, r, c);
-            if (p) {
+            if (p && (p->flags & HAS_NOTE)) {
                 if (p->nrr.left.row >= rs && p->nrr.left.row < rs + numrow)
                     p->nrr.left.row = rs;
                 if (p->nrr.left.row >= rs + numrow)
@@ -1105,7 +1130,7 @@ void deletecols(int c1, int c2) {
     }
     sync_refs();
     erase_area(0, c1, maxrow, c2, 0);
-    fix_ranges(-1, c1, -1, c2, -1, -1);
+    fix_ranges(-1, c1, -1, c2, -1, -1, find_frange(currow, curcol));
     for (i = 0; i < DELBUFSIZE; i++) {
         if ((obuf && delbuf[i] == obuf) || (qbuf && i == qbuf)) {
             delbuf[i] = delbuf[dbidx];
@@ -1185,7 +1210,7 @@ void deletecols(int c1, int c2) {
     for (r = 0; r <= maxrow; r++) {
         for (c = 0; c <= maxcol; c++) {
             p = *ATBL(tbl, r, c);
-            if (p) {
+            if (p && (p->flags & HAS_NOTE)) {
                 if (p->nrr.left.col >= c1 && p->nrr.left.col <= c2)
                     p->nrr.left.col = c1;
                 if (p->nrr.left.col > c2)
@@ -1807,7 +1832,7 @@ void erasedb(void) {
 
     maxrow = 0;
     maxcol = 0;
-    clean_range();
+    clean_nrange();
     clean_frange();
     clean_crange();
     clean_abbrevs();

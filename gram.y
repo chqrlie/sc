@@ -71,14 +71,14 @@ static void dosetformat(int n, SCXMEM char *s) {
     scxfree(s);
 }
 
-static void doadd_range(SCXMEM char *name, rangeref_t rr, int is_range) {
-    add_range(s2c(name), rr, is_range);
+static void doadd_nrange(SCXMEM char *name, rangeref_t rr, int is_range) {
+    add_nrange(s2c(name), rr, is_range);
     scxfree(name);
 }
 
 static void dodefine(SCXMEM char *name) {
     int is_range = (showrange && (showsr != currow || showsc != curcol));
-    add_range(s2c(name), rangeref_current(), is_range);
+    add_nrange(s2c(name), rangeref_current(), is_range);
     scxfree(name);
 }
 
@@ -521,9 +521,9 @@ command:  S_LET var_or_range '=' e      { let($2.left, $4); }
         | S_GOTO                        { go_last(); }
         | S_GOTO WORD                   { /* don't repeat last goto on "unintelligible word" */ }
         | S_DEFINE strarg               { dodefine($2); }
-        | S_DEFINE strarg range         { doadd_range($2, $3, 1); }  // XXX: why distinguish this way?
-        | S_DEFINE strarg var           { doadd_range($2, rangeref2($3, $3), 0); }
-        | S_UNDEFINE var_or_range       { del_range($2); }
+        | S_DEFINE strarg range         { doadd_nrange($2, $3, 1); }  // XXX: why distinguish this way?
+        | S_DEFINE strarg var           { doadd_nrange($2, rangeref2($3, $3), 0); }
+        | S_UNDEFINE var_or_range       { del_nrange($2); }
         | S_ABBREV STRING               { doadd_abbr($2); }
         | S_ABBREV                      { doadd_abbr(NULL); }
         | S_UNABBREV STRING             { dodel_abbr($2); }
