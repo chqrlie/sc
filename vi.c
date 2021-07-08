@@ -1474,11 +1474,13 @@ void vi_interaction(void) {
                         break;
                     }
                     if (c == 'd' || c == 'D') {
-                        p = lookat(currow, curcol);
-                        p->nrow = p->ncol = -1;
-                        p->flags |= IS_CHANGED;
-                        modflg++;
-                        FullUpdate++;
+                        p = lookat_nc(currow, curcol);
+                        if (p && (p->flags & HAS_NOTE)) {
+                            p->flags ^= HAS_NOTE;
+                            p->flags |= IS_CHANGED;
+                            modflg++;
+                            FullUpdate++;
+                        }
                         break;
                     }
                     if (c == 's' || c == 'S') {

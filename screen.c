@@ -748,7 +748,7 @@ void update(int anychanged) {          /* did any cell really change in value? *
                     || (showneed && p && (p->flags & IS_VALID) &&
                         ((p->flags & IS_STREXPR) || !p->expr))
                     || (showexpr && p && p->expr)
-                    || (shownote && p && (p->nrow >= 0)))
+                || (shownote && p && (p->flags & HAS_NOTE)))
                 {
                     move(r, c);
                     //standout();
@@ -801,7 +801,7 @@ void update(int anychanged) {          /* did any cell really change in value? *
 
                         if (p->flags & IS_VALID) {
                             const char *cfmt = p->format;
-                            int note = (p->nrow >= 0);
+                            int note = (p->flags & HAS_NOTE) != 0;
                             int align = p->flags & ALIGN_MASK;
 
                             if (colorneg && p->v < 0) {
@@ -971,11 +971,11 @@ void update(int anychanged) {          /* did any cell really change in value? *
         if (showtop) {                  /* show top line */
             printw("%s%d ", coltoa(curcol), currow);
 
-            if ((p = *ATBL(tbl, currow, curcol)) && p->nrow > -1) {
+            if ((p = *ATBL(tbl, currow, curcol)) && (p->flags & HAS_NOTE)) {
                 /* Show the cell note range */
                 // XXX: should show the note instead?
-                printw("{*%s} ", r_name(p->nrow, p->ncol,
-                                        p->nlastrow, p->nlastcol));
+                printw("{*%s} ", r_name(p->nrr.left.row, p->nrr.left.col,
+                                        p->nrr.right.row, p->nrr.right.col));
             }
 
             /* show the current cell's format */

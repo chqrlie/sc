@@ -443,11 +443,11 @@ void write_fd(FILE *f, rangeref_t rr) {
                 if (p->flags & IS_LOCKED) {
                     fprintf(f, "lock %s%d\n", coltoa(p->col), p->row);
                 }
-                if (p->nrow >= 0) {
+                if (p->flags & HAS_NOTE) {
                     fprintf(f, "addnote %s %s\n",
                             v_name(p->row, p->col),
-                            r_name(p->nrow, p->ncol,
-                                   p->nlastrow, p->nlastcol));
+                            r_name(p->nrr.left.row, p->nrr.left.col,
+                                   p->nrr.right.row, p->nrr.right.col));
                 }
             }
         }

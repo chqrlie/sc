@@ -470,9 +470,9 @@ void gotonote(void) {
     struct ent *p;
 
     p = lookat(currow, curcol);
-    if (p->nrow == -1) {
-        error("No note attached");
+    if (p->flags & HAS_NOTE) {
+        moveto(p->nrr, -1, -1);
     } else {
-        moveto(rangeref(p->nrow, p->ncol, p->nlastrow, p->nlastcol), -1, -1);
+        error("No note attached");
     }
 }

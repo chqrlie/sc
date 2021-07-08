@@ -134,9 +134,10 @@ struct ent {
     SCXMEM struct enode *expr;  /* cell formula */
     SCXMEM char *format;        /* printf format for this cell */
     char cellerror;             /* error in a cell? (should pack with flags) */
+    int row;
+    short col;                  /* the cell col/row */
     short flags;
-    short col, ncol, nlastcol;  /* the cell col/row */
-    int row, nrow, nlastrow;    /* ncol/nrow:nlastcol/nlastrow link to note */
+    rangeref_t nrr;             /* nrr: link to note */
     struct ent *next;           /* next deleted ent (pulled, deleted cells) */
 };
 
@@ -313,6 +314,7 @@ struct go_save {
 #define ALIGN_CENTER    0400
 #define ALIGN_RIGHT     0600
 #define ALIGN_CLIP     01000  /* clip contents if longer than colwidth instead of displaying '*' */
+#define HAS_NOTE       02000
 
 /* cell error (1st generation (ERROR) or 2nd+ (INVALID)) */
 #define CELLOK          0

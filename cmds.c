@@ -71,8 +71,8 @@ void clearent(struct ent *v) {
         set_string(&v->format, NULL);
         v->cellerror = 0;
         v->flags = IS_CHANGED | IS_CLEARED;
+        v->nrr = rangeref_empty();
         // XXX: should clear other fields?
-        //      ncol, nrow, nlastcol, nlastrow
         //      next
         FullUpdate++;  // XXX: really?
         changed++;
@@ -110,10 +110,7 @@ struct ent *lookat(int row, int col) {
         p->flags = MAY_SYNC;
         p->row = row;
         p->col = col;
-        p->nrow = -1;
-        p->ncol = -1;
-        p->nlastrow = -1;
-        p->nlastcol = -1;
+        p->nrr = rangeref_empty();
         p->next = NULL;
         *pp = p;
     }
@@ -246,14 +243,14 @@ void insertrow(int arg, int delta) {
             for (c = 0; c <= maxcol; c++) {
                 struct ent *p = *ATBL(tbl, r, c);
                 if (p) {
-                    if (p->nrow >= currow + delta &&
-                        p->ncol >= fr->or_left->col &&
-                        p->ncol <= fr->or_right->col)
-                        p->nrow += arg;
-                    if (p->nlastrow >= currow + delta &&
-                        p->nlastcol >= fr->or_left->col &&
-                        p->nlastcol <= fr->or_right->col)
-                        p->nlastrow += arg;
+                    if (p->nrr.left.row >= currow + delta &&
+                        p->nrr.left.col >= fr->or_left->col &&
+                        p->nrr.left.col <= fr->or_right->col)
+                        p->nrr.left.row += arg;
+                    if (p->nrr.right.row >= currow + delta &&
+                        p->nrr.right.col >= fr->or_left->col &&
+                        p->nrr.right.col <= fr->or_right->col)
+                        p->nrr.right.row += arg;
                 }
             }
         }
@@ -292,10 +289,10 @@ void insertrow(int arg, int delta) {
             for (c = 0; c <= maxcol; c++) {
                 struct ent *p = *ATBL(tbl, r, c);
                 if (p) {
-                    if (p->nrow >= currow + delta)
-                        p->nrow += arg;
-                    if (p->nlastrow >= currow + delta)
-                        p->nlastrow += arg;
+                    if (p->nrr.left.row >= currow + delta)
+                        p->nrr.left.row += arg;
+                    if (p->nrr.right.row >= currow + delta)
+                        p->nrr.right.row += arg;
                 }
             }
         }
@@ -367,10 +364,10 @@ void insertcol(int arg, int delta) {
         for (c = 0; c <= maxcol; c++) {
             struct ent *p = *ATBL(tbl, r, c);
             if (p) {
-                if (p->ncol >= curcol + delta)
-                    p->ncol += arg;
-                if (p->nlastcol >= curcol + delta)
-                    p->nlastcol += arg;
+                if (p->nrr.left.col >= curcol + delta)
+                    p->nrr.left.col += arg;
+                if (p->nrr.right.col >= curcol + delta)
+                    p->nrr.right.col += arg;
             }
         }
     }
@@ -1047,16 +1044,16 @@ void closerow(int rs, int numrow) {
         for (c = 0; c <= maxcol; c++) {
             struct ent *p = *ATBL(tbl, r, c);
             if (p) {
-                if (p->nrow >= rs && p->nrow < rs + numrow)
-                    p->nrow = rs;
-                if (p->nrow >= rs + numrow)
-                    p->nrow -= numrow;
-                if (p->nlastrow >= rs && p->nlastrow < rs + numrow)
-                    p->nlastrow = rs - 1;
-                if (p->nlastrow >= rs + numrow)
-                    p->nlastrow -= numrow;
-                if (p->nlastrow < p->nrow)
-                    p->nrow = p->ncol = -1;
+                if (p->nrr.left.row >= rs && p->nrr.left.row < rs + numrow)
+                    p->nrr.left.row = rs;
+                if (p->nrr.left.row >= rs + numrow)
+                    p->nrr.left.row -= numrow;
+                if (p->nrr.right.row >= rs && p->nrr.right.row < rs + numrow)
+                    p->nrr.right.row = rs - 1;
+                if (p->nrr.right.row >= rs + numrow)
+                    p->nrr.right.row -= numrow;
+                if (p->nrr.right.row < p->nrr.left.row)
+                    p->nrr.left.row = p->nrr.left.col = -1;
             }
         }
     }
@@ -1189,16 +1186,16 @@ void deletecols(int c1, int c2) {
         for (c = 0; c <= maxcol; c++) {
             p = *ATBL(tbl, r, c);
             if (p) {
-                if (p->ncol >= c1 && p->ncol <= c2)
-                    p->ncol = c1;
-                if (p->ncol > c2)
-                    p->ncol -= ncols;
-                if (p->nlastcol >= c1 && p->nlastcol <= c2)
-                    p->nlastcol = c1 - 1;
-                if (p->nlastcol > c2)
-                    p->nlastcol -= ncols;
-                if (p->nlastcol < p->ncol)
-                    p->nrow = p->ncol = -1;
+                if (p->nrr.left.col >= c1 && p->nrr.left.col <= c2)
+                    p->nrr.left.col = c1;
+                if (p->nrr.left.col > c2)
+                    p->nrr.left.col -= ncols;
+                if (p->nrr.right.col >= c1 && p->nrr.right.col <= c2)
+                    p->nrr.right.col = c1 - 1;
+                if (p->nrr.right.col > c2)
+                    p->nrr.right.col -= ncols;
+                if (p->nrr.right.col < p->nrr.left.col)
+                    p->nrr.right.row = p->nrr.left.col = -1;
             }
         }
     }
@@ -1948,11 +1945,8 @@ void addnote(cellref_t cr, rangeref_t rr) {
     struct ent *p = lookat(cr.row, cr.col);
     if (p) {
         range_normalize(&rr);
-        p->nrow = rr.left.row;
-        p->ncol = rr.left.col;
-        p->nlastrow = rr.right.row;
-        p->nlastcol = rr.right.col;
-        p->flags |= IS_CHANGED;
+        p->nrr = rr;
+        p->flags |= HAS_NOTE | IS_CHANGED;
         FullUpdate++;
         modflg++;
     }
@@ -1960,8 +1954,9 @@ void addnote(cellref_t cr, rangeref_t rr) {
 
 void delnote(cellref_t cr) {
     struct ent *p = lookat_nc(cr.row, cr.col);
-    if (p) {
-        p->nrow = p->ncol = -1;
+    if (p && (p->flags & HAS_NOTE)) {
+        p->nrr = rangeref_empty();
+        p->flags ^= HAS_NOTE;
         p->flags |= IS_CHANGED;
         modflg++;
     }

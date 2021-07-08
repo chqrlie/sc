@@ -1,9 +1,8 @@
 # TODO
 
-[ ] use rangeref_t and HAS_NOTE flag for notes
+[ ] use sc_string_t: shared allocated strings with a reference count,
+    optionally hashed into a dictionary
 [ ] use rangeref_t for find_range_coords()
-[ ] pass cell locations and ranges as sets of coordinates instead of
-    allocated cell pointers in gram.y
 [ ] change representation for ranges: abs/rel coords instead of pointers
 [ ] handle dynamic types
 [ ] change the expression evaluator: use a stack of dynamically types values
@@ -41,3 +40,9 @@
 	formatted or unformatted data in a file or list of files which will
 	output the whole row in which a given number or string is found,
 	formatted as with the write command.
+
+# DONE
+
+[X] pass cell locations and ranges as sets of coordinates instead of
+    allocated cell pointers in gram.y
+[X] use rangeref_t and HAS_NOTE flag for notes
