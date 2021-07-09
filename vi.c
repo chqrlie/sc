@@ -751,10 +751,8 @@ void vi_interaction(void) {
                     if (locked_cell(lookat(currow, curcol)))
                         break;
                     /* set mark 0 */
-                    savedrow[27] = currow;
-                    savedcol[27] = curcol;
-                    savedstrow[27] = strow;
-                    savedstcol[27] = stcol;
+                    savedcr[27] = cellref(currow, curcol);
+                    savedst[27] = cellref(strow, stcol);
 
                     numeric_field = 1;
                     set_line("let %s = %c", v_name(currow, curcol), c);
@@ -767,10 +765,8 @@ void vi_interaction(void) {
                     if (locked_cell(p = lookat(currow, curcol)))
                         break;
                     /* set mark 0 */
-                    savedrow[27] = currow;
-                    savedcol[27] = curcol;
-                    savedstrow[27] = strow;
-                    savedstcol[27] = stcol;
+                    savedcr[27] = cellref(currow, curcol);
+                    savedst[27] = cellref(strow, stcol);
 
                     numeric_field = 1;
                     /* copy cell contents into line array */
@@ -790,10 +786,8 @@ void vi_interaction(void) {
                     if (locked_cell(lookat(currow, curcol)))
                         break;
                     /* set mark 0 */
-                    savedrow[27] = currow;
-                    savedcol[27] = curcol;
-                    savedstrow[27] = strow;
-                    savedstcol[27] = stcol;
+                    savedcr[27] = cellref(currow, curcol);
+                    savedst[27] = cellref(strow, stcol);
 
                     set_line("let %s = ", v_name(currow, curcol));
                     cellassign = 1;
@@ -1127,10 +1121,8 @@ void vi_interaction(void) {
                 case '\\':
                     if (!locked_cell(lookat(currow, curcol))) {
                         /* set mark 0 */
-                        savedrow[27] = currow;
-                        savedcol[27] = curcol;
-                        savedstrow[27] = strow;
-                        savedstcol[27] = stcol;
+                        savedcr[27] = cellref(currow, curcol);
+                        savedst[27] = cellref(strow, stcol);
 
                         set_line("label %s = \"", v_name(currow, curcol));
                         cellassign = 1;
@@ -1141,10 +1133,8 @@ void vi_interaction(void) {
                 case '<':
                     if (!locked_cell(lookat(currow, curcol))) {
                         /* set mark 0 */
-                        savedrow[27] = currow;
-                        savedcol[27] = curcol;
-                        savedstrow[27] = strow;
-                        savedstcol[27] = stcol;
+                        savedcr[27] = cellref(currow, curcol);
+                        savedst[27] = cellref(strow, stcol);
 
                         set_line("leftstring %s = \"", v_name(currow, curcol));
                         cellassign = 1;
@@ -1155,13 +1145,11 @@ void vi_interaction(void) {
                 case '>':
                     if (!locked_cell(lookat(currow, curcol))) {
                         /* set mark 0 */
-                        savedrow[27] = currow;
-                        savedcol[27] = curcol;
-                        savedstrow[27] = strow;
-                        savedstcol[27] = stcol;
+                        savedcr[27] = cellref(currow, curcol);
+                        savedst[27] = cellref(strow, stcol);
 
-                       set_line("rightstring %s = \"", v_name(currow, curcol));
-                       insert_mode();
+                        set_line("rightstring %s = \"", v_name(currow, curcol));
+                        insert_mode();
                     }
                     break;
                 case '{':
@@ -1176,10 +1164,8 @@ void vi_interaction(void) {
                 case 'e':
                     if (!locked_cell(p = lookat(currow, curcol))) {
                         /* set mark 0 */
-                        savedrow[27] = currow;
-                        savedcol[27] = curcol;
-                        savedstrow[27] = strow;
-                        savedstcol[27] = stcol;
+                        savedcr[27] = cellref(currow, curcol);
+                        savedst[27] = cellref(strow, stcol);
 
                         /* copy cell contents into line array */
                         buf_init(buf, line, sizeof line);
@@ -1197,10 +1183,8 @@ void vi_interaction(void) {
                 case 'E':
                     if (!locked_cell(p = lookat(currow, curcol))) {
                         /* set mark 0 */
-                        savedrow[27] = currow;
-                        savedcol[27] = curcol;
-                        savedstrow[27] = strow;
-                        savedstcol[27] = stcol;
+                        savedcr[27] = cellref(currow, curcol);
+                        savedst[27] = cellref(strow, stcol);
 
                         /* copy cell contents into line array */
                         buf_init(buf, line, sizeof line);
@@ -1435,7 +1419,7 @@ void vi_interaction(void) {
                         error("Invalid mark (must be a-z, 0-9, ` or \')");
                         break;
                     }
-                    if (savedrow[c] == -1) {
+                    if (savedcr[c].row == -1) {
                         error("Mark not set");
                         break;
                     }
@@ -1446,9 +1430,9 @@ void vi_interaction(void) {
                         //      in destination area
                         // XXX: should just use
                         // copy(currow, curcol, currow, curcol + uarg - 1,
-                        //      savedrow[c], savedcol[c], savedrow[c], savedcol[c]);
+                        //      savedcr[c].row, savedcr[c].col, savedcr[c].row, savedcr[c].col);
 
-                        p = *ATBL(tbl, savedrow[c], savedcol[c]);
+                        p = *ATBL(tbl, savedcr[c].row, savedcr[c].col);
                         for (c1 = curcol; uarg-- && c1 < maxcols; c1++) {
                             if ((n = *ATBL(tbl, currow, c1))) {
                                 if (n->flags & IS_LOCKED)
@@ -1461,7 +1445,7 @@ void vi_interaction(void) {
                                 if (!p) break;
                                 n = lookat(currow, c1);
                             }
-                            copyent(n, p, currow - savedrow[c], c1 - savedcol[c],
+                            copyent(n, p, currow - savedcr[c].row, c1 - savedcr[c].col,
                                     0, 0, maxrow, maxcol, 0);
                         }
                         FullUpdate++;
@@ -1667,10 +1651,8 @@ static void markcell(void) {
         error("Invalid mark (must be letter, digit, ` or ')");
         return;
     }
-    savedrow[c] = currow;
-    savedcol[c] = curcol;
-    savedstrow[c] = strow;
-    savedstcol[c] = stcol;
+    savedcr[c] = cellref(currow, curcol);
+    savedst[c] = cellref(strow, stcol);
 }
 
 static void dotick(int tick) {
@@ -1687,17 +1669,17 @@ static void dotick(int tick) {
         error("Invalid mark (must be letter, digit, ` or ')");
         return;
     }
-    if (savedrow[c] == -1) {
+    if (savedcr[c].row == -1) {
         error("Mark not set");
         return;
     }
-    currow = savedrow[c];
-    curcol = savedcol[c];
+    currow = savedcr[c].row;
+    curcol = savedcr[c].col;
     rowsinrange = 1;
     colsinrange = fwidth[curcol];
     if (tick == '\'') {
-        strow = savedstrow[c];
-        stcol = savedstcol[c];
+        strow = savedst[c].row;
+        stcol = savedst[c].col;
         gs.stflag = 1;
     } else {
         gs.stflag = 0;
@@ -3327,10 +3309,8 @@ void remember(int save) {
 
     if (save && (currow != remrow || curcol != remcol ||
                  strow != remstrow || stcol != remstcol)) {
-        savedrow[0] = remrow;
-        savedcol[0] = remcol;
-        savedstrow[0] = remstrow;
-        savedstcol[0] = remstcol;
+        savedcr[0] = cellref(remrow, remcol);
+        savedst[0] = cellref(remstrow, remstcol);
     } else {
         remrow = currow;
         remcol = curcol;

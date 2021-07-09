@@ -33,8 +33,8 @@ static void settcattr(void);
 SCXMEM struct ent ***tbl;
 int strow = 0, stcol = 0;
 int currow = 0, curcol = 0;
-int savedrow[37], savedcol[37];     /* stack of marked cells */
-int savedstrow[37], savedstcol[37];
+cellref_t savedcr[37];     /* stack of marked cells */
+cellref_t savedst[37];
 int FullUpdate = 0;
 int maxrow, maxcol;
 int maxrows, maxcols;
@@ -277,10 +277,8 @@ int main(int argc, char **argv) {
         optind++;
     }
 
-    savedrow[0] = currow;
-    savedcol[0] = curcol;
-    savedstrow[0] = strow;
-    savedstcol[0] = stcol;
+    savedcr[0] = cellref(currow, curcol);
+    savedst[0] = cellref(strow, stcol);
     // XXX: potentially redundant
     EvalAll();
 

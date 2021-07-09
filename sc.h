@@ -206,8 +206,7 @@ struct go_save {
     double g_n;
     SCXMEM char *g_s;
     rangeref_t g_rr;
-    int strow;
-    int stcol;
+    cellref_t st;
     int stflag;
     int errsearch;
 };
@@ -327,7 +326,7 @@ struct go_save {
 
 /* values for showrange for ranges of rows or columns */
 #define SHOWROWS 2
-#define SHOWCOLS 3
+#define SHOWCOLS 4
 
 /* tblprint style output for: */
 #define TBL     1               /* 'tbl' */
@@ -441,8 +440,8 @@ extern int strow, stcol;
 extern int currow, curcol;
 extern int gmyrow, gmycol;      /* globals used for @myrow, @mycol cmds */
 extern int rescol;              /* columns reserved for row numbers */
-extern int savedrow[37], savedcol[37];
-extern int savedstrow[37], savedstcol[37];
+extern cellref_t savedcr[37];
+extern cellref_t savedst[37];
 extern int FullUpdate;
 extern int maxrow, maxcol;
 extern int maxrows, maxcols;    /* # cells currently allocated */
@@ -688,7 +687,7 @@ extern void list_nranges(FILE *f);
 extern void lock_cells(rangeref_t rr);
 extern void move_area(int dr, int dc, rangeref_t rr);
 extern void mover(cellref_t cr, rangeref_t rr);
-extern void moveto(rangeref_t rr, int strow, int stcol);
+extern void moveto(rangeref_t rr, cellref_t st);
 extern void num_search(double n, rangeref_t rr, int errsearch);
 extern void printfile(const char *fname, rangeref_t rr);
 extern void pullcells(int to_insert, cellref_t cr);

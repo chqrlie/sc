@@ -1630,17 +1630,13 @@ static void push_mark(int row, int col) {
 
     /* shift saved places */
     for (i = 36; i > 28; i--) {
-        savedrow[i] = savedrow[i-1];
-        savedcol[i] = savedcol[i-1];
-        savedstrow[i] = savedstrow[i-1];
-        savedstcol[i] = savedstcol[i-1];
+        savedcr[i] = savedcr[i-1];
+        savedst[i] = savedst[i-1];
     }
 
     /* save current cell and screen position */
-    savedrow[28] = row;
-    savedcol[28] = col;
-    savedstrow[28] = savedstrow[27];
-    savedstcol[28] = savedstcol[27];
+    savedcr[28] = cellref(row, col);
+    savedst[28] = savedst[27];
 }
 
 /* set the numeric part of a cell */

@@ -113,6 +113,7 @@ SCXMEM char *colformat[COLFORMATS];
 
 /*****************************************************************************/
 
+// XXX: should take buf_t destination
 static int fmt_int(char *dest,
                    size_t size,
                    const char *val,  /* integer part of the value to be formatted */
@@ -235,6 +236,7 @@ static int fmt_int(char *dest,
 
 /*****************************************************************************/
 
+// XXX: should take buf_t destination
 static int fmt_frac(char *dest,
                     size_t size,
                     const char *val,    /* fractional part of the value to be formatted */
@@ -314,6 +316,7 @@ static int fmt_frac(char *dest,
 
 /*****************************************************************************/
 
+// XXX: should take buf_t destination
 static int fmt_exp(char *dest,      /* destination array */
                    size_t size,     /* size of destination array */
                    int val,         /* value of the exponent */
@@ -364,6 +367,7 @@ static int skip_fmt(const char *p) {
     return i;
 }
 
+// XXX: should take buf_t destination
 int format(char *buf, size_t buflen, const char *fmt, int lprecision, double val, int *alignp) {
     char mantissa[FBUFLEN];
     const char *integer;
@@ -599,6 +603,7 @@ static const char * const engmult[] = {
     "+03", "+06", "+09", "+12", "+15", "+18"
 };
 
+// XXX: should take buf_t destination
 int engformat(char *buf, size_t size, int fmt, int lprecision, double val, int *alignp) {
     int engind = 0;
     double engmant, engabs, engexp;
@@ -663,6 +668,7 @@ int engformat(char *buf, size_t size, int fmt, int lprecision, double val, int *
     return -1;
 }
 
+// XXX: should not use the C library for this
 void sc_set_locale(int set) {
     dpoint = '.';
     thsep = ',';
@@ -670,15 +676,16 @@ void sc_set_locale(int set) {
 
     if (set) {
 #ifdef USELOCALE
-        struct lconv *locstruct;
         char *loc = setlocale(LC_ALL, "");
         if (loc != NULL) {
-            locstruct = localeconv();
+            struct lconv *locstruct = localeconv();
             dpoint = locstruct->decimal_point[0];
             thsep = locstruct->thousands_sep[0];
         }
 #else
         error("Locale support not available");
 #endif
+    } else {
+        // XXX: should reset the locale
     }
 }

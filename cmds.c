@@ -241,14 +241,14 @@ void insertrow(int arg, int delta) {
             fr->ir_right = lookat(fr->ir_right->row + arg, fr->ir_right->col);
 
         for (i = 0; i < 37; i++) {      /* update all marked cells */
-            if (savedrow[i] >= rr.left.row &&
-                savedcol[i] >= rr.left.col &&
-                savedcol[i] <= rr.right.col)
-                savedrow[i] += arg;
-            if (savedstrow[i] >= rr.left.row &&
-                savedstcol[i] >= rr.left.col &&
-                savedstcol[i] <= rr.right.col)
-                savedstrow[i] += arg;
+            if (savedcr[i].row >= rr.left.row &&
+                savedcr[i].col >= rr.left.col &&
+                savedcr[i].col <= rr.right.col)
+                savedcr[i].row += arg;
+            if (savedst[i].row >= rr.left.row &&
+                savedst[i].col >= rr.left.col &&
+                savedst[i].col <= rr.right.col)
+                savedst[i].row += arg;
         }
         if (gs.g_rr.left.row >= rr.left.row &&
             gs.g_rr.left.col >= rr.left.col &&
@@ -258,10 +258,10 @@ void insertrow(int arg, int delta) {
             gs.g_rr.right.col >= rr.left.col &&
             gs.g_rr.right.col <= rr.right.col)
             gs.g_rr.right.row += arg;
-        if (gs.strow >= rr.left.row &&
-            gs.stcol >= rr.left.col &&
-            gs.stcol <= rr.right.col)
-            gs.strow += arg;
+        if (gs.st.row >= rr.left.row &&
+            gs.st.col >= rr.left.col &&
+            gs.st.col <= rr.right.col)
+            gs.st.row += arg;
         for (r = 0; r <= maxrow; r++) {
             for (c = 0; c <= maxcol; c++) {
                 struct ent *p = *ATBL(tbl, r, c);
@@ -297,17 +297,17 @@ void insertrow(int arg, int delta) {
         tbl[r] = tmprow;                /* the last row was never used.... */
 
         for (i = 0; i < 37; i++) {      /* update all marked cells */
-            if (savedrow[i] >= rr.left.row)
-                savedrow[i] += arg;
-            if (savedstrow[i] >= rr.left.row)
-                savedstrow[i] += arg;
+            if (savedcr[i].row >= rr.left.row)
+                savedcr[i].row += arg;
+            if (savedst[i].row >= rr.left.row)
+                savedst[i].row += arg;
         }
         if (gs.g_rr.left.row >= rr.left.row)
             gs.g_rr.left.row += arg;
         if (gs.g_rr.right.row >= rr.left.row)
             gs.g_rr.right.row += arg;
-        if (gs.strow >= rr.left.row)
-            gs.strow += arg;
+        if (gs.st.row >= rr.left.row)
+            gs.st.row += arg;
         for (r = 0; r <= maxrow; r++) {
             for (c = 0; c <= maxcol; c++) {
                 struct ent *p = *ATBL(tbl, r, c);
@@ -378,17 +378,17 @@ void insertcol(int arg, int delta) {
 
     /* Update all marked cells. */
     for (c = 0; c < 37; c++) {
-        if (savedcol[c] >= sc1)
-            savedcol[c] += arg;
-        if (savedstcol[c] >= sc1)
-            savedstcol[c] += arg;
+        if (savedcr[c].col >= sc1)
+            savedcr[c].col += arg;
+        if (savedst[c].col >= sc1)
+            savedst[c].col += arg;
     }
     if (gs.g_rr.left.col >= sc1)
         gs.g_rr.left.col += arg;
     if (gs.g_rr.right.col >= sc1)
         gs.g_rr.right.col += arg;
-    if (gs.stcol >= sc1)
-        gs.stcol += arg;
+    if (gs.st.col >= sc1)
+        gs.st.col += arg;
 
     /* Update note links. */
     for (r = 0; r <= maxrow; r++) {
@@ -463,40 +463,40 @@ void deleterows(int r1, int r2) {
             }
             /* Update all marked cells. */
             for (i = 0; i < 37; i++) {
-                if (savedcol[i] >= fr->or_left->col &&
-                    savedcol[i] <= fr->or_right->col) {
-                    if (savedrow[i] >= r1 && savedrow[i] <= r2)
-                        savedrow[i] = savedcol[i] = -1;
-                    if (savedrow[i] > r2)
-                        savedrow[i] -= nrows;
+                if (savedcr[i].col >= fr->or_left->col &&
+                    savedcr[i].col <= fr->or_right->col) {
+                    if (savedcr[i].row >= r1 && savedcr[i].row <= r2)
+                        savedcr[i].row = savedcr[i].col = -1;
+                    else if (savedcr[i].row > r2)
+                        savedcr[i].row -= nrows;
                 }
-                if (savedstcol[i] >= fr->or_left->col &&
-                    savedstcol[i] <= fr->or_right->col) {
-                    if (savedstrow[i] >= r1 && savedstrow[i] <= r2)
-                        savedstrow[i] = r1;
-                    if (savedstrow[i] > r2)
-                        savedstrow[i] -= nrows;
+                if (savedst[i].col >= fr->or_left->col &&
+                    savedst[i].col <= fr->or_right->col) {
+                    if (savedst[i].row >= r1 && savedst[i].row <= r2)
+                        savedst[i].row = r1;
+                    else if (savedst[i].row > r2)
+                        savedst[i].row -= nrows;
                 }
             }
             if (gs.g_rr.left.col >= fr->or_left->col && gs.g_rr.left.col <= fr->or_right->col) {
                 if (gs.g_rr.left.row >= r1 && gs.g_rr.left.row <= r2)
                     gs.g_rr.left.row = r1;
-                if (gs.g_rr.left.row > r2)
+                else if (gs.g_rr.left.row > r2)
                     gs.g_rr.left.row -= nrows;
             }
             if (gs.g_rr.right.col >= fr->or_left->col && gs.g_rr.right.col <= fr->or_right->col) {
                 if (gs.g_rr.right.row >= r1 && gs.g_rr.right.row <= r2)
                     gs.g_rr.right.row = r1 - 1;
-                if (gs.g_rr.right.row > r2)
+                else if (gs.g_rr.right.row > r2)
                     gs.g_rr.right.row -= nrows;
             }
             if (gs.g_rr.left.row > gs.g_rr.right.row)
                 gs.g_rr.left.row = gs.g_rr.left.col = -1;
-            if (gs.stcol >= fr->or_left->col && gs.stcol <= fr->or_right->col) {
-                if (gs.strow >= r1 && gs.strow <= r2)
-                    gs.strow = r1;
-                if (gs.strow > r2)
-                    gs.strow -= nrows;
+            if (gs.st.col >= fr->or_left->col && gs.st.col <= fr->or_right->col) {
+                if (gs.st.row >= r1 && gs.st.row <= r2)
+                    gs.st.row = r1;
+                else if (gs.st.row > r2)
+                    gs.st.row -= nrows;
             }
         }
     } else {
@@ -1016,29 +1016,29 @@ void closerow(int rs, int numrow) {
 
     /* Update all marked cells. */
     for (i = 0; i < 37; i++) {
-        if (savedrow[i] >= rs && savedrow[i] < rs + numrow)
-            savedrow[i] = savedcol[i] = -1;
-        if (savedrow[i] >= rs + numrow)
-            savedrow[i] -= numrow;
-        if (savedstrow[i] >= rs && savedstrow[i] < rs + numrow)
-            savedstrow[i] = rs;
-        if (savedstrow[i] >= rs + numrow)
-            savedstrow[i] -= numrow;
+        if (savedcr[i].row >= rs && savedcr[i].row < rs + numrow)
+            savedcr[i].row = savedcr[i].col = -1;
+        else if (savedcr[i].row >= rs + numrow)
+            savedcr[i].row -= numrow;
+        if (savedst[i].row >= rs && savedst[i].row < rs + numrow)
+            savedst[i].row = rs;
+        else if (savedst[i].row >= rs + numrow)
+            savedst[i].row -= numrow;
     }
     if (gs.g_rr.left.row >= rs && gs.g_rr.left.row < rs + numrow)
         gs.g_rr.left.row = rs;
-    if (gs.g_rr.left.row >= rs + numrow)
+    else if (gs.g_rr.left.row >= rs + numrow)
         gs.g_rr.left.row -= numrow;
     if (gs.g_rr.right.row >= rs && gs.g_rr.right.row < rs + numrow)
         gs.g_rr.right.row = rs - 1;
-    if (gs.g_rr.right.row >= rs + numrow)
+    else if (gs.g_rr.right.row >= rs + numrow)
         gs.g_rr.right.row -= numrow;
     if (gs.g_rr.left.row > gs.g_rr.right.row)
         gs.g_rr.left.row = gs.g_rr.left.col = -1;
-    if (gs.strow >= rs && gs.strow < rs + numrow)
-        gs.strow = rs;
-    if (gs.strow >= rs + numrow)
-        gs.strow -= numrow;
+    if (gs.st.row >= rs && gs.st.row < rs + numrow)
+        gs.st.row = rs;
+    else if (gs.st.row >= rs + numrow)
+        gs.st.row -= numrow;
 
     maxrow -= numrow;
 
@@ -1049,11 +1049,11 @@ void closerow(int rs, int numrow) {
             if (p && (p->flags & HAS_NOTE)) {
                 if (p->nrr.left.row >= rs && p->nrr.left.row < rs + numrow)
                     p->nrr.left.row = rs;
-                if (p->nrr.left.row >= rs + numrow)
+                else if (p->nrr.left.row >= rs + numrow)
                     p->nrr.left.row -= numrow;
                 if (p->nrr.right.row >= rs && p->nrr.right.row < rs + numrow)
                     p->nrr.right.row = rs - 1;
-                if (p->nrr.right.row >= rs + numrow)
+                else if (p->nrr.right.row >= rs + numrow)
                     p->nrr.right.row -= numrow;
                 if (p->nrr.right.row < p->nrr.left.row)
                     p->nrr.left.row = p->nrr.left.col = -1;
@@ -1158,29 +1158,29 @@ void deletecols(int c1, int c2) {
 
     /* Update all marked cells. */
     for (i = 0; i < 37; i++) {
-        if (savedcol[i] >= c1 && savedcol[i] <= c2)
-            savedrow[i] = savedcol[i] = -1;
-        if (savedcol[i] > c2)
-            savedcol[i] -= ncols;
-        if (savedstcol[i] >= c1 && savedstcol[i] <= c2)
-            savedstcol[i] = c1;
-        if (savedstcol[i] > c2)
-            savedstcol[i] -= ncols;
+        if (savedcr[i].col >= c1 && savedcr[i].col <= c2)
+            savedcr[i].row = savedcr[i].col = -1;
+        else if (savedcr[i].col > c2)
+            savedcr[i].col -= ncols;
+        if (savedst[i].col >= c1 && savedst[i].col <= c2)
+            savedst[i].col = c1;
+        else if (savedst[i].col > c2)
+            savedst[i].col -= ncols;
     }
     if (gs.g_rr.left.col >= c1 && gs.g_rr.left.col <= c2)
         gs.g_rr.left.col = c1;
-    if (gs.g_rr.left.col > c2)
+    else if (gs.g_rr.left.col > c2)
         gs.g_rr.left.col -= ncols;
     if (gs.g_rr.right.col >= c1 && gs.g_rr.right.col <= c2)
         gs.g_rr.right.col = c1 - 1;
-    if (gs.g_rr.right.col > c2)
+    else if (gs.g_rr.right.col > c2)
         gs.g_rr.right.col -= ncols;
     if (gs.g_rr.left.col > gs.g_rr.right.col)
         gs.g_rr.left.row = gs.g_rr.left.col = -1;
-    if (gs.stcol > c1 && gs.stcol <= c2)
-        gs.stcol = c1;
-    if (gs.stcol > c2)
-        gs.stcol -= ncols;
+    if (gs.st.col > c1 && gs.st.col <= c2)
+        gs.st.col = c1;
+    else if (gs.st.col > c2)
+        gs.st.col -= ncols;
 
     maxcol -= ncols;
 
@@ -1191,11 +1191,11 @@ void deletecols(int c1, int c2) {
             if (p && (p->flags & HAS_NOTE)) {
                 if (p->nrr.left.col >= c1 && p->nrr.left.col <= c2)
                     p->nrr.left.col = c1;
-                if (p->nrr.left.col > c2)
+                else if (p->nrr.left.col > c2)
                     p->nrr.left.col -= ncols;
                 if (p->nrr.right.col >= c1 && p->nrr.right.col <= c2)
                     p->nrr.right.col = c1 - 1;
-                if (p->nrr.right.col > c2)
+                else if (p->nrr.right.col > c2)
                     p->nrr.right.col -= ncols;
                 if (p->nrr.right.col < p->nrr.left.col)
                     p->nrr.right.row = p->nrr.left.col = -1;
@@ -1830,8 +1830,10 @@ void erasedb(void) {
     if (usecurses)
         select_style(STYLE_NONE, 0);
     /* unset all marks */
-    for (c = 0; c < 37; c++)
-        savedrow[c] = savedcol[c] = savedstrow[c] = savedstcol[c] = -1;
+    for (c = 0; c < 37; c++) {
+        savedcr[c].row = savedcr[c].col = -1;
+        savedst[c].row = savedst[c].col = -1;
+    }
 
     set_cstring(&mdir, NULL);
     set_cstring(&autorun, NULL);

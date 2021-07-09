@@ -507,8 +507,8 @@ command:  S_LET var_or_range '=' e      { let($2.left, $4); }
         | S_LOCK var_or_range           { lock_cells($2); }
         | S_UNLOCK                      { unlock_cells(rangeref_current()); }
         | S_UNLOCK var_or_range         { unlock_cells($2); }
-        | S_GOTO var_or_range var_or_range { moveto($2, $3.left.row, $3.left.col); }
-        | S_GOTO var_or_range           { moveto($2, -1, -1); }
+        | S_GOTO var_or_range var_or_range { moveto($2, $3.left); }
+        | S_GOTO var_or_range           { moveto($2, cellref(-1, -1)); }
         | S_GOTO num range              { num_search($2, $3, 0); }
         | S_GOTO num                    { num_search($2, rangeref_total(), 0); }
         | S_GOTO errlist                { /* code is executed in errlist rules */ }

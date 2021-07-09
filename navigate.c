@@ -47,7 +47,7 @@ void go_last(void) {
         num_search(gs.g_n, gs.g_rr, gs.errsearch);
         break;
     case G_CELL:
-        moveto(gs.g_rr, gs.strow, gs.stcol);
+        moveto(gs.g_rr, gs.st);
         break;
     case G_XSTR:
         num++;
@@ -65,11 +65,11 @@ void go_last(void) {
     }
 }
 
-/* Place the cursor on a given cell.  If cornerrow >= 0, place the cell
- * at row cornerrow and column cornercol in the upper left corner of the
+/* Place the cursor on a given cell.  If st.row >= 0, place the cell
+ * at row st.row and column st.col in the upper left corner of the
  * screen if possible.
  */
-void moveto(rangeref_t rr, int cornerrow, int cornercol) {
+void moveto(rangeref_t rr, cellref_t st) {
     int i;
 
     if (!loading && rr.left.row != -1 && (rr.left.row != currow || rr.left.col != curcol))
@@ -80,11 +80,10 @@ void moveto(rangeref_t rr, int cornerrow, int cornercol) {
     g_free();
     gs.g_type = G_CELL;
     gs.g_rr = rr;
-    gs.strow = cornerrow;
-    gs.stcol = cornercol;
-    if (cornerrow >= 0) {
-        strow = cornerrow;
-        stcol = cornercol;
+    gs.st = st;
+    if (st.row >= 0) {
+        strow = st.row;
+        stcol = st.col;
         gs.stflag = 1;
     } else {
         gs.stflag = 0;
@@ -471,7 +470,7 @@ void gotonote(void) {
 
     p = lookat(currow, curcol);
     if (p->flags & HAS_NOTE) {
-        moveto(p->nrr, -1, -1);
+        moveto(p->nrr, cellref(-1, -1));
     } else {
         error("No note attached");
     }
