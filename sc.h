@@ -538,7 +538,7 @@ static inline rangeref_t rangeref_empty(void) {
     return rangeref(0, 0, -1, -1);
 }
 
-void range_normalize(rangeref_t *rr);
+rangeref_t *range_normalize(rangeref_t *rr);
 
 /* styles */
 extern struct SCXMEM colorpair *cpairs[CPAIRS + 1];
@@ -686,7 +686,7 @@ extern void unlet(cellref_t cr);
 extern void let(cellref_t cr, SCXMEM struct enode *e);
 extern void list_nranges(FILE *f);
 extern void lock_cells(rangeref_t rr);
-extern void move_area(int dr, int dc, int sr, int sc, int er, int ec);
+extern void move_area(int dr, int dc, rangeref_t rr);
 extern void mover(cellref_t cr, rangeref_t rr);
 extern void moveto(rangeref_t rr, int strow, int stcol);
 extern void num_search(double n, rangeref_t rr, int errsearch);
@@ -723,7 +723,7 @@ extern void write_fd(FILE *f, rangeref_t rr);
 extern void write_franges(FILE *f);
 extern void write_hist(void);
 extern void write_nranges(FILE *f);
-extern void yank_area(int sr, int sc, int er, int ec);
+extern void yank_area(rangeref_t rr);
 extern int parse_line(const char *buf);
 extern void parse_error(const char *err, const char *line, const char *pos);
 extern void yyerror(const char *err);

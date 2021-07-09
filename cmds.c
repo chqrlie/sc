@@ -117,7 +117,7 @@ struct ent *lookat(int row, int col) {
     return *pp;
 }
 
-void range_normalize(rangeref_t *rr) {
+rangeref_t *range_normalize(rangeref_t *rr) {
     if (rr->left.row > rr->right.row) {
         int row = rr->left.row;
         rr->left.row = rr->right.row;
@@ -134,6 +134,15 @@ void range_normalize(rangeref_t *rr) {
         rr->right.vf ^= rr->left.vf & FIX_COL;
         rr->left.vf ^= rr->right.vf & FIX_COL;
     }
+    return rr;
+}
+
+static rangeref_t *range_clip(rangeref_t *rr) {
+    if (rr->left.row < 0) rr->left.row = 0;
+    if (rr->left.col < 0) rr->left.col = 0;
+    if (rr->right.row > maxrow) rr->right.row = maxrow;
+    if (rr->right.col > maxcol) rr->right.col = maxcol;
+    return rr;
 }
 
 /* copy the current row (currow) and place the cursor in the new row */
@@ -225,8 +234,7 @@ void insertrow(int arg, int delta) {
         // XXX: should verify if currow + delta is inside the frange
         rr = rangeref(currow + delta, fr->or_left->col,
                       fr->or_right->row, fr->or_right->col);
-        move_area(rr.left.row + arg, rr.left.col,
-                  rr.left.row, rr.left.col, rr.right.row, rr.right.col);
+        move_area(rr.left.row + arg, rr.left.col, rr);
         if (!delta && fr->ir_left->row == currow + arg)
             fr->ir_left = lookat(fr->ir_left->row - arg, fr->ir_left->col);
         if (delta && fr->ir_right->row == currow)
@@ -445,8 +453,8 @@ void deleterows(int r1, int r2) {
                 fr->or_right = lookat(r1 - 1, fr->or_right->col);
             } else {
                 move_area(r1, fr->or_left->col,
-                          r1 + nrows, fr->or_left->col,
-                          fr->or_right->row, fr->or_right->col);
+                          rangeref(r1 + nrows, fr->or_left->col,
+                                   fr->or_right->row, fr->or_right->col));
             }
             if (fr->ir_left->row > fr->ir_right->row) {
                 del_frange(fr);
@@ -601,7 +609,7 @@ void yankrows(int r1, int r2) {
     }
     qtmp = qbuf;
     qbuf = 0;
-    yank_area(r1, c1, r1 + arg - 1, c2);
+    yank_area(rangeref(r1, c1, r1 + arg - 1, c2));
     qbuf = qtmp;
     for (i = 0; i < DELBUFSIZE; i++) {
         if ((obuf && delbuf[i] == obuf) || (qbuf && i == qbuf)) {
@@ -651,7 +659,7 @@ void yankcols(int c1, int c2) {
     }
     qtmp = qbuf;
     qbuf = 0;
-    yank_area(0, c1, maxrow, c1 + arg - 1);
+    yank_area(rangeref(0, c1, maxrow, c1 + arg - 1));
     qbuf = qtmp;
     for (i = 0; i < DELBUFSIZE; i++) {
         if ((obuf && delbuf[i] == obuf) || (qbuf && i == qbuf)) {
@@ -705,42 +713,33 @@ void erase_area(int sr, int sc, int er, int ec, int ignorelock) {
     }
 }
 
-void yank_area(int sr, int sc, int er, int ec) {
-    if (sr > er) SWAPINT(sr, er);
-    if (sc > ec) SWAPINT(sc, ec);
-    if (sr < 0) sr = 0;
-    if (sc < 0) sc = 0;
-    checkbounds(&er, &ec);
-
-    erase_area(sr, sc, er, ec, 0);
-    pullcells('p', cellref(sr, sc));
+void yank_area(rangeref_t rr) {
+    range_clip(range_normalize(&rr));
+    erase_area(rr.left.row, rr.left.col, rr.right.row, rr.right.col, 0);
+    pullcells('p', rr.left);
 }
 
-void move_area(int dr, int dc, int sr, int sc, int er, int ec) {
+void move_area(int dr, int dc, rangeref_t rr) {
     struct ent *p;
     struct ent **pp;
     int deltar, deltac;
 
-    if (sr > er) SWAPINT(sr, er);
-    if (sc > ec) SWAPINT(sc, ec);
-    if (sr < 0) sr = 0;
-    if (sc < 0) sc = 0;
-    checkbounds(&er, &ec);
+    range_clip(range_normalize(&rr));
 
     /* First we erase the source range, which puts the cells on the delete
      * buffer stack.
      */
-    erase_area(sr, sc, er, ec, 0);
+    erase_area(rr.left.row, rr.left.col, rr.right.row, rr.right.col, 0);
 
-    deltar = dr - sr;
-    deltac = dc - sc;
+    deltar = dr - rr.left.row;
+    deltac = dc - rr.left.col;
 
     /* Now we erase the destination range, which adds it to the delete buffer
      * stack, but then we flush it off.  We then move the original source
      * range from the stack to the destination range, adjusting the addresses
      * as we go, leaving the stack in its original state.
      */
-    erase_area(dr, dc, er + deltar, ec + deltac, 0);
+    erase_area(dr, dc, rr.right.row + deltar, rr.right.col + deltac, 0);
     flush_saved();
     for (p = delbuf[dbidx]; p; p = p->next) {
         pp = ATBL(tbl, p->row + deltar, p->col + deltac);
@@ -1361,7 +1360,7 @@ void copy(int flags, rangeref_t drr, rangeref_t srr) {
         /* copy source cells to qbuf */
         // XXX: should not be necessary if copy order is well chosen
         //      or if source and destination do not overlap
-        yank_area(minsr, minsc, maxsr, maxsc);
+        yank_area(rangeref(minsr, minsc, maxsr, maxsc));
     }
 
     erase_area(mindr, mindc, maxdr, maxdc, 0);
@@ -1485,7 +1484,7 @@ void yankr(rangeref_t rr) {
     }
     qtmp = qbuf;
     qbuf = 0;
-    yank_area(rr.left.row, rr.left.col, rr.right.row, rr.right.col);
+    yank_area(rr);
     qbuf = qtmp;
     for (i = 0; i < DELBUFSIZE; i++) {
         if ((obuf && delbuf[i] == obuf) || (qbuf && i == qbuf)) {
@@ -1500,8 +1499,7 @@ void yankr(rangeref_t rr) {
 
 /* MOVE a Range of cells */
 void mover(cellref_t cr, rangeref_t rr) {
-    move_area(cr.row, cr.col,
-              rr.left.row, rr.left.col, rr.right.row, rr.right.col);
+    move_area(cr.row, cr.col, rr);
     sync_refs();
     FullUpdate++;
 }

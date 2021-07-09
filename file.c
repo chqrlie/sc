@@ -468,10 +468,10 @@ void write_cells(FILE *f, rangeref_t rr, cellref_t cr) {
     // XXX: should avoid messing with spreadsheet data
     mf = modflg;
     if (dr != r0 || dc != c0) {
-        yank_area(r0, c0, rn, cn);
+        yank_area(rr);
         rn += dr - r0;
         cn += dc - c0;
-        pullcells('x', cellref(dr, dc));
+        pullcells('x', cr);
     }
     // XXX: should avoid messing with spreadsheet data
     if (Vopt) valueize_area(rangeref(dr, dc, rn, cn));
@@ -509,7 +509,7 @@ void write_cells(FILE *f, rangeref_t rr, cellref_t cr) {
     }
     // XXX: should avoid messing with spreadsheet data
     if (dr != r0 || dc != c0) {
-        pullcells('x', cellref(dr, dc));
+        pullcells('x', cr);
         flush_saved();
     }
     modflg = mf;
