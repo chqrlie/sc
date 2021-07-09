@@ -157,7 +157,7 @@ void duprow(void) {
     }
     insertrow(1, 1);
     modflg++;
-    // XXX: should use copy(row + 1, c1, row + 1, c2, row, c1, row, c2)
+    // XXX: should use copy_area(row + 1, c1, row + 1, c2, row, c1, row, c2)
     for (col = c1; col <= c2; col++) {
         struct ent *p = *ATBL(tbl, row, col);
         if (p) {
@@ -179,8 +179,8 @@ void dupcol(void) {
     }
     modflg++;
     insertcol(1, 1);
-    // XXX: should use copy(0, col + 1, maxrow, col + 1,
-    //                      0, col, maxrow, col)
+    // XXX: should use copy_area(0, col + 1, maxrow, col + 1,
+    //                           0, col, maxrow, col)
     for (row = 0; row <= maxrow; row++) {
         struct ent *p = *ATBL(tbl, row, col);
         if (p) {
@@ -1178,7 +1178,7 @@ void deletecols(int c1, int c2) {
         gs.g_rr.right.col -= ncols;
     if (gs.g_rr.left.col > gs.g_rr.right.col)
         gs.g_rr.left.row = gs.g_rr.left.col = -1;
-    if (gs.stcol >= c1 && gs.stcol <= c2)
+    if (gs.stcol > c1 && gs.stcol <= c2)
         gs.stcol = c1;
     if (gs.stcol > c2)
         gs.stcol -= ncols;
@@ -1876,7 +1876,7 @@ int locked_cell(struct ent *p) {
 }
 
 /* Check if area contains locked cells */
-int any_locked_cells(int r1, int c1, int r2, int c2) {
+static int any_locked_cells(int r1, int c1, int r2, int c2) {
     int r, c;
     struct ent *p;
 

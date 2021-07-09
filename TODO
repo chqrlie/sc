@@ -2,18 +2,19 @@
 
 [ ] use sc_string_t: shared allocated strings with a reference count,
     optionally hashed into a dictionary
-[ ] use rangeref_t for find_range_coords()
+[ ] use rangeref_t for find_range_coords() ?
 [ ] change representation for ranges: abs/rel coords instead of pointers
 [ ] handle dynamic types
-[ ] change the expression evaluator: use a stack of dynamically types values
+[ ] change the expression evaluator: use a stack of dynamically typed values
 [ ] cell value must be either a number or a string, with an optional expression
 [ ] use an array of format strings, store an index in the cell struct
 [ ] implement virtual space: jagged 2D matrix
 [ ] add emacs keybinding stuff
 [ ] add emacs macro language
 [ ] add emacs command completion
-[/] add 1-2-3 menus
-[ ] change functions for API compatibility
+[ ] use command templates for 1-2-3 menu driven commands and vi interaction
+[/] add 1-2-3 menus and connect them
+[ ] change expression functions for API compatibility
 [ ] more efficient cell structure
 [ ] convert help to markdown
 [ ] built-in hyperlinked help system

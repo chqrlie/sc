@@ -110,7 +110,7 @@ void del_nrange(rangeref_t rr) {
     struct nrange *r;
 
     range_normalize(&rr);
-    r = find_nrange_coords(lookat(rr.left.row, rr.left.col), lookat(rr.right.row, rr.right.col));
+    r = find_nrange_coords(rr);
     if (!r)
         return;
 
@@ -166,12 +166,13 @@ int find_nrange_name(const char *name, int len, struct nrange **rng) {
     return -1;
 }
 
-// XXX: should take rangeref_t and a boolean to check flags
-struct nrange *find_nrange_coords(const struct ent *lmatch, const struct ent *rmatch) {
+// XXX: should take a boolean to check flags
+struct nrange *find_nrange_coords(rangeref_t rr) {
     struct nrange *r;
 
     for (r = rng_base; r; r = r->r_next) {
-        if ((lmatch == r->r_left.vp) && (rmatch == r->r_right.vp)) {
+        if (r->r_left.vp->row == rr.left.row && r->r_left.vp->col == rr.left.col
+        &&  r->r_right.vp->row == rr.right.row && r->r_right.vp->col == rr.right.col) {
             break;
         }
     }
@@ -264,13 +265,12 @@ void list_nranges(FILE *f) {
 // XXX: should take cellref_t and a boolean to check and/or print flags
 //      and/or print named cells
 char *v_name(int row, int col) {
-    struct ent *v;
     struct nrange *r;
     static unsigned int bufn;
     static char buf[4][20];
 
-    v = lookat(row, col);
-    r = find_nrange_coords(v, v);
+    // XXX: should we test the is_range flag?
+    r = find_nrange_coords(rangeref(row, col, row, col));
     if (r) {
         return r->r_name;
     } else {
@@ -283,13 +283,10 @@ char *v_name(int row, int col) {
 // XXX: should take rangeref_t and a boolean to check and/or print flags
 //      and/or print named cells
 char *r_name(int r1, int c1, int r2, int c2) {
-    struct ent *v1, *v2;
     struct nrange *r;
     static char buf[100];
 
-    v1 = lookat(r1, c1);
-    v2 = lookat(r2, c2);
-    r = find_nrange_coords(v1, v2);
+    r = find_nrange_coords(rangeref(r1, c1, r2, c2));
     if (r) {
         return r->r_name;
     } else {

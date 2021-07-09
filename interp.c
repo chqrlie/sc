@@ -1817,7 +1817,7 @@ static void out_var(buf_t buf, struct ent_ptr v, int usename) {
     if (!v.vp || (v.vp->flags & IS_DELETED)) {
         buf_puts(buf, "@ERR");
     } else
-    if (usename && (r = find_nrange_coords(v.vp, v.vp)) != NULL && !r->r_is_range) {
+    if (usename && (r = find_nrange_coords(rangeref(v.vp->row, v.vp->col, v.vp->row, v.vp->col))) != NULL && !r->r_is_range) {
         // XXX: this is incorrect if the named range has different flags
         buf_puts(buf, r->r_name);
     } else {
@@ -1830,7 +1830,9 @@ static void out_var(buf_t buf, struct ent_ptr v, int usename) {
 static void out_range(buf_t buf, struct enode *e) {
     struct nrange *r;
 
-    if ((r = find_nrange_coords(e->e.r.left.vp, e->e.r.right.vp)) != NULL && r->r_is_range) {
+    if ((r = find_nrange_coords(rangeref(e->e.r.left.vp->row, e->e.r.left.vp->col,
+                                         e->e.r.right.vp->row, e->e.r.right.vp->col))) != NULL && r->r_is_range)
+    {
         // XXX: this is incorrect if the named range has different flags
         buf_puts(buf, r->r_name);
     } else {

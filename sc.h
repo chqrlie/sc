@@ -575,7 +575,7 @@ extern int cwritefile(const char *fname, rangeref_t rr);
 extern int engformat(char *buf, size_t size, int fmt, int lprecision, double val, int *alignp);
 extern int etype(struct enode *e);
 extern int find_nrange_name(const char *name, int len, struct nrange **rng);
-struct nrange *find_nrange_coords(const struct ent *lmatch, const struct ent *rmatch);
+struct nrange *find_nrange_coords(rangeref_t rr);
 extern int format(char *buf, size_t buflen, const char *fmt, int lprecision, double val, int *alignp);
 extern int growtbl(int rowcol, int toprow, int topcol);
 extern int locked_cell(struct ent *v);
