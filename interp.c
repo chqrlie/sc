@@ -1655,9 +1655,6 @@ void let(cellref_t cr, SCXMEM struct enode *e) {
     if (locked_cell(v))
         return;
 
-    if (cr.row == currow && cr.col == curcol)
-        cellassign = 1;
-
     val = 0.0;
     if (!loading || isconstant) {
         exprerr = 0;
@@ -1724,8 +1721,6 @@ void slet(cellref_t cr, SCXMEM struct enode *se, int align) {
         return;
     if (locked_cell(v))
         return;
-    if (cr.row == currow && cr.col == curcol)
-        cellassign = 1;
     exprerr = 0;
     signal(SIGFPE, eval_fpe);
     if (setjmp(fpe_save)) {

@@ -136,7 +136,7 @@ void getframe(int fd) {
     struct frange *fr;
 
     *buf = '\0';
-    if ((fr = find_frange(currow, curcol))) {
+    if ((fr = get_current_frange())) {
         snprintf(buf, sizeof buf - 1, "%s %s",
                  r_name(fr->or_left->row, fr->or_left->col,
                         fr->or_right->row, fr->or_right->col),

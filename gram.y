@@ -538,7 +538,7 @@ command:  S_LET var_or_range '=' e      { let($2.left, $4); }
                                                        $2, 0, 0, 0, 0);
                                           }
                                         }
-        | S_FRAME                       { if (showrange && find_frange(currow, curcol)) {
+        | S_FRAME                       { if (showrange && get_current_frange()) {
                                             add_frange(FRANGE_FIND | FRANGE_INNER,
                                                        rangeref(currow, curcol, currow, curcol),
                                                        rangeref_current(), 0, 0, 0, 0);
@@ -629,13 +629,13 @@ command:  S_LET var_or_range '=' e      { let($2.left, $4); }
         | S_YANKCOL NUMBER              { yankcols($2, $2); }
         | S_YANKCOL '*' NUMBER          { yankcols(curcol, curcol + $3 - 1); }
         | S_YANKCOL COL ':' COL         { yankcols($2, $4); }
-        | S_PULL                        { pullcells('p'); }
-        | S_PULLMERGE                   { pullcells('m'); }
-        | S_PULLROWS                    { pullcells('r'); }
-        | S_PULLCOLS                    { pullcells('c'); }
-        | S_PULLXCHG                    { pullcells('x'); }
-        | S_PULLTP                      { pullcells('t'); }
-        | S_PULLFMT                     { pullcells('f'); }
+        | S_PULL                        { pullcells('p', cellref_current()); }
+        | S_PULLMERGE                   { pullcells('m', cellref_current()); }
+        | S_PULLROWS                    { pullcells('r', cellref_current()); }
+        | S_PULLCOLS                    { pullcells('c', cellref_current()); }
+        | S_PULLXCHG                    { pullcells('x', cellref_current()); }
+        | S_PULLTP                      { pullcells('t', cellref_current()); }
+        | S_PULLFMT                     { pullcells('f', cellref_current()); }
         | S_PULLCOPY                    { copy(COPY_FROM_QBUF, rangeref_current(), rangeref_empty()); }
         | S_PULLCOPY var_or_range       { copy(COPY_FROM_QBUF, $2, rangeref_empty()); }
         | S_WHEREAMI                    { cmd_whereami(macrofd); }

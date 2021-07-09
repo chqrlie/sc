@@ -110,7 +110,7 @@ void update(int anychanged) {          /* did any cell really change in value? *
             fr->or_left->col <= curcol &&       /* previous framed range... */
             fr->or_right->row >= currow &&
             fr->or_right->col >= curcol)) {
-        fr = find_frange(currow, curcol);
+        fr = get_current_frange();
         if (fr != lastfr)
             FullUpdate++;
     }

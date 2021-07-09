@@ -20,7 +20,7 @@ static SCXMEM struct sortcrit *sort;
 static int howmany;
 
 void sortrange(rangeref_t rr, const char *criteria) {
-    int r, c, i;
+    int r, i;
     SCXMEM int *rows;
     int minr, minc, maxr, maxc;
     int nrows, col = 0;
@@ -105,19 +105,10 @@ void sortrange(rangeref_t rr, const char *criteria) {
         }
         p->row = minr + i;
     }
-    r = currow;
-    c = curcol;
-    currow = minr;
-    curcol = minc;
-
-    // XXX: should use copy semantics, not move
-    pullcells('m');
+    pullcells('m', cellref(minr, minc));
     flush_saved();
 
-    /* Restore current cell. */
     // XXX: should actually move to the new position of the same cell
-    currow = r;
-    curcol = c;
 
 fail:
     scxfree(sort);

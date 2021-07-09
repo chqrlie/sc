@@ -463,7 +463,6 @@ extern int dbidx;
 extern int qbuf;                /* buffer no. specified by `"' command */
 extern int showsc, showsr;
 extern int showrange;           /* Causes ranges to be highlighted */
-extern int cellassign;
 extern int macrofd;
 extern int cslop;
 extern int usecurses;
@@ -692,7 +691,7 @@ extern void mover(cellref_t cr, rangeref_t rr);
 extern void moveto(rangeref_t rr, int strow, int stcol);
 extern void num_search(double n, rangeref_t rr, int errsearch);
 extern void printfile(const char *fname, rangeref_t rr);
-extern void pullcells(int to_insert);
+extern void pullcells(int to_insert, cellref_t cr);
 extern void query(const char *s, const char *data);
 extern void read_hist(void);
 extern void remember(int save);
@@ -732,6 +731,10 @@ extern int yylex(void);
 extern int backup_file(const char *path);
 extern void sc_set_locale(int set);
 extern int set_line(const char *fmt, ...) sc__attr_printf(1,2);
+
+static inline struct frange *get_current_frange(void) {
+    return find_frange(currow, curcol);
+}
 
 extern int modflg;
 #ifndef NOCRYPT

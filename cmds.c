@@ -138,12 +138,12 @@ void range_normalize(rangeref_t *rr) {
 
 /* copy the current row (currow) and place the cursor in the new row */
 void duprow(void) {
-    int row = currow, col = curcol;
+    int row = currow, col;
     int c1 = 0;
     int c2 = maxcol;
     struct frange *fr;
 
-    if ((fr = find_frange(row, col))) {
+    if ((fr = get_current_frange())) {
         c1 = fr->or_left->col;
         c2 = fr->or_right->col;
     }
@@ -221,7 +221,8 @@ void insertrow(int arg, int delta) {
     if ((maxrow >= maxrows) && !growtbl(GROWROW, maxrow, 0))
         return;
 
-    if ((fr = find_frange(currow + delta, curcol))) {
+    if ((fr = get_current_frange())) {
+        // XXX: should verify if currow + delta is inside the frange
         rr = rangeref(currow + delta, fr->or_left->col,
                       fr->or_right->row, fr->or_right->col);
         move_area(rr.left.row + arg, rr.left.col,
@@ -312,7 +313,7 @@ void insertrow(int arg, int delta) {
         }
     }
     // XXX: cell coordinates have been updated
-    fr = find_frange(currow, curcol);
+    fr = get_current_frange();
     if (delta) {
         fix_ranges(currow, -1, currow, -1, 0, arg, fr);
         currow += delta;
@@ -329,53 +330,56 @@ void insertrow(int arg, int delta) {
 void insertcol(int arg, int delta) {
     int r, c;
     struct ent **pp;
+    /* lim cols from c0:maxcol will move to c1:c2 */
     int lim = maxcol - curcol - delta + 1;
+    int sc1 = curcol + delta;
+    //int sc2 = sc1 + lim - 1;
+    int dc1 = sc1 + arg;
+    int dc2 = dc1 + lim - 1;
     struct frange *fr;
 
-    if (curcol + delta > maxcol)
-        maxcol = curcol + delta;
+    if (sc1 > maxcol)
+        maxcol = sc1;
     maxcol += arg;
 
     if ((maxcol >= maxcols) && !growtbl(GROWCOL, 0, maxcol))
         return;
 
-    for (c = maxcol; c >= curcol + delta + arg; c--) {
+    for (c = dc2; c >= dc1; c--) {
         fwidth[c] = fwidth[c-arg];
         precision[c] = precision[c-arg];
         realfmt[c] = realfmt[c-arg];
         col_hidden[c] = col_hidden[c-arg];
     }
-    for (c = curcol + delta; c - curcol - delta < arg; c++) {
+    for (c = sc1; c < dc1; c++) {
         fwidth[c] = DEFWIDTH;
-        precision[c] =  DEFPREC;
+        precision[c] = DEFPREC;
         realfmt[c] = DEFREFMT;
         col_hidden[c] = FALSE;
     }
 
-    // XXX: this loop is confusing
     for (r = 0; r <= maxrow; r++) {
-        pp = ATBL(tbl, r, maxcol);
-        for (c = lim; --c >= 0; pp--) {
-            if ((*pp = pp[-arg]))
-                (*pp)->col += arg;
+        pp = ATBL(tbl, r, 0);
+        for (c = dc2; c >= dc1; c--) {
+            if ((pp[c] = pp[c-arg]))
+                pp[c]->col += arg;
         }
-        pp = ATBL(tbl, r, curcol + delta);
-        for (c = curcol + delta; c - curcol - delta < arg; c++, pp++)
-            *pp = NULL;
+        for (c = sc1; c < dc1; c++)
+            pp[c] = NULL;
     }
 
     /* Update all marked cells. */
     for (c = 0; c < 37; c++) {
-        if (savedcol[c] >= curcol + delta)
+        if (savedcol[c] >= sc1)
             savedcol[c] += arg;
-        if (savedstcol[c] >= curcol + delta)
+        if (savedstcol[c] >= sc1)
             savedstcol[c] += arg;
     }
-    if (gs.g_rr.left.col >= curcol + delta)
+    if (gs.g_rr.left.col >= sc1)
         gs.g_rr.left.col += arg;
-    if (gs.g_rr.right.col >= curcol + delta)
+    if (gs.g_rr.right.col >= sc1)
         gs.g_rr.right.col += arg;
-    if (gs.stcol >= curcol + delta)
+    if (gs.stcol >= sc1)
         gs.stcol += arg;
 
     /* Update note links. */
@@ -383,16 +387,16 @@ void insertcol(int arg, int delta) {
         for (c = 0; c <= maxcol; c++) {
             struct ent *p = *ATBL(tbl, r, c);
             if (p && (p->flags & HAS_NOTE)) {
-                if (p->nrr.left.col >= curcol + delta)
+                if (p->nrr.left.col >= sc1)
                     p->nrr.left.col += arg;
-                if (p->nrr.right.col >= curcol + delta)
+                if (p->nrr.right.col >= sc1)
                     p->nrr.right.col += arg;
             }
         }
     }
 
     // XXX: cell coordinates have been updated
-    fr = find_frange(currow, curcol);
+    fr = get_current_frange();
     if (delta) {
         if (fr && fr->ir_right->col == curcol)
             fr->ir_right = lookat(fr->ir_right->row, fr->ir_right->col + arg);
@@ -409,7 +413,7 @@ void insertcol(int arg, int delta) {
 
 /* delete rows starting at r1 up to and including r2 */
 void deleterows(int r1, int r2) {
-    int nrows, i, save = currow;
+    int nrows, i;
     struct frange *fr;
     struct ent *obuf = NULL;
 
@@ -421,16 +425,16 @@ void deleterows(int r1, int r2) {
         return;
     }
 
-    currow = r1;
     nrows = r2 - r1 + 1;
 
-    if ((fr = find_frange(r1, curcol))) {
+    if (currow == r1 && (fr = get_current_frange())) {
         if (any_locked_cells(r1, fr->or_left->col,
                              r2, fr->or_right->col)) {
             error("Locked cells encountered. Nothing changed");
         } else {
             FullUpdate++;
             modflg++;
+
             obuf = deldata1();
             erase_area(r1, fr->or_left->col, r2, fr->or_right->col, 0);
             fix_ranges(r1, -1, r2, -1, -1, -1, fr);
@@ -447,6 +451,7 @@ void deleterows(int r1, int r2) {
             if (fr->ir_left->row > fr->ir_right->row) {
                 del_frange(fr);
                 fr = NULL;
+                // XXX: will crash
             }
             /* Update all marked cells. */
             for (i = 0; i < 37; i++) {
@@ -497,7 +502,9 @@ void deleterows(int r1, int r2) {
             deldata2(obuf);
         }
     }
-    currow = save < r1 ? save : (save <= r2) ? r1 : save - nrows;
+    /* currow will not become > maxrow because maxrow was not decremented */
+    if (currow > r1)
+        currow = (currow <= r2) ? r1 : currow - nrows;
 }
 
 static struct ent *deldata1(void) {
@@ -531,6 +538,7 @@ static struct ent *deldata1(void) {
 static void deldata2(struct ent *obuf) {
     int i;
     struct ent *p;
+
     for (i = 0; i < DELBUFSIZE; i++) {
         if ((obuf && delbuf[i] == obuf) || (qbuf && i == qbuf)) {
             delbuf[i] = delbuf[dbidx];
@@ -548,18 +556,26 @@ static void deldata2(struct ent *obuf) {
         p->flags &= ~MAY_SYNC;
 }
 
-static void yankrow(int arg) {
-    int rs = maxrow - currow + 1;
+void yankrows(int r1, int r2) {
+    int arg, nrows;
+    int c1 = 0, c2 = maxcol;
     int i, qtmp;
     struct frange *fr;
     struct ent *obuf = NULL;
 
-    if ((fr = find_frange(currow, curcol)))
-        rs = fr->or_right->row - currow + 1;
-    if (rs - arg < 0) {
-        rs = rs > 0 ? rs : 0;
-        error("Can't yank %d row%s %d row%s left", arg,
-              (arg != 1 ? "s," : ","), rs, (rs != 1 ? "s" : ""));
+    if (r1 > r2) SWAPINT(r1, r2);
+    arg = r2 - r1 + 1;
+    nrows = maxrow - r1 + 1;
+
+    // XXX: should check if r1 and r2 are inside current frange
+    if (r1 == currow && (fr = get_current_frange())) {
+        nrows = fr->or_right->row - r1 + 1;
+        c1 = fr->or_left->col;
+        c2 = fr->or_right->col;
+    }
+    if (arg > nrows) {
+        error("Cannot yank %d row%s, %d row%s left",
+              arg, (arg != 1 ? "s" : ""), nrows, (nrows != 1 ? "s" : ""));
         return;
     }
     sync_refs();
@@ -585,72 +601,7 @@ static void yankrow(int arg) {
     }
     qtmp = qbuf;
     qbuf = 0;
-    if (fr) {
-        yank_area(currow, fr->or_left->col, currow + arg - 1,
-                  fr->or_right->col);
-    } else {
-        yank_area(currow, 0, currow + arg - 1, maxcol);
-    }
-    qbuf = qtmp;
-    for (i = 0; i < DELBUFSIZE; i++) {
-        if ((obuf && delbuf[i] == obuf) || (qbuf && i == qbuf)) {
-            delbuf[i] = delbuf[dbidx];
-            delbuffmt[i] = delbuffmt[dbidx];
-        }
-    }
-    qbuf = 0;
-    delbuf[DELBUFSIZE - 10] = delbuf[dbidx];
-    delbuffmt[DELBUFSIZE - 10] = delbuffmt[dbidx];
-}
-
-void yankrows(int r1, int r2) {
-    int r = currow, a;
-    if (r1 < r2) {
-        currow = r1;
-        a = r2 - r1 + 1;
-    } else {
-        currow = r2;
-        a = r1 - r2 + 1;
-    }
-    yankrow(a);
-    currow = r;
-}
-
-static void yankcol(int arg) {
-    int cs = maxcol - curcol + 1;
-    int i, qtmp;
-    struct ent *obuf = NULL;
-
-    if (cs - arg < 0) {
-        cs = cs > 0 ? cs : 0;
-        error("Can't yank %d column%s %d column%s left",
-              arg, (arg != 1 ? "s," : ","), cs, (cs != 1 ? "s" : ""));
-        return;
-    }
-    sync_refs();
-    if (dbidx < 0) dbidx++;
-    delbuf[dbidx] = delbuf[DELBUFSIZE - 10];
-    delbuffmt[dbidx] = delbuffmt[DELBUFSIZE - 10];
-    delbuf[DELBUFSIZE - 10] = NULL;
-    delbuffmt[DELBUFSIZE - 10] = NULL;
-    for (i = dbidx + 1; i < DELBUFSIZE; i++) {
-        if (delbuf[i] == delbuf[dbidx]) {
-            delbuf[dbidx] = NULL;
-            delbuffmt[dbidx] = NULL;
-            break;
-        }
-    }
-    flush_saved();
-    if (qbuf) {
-        if (dbidx < 0) dbidx++;
-        delbuf[dbidx] = delbuf[qbuf];
-        delbuffmt[dbidx] = delbuffmt[qbuf];
-        flush_saved();
-        obuf = delbuf[qbuf];    /* orig. contents of the del. buffer */
-    }
-    qtmp = qbuf;
-    qbuf = 0;
-    yank_area(0, curcol, maxrow, curcol + arg - 1);
+    yank_area(r1, c1, r1 + arg - 1, c2);
     qbuf = qtmp;
     for (i = 0; i < DELBUFSIZE; i++) {
         if ((obuf && delbuf[i] == obuf) || (qbuf && i == qbuf)) {
@@ -664,16 +615,53 @@ static void yankcol(int arg) {
 }
 
 void yankcols(int c1, int c2) {
-    int c = curcol, a;
-    if (c1 < c2) {
-        curcol = c1;
-        a = c2 - c1 + 1;
-    } else {
-        curcol = c2;
-        a = c1 - c2 + 1;
+    int arg, ncols;
+    int i, qtmp;
+    struct ent *obuf = NULL;
+
+    if (c1 > c2) SWAPINT(c1, c2);
+    arg = c2 - c1 + 1;
+    ncols = maxcol - c1 + 1;
+
+    if (arg > ncols) {
+        error("Can't yank %d column%s, %d column%s left",
+              arg, (arg != 1 ? "s" : ""), ncols, (ncols != 1 ? "s" : ""));
+        return;
     }
-    yankcol(a);
-    curcol = c;
+    sync_refs();
+    if (dbidx < 0) dbidx++;
+    delbuf[dbidx] = delbuf[DELBUFSIZE - 10];
+    delbuffmt[dbidx] = delbuffmt[DELBUFSIZE - 10];
+    delbuf[DELBUFSIZE - 10] = NULL;
+    delbuffmt[DELBUFSIZE - 10] = NULL;
+    for (i = dbidx + 1; i < DELBUFSIZE; i++) {
+        if (delbuf[i] == delbuf[dbidx]) {
+            delbuf[dbidx] = NULL;
+            delbuffmt[dbidx] = NULL;
+            break;
+        }
+    }
+    flush_saved();
+    if (qbuf) {
+        if (dbidx < 0) dbidx++;
+        delbuf[dbidx] = delbuf[qbuf];
+        delbuffmt[dbidx] = delbuffmt[qbuf];
+        flush_saved();
+        obuf = delbuf[qbuf];    /* orig. contents of the del. buffer */
+    }
+    qtmp = qbuf;
+    qbuf = 0;
+    yank_area(0, c1, maxrow, c1 + arg - 1);
+    qbuf = qtmp;
+    for (i = 0; i < DELBUFSIZE; i++) {
+        if ((obuf && delbuf[i] == obuf) || (qbuf && i == qbuf)) {
+            delbuf[i] = delbuf[dbidx];
+            delbuffmt[i] = delbuffmt[dbidx];
+        }
+    }
+    qbuf = 0;
+    delbuf[DELBUFSIZE - 10] = delbuf[dbidx];
+    delbuffmt[DELBUFSIZE - 10] = delbuffmt[dbidx];
 }
 
 /* ignorelock is used when sorting so that locked cells can still be sorted */
@@ -718,31 +706,20 @@ void erase_area(int sr, int sc, int er, int ec, int ignorelock) {
 }
 
 void yank_area(int sr, int sc, int er, int ec) {
-    int r, c;
-
     if (sr > er) SWAPINT(sr, er);
     if (sc > ec) SWAPINT(sc, ec);
     if (sr < 0) sr = 0;
     if (sc < 0) sc = 0;
     checkbounds(&er, &ec);
 
-    r = currow;
-    currow = sr;
-    c = curcol;
-    curcol = sc;
-
     erase_area(sr, sc, er, ec, 0);
-    pullcells('p');
-
-    currow = r;
-    curcol = c;
+    pullcells('p', cellref(sr, sc));
 }
 
 void move_area(int dr, int dc, int sr, int sc, int er, int ec) {
     struct ent *p;
     struct ent **pp;
     int deltar, deltac;
-    int r, c;
 
     if (sr > er) SWAPINT(sr, er);
     if (sc > ec) SWAPINT(sc, ec);
@@ -750,18 +727,11 @@ void move_area(int dr, int dc, int sr, int sc, int er, int ec) {
     if (sc < 0) sc = 0;
     checkbounds(&er, &ec);
 
-    r = currow;
-    currow = sr;
-    c = curcol;
-    curcol = sc;
-
     /* First we erase the source range, which puts the cells on the delete
      * buffer stack.
      */
     erase_area(sr, sc, er, ec, 0);
 
-    currow = r;
-    curcol = c;
     deltar = dr - sr;
     deltac = dc - sc;
 
@@ -809,7 +779,7 @@ void valueize_area(rangeref_t rr) {
     modflg++;  // XXX: should be done only upon modification
 }
 
-void pullcells(int to_insert) {
+void pullcells(int to_insert, cellref_t cr) {
     struct ent *obuf;
     struct ent *p, *n;
     struct ent **pp;
@@ -817,6 +787,7 @@ void pullcells(int to_insert) {
     int minrow, mincol;
     int mxrow, mxcol;
     int numrows, numcols;
+    int sr, sc;
     int i;
     struct frange *fr;
 
@@ -852,19 +823,25 @@ void pullcells(int to_insert) {
 
     numrows = mxrow - minrow + 1;
     numcols = mxcol - mincol + 1;
-    deltar = currow - minrow;
-    deltac = curcol - mincol;
+    deltar = cr.row - minrow;
+    deltac = cr.col - mincol;
+
+    sr = currow;
+    sc = curcol;
+    currow = cr.row;
+    curcol = cr.col;
 
     if (to_insert == 'C') {
         minrow = 0;
         mincol = 0;
         mxrow = maxrows;
         mxcol = maxcols;
-    }
-
+    } else
     if (to_insert == 'r') {
+        // XXX: uses currow/curcol
+        //      uses get_current_frange() too.
         insertrow(numrows, 0);
-        if ((fr = find_frange(currow, curcol))) {
+        if ((fr = get_current_frange())) {
             deltac = fr->or_left->col - mincol;
         } else {
             for (i = 0; i < numrows; i++)
@@ -995,6 +972,8 @@ void pullcells(int to_insert) {
         dbidx--;
     }
     qbuf = 0;
+    currow = sr;
+    curcol = sc;
 }
 
 /* delete numrow rows, starting with rs */
@@ -1130,7 +1109,7 @@ void deletecols(int c1, int c2) {
     }
     sync_refs();
     erase_area(0, c1, maxrow, c2, 0);
-    fix_ranges(-1, c1, -1, c2, -1, -1, find_frange(currow, curcol));
+    fix_ranges(-1, c1, -1, c2, -1, -1, get_current_frange());
     for (i = 0; i < DELBUFSIZE; i++) {
         if ((obuf && delbuf[i] == obuf) || (qbuf && i == qbuf)) {
             delbuf[i] = delbuf[dbidx];
@@ -1655,6 +1634,8 @@ void sync_refs(void) {
     int i, j;
     struct ent *p;
     sync_ranges();
+
+    // XXX: sync_ranges() already does this
     for (i = 0; i <= maxrow; i++) {
         for (j = 0; j <= maxcol; j++) {
             if ((p = *ATBL(tbl, i, j)) && p->expr)

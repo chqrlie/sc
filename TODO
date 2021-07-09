@@ -46,3 +46,5 @@
 [X] pass cell locations and ranges as sets of coordinates instead of
     allocated cell pointers in gram.y
 [X] use rangeref_t and HAS_NOTE flag for notes
+[X] remove currow/curcol side effects in yankrows() and yankcols()
+[X] remove cellassign side effect

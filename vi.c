@@ -139,6 +139,7 @@ static int findfunc = '\0';
 static int findchar = 1;
 static int finddir = 0;
 static int numeric_field = 0; /* Started the line editing with a number */
+static int cellassign;
 
 #ifdef NCURSES_MOUSE_VERSION
 static MEVENT mevent;
@@ -173,7 +174,8 @@ void vi_interaction(void) {
     buf_t buf;
 
     modflg = 0;
-    cellassign = 0;
+    if (linelim < 0)
+        cellassign = 0;
 #ifdef VENIX
     setbuf(stdin, NULL);
 #endif
@@ -687,6 +689,7 @@ void vi_interaction(void) {
                         // XXX: there should be no value yet
                         editv(buf, currow, curcol, p);
                         linelim = buf->len;
+                        cellassign = 1;
                         insert_mode();
                         write_line(ctl('v'));
                     }
@@ -755,6 +758,7 @@ void vi_interaction(void) {
 
                     numeric_field = 1;
                     set_line("let %s = %c", v_name(currow, curcol), c);
+                    cellassign = 1;
                     insert_mode();
                     break;
 
@@ -774,6 +778,7 @@ void vi_interaction(void) {
                     // XXX: the conversion should be localized
                     editv(buf, currow, curcol, p);
                     linelim = buf->len;
+                    cellassign = 1;
                     insert_mode();
                     if (c == '-' || (p->flags & IS_VALID))
                         write_line(c);
@@ -791,6 +796,7 @@ void vi_interaction(void) {
                     savedstcol[27] = stcol;
 
                     set_line("let %s = ", v_name(currow, curcol));
+                    cellassign = 1;
                     insert_mode();
                     break;
 
@@ -922,11 +928,13 @@ void vi_interaction(void) {
                         break;
                     case '}':
                         set_line("rightjustify [range] ");
+                        cellassign = 1;
                         insert_mode();
                         startshow();
                         break;
                     case '|':
                         set_line("center [range] ");
+                        cellassign = 1;
                         insert_mode();
                         startshow();
                         break;
@@ -1017,7 +1025,7 @@ void vi_interaction(void) {
                                 break;
                             }
                             while (uarg--)
-                                pullcells(rcqual);
+                                pullcells(rcqual, cellref_current());
                             break;
 
                             /*
@@ -1028,7 +1036,7 @@ void vi_interaction(void) {
                             if (rcqual == 'r') {
                                 struct frange *fr;
 
-                                if ((fr = find_frange(currow, curcol)))
+                                if ((fr = get_current_frange()))
                                     valueize_area(rangeref(currow, fr->or_left->col,
                                                            currow + uarg - 1, fr->or_right->col));
                                 else
@@ -1125,6 +1133,7 @@ void vi_interaction(void) {
                         savedstcol[27] = stcol;
 
                         set_line("label %s = \"", v_name(currow, curcol));
+                        cellassign = 1;
                         insert_mode();
                     }
                     break;
@@ -1138,6 +1147,7 @@ void vi_interaction(void) {
                         savedstcol[27] = stcol;
 
                         set_line("leftstring %s = \"", v_name(currow, curcol));
+                        cellassign = 1;
                         insert_mode();
                     }
                     break;
@@ -1176,6 +1186,7 @@ void vi_interaction(void) {
                         // XXX: the conversion should be localized
                         editv(buf, currow, curcol, p);
                         linelim = buf->len;
+                        cellassign = 1;
 
                         if (!(p->flags & IS_VALID)) {
                             insert_mode();
@@ -1195,6 +1206,7 @@ void vi_interaction(void) {
                         buf_init(buf, line, sizeof line);
                         edits(buf, currow, curcol, p);
                         linelim = buf->len;
+                        cellassign = 1;
                         edit_mode();
                     }
                     break;
@@ -2029,7 +2041,7 @@ static void write_line(int c) {
                                     ins_in_line(' ');
                                     showrange = 0;
                                 }                                       break;
-        case 'f':               if ((fr = find_frange(currow, curcol))) {
+        case 'f':               if ((fr = get_current_frange())) {
                                     ins_string(r_name(fr->or_left->row,
                                                       fr->or_left->col,
                                                       fr->or_right->row,
@@ -2038,7 +2050,7 @@ static void write_line(int c) {
                                     ins_in_line(' ');
                                     showrange = 0;
                                 }                                       break;
-        case 'r':               if ((fr = find_frange(currow, curcol))) {
+        case 'r':               if ((fr = get_current_frange())) {
                                     ins_string(r_name(fr->ir_left->row,
                                                       fr->ir_left->col,
                                                       fr->ir_right->row,
@@ -2796,7 +2808,7 @@ static void cr_line(void) {
                 forwcol(1);
                 currow = 0;
             } else {
-                if ((fr = find_frange(currow, curcol))) {
+                if ((fr = get_current_frange())) {
                     forwrow(1);
                     if (currow > fr->ir_right->row) {
                         backrow(1);
@@ -2827,7 +2839,7 @@ static void cr_line(void) {
                 forwrow(1);
                 curcol = 0;
             } else {
-                if ((fr = find_frange(currow, curcol))) {
+                if ((fr = get_current_frange())) {
                     forwcol(1);
                     if (curcol > fr->ir_right->col) {
                         backcol(1);
@@ -3331,17 +3343,14 @@ static void gohome(void) {
     struct frange *fr;
 
     remember(0);
-    if ((fr = find_frange(currow, curcol))) {
-        if (currow >= fr->ir_left->row &&
-            currow <= fr->ir_right->row &&
-            curcol >= fr->ir_left->col &&
-            curcol <= fr->ir_right->col &&
-            (currow > fr->ir_left->row ||
-             curcol > fr->ir_left->col)) {
+    if ((fr = get_current_frange())) {
+        if (currow >= fr->ir_left->row && currow <= fr->ir_right->row &&
+            curcol >= fr->ir_left->col && curcol <= fr->ir_right->col &&
+            (currow > fr->ir_left->row || curcol > fr->ir_left->col)) {
             currow = fr->ir_left->row;
             curcol = fr->ir_left->col;
-        } else if (currow > fr->or_left->row ||
-                   curcol > fr->or_left->col) {
+        } else
+        if (currow > fr->or_left->row || curcol > fr->or_left->col) {
             currow = fr->or_left->row;
             curcol = fr->or_left->col;
         } else {
@@ -3362,14 +3371,12 @@ static void leftlimit(void) {
     struct frange *fr;
 
     remember(0);
-    if ((fr = find_frange(currow, curcol))) {
-        if (currow >= fr->ir_left->row &&
-            currow <= fr->ir_right->row &&
-            curcol > fr->ir_left->col &&
-            curcol <= fr->ir_right->col)
+    if ((fr = get_current_frange())) {
+        if (currow >= fr->ir_left->row && currow <= fr->ir_right->row &&
+            curcol > fr->ir_left->col && curcol <= fr->ir_right->col)
             curcol = fr->ir_left->col;
-        else if (curcol > fr->or_left->col &&
-                 curcol <= fr->or_right->col)
+        else
+        if (curcol > fr->or_left->col && curcol <= fr->or_right->col)
             curcol = fr->or_left->col;
         else
             curcol = 0;
@@ -3385,28 +3392,26 @@ static void rightlimit(void) {
     struct frange *fr;
 
     remember(0);
-    if ((fr = find_frange(currow, curcol))) {
-        if (currow >= fr->ir_left->row &&
-            currow <= fr->ir_right->row &&
-            curcol >= fr->ir_left->col &&
-            curcol < fr->ir_right->col)
+    if ((fr = get_current_frange())) {
+        if (currow >= fr->ir_left->row && currow <= fr->ir_right->row &&
+            curcol >= fr->ir_left->col && curcol < fr->ir_right->col)
             curcol = fr->ir_right->col;
-        else if (curcol >= fr->or_left->col &&
-                 curcol < fr->or_right->col)
+        else
+        if (curcol >= fr->or_left->col && curcol < fr->or_right->col)
             curcol = fr->or_right->col;
         else {
             curcol = maxcols - 1;
             while (!VALID_CELL(p, currow, curcol) &&
                    curcol > fr->or_right->col)
                 curcol--;
-            if ((fr = find_frange(currow, curcol)))
+            if ((fr = get_current_frange()))
                 curcol = fr->or_right->col;
         }
     } else {
         curcol = maxcols - 1;
         while (!VALID_CELL(p, currow, curcol) && curcol > 0)
             curcol--;
-        if ((fr = find_frange(currow, curcol)))
+        if ((fr = get_current_frange()))
             curcol = fr->or_right->col;
     }
     rowsinrange = 1;
@@ -3418,14 +3423,12 @@ static void gototop(void) {
     struct frange *fr;
 
     remember(0);
-    if ((fr = find_frange(currow, curcol))) {
-        if (curcol >= fr->ir_left->col &&
-            curcol <= fr->ir_right->col &&
-            currow > fr->ir_left->row &&
-            currow <= fr->ir_right->row)
+    if ((fr = get_current_frange())) {
+        if (curcol >= fr->ir_left->col && curcol <= fr->ir_right->col &&
+            currow > fr->ir_left->row && currow <= fr->ir_right->row)
             currow = fr->ir_left->row;
-        else if (currow > fr->or_left->row &&
-                 currow <= fr->or_right->row)
+        else
+        if (currow > fr->or_left->row && currow <= fr->or_right->row)
             currow = fr->or_left->row;
         else
             currow = 0;
@@ -3441,28 +3444,26 @@ static void gotobottom(void) {
     struct frange *fr;
 
     remember(0);
-    if ((fr = find_frange(currow, curcol))) {
-        if (curcol >= fr->ir_left->col &&
-            curcol <= fr->ir_right->col &&
-            currow >= fr->ir_left->row &&
-            currow < fr->ir_right->row)
+    if ((fr = get_current_frange())) {
+        if (curcol >= fr->ir_left->col && curcol <= fr->ir_right->col &&
+            currow >= fr->ir_left->row && currow < fr->ir_right->row)
             currow = fr->ir_right->row;
-        else if (currow >= fr->or_left->row &&
-                 currow < fr->or_right->row)
+        else
+        if (currow >= fr->or_left->row && currow < fr->or_right->row)
             currow = fr->or_right->row;
         else {
             currow = maxrows - 1;
             while (!VALID_CELL(p, currow, curcol) &&
                    currow > fr->or_right->row)
                 currow--;
-            if ((fr = find_frange(currow, curcol)))
+            if ((fr = get_current_frange()))
                 currow = fr->or_right->row;
         }
     } else {
         currow = maxrows - 1;
         while (!VALID_CELL(p, currow, curcol) && currow > 0)
             currow--;
-        if ((fr = find_frange(currow, curcol)))
+        if ((fr = get_current_frange()))
             currow = fr->or_right->row;
     }
     rowsinrange = 1;

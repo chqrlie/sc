@@ -9,12 +9,12 @@
 
 #include "sc.h"
 
-static void sync_enode(struct enode *e);
-static void fix_enode(struct enode *e, int row1, int col1, int row2, int col2,
-                      int delta1, int delta2);
-
 static struct nrange *rng_base;
 static struct nrange *rng_tail;
+
+static void sync_enode(struct enode *e);
+static void fix_enode(struct enode *e, int row1, int col1, int row2, int col2,
+                      int delta1, int delta2, struct frange *fr);
 
 int are_nranges(void) {
     return rng_base != NULL;
@@ -189,7 +189,7 @@ void sync_ranges(void) {
     }
     for (i = 0; i <= maxrow; i++) {
         for (j = 0; j <= maxcol; j++) {
-            if ((p = *ATBL(tbl,i,j)) && p->expr)
+            if ((p = *ATBL(tbl, i, j)) && p->expr)
                 sync_enode(p->expr);
         }
     }
@@ -332,7 +332,7 @@ void fix_ranges(int row1, int col1, int row2, int col2,
         for (j = 0; j <= maxcol; j++) {
             struct ent *p = *ATBL(tbl, i, j);
             if (p && p->expr)
-                fix_enode(p->expr, row1, col2, row2, col2, delta1, delta2);
+                fix_enode(p->expr, row1, col2, row2, col2, delta1, delta2, fr);
         }
     }
     fix_frames(row1, col1, row2, col2, delta1, delta2, fr);
@@ -340,11 +340,10 @@ void fix_ranges(int row1, int col1, int row2, int col2,
 }
 
 static void fix_enode(struct enode *e, int row1, int col1, int row2, int col2,
-                      int delta1, int delta2)
+                      int delta1, int delta2, struct frange *fr)
 {
     if (e) {
         if ((e->op & REDUCE)) {
-            struct frange *fr = find_frange(currow, curcol);
             int r1 = e->e.r.left.vp->row;
             int c1 = e->e.r.left.vp->col;
             int r2 = e->e.r.right.vp->row;
@@ -363,10 +362,10 @@ static void fix_enode(struct enode *e, int row1, int col1, int row2, int col2,
             }
             e->e.r.left.vp = lookat(r1, c1);
             e->e.r.right.vp = lookat(r2, c2);
-
-        } else if (e->op != O_VAR && e->op !=O_CONST && e->op != O_SCONST) {
-            fix_enode(e->e.o.left, row1, col1, row2, col2, delta1, delta2);
-            fix_enode(e->e.o.right, row1, col1, row2, col2, delta1, delta2);
+        } else
+        if (e->op != O_VAR && e->op != O_CONST && e->op != O_SCONST) {
+            fix_enode(e->e.o.left, row1, col1, row2, col2, delta1, delta2, fr);
+            fix_enode(e->e.o.right, row1, col1, row2, col2, delta1, delta2, fr);
         }
     }
 }

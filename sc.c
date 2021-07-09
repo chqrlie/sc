@@ -47,7 +47,6 @@ int changed;
 int cslop;
 int qbuf;       /* buffer no. specified by " command */
 int modflg;
-int cellassign;
 int numeric;
 SCXMEM char *mdir;
 SCXMEM char *autorun;

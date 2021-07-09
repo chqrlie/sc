@@ -458,8 +458,6 @@ void write_fd(FILE *f, rangeref_t rr) {
 void write_cells(FILE *f, rangeref_t rr, cellref_t cr) {
     buf_t(buf, FBUFLEN);
     int r, c, mf;
-    int rs = 0;
-    int cs = 0;
     int dr = cr.row;
     int dc = cr.col;
     int r0 = rr.left.row;
@@ -467,17 +465,15 @@ void write_cells(FILE *f, rangeref_t rr, cellref_t cr) {
     int rn = rr.right.row;
     int cn = rr.right.col;
 
+    // XXX: should avoid messing with spreadsheet data
     mf = modflg;
     if (dr != r0 || dc != c0) {
         yank_area(r0, c0, rn, cn);
         rn += dr - r0;
         cn += dc - c0;
-        rs = currow;
-        cs = curcol;
-        currow = dr;
-        curcol = dc;
-        pullcells('x');
+        pullcells('x', cellref(dr, dc));
     }
+    // XXX: should avoid messing with spreadsheet data
     if (Vopt) valueize_area(rangeref(dr, dc, rn, cn));
     for (r = dr; r <= rn; r++) {
         for (c = dc; c <= cn; c++) {
@@ -511,10 +507,9 @@ void write_cells(FILE *f, rangeref_t rr, cellref_t cr) {
             }
         }
     }
+    // XXX: should avoid messing with spreadsheet data
     if (dr != r0 || dc != c0) {
-        pullcells('x');
-        currow = rs;
-        curcol = cs;
+        pullcells('x', cellref(dr, dc));
         flush_saved();
     }
     modflg = mf;
@@ -746,7 +741,6 @@ int readfile(const char *fname, int eraseflg) {
     if (eraseflg) {
         strlcpy(curfile, save, sizeof curfile);
         modflg = 0;
-        cellassign = 0;
         if (autorun && !skipautorun) readfile(autorun, 0);
         skipautorun = 0;
         EvalAll();
