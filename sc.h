@@ -569,7 +569,7 @@ extern SCXMEM char *seval(struct enode *se);
 extern double eval(struct enode *e);
 extern int are_frames(void);
 extern int are_nranges(void);
-extern int atocol(const char *string, int len);
+extern int atocol(const char *s, int *lenp);
 extern int creadfile(const char *save, int eraseflg);
 extern int cwritefile(const char *fname, rangeref_t rr);
 extern int engformat(char *buf, size_t size, int fmt, int lprecision, double val, int *alignp);

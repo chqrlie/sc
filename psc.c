@@ -382,6 +382,7 @@ static int getcol(const char *p) {
         p++;
     if (!*p)
         return 0;
+    // XXX: use more than 2 letters?
     col = toupperchar(*p++) - 'A';
     if (isalphachar(*p))
         col = (col + 1) * 26 + (toupperchar(*p++) - 'A');
@@ -405,6 +406,7 @@ char *coltoa(int col) {
     static char rname[8];
     char *p = rname;
 
+    // XXX: use more than 2 letters?
     if (col > 25) {
         *p++ = col / 26 + 'A' - 1;
         col %= 26;

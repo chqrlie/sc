@@ -20,10 +20,9 @@ static SCXMEM struct sortcrit *sort;
 static int howmany;
 
 void sortrange(rangeref_t rr, const char *criteria) {
-    int r, i;
     SCXMEM int *rows;
     int minr, minc, maxr, maxc;
-    int nrows, col = 0;
+    int i, r, nrows, col, len;
     const char *cp = criteria;
     struct ent *p;
 
@@ -34,8 +33,8 @@ void sortrange(rangeref_t rr, const char *criteria) {
     maxc = rr.right.col;
     nrows = maxr - minr + 1;
 
-    sort = scxmalloc(2 * sizeof(struct sortcrit));
-    rows = scxmalloc(nrows * sizeof(int));
+    sort = scxmalloc(2 * sizeof(*sort));
+    rows = scxmalloc(nrows * sizeof(*rows));
     for (i = 0, r = minr; r <= maxr; r++, i++)
         rows[i] = r;
 
@@ -73,19 +72,14 @@ void sortrange(rangeref_t rr, const char *criteria) {
                 sort[howmany].type = 0;
                 cp--;
             }
-            if (isalphachar(*cp)) {
-                col = toupperchar(*cp++) - 'A';
-                if (isalphachar(*cp))
-                    col = (col + 1) * 26 + toupperchar(*cp++) - 'A';
+            if ((col = atocol(cp, &len)) >= 0) {
+                cp += len;
                 sort[howmany].column = col;
-                if (col < minc || col > maxc) {
-                    error("Invalid sort criteria");
-                    goto fail;
-                }
-            } else {
-                error("Invalid sort criteria");
-                goto fail;
+                if (col >= minc && col <= maxc)
+                    continue;
             }
+            error("Invalid sort criteria");
+            goto fail;
         }
     }
 
@@ -125,7 +119,10 @@ int compare(const void *a1, const void *a2) {
     int result = 0;
     int i;
 
-    for (i = 0; !result && i < howmany; i++) {
+    for (i = 0; !result; i++) {
+        if (i >= howmany)
+            return (row1 > row2) - (row1 < row2);
+
         p1 = *ATBL(tbl, row1, sort[i].column);
         p2 = *ATBL(tbl, row2, sort[i].column);
 
@@ -139,7 +136,7 @@ int compare(const void *a1, const void *a2) {
             } else
             if (p2 && p2->label)
                 result = 1;
-        } else
+        } else {
             if (p1 && p2 && (p1->flags & IS_VALID) && (p2->flags & IS_VALID)) {
                 result = (p1->v > p2->v) - (p1->v < p2->v);
             } else
@@ -148,12 +145,8 @@ int compare(const void *a1, const void *a2) {
             else
             if (p2 && (p2->flags & IS_VALID))
                 result = 1;
-
+        }
         result *= sort[i].direction;
     }
-
-    if (!result)
-        result = (row1 > row2) - (row1 < row2);
-
     return result;
 }

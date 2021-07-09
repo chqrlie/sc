@@ -597,8 +597,8 @@ static struct ent *getent(SCXMEM char *colstr, double rowdoub) {
 
     if (((row = (int)floor(rowdoub)) >= 0)
     &&  (row < maxrows)                          /* in range */
-    &&  ((collen = strlen(colstr)) <= 2)         /* not too long */
-    &&  ((col = atocol(colstr, collen)) >= 0)
+    &&  ((col = atocol(colstr, &collen)) >= 0)   /* has column */
+    &&  (colstr[collen] == '\0')                 /* exact match */
     &&  (col < maxcols)) {                       /* in range */
         p = *ATBL(tbl, row, col);
         if (p && p->cellerror)
@@ -1792,6 +1792,7 @@ char *coltoa(int col) {
     char *rname = buf[bufn++ & 3];
     char *p = rname;
 
+    // XXX: use more than 2 letters?
     if (col > 25) {
         *p++ = col / 26 + 'A' - 1;
         col %= 26;

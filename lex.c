@@ -120,43 +120,29 @@ void yyerror(const char *err) {
     parse_error(err, src_line, src_pos);
 }
 
-static int parse_col(const char *p, int len) {
-    int col;
-    if (len < 1 || !isalphachar(*p))
-        return -1;
-    col = toupperchar(p[0]) - 'A';
-    if (len == 1)
-        return col;
-    if (len > 2 || !isalphachar(p[1]))
-        return -1;
-    return (col + 1) * 26 + (toupperchar(p[1]) - 'A');
-}
-
-static int parse_cellref(const char *p, int len, cellref_t *cp) {
-    int i = 0, row, col, vf = 0;
-    if (i < len && p[i] == '$') {
+static int parse_cellref(const char *p, cellref_t *cp, int *lenp) {
+    int i = 0, len, row, col, vf = 0;
+    if (p[i] == '$') {
         i++;
         vf |= FIX_COL;
     }
-    if (!(i < len && isalphachar(p[i])))
+    if ((col = atocol(p + i, &len)) < 0)
         return 0;
-    col = toupperchar(p[i++]) - 'A';
-    if (i < len && isalphachar(p[i])) {
-        col = (col + 1) * 26 + (toupperchar(p[i++]) - 'A');
-    }
-    if (i < len && p[i] == '$') {
+    i += len;
+    if (p[i] == '$') {
         i++;
         vf |= FIX_ROW;
     }
-    if (!(i < len && isdigitchar(p[i])))
+    if (!isdigitchar(p[i]))
         return 0;
     row = p[i++] - '0';
-    while (i < len && isdigitchar(p[i])) {
+    while (isdigitchar(p[i])) {
         row = row * 10 + (p[i++] - '0');
     }
-    if (i != len)
-        return 0;
+    // XXX: should check for maximum row?
     *cp = cellref1(row, col, vf);
+    if (lenp)
+        *lenp = i;
     return 1;
 }
 
@@ -182,7 +168,7 @@ int yylex(void) {
     char path[PATHLEN];
     const char *p = src_pos;
     const char *p0;
-    int ret = -1;
+    int ret = -1, len;
     struct nrange *r;
 
     for (;;) {
@@ -222,11 +208,11 @@ int yylex(void) {
                     break;
                 }
             }
-            if (parse_cellref(p0, p - p0, &yylval.cval)) {
+            if (parse_cellref(p0, &yylval.cval, &len) && len == p - p0) {
                 ret = VAR;
                 break;
             }
-            if (colstate && (yylval.ival = parse_col(p0, p - p0)) >= 0) {
+            if (colstate && (yylval.ival = atocol(p0, &len)) >= 0 && len == p - p0) {
                 ret = COL;
                 break;
             }
@@ -414,12 +400,17 @@ int plugin_exists(const char *name, int len, char *path, size_t size) {
  * and function are the inverse of coltoa().
  */
 
-int atocol(const char *string, int len) {
-    int col;
+int atocol(const char *s, int *lenp) {
+    int col, i = 0;
 
-    col = toupperchar(string[0]) - 'A';
-    if (len == 2)               /* has second char */
-        col = (col + 1) * 26 + (toupperchar(string[1]) - 'A');
+    if (!isalphachar(*s))
+        return -1;
 
+    // XXX: use more than 2 letters?
+    col = toupperchar(s[i++]) - 'A';
+    if (isalphachar(s[i]))
+        col = (col + 1) * 26 + (toupperchar(s[i++]) - 'A');
+    if (lenp)
+        *lenp = i;
     return col;
 }
