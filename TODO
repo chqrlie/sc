@@ -1,5 +1,6 @@
 # TODO
 
+[ ] pass count to duprow() and dupcol() ???
 [ ] use sc_string_t: shared allocated strings with a reference count,
     optionally hashed into a dictionary
 [ ] use rangeref_t for find_range_coords() ?

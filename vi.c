@@ -987,18 +987,20 @@ void vi_interaction(void) {
 
                         switch (c) {
                         case 'i':
-                            if (rcqual == 'r')      insertrow(uarg, 0);
-                            else                    insertcol(uarg, 0);
+                            if (rcqual == 'r')      insertrow(cellref_current(), uarg, 0);
+                            else                    insertcol(cellref_current(), uarg, 0);
                             break;
 
                         case 'o':
-                            if (rcqual == 'r')      insertrow(uarg, 1);
-                            else                    insertcol(uarg, 1);
+                            if (rcqual == 'r')      currow += insertrow(cellref_current(), uarg, 1);
+                            else                    curcol += insertcol(cellref_current(), uarg, 1);
                             break;
 
                         case 'a':
-                            if (rcqual == 'r')      while (uarg--) duprow();
-                            else                    while (uarg--) dupcol();
+                            if (rcqual == 'r')      while (uarg --> 0 && duprow(cellref_current()))
+                                                        currow++;
+                            else                    while (uarg --> 0 && dupcol(cellref_current()))
+                                                        curcol++;
                             break;
 
                         case 'd':
@@ -1018,25 +1020,33 @@ void vi_interaction(void) {
                                 startshow();
                                 break;
                             }
-                            while (uarg--)
+                            while (uarg--) {
+                                // XXX: repeating pullcells makes sense for
+                                //      'pc' and 'pr' insert multiple copies
+                                //      'px' and 'pt' for performance tests
+                                //      'pp' to paste/pop multiple levels
+                                // XXX: Achtung! pullcells uses qbuf if set
                                 pullcells(rcqual, cellref_current());
+                            }
                             break;
 
                             /*
                              * turn an area starting at currow/curcol into
-                             * constants vs expressions - not reversable
+                             * constants vs expressions - non reversible
                              */
                         case 'v':
+                            // XXX: 'v.' should get a range for the "value" cmd
                             if (rcqual == 'r') {
+                                int c1 = 0, c2 = maxcol;
                                 struct frange *fr;
-
-                                if ((fr = get_current_frange()))
-                                    valueize_area(rangeref(currow, fr->or_left->col,
-                                                           currow + uarg - 1, fr->or_right->col));
-                                else
-                                    valueize_area(rangeref(currow, 0, currow + uarg - 1, maxcol));
-                            } else
+                                if ((fr = get_current_frange())) {
+                                    c1 = fr->or_left->col;
+                                    c2 = fr->or_right->col;
+                                }
+                                valueize_area(rangeref(currow, c1, currow + uarg - 1, c2));
+                            } else {
                                 valueize_area(rangeref(0, curcol, maxrow, curcol + uarg - 1));
+                            }
                             break;
 
                         case 'Z':
@@ -2802,7 +2812,7 @@ static void cr_line(void) {
                             if (curcol > fr->ir_right->col) {
                                 backcol(1);
                                 if (autoinsert)
-                                    insertcol(1, 1);
+                                    curcol += insertcol(cellref_current(), 1, 1);
                                 else {
                                     currow = fr->ir_right->row;
                                     if (row_hidden[currow])
@@ -2810,7 +2820,7 @@ static void cr_line(void) {
                                 }
                             }
                         } else if (autoinsert)
-                            insertrow(1, 1);
+                            currow += insertrow(cellref_current(), 1, 1);
                     }
                 } else
                     forwrow(1);
@@ -2833,7 +2843,7 @@ static void cr_line(void) {
                             if (currow > fr->ir_right->row) {
                                 backrow(1);
                                 if (autoinsert)
-                                    insertrow(1, 1);
+                                    currow += insertrow(cellref_current(), 1, 1);
                                 else {
                                     curcol = fr->ir_right->col;
                                     if (col_hidden[curcol])
@@ -2841,7 +2851,7 @@ static void cr_line(void) {
                                 }
                             }
                         } else if (autoinsert)
-                            insertcol(1, 1);
+                            curcol += insertcol(cellref_current(), 1, 1);
                     }
                 } else
                     forwcol(1);
@@ -3599,16 +3609,16 @@ static int get_rcqual(int ch) {
     refresh();
 
     switch (c = nmgetch(1)) {
-    case 'r':       return 'r';
-    case 'c':       return 'c';
-    case 'p':       return (ch == 'p') ? 'p' : 0;
-    case 'm':       return (ch == 'p') ? 'm' : 0;
-    case 'x':       return (ch == 'p') ? 'x' : 0;
-    case 't':       return (ch == 'p') ? 't' : 0;
-    case 'f':       return (ch == 'p') ? 'f' : 0;
-    case 'C':       return (ch == 'p') ? 'C' : 0;
-    case '.':       return (ch == 'p') ? '.' : 0;
-    case 'Z':       return (ch == 'Z') ? 'Z' : 0;
+    case 'r':
+    case 'c':       return c;
+    case 'p':
+    case 'm':
+    case 'x':
+    case 't':
+    case 'f':
+    case 'C':
+    case '.':       return (ch == 'p') ? c : 0;
+    case 'Z':       return (ch == 'Z') ? c : 0;
     case ESC:
     case ctl('g'):  return ESC;
 

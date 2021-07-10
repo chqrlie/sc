@@ -22,7 +22,7 @@ static int howmany;
 void sortrange(rangeref_t rr, const char *criteria) {
     SCXMEM int *rows;
     int minr, minc, maxr, maxc;
-    int i, r, nrows, col, len;
+    int i, r, nrows, col, len, qtmp;
     const char *cp = criteria;
     struct ent *p;
 
@@ -84,10 +84,14 @@ void sortrange(rangeref_t rr, const char *criteria) {
     }
 
     qsort(rows, nrows, sizeof(int), compare);
-    erase_area(minr, minc, maxr, maxc, 1);
+    /* move cell range to subsheet delbuf[++dbidx] */
+    erase_area(++dbidx, minr, minc, maxr, maxc, 1);
+    // XXX: make formulas that refer to the sort range
+    //      point to empty cells
     sync_ranges();
     for (i = 0, p = delbuf[dbidx]; p; p = p->next) {
         if (rows[i] != p->row) {
+            /* find destination row */
             for (i = 0; i < nrows && rows[i] != p->row; i++)
                 continue;
             if (i >= nrows) {
@@ -97,10 +101,15 @@ void sortrange(rangeref_t rr, const char *criteria) {
                 return;
             }
         }
-        p->row = minr + i;
+        p->row = minr + i; // XXX: sync formulas ?
     }
-    pullcells('m', cellref(minr, minc));
-    flush_saved();
+    // XXX: Achtung! pullcells uses qbuf if set
+    qtmp = qbuf;
+    qbuf = 0;
+    pullcells('m', cellref(minr, minc));    /* PULLMERGE */
+    qbuf = qtmp;
+    /* free delbuf[dbidx--] */
+    flush_saved(dbidx--);
 
     // XXX: should actually move to the new position of the same cell
 

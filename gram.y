@@ -92,7 +92,7 @@ static void dodel_abbr(SCXMEM char *name) {
     scxfree(name);
 }
 
-static void doselect(SCXMEM char *str) {
+static void doselect_qbuf(SCXMEM char *str) {
     cmd_select_qbuf(*s2c(str));
     scxfree(str);
 }
@@ -588,15 +588,15 @@ command:  S_LET var_or_range '=' e      { let($2.left, $4); }
         | S_ENDDOWN                     { doend( 1,  0); }
         | S_ENDLEFT                     { doend( 0, -1); }
         | S_ENDRIGHT                    { doend( 0,  1); }
-        | S_SELECT STRING               { doselect($2); }
-        | S_INSERTROW                   { insertrow( 1, 0); }
-        | S_INSERTROW '*' NUMBER        { insertrow($3, 0); }
-        | S_OPENROW                     { insertrow( 1, 1); }
-        | S_OPENROW '*' NUMBER          { insertrow($3, 1); }
-        | S_INSERTCOL                   { insertcol( 1, 0); }
-        | S_INSERTCOL '*' NUMBER        { insertcol($3, 0); }
-        | S_OPENCOL                     { insertcol( 1, 1); }
-        | S_OPENCOL '*' NUMBER          { insertcol($3, 1); }
+        | S_SELECT STRING               { doselect_qbuf($2); }
+        | S_INSERTROW                   { insertrow(cellref_current(),  1, 0); }
+        | S_INSERTROW '*' NUMBER        { insertrow(cellref_current(), $3, 0); }
+        | S_INSERTCOL                   { insertcol(cellref_current(),  1, 0); }
+        | S_INSERTCOL '*' NUMBER        { insertcol(cellref_current(), $3, 0); }
+        | S_OPENROW                     { currow += insertrow(cellref_current(),  1, 1); }
+        | S_OPENROW '*' NUMBER          { currow += insertrow(cellref_current(), $3, 1); }
+        | S_OPENCOL                     { curcol += insertcol(cellref_current(),  1, 1); }
+        | S_OPENCOL '*' NUMBER          { curcol += insertcol(cellref_current(), $3, 1); }
         | S_DELETEROW                   { if (showrange == SHOWROWS)
                                             deletecols(showsr, currow);
                                           else

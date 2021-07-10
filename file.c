@@ -457,7 +457,7 @@ void write_fd(FILE *f, rangeref_t rr) {
 
 void write_cells(FILE *f, rangeref_t rr, cellref_t cr) {
     buf_t(buf, FBUFLEN);
-    int r, c, mf;
+    int r, c, mf, qtmp;
     int dr = cr.row;
     int dc = cr.col;
     int r0 = rr.left.row;
@@ -468,10 +468,16 @@ void write_cells(FILE *f, rangeref_t rr, cellref_t cr) {
     // XXX: should avoid messing with spreadsheet data
     mf = modflg;
     if (dr != r0 || dc != c0) {
+        /* copy area to delbuf[++dbidx] */
         yank_area(rr);
         rn += dr - r0;
         cn += dc - c0;
+        /* exchange target area with delbuf[dbidx] */
+        // XXX: Achtung! pullcells uses qbuf if set
+        qtmp = qbuf;
+        qbuf = 0;
         pullcells('x', cr);
+        qbuf = qtmp;
     }
     // XXX: should avoid messing with spreadsheet data
     if (Vopt) valueize_area(rangeref(dr, dc, rn, cn));
@@ -509,8 +515,14 @@ void write_cells(FILE *f, rangeref_t rr, cellref_t cr) {
     }
     // XXX: should avoid messing with spreadsheet data
     if (dr != r0 || dc != c0) {
+        /* exchange target area back with delbuf[dbidx] */
+        // XXX: Achtung! pullcells uses qbuf if set
+        qtmp = qbuf;
+        qbuf = 0;
         pullcells('x', cr);
-        flush_saved();
+        qbuf = qtmp;
+        /* free delbuf[dbidx--] */
+        flush_saved(dbidx--);
     }
     modflg = mf;
 }
