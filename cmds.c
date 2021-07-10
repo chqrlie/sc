@@ -27,8 +27,8 @@ SCXMEM struct ent *delbuf[DELBUFSIZE];
 SCXMEM char *delbuffmt[DELBUFSIZE];
 int dbidx = -1;
 
-static struct ent *deldata1(void);
-static void deldata2(struct ent *obuf);
+static struct ent *qbuf_was_here;  /* dummy cell structure for qbuf patching */
+
 static int any_locked_cells(int r1, int c1, int r2, int c2);
 
 /* move a cell to the delbuf list (reverse order) */
@@ -65,6 +65,7 @@ static void deldata_rotate(int idx1, int idx2) {
 static void deldata_discard(int idx) {
     int i;
 
+    // XXX: should just check if delbuf[idx] is unique and flush it
     if (dbidx < 0) dbidx = 0;
     // XXX: assuming delbuf[dbidx], delbuffmt[dbidx] are NULL
     //      or can be overwritten without leakage
@@ -83,19 +84,27 @@ static void deldata_discard(int idx) {
     flush_saved(dbidx--);
 }
 
-/* discard the qbuf, return obsolete pointer */
+/* discard delbuf[qbuf], set return qbuf_was_here on all duplicates */
 // XXX: delbuf[dbidx] is overwritten and dbidx decremented if >= 0
-static struct ent *deldata_discard_qbuf(void) {
-    // XXX: delbuf[qbuf] is NOT cleared, unless qbuf == dbidx (!)
+static void deldata_discard_qbuf(void) {
+    // XXX: delbuf[qbuf] is set to qbuf_was_here
+    // XXX: should set duplicates to qbuf_was_here and flush delbuf[idx]
     if (qbuf) {
+        struct ent *obuf = delbuf[qbuf];
         if (dbidx < 0) dbidx = 0;
         delbuf[dbidx] = delbuf[qbuf];
         delbuffmt[dbidx] = delbuffmt[qbuf];
         /* free delbuf[dbidx--] */
         flush_saved(dbidx--);
-        return delbuf[qbuf];    /* orig. contents of the del. buffer */
-    } else {
-        return NULL;
+        if (obuf) {
+            int i;
+            for (i = 0; i < DELBUFSIZE; i++) {
+                if (delbuf[i] == obuf) {
+                    delbuf[i] = qbuf_was_here;
+                    delbuffmt[i] = NULL;
+                }
+            }
+        }
     }
 }
 
@@ -107,15 +116,37 @@ static void deldata_store(int idx) {
 /* store delbuf[dbidx] to delbuf[qbuf] and its copies */
 // XXX: trying to move top of stack to named buffers that were refering to previous list
 //      this is ultimately confusing. Should use a different approach.
-static void deldata_store_qbuf(struct ent *obuf) {
+static void deldata_store_qbuf(void) {
     int i;
     for (i = 0; i < DELBUFSIZE; i++) {
-        if ((obuf && delbuf[i] == obuf) || (qbuf && i == qbuf)) {
+        if ((delbuf[i] == qbuf_was_here) || (qbuf && i == qbuf)) {
             delbuf[i] = delbuf[dbidx];
             delbuffmt[i] = delbuffmt[dbidx];
         }
     }
     qbuf = 0;
+}
+
+// XXX: delbuf[dbidx] is overwritten and dbidx decremented if >= 0
+static void deldata1(void) {
+    /* discard named buffer '9' unless a duplicate of another one */
+    deldata_discard(DELBUFSIZE - 1);
+    /* free delbuf[qbuf] if any */
+    deldata_discard_qbuf();
+}
+
+static void deldata2(void) {
+    struct ent *p;
+
+    deldata_store_qbuf();
+    /* shift named buffers 1-8 to 2-9 */
+    // XXX: this fails if qbuf was one of the named buffers 1-9
+    deldata_rotate(DELBUFSIZE - 9, DELBUFSIZE - 1);
+    /* set top of stack in named buffer '1' */
+    // XXX: assuming named buffer '1' is NULL
+    deldata_store(DELBUFSIZE - 9);
+    for (p = delbuf[dbidx]; p; p = p->next)
+        p->flags &= ~MAY_SYNC;
 }
 
 /* free deleted cells */
@@ -236,13 +267,6 @@ int duprow(cellref_t cr) {
         c2 = fr->or_right->col;
     }
 
-    // XXX: get rid of this test and check insertrow return value
-    if (row + 1 >= maxrows
-    ||  (!fr && maxrow + 1 >= maxrows)
-    ||  (fr && fr->or_right->row + 1 >= maxrows)) {
-        if (!growtbl(GROWROW, 0, 0))
-            return 0;
-    }
     if (!insertrow(cr, 1, 1))
         return 0;
 
@@ -262,15 +286,10 @@ int duprow(cellref_t cr) {
 int dupcol(cellref_t cr) {
     int row, col = cr.col;
 
-    // XXX: get rid of this test and check insertcol return value
-    if (col + 1 >= maxcols || maxcol + 1 >= maxcols) {
-        if (!growtbl(GROWCOL, 0, 0))
-            return 0;
-    }
-    modflg++;
     if (!insertcol(cr, 1, 1))
         return 0;
 
+    modflg++;
     // XXX: should use copy_area(0, col + 1, maxrow, col + 1,
     //                           0, col, maxrow, col)
     for (row = 0; row <= maxrow; row++) {
@@ -299,20 +318,16 @@ static void fix_cellref(cellref_t *rp, rangeref_t rr, int dr, int dc) {
  * return 0 on failure, 1 on success
  */
 int insertrow(cellref_t cr, int arg, int delta) {
-    int r, c, i;
-    struct ent **tmprow;
-    int lim = maxrow - cr.row + 1;
+    int r, c, i, lim;
     rangeref_t rr = rangeref(cr.row + delta, 0, maxrow, maxcol);
     struct frange *fr;
 
-    // XXX: this is bogus! maxrow should never be >= maxrows
-    if (cr.row > maxrow)
-        maxrow = cr.row;
-    maxrow += arg;
-    lim = maxrow - lim + delta;
-
-    if ((maxrow >= maxrows) && !growtbl(GROWROW, maxrow, 0))
+    if ((maxrow + arg >= maxrows) && !growtbl(GROWROW, maxrow + arg, 0))
         return 0;
+
+    // XXX: should clip cr reference
+    lim = cr.row + delta + arg - 1;  /* last inserted row */
+    maxrow += arg;
 
     if ((fr = find_frange(cr.row, cr.col))) {
         // XXX: should verify if cr.row + delta is inside the frange
@@ -367,7 +382,9 @@ int insertrow(cellref_t cr, int arg, int delta) {
          * save the last active row+1, shift the rows downward, put the last
          * row in place of the first
          */
-        tmprow = tbl[maxrow];
+        struct ent **tmp_row = tbl[maxrow];
+        unsigned char tmp_hidden = row_hidden[maxrow];
+
         for (r = maxrow; r > lim; r--) {
             row_hidden[r] = row_hidden[r-arg];
             row_hidden[r-arg] = row_hidden[r-1];
@@ -379,7 +396,8 @@ int insertrow(cellref_t cr, int arg, int delta) {
                     p->row = r;
             }
         }
-        tbl[r] = tmprow;                /* the last row was never used.... */
+        row_hidden[r] = tmp_hidden;
+        tbl[r] = tmp_row;               /* the last row was never used.... */
 
         for (i = 0; i < 37; i++) {      /* update all marked cells */
             if (savedcr[i].row >= rr.left.row)
@@ -424,20 +442,17 @@ int insertrow(cellref_t cr, int arg, int delta) {
 int insertcol(cellref_t cr, int arg, int delta) {
     int r, c;
     struct ent **pp;
-    /* lim cols from c0:maxcol will move to c1:c2 */
-    int lim = maxcol - cr.col - delta + 1;
+    /* cols are moved from sc1:sc2 to dc1:dc2 */
     int sc1 = cr.col + delta;
-    //int sc2 = sc1 + lim - 1;
+    int sc2 = maxcol;
     int dc1 = sc1 + arg;
-    int dc2 = dc1 + lim - 1;
+    int dc2 = sc2 + arg;
     struct frange *fr;
 
-    if (sc1 > maxcol)
-        maxcol = sc1;
-    maxcol += arg;
-
-    if ((maxcol >= maxcols) && !growtbl(GROWCOL, 0, maxcol))
+    if ((maxcol + arg >= maxcols) && !growtbl(GROWCOL, 0, maxcol + arg))
         return 0;
+
+    maxcol += arg;
 
     for (c = dc2; c >= dc1; c--) {
         fwidth[c] = fwidth[c-arg];
@@ -509,9 +524,8 @@ int insertcol(cellref_t cr, int arg, int delta) {
 void deleterows(int r1, int r2) {
     int nrows, i;
     int c1 = 0;
-    int c2 = maxcols;
+    int c2 = maxcol;
     struct frange *fr;
-    struct ent *obuf = NULL;
 
     if (r1 > r2) SWAPINT(r1, r2);
     if (r2 > maxrow)
@@ -532,12 +546,14 @@ void deleterows(int r1, int r2) {
             FullUpdate++;
             modflg++;
 
-            obuf = deldata1();
+            /* discard named buffer '9' and qbuf if any */
+            deldata1();
+            sync_refs();
             /* move cell range to subsheet delbuf[++dbidx] */
             // XXX: this is necessary for synching the cell references
             erase_area(++dbidx, r1, c1, r2, c2, 0);
             fix_ranges(r1, -1, r2, -1, -1, -1, fr);
-            deldata2(obuf);
+            deldata2();
             if (r1 + nrows > fr->ir_right->row && fr->ir_right->row >= r1)
                 fr->ir_right = lookat(r1 - 1, fr->ir_right->col);
             if (r1 + nrows > fr->or_right->row) {
@@ -589,13 +605,15 @@ void deleterows(int r1, int r2) {
         if (any_locked_cells(r1, c1, r2, c2)) {
             error("Locked cells encountered. Nothing changed");
         } else {
-            obuf = deldata1();
+            /* discard named buffer '9' and qbuf if any */
+            deldata1();
+            sync_refs();
             /* move cell range to subsheet delbuf[++dbidx] */
             // XXX: this is necessary for synching the cell references
             erase_area(++dbidx, r1, c1, r2, c2, 0);
             fix_ranges(r1, -1, r2, -1, -1, -1, NULL);
             closerow(r1, nrows);
-            deldata2(obuf);
+            deldata2();
         }
     }
     /* currow will not become > maxrow because maxrow was not decremented */
@@ -603,41 +621,10 @@ void deleterows(int r1, int r2) {
         currow = (currow <= r2) ? r1 : currow - nrows;
 }
 
-// XXX: delbuf[dbidx] is overwritten and dbidx decremented if >= 0
-static struct ent *deldata1(void) {
-    struct ent *obuf;
-
-    /* discard named buffer '9' unless a duplicate of another one */
-    deldata_discard(DELBUFSIZE - 1);
-    /* free delbuf[qbuf] if any */
-    obuf = deldata_discard_qbuf();
-    sync_refs();
-    return obuf;
-}
-
-// XXX: this function is very confusing too
-// XXX: obuf is an invalid pointer, likely in freeents, but possibly reused
-//      testing for null is OK, but testing for equality is bogus
-static void deldata2(struct ent *obuf) {
-    struct ent *p;
-
-    deldata_store_qbuf(obuf);
-
-    /* shift named buffers 1-8 to 2-9 */
-    // XXX: this fails if qbuf was one of the named buffers 1-9
-    deldata_rotate(DELBUFSIZE - 9, DELBUFSIZE - 1);
-    /* set top of stack in named buffer '1' */
-    // XXX: assuming named buffer '1' is NULL
-    deldata_store(DELBUFSIZE - 9);
-    for (p = delbuf[dbidx]; p; p = p->next)
-        p->flags &= ~MAY_SYNC;
-}
-
 void yankrows(int r1, int r2) {
     int arg, nrows;
     int c1 = 0, c2 = maxcol;
     struct frange *fr;
-    struct ent *obuf;
 
     if (r1 > r2) SWAPINT(r1, r2);
     arg = r2 - r1 + 1;
@@ -657,18 +644,17 @@ void yankrows(int r1, int r2) {
     sync_refs();
 
     // XXX: delbuf[dbidx] is overwritten and dbidx decremented if >= 0
-    /* discard named buffer '0' */
+    /* discard named buffer '0' and qbuf if any */
     deldata_discard(DELBUFSIZE - 10);
-    obuf = deldata_discard_qbuf();
+    deldata_discard_qbuf();
     yank_area(rangeref(r1, c1, r1 + arg - 1, c2));
-    deldata_store_qbuf(obuf);
-    /* set yanked data in named buffer '0' */
+    /* set yanked data in named buffer '0' and qbuf if any */
+    deldata_store_qbuf();
     deldata_store(DELBUFSIZE - 10);
 }
 
 void yankcols(int c1, int c2) {
     int arg, ncols;
-    struct ent *obuf;
 
     if (c1 > c2) SWAPINT(c1, c2);
     arg = c2 - c1 + 1;
@@ -681,12 +667,12 @@ void yankcols(int c1, int c2) {
     }
     sync_refs();
     // XXX: delbuf[dbidx] is overwritten and dbidx decremented if >= 0
-    /* discard named buffer '0' */
+    /* discard named buffer '0' and qbuf if any */
     deldata_discard(DELBUFSIZE - 10);
-    obuf = deldata_discard_qbuf();
+    deldata_discard_qbuf();
     yank_area(rangeref(0, c1, maxrow, c1 + arg - 1));
-    deldata_store_qbuf(obuf);
-    /* set yanked data in named buffer '0' */
+    /* set yanked data in named buffer '0' and qbuf if any */
+    deldata_store_qbuf();
     deldata_store(DELBUFSIZE - 10);
 }
 
@@ -769,8 +755,10 @@ void move_area(int dr, int dc, rangeref_t rr) {
      */
     /* move cell range to subsheet delbuf[++dbidx] */
     erase_area(++dbidx, dr, dc, rr.right.row + deltar, rr.right.col + deltac, 0);
+    // XXX: why not sync_refs() ??? most likely a bug
     /* free delbuf[dbidx--] */
     flush_saved(dbidx--);
+    // XXX: if moving entire columns or rows, the column or row flags should be copied
     for (p = delbuf[dbidx]; p; p = p->next) {
         pp = ATBL(tbl, p->row + deltar, p->col + deltac);
         *pp = p;
@@ -870,7 +858,8 @@ void pullcells(int to_insert, cellref_t cr) {
         mxcol = maxcols;
     } else
     if (to_insert == 'r') {     /* PULLROWS */
-        insertrow(cr, numrows, 0);
+        if (!insertrow(cr, numrows, 0))
+            return;
         if ((fr = find_frange(cr.row, cr.col))) {
             deltac = fr->or_left->col - mincol;
         } else {
@@ -881,7 +870,8 @@ void pullcells(int to_insert, cellref_t cr) {
         }
     } else
     if (to_insert == 'c') {     /* PULLCOLS */
-        insertcol(cr, numcols, 0);
+        if (!insertcol(cr, numcols, 0))
+            return;
         for (i = 0, c = cr.col; i < numcols; i++, c++) {
             fwidth[c] = delbuffmt[dbidx][4*i];
             precision[c] = delbuffmt[dbidx][4*i+1];
@@ -1098,7 +1088,6 @@ void deletecols(int c1, int c2) {
     int r, c, ncols, i, save = curcol;
     struct ent **pp;
     struct ent *p;
-    struct ent *obuf;
 
     if (c1 > c2) SWAPINT(c1, c2);
     if (c2 > maxcol)
@@ -1113,16 +1102,23 @@ void deletecols(int c1, int c2) {
         return;
     }
     ncols = c2 - c1 + 1;
+    // XXX: probably useless and counterproductive
+    //      this is for get_current_frange() which is questionable
     curcol = c1;
 
-    obuf = deldata1();
+    /* discard named buffer '9' and qbuf if any */
+    deldata1();
+    sync_refs();
     /* move cell range to subsheet delbuf[++dbidx] */
     erase_area(++dbidx, 0, c1, maxrow, c2, 0);
+    // XXX: should use sync_refs() to flag invalid references
     fix_ranges(-1, c1, -1, c2, -1, -1, get_current_frange());
-    deldata2(obuf);
+    deldata2();
 
     /* clear then copy the block left */
     for (r = 0; r <= maxrow; r++) {
+#if 0
+        // XXX: all cells should have been erased already
         for (c = c1; c <= c2; c++) {
             pp = ATBL(tbl, r, c);
             if (*pp) {
@@ -1130,7 +1126,8 @@ void deletecols(int c1, int c2) {
                 *pp = NULL;
             }
         }
-        for (c = c2; c <= maxcol; c++) {
+#endif
+        for (c = c1; c <= maxcol - ncols; c++) {
             pp = ATBL(tbl, r, c);
             if ((*pp = pp[ncols])) {
                 (*pp)->col -= ncols;
@@ -1139,13 +1136,13 @@ void deletecols(int c1, int c2) {
         }
     }
 
-    for (c = c1; c <= c2; c++) {
+    for (c = c1; c <= maxcol - ncols; c++) {
         fwidth[c] = fwidth[c + ncols];
         precision[c] = precision[c + ncols];
         realfmt[c] = realfmt[c + ncols];
         col_hidden[c] = col_hidden[c + ncols];
     }
-    for (; c <= maxcols; c++) {
+    for (; c <= maxcol; c++) {
         fwidth[c] = DEFWIDTH;
         precision[c] = DEFPREC;
         realfmt[c] = DEFREFMT;
@@ -1414,17 +1411,14 @@ void copy(int flags, rangeref_t drr, rangeref_t srr) {
 
 /* ERASE a Range of cells */
 void eraser(rangeref_t rr) {
-    struct ent *obuf;
-
     // XXX: delbuf[dbidx] is overwritten and dbidx decremented if >= 0
-    /* discard named buffer '9' */
-    deldata_discard(DELBUFSIZE - 1);
-    obuf = deldata_discard_qbuf();
-    // XXX: different from deldata1(): missing sync_refs()
+    /* discard named buffer '9' and qbuf if any */
+    deldata1();
+    // XXX: missing sync_refs() ???
     /* move cell range to subsheet delbuf[++dbidx] */
     erase_area(++dbidx, rr.left.row, rr.left.col, rr.right.row, rr.right.col, 0);
     sync_refs();
-    deldata_store_qbuf(obuf);
+    deldata_store_qbuf();
     /* shift named buffers 1-8 to 2-9 */
     // XXX: this fails if qbuf was one of the named buffers 1-9
     deldata_rotate(DELBUFSIZE - 9, DELBUFSIZE - 1);
@@ -1439,15 +1433,13 @@ void eraser(rangeref_t rr) {
 
 /* YANK a Range of cells */
 void yankr(rangeref_t rr) {
-    struct ent *obuf;
-
     // XXX: delbuf[dbidx] is overwritten and dbidx decremented if >= 0
-    /* discard named buffer '0' */
+    /* discard named buffer '0' and qbuf if any */
     deldata_discard(DELBUFSIZE - 10);
-    obuf = deldata_discard_qbuf();
+    deldata_discard_qbuf();
     yank_area(rr);
-    deldata_store_qbuf(obuf);
-    /* set yanked data in named buffer '0' */
+    /* set yanked data in named buffer '0' and qbuf if any */
+    deldata_store_qbuf();
     deldata_store(DELBUFSIZE - 10);
 }
 

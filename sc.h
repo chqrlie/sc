@@ -40,7 +40,7 @@ extern const char *progname;
 
 #define MINROWS 100     /* minimum size at startup */
 #define MINCOLS 30
-#define ABSMAXCOLS 702  /* absolute cols: ZZ (base 26) */
+#define ABSMAXCOLS 702  /* maximum number of columns for A-ZZ (base 26) */
 
 #define CRROWS 1
 #define CRCOLS 2

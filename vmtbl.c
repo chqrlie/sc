@@ -54,21 +54,21 @@ void checkbounds(int *rowp, int *colp) {
        ptr = newptr__;                                             \
     } while (0)
 
-static const char nolonger[] = "The table can't be any longer";
-static const char nowider[] = "The table can't be any wider";
+static const char nolonger[] = "The table cannot be any longer";
+static const char nowider[] = "The table cannot be any wider";
 
 /*
- * grow the main && auxiliary tables (reset maxrows/maxcols as needed)
+ * grow the main && auxiliary tables (update maxrows/maxcols as needed)
  * toprow &&/|| topcol tell us a better guess of how big to become.
  * we return TRUE if we could grow, FALSE if not....
  */
-int growtbl(int rowcol, int toprow, int topcol) {
+int growtbl(int mode, int toprow, int topcol) {
     int row, col, curcols, currows, newrows, newcols;
 
     newrows = currows = maxrows;
     newcols = curcols = maxcols;
 
-    if (rowcol == GROWNEW) {
+    if (mode == GROWNEW) {
         /* when we first start up, fill the screen w/ cells */
         newrows = LINES - RESROW;
         if (newrows < MINROWS) newrows = MINROWS;
@@ -79,20 +79,20 @@ int growtbl(int rowcol, int toprow, int topcol) {
     }
 
     /* set how much to grow */
-    if (rowcol & GROWROW) {
-        if (toprow > maxrows)
+    if (mode & GROWROW) {
+        if (toprow >= maxrows)
             newrows = toprow + GROWAMT;
         else
             newrows += GROWAMT;
     }
 
-    if (rowcol & GROWCOL) {
-        if ((rowcol == GROWCOL) && ((maxcols == ABSMAXCOLS) || (topcol >= ABSMAXCOLS))) {
+    if (mode & GROWCOL) {
+        if ((mode == GROWCOL) && ((maxcols == ABSMAXCOLS) || (topcol >= ABSMAXCOLS))) {
             error(nowider);
             return FALSE;
         }
 
-        if (topcol > maxcols)
+        if (topcol >= maxcols)
             newcols = topcol + GROWAMT;
         else
             newcols += GROWAMT;
@@ -139,7 +139,7 @@ int growtbl(int rowcol, int toprow, int topcol) {
     for (row = currows; row < newrows; row++) {
         struct ent **rowptr = scxmalloc(sizeof(*tbl[row]) * newcols);
         if (rowptr == NULL) {
-            error(nowider);
+            error(nolonger);
             return FALSE;
         }
         tbl[row] = rowptr;
@@ -151,8 +151,8 @@ int growtbl(int rowcol, int toprow, int topcol) {
     maxrows = newrows;
     maxcols = newcols;
 
-    if (maxrows > 1000) rescol = 5;
-    if (maxrows > 10000) rescol = 6;
-
+    for (rescol = 4; newrows > 1000; rescol++) {
+        newrows /= 10;
+    }
     return TRUE;
 }
