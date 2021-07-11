@@ -94,7 +94,8 @@ void getexp(rangeref_t rr, int fd) {
             struct ent *p = *ATBL(tbl, r, c);
             buf_reset(buf);
             if (p && p->expr) {
-                decompile_node(buf, p->expr, 0);
+                // XXX: should pass r, c as the current cell
+                decompile_expr(buf, p->expr, 0, 0, DCP_NO_LOCALE);
                 if (*buf->buf == '?')
                     buf_reset(buf);
             }

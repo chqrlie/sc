@@ -269,7 +269,8 @@ void str_search(const char *s, rangeref_t rr, int num) {
                 }
             } else if (gs.g_type == G_XSTR) {
                 if (p->expr) {
-                    decompile(field, sizeof field, p->expr);
+                    // XXX: should pass row, col as the cell reference
+                    decompile(field, sizeof field, p->expr, 0, 0, DCP_DEFAULT);
                     if (*field == '?')
                         *field = '\0';
                 }

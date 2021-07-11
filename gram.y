@@ -35,8 +35,8 @@ static int doreadfile(SCXMEM char *fname, int eraseflg) {
     return ret;
 }
 
-static int dowritefile(SCXMEM char *fname, rangeref_t rr) {
-    int ret = writefile(s2c(fname), rr);
+static int dowritefile(SCXMEM char *fname, rangeref_t rr, int dcp_flags) {
+    int ret = writefile(s2c(fname), rr, dcp_flags);
     scxfree(fname);
     return ret;
 }
@@ -183,6 +183,7 @@ static SCXMEM char *get_strarg(cellref_t cr) {
 %type <rval> var_or_range
 %type <sval> strarg
 %type <enode> e term expr_list
+%type <ival> noval
 %token <sval> STRING
 %token <ival> NUMBER
 %token <fval> FNUMBER
@@ -465,14 +466,14 @@ command:  S_LET var_or_range '=' e      { let($2.left, $4); }
         | S_LATEXEXT strarg             { set_string(&latexext, $2); }
         | S_SLATEXEXT strarg            { set_string(&slatexext, $2); }
         | S_TEXEXT strarg               { set_string(&texext, $2); }
-        | S_PUT strarg range            { dowritefile($2, $3); }
-        | S_PUT strarg                  { dowritefile($2, rangeref_total()); }
-        | S_PUT range                   { write_cells(stdout, $2, $2.left); }
-        | S_PUT range '/' var           { write_cells(stdout, $2, $4); }
-        | S_PUT '%' '/' var             { write_cells(stdout, rangeref_total(), $4); }
-        | S_PUT '/' var                 { write_cells(stdout, rangeref_current(), $3); }
-        | S_PUT '%'                     { write_cells(stdout, rangeref_total(), cellref(0, 0)); }
-        | S_PUT                         { write_cells(stdout, rangeref_total(), cellref(0, 0)); }
+        | S_PUT strarg range noval      { dowritefile($2, $3, $4); }
+        | S_PUT strarg noval            { dowritefile($2, rangeref_total(), $3); }
+        | S_PUT range noval             { write_cells(stdout, $2, $2.left, $3); }
+        | S_PUT range '/' var noval     { write_cells(stdout, $2, $4, $5); }
+        | S_PUT '%' '/' var noval       { write_cells(stdout, rangeref_total(), $4, $5); }
+        | S_PUT '/' var noval           { write_cells(stdout, rangeref_current(), $3, $4); }
+        | S_PUT '%' noval               { write_cells(stdout, rangeref_total(), cellref(0, 0), $3); }
+        | S_PUT noval                   { write_cells(stdout, rangeref_total(), cellref(0, 0), $2); }
         | S_WRITE strarg range          { doprintfile($2, $3); }
         | S_WRITE strarg                { doprintfile($2, rangeref_total()); }
         | S_WRITE range                 { doprintfile(NULL, $2); }
@@ -690,7 +691,12 @@ command:  S_LET var_or_range '=' e      { let($2.left, $4); }
         | S_PLUGOUT STRING '=' STRING   { doaddplugin($2, $4, 'w'); }
         | PLUGIN                        { doplugin($1); }
         | /* nothing */
-        | error;
+        | error
+        ;
+
+noval:                                  { $$ = DCP_DEFAULT; }
+        | '*'                           { $$ = DCP_NO_EXPR; }
+        ;
 
 term:     var                           { $$ = new_var(O_VAR, $1); }
         | '@' K_FIXED term              { $$ = new('f', $3, NULL); }

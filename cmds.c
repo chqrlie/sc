@@ -943,6 +943,7 @@ void pullcells(int to_insert, cellref_t cr) {
         } else {
             // XXX: very confusing!
             /* move the unlocked cells from destination range to delbuf[dbidx+1] */
+            // XXX: this does nothing for PULLROWS, PULLCOLS as the range is empty
             for (p = delbuf[dbidx++]; p; p = p->next) {
                 pp = ATBL(tbl, p->row + deltar, p->col + deltac);
                 if (*pp && !((*pp)->flags & IS_LOCKED)) {
@@ -980,6 +981,7 @@ void pullcells(int to_insert, cellref_t cr) {
      * point to the new set of cells in the delete buffer.
      */
     // XXX: should use deldata_store_qbuf?
+    // XXX: obuf could be a stale pointer
     for (i = 0; i < DELBUFSIZE; i++) {
         if (delbuf[i] == obuf) {
             delbuf[i] = delbuf[dbidx];

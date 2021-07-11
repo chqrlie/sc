@@ -112,7 +112,6 @@ int VMS_read_raw = 0;
 #endif
 
 const char *progname;
-int Vopt;
 #ifdef TRACE
 static FILE *ftrace;
 #endif
@@ -137,8 +136,6 @@ int main(int argc, char **argv) {
     int popt = 0;
     int qopt = 0;
     int Mopt = 0;
-
-    Vopt = 0;
 
 #ifdef USELOCALE
     setlocale(LC_ALL, "");
@@ -306,8 +303,8 @@ int main(int argc, char **argv) {
     if (eopt) rndtoeven = 1;
     if (Mopt) mouseon();
     if (popt) {
+        int Vopt = 0;
         const char *redraw = NULL;
-        int o;
 
 #ifdef BSD43
         optreset = 1;
@@ -315,14 +312,14 @@ int main(int argc, char **argv) {
         /* reparse command line arguments */
         optind = 1;
         stopdisp();
-        while ((o = getopt(argc, argv, "axmoncrCReP:W:vq")) != EOF) {
-            switch (o) {
+        while ((c = getopt(argc, argv, "axmoncrCReP:W:vqM")) != EOF) {
+            switch (c) {
             case 'v':
                 Vopt = 1;
                 break;
             case 'P':
-                sc_cmd_put(optarg);
-                if (*optarg == '/')
+                sc_cmd_put(optarg, Vopt);
+                if (optarg && *optarg == '/')
                     redraw = "recalc\nredraw\n";
                 Vopt = 0;
                 break;
@@ -339,7 +336,7 @@ int main(int argc, char **argv) {
 
     if (!isatty(STDOUT_FILENO)) {
         stopdisp();
-        write_fd(stdout, rangeref_total());
+        write_fd(stdout, rangeref_total(), DCP_DEFAULT);
         return EXIT_SUCCESS;
     }
 
@@ -355,9 +352,9 @@ static void diesave(void) {
 
     if (modcheck(" before Spreadsheet dies") == 1) {
         snprintf(path, sizeof path, "~/%s", SAVENAME);
-        if (writefile(path, rangeref_total()) < 0) {
+        if (writefile(path, rangeref_total(), DCP_DEFAULT) < 0) {
             snprintf(path, sizeof path, "/tmp/%s", SAVENAME);
-            if (writefile(path, rangeref_total()) < 0)
+            if (writefile(path, rangeref_total(), DCP_DEFAULT) < 0)
                 error("Couldn't save current spreadsheet, Sorry");
         }
     }

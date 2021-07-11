@@ -487,7 +487,6 @@ extern SCXMEM char *tblext;
 extern SCXMEM char *latexext;
 extern SCXMEM char *slatexext;
 extern SCXMEM char *texext;
-extern int Vopt;
 extern struct go_save gs;
 
 static inline cellref_t cellref(int row, int col) {
@@ -571,7 +570,7 @@ extern int are_frames(void);
 extern int are_nranges(void);
 extern int atocol(const char *s, int *lenp);
 extern int creadfile(const char *save, int eraseflg);
-extern int cwritefile(const char *fname, rangeref_t rr);
+extern int cwritefile(const char *fname, rangeref_t rr, int dcp_flags);
 extern int engformat(char *buf, size_t size, int fmt, int lprecision, double val, int *alignp);
 extern int etype(struct enode *e);
 extern int find_nrange_name(const char *name, int len, struct nrange **rng);
@@ -582,7 +581,7 @@ extern int locked_cell(struct ent *v);
 extern int modcheck(const char *endstr);
 extern int plugin_exists(const char *name, int len, char *path, size_t size);
 extern int readfile(const char *fname, int eraseflg);
-extern int writefile(const char *fname, rangeref_t rr);
+extern int writefile(const char *fname, rangeref_t rr, int dcp_flags);
 extern int yn_ask(const char *msg);
 extern struct abbrev *find_abbr(const char *abbrev, int len, struct abbrev **prev);
 extern struct enode *copye(struct enode *e, int Rdelta, int Cdelta,
@@ -627,8 +626,16 @@ extern void copy_set_source_range(int r1, int c1, int r2, int c2);
 extern void copy(int flags, rangeref_t drr, rangeref_t srr);
 extern void copyent(struct ent *n, struct ent *p,
                     int dr, int dc, int r1, int c1, int r2, int c2, int transpose);
-extern int decompile(char *dest, size_t size, struct enode *e);
-extern void decompile_node(buf_t buf, struct enode *e, int priority);
+// XXX: should pass a context with a cell reference
+#define DCP_DEFAULT    0
+#define DCP_NO_NAME    1
+#define DCP_NO_LOCALE  2
+#define DCP_NO_EXPR    4
+extern int decompile(char *dest, size_t size, struct enode *e,
+                     int dr, int dc, int dcp_flags);
+// XXX: should pass a context with a cell reference
+extern void decompile_expr(buf_t buf, struct enode *e,
+                           int dr, int dc, int flags);
 extern void del_nrange(rangeref_t rr);
 extern void del_abbr(const char *abbrev);
 extern void deraw(int ClearLastLine);
@@ -649,8 +656,8 @@ extern void set_fkey(int n, const char *str);
 extern void set_histfile(const char *str);
 extern void cmd_recalc(void);
 extern void cmd_run(const char *str);
-extern void edits(buf_t buf, int row, int col, struct ent *p, sc_bool_t value);
-extern void editv(buf_t buf, int row, int col, struct ent *p, sc_bool_t value);
+extern void edits(buf_t buf, int row, int col, struct ent *p, int dcp_flags);
+extern void editv(buf_t buf, int row, int col, struct ent *p, int dcp_flags);
 extern void efree(SCXMEM struct enode *e);
 extern void erase_area(int idx, int sr, int sc, int er, int ec, int ignorelock);
 extern void erasedb(void);
@@ -716,9 +723,9 @@ extern void update(int anychanged);
 extern void valueize_area(rangeref_t rr);
 extern void write_abbrevs(FILE *f);
 extern void clean_abbrevs(void);
-extern void write_cells(FILE *f, rangeref_t rr, cellref_t cr);
+extern void write_cells(FILE *f, rangeref_t rr, cellref_t cr, int dcp_flags);
 extern void write_cranges(FILE *f);
-extern void write_fd(FILE *f, rangeref_t rr);
+extern void write_fd(FILE *f, rangeref_t rr, int dcp_flags);
 extern void write_franges(FILE *f);
 extern void write_hist(void);
 extern void write_nranges(FILE *f);
@@ -804,7 +811,7 @@ extern void mouseon(void);
 extern void mouseoff(void);
 extern void hidecursor(void);
 extern void vi_interaction(void);
-extern void sc_cmd_put(const char *arg);
+extern void sc_cmd_put(const char *arg, int vopt);
 extern void sc_cmd_write(const char *arg);
 extern void lotus_menu(void);
 

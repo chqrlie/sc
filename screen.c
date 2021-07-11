@@ -790,7 +790,7 @@ void update(int anychanged) {          /* did any cell really change in value? *
                                p->cellerror == CELLERROR ? "ERROR" : "INVALID");
                     } else
                     if (showexpr && p->expr) {
-                        decompile(field, sizeof field, p->expr);
+                        decompile(field, sizeof field, p->expr, 0, 0, DCP_DEFAULT);
                         showstring(field, ALIGN_LEFT, /* hasvalue = */ 0,
                                    row, col, &nextcol, mxcol, &fieldlen, r, c,
                                    fr, frightcols, flcols, frcols);
@@ -989,7 +989,8 @@ void update(int anychanged) {          /* did any cell really change in value? *
                 *field = '\0';
                 if (p->expr) {
                     /* has expr of some type */
-                    decompile(field, sizeof field, p->expr);
+                    // XXX: should pass currow, curcol as the cell reference
+                    decompile(field, sizeof field, p->expr, 0, 0, DCP_DEFAULT);
                 }
 
                 /*

@@ -162,7 +162,7 @@ int set_line(const char *fmt, ...) {
 
 void vi_interaction(void) {
     int inloop = 1;
-    int c, rcqual;
+    int c, ch2;
     int narg;
     int edistate = -1;
     int nedistate;
@@ -607,7 +607,9 @@ void vi_interaction(void) {
                     if (linelim >= 0) {
                         p = lookat(currow, curcol);
                         /* decompile expression into line array */
-                        linelim = decompile(line, sizeof line, p->expr);
+                        // XXX: should pass currow, curcol as the cell reference
+                        linelim = decompile(line, sizeof line, p->expr,
+                                            0, 0, DCP_DEFAULT);
                     }
                     break;
 
@@ -688,7 +690,7 @@ void vi_interaction(void) {
                         /* copy cell contents into line array */
                         buf_init(buf, line, sizeof line);
                         // XXX: there should be no value yet
-                        editv(buf, currow, curcol, p, FALSE);
+                        editv(buf, currow, curcol, p, DCP_DEFAULT);
                         linelim = buf->len;
                         cellassign = 1;
                         insert_mode();
@@ -764,7 +766,7 @@ void vi_interaction(void) {
                         /* copy cell contents into line array */
                         buf_init(buf, line, sizeof line);
                         // XXX: the conversion should be localized
-                        editv(buf, currow, curcol, p, FALSE);
+                        editv(buf, currow, curcol, p, DCP_DEFAULT);
                         linelim = buf->len;
                         setmark('0');
                         numeric_field = 1;
@@ -969,44 +971,44 @@ void vi_interaction(void) {
                 case 's':
                 case 'Z':
                     {
-                        if (!(rcqual = get_rcqual(c))) {
+                        if (!(ch2 = get_rcqual(c))) {
                             error("Invalid row/column command");
                             break;
                         }
 
-                        if (rcqual == ESC || rcqual == ctl('g'))
+                        if (ch2 == ESC || ch2 == ctl('g'))
                             break;
 
                         switch (c) {
                         case 'i':
-                            if (rcqual == 'r')      insertrow(cellref_current(), uarg, 0);
-                            else                    insertcol(cellref_current(), uarg, 0);
+                            if (ch2 == 'r') insertrow(cellref_current(), uarg, 0);
+                            else            insertcol(cellref_current(), uarg, 0);
                             break;
 
                         case 'o':
-                            if (rcqual == 'r')      currow += insertrow(cellref_current(), uarg, 1);
-                            else                    curcol += insertcol(cellref_current(), uarg, 1);
+                            if (ch2 == 'r') currow += insertrow(cellref_current(), uarg, 1);
+                            else            curcol += insertcol(cellref_current(), uarg, 1);
                             break;
 
                         case 'a':
-                            if (rcqual == 'r')      while (uarg --> 0 && duprow(cellref_current()))
-                                                        currow++;
-                            else                    while (uarg --> 0 && dupcol(cellref_current()))
-                                                        curcol++;
+                            if (ch2 == 'r') while (uarg --> 0 && duprow(cellref_current()))
+                                                currow++;
+                            else            while (uarg --> 0 && dupcol(cellref_current()))
+                                                curcol++;
                             break;
 
                         case 'd':
-                            if (rcqual == 'r')      deleterows(currow, currow + uarg - 1);
-                            else                    deletecols(curcol, curcol + uarg - 1);
+                            if (ch2 == 'r') deleterows(currow, currow + uarg - 1);
+                            else            deletecols(curcol, curcol + uarg - 1);
                             break;
 
                         case 'y':
-                            if (rcqual == 'r')      yankrows(currow, currow + uarg - 1);
-                            else                    yankcols(curcol, curcol + uarg - 1);
+                            if (ch2 == 'r') yankrows(currow, currow + uarg - 1);
+                            else            yankcols(curcol, curcol + uarg - 1);
                             break;
 
                         case 'p':
-                            if (rcqual == '.') {
+                            if (ch2 == '.') {
                                 set_line("pullcopy [range] ");
                                 insert_mode();
                                 startshow();
@@ -1018,7 +1020,7 @@ void vi_interaction(void) {
                                 //      'px' and 'pt' for performance tests
                                 //      'pp' to paste/pop multiple levels
                                 // XXX: Achtung! pullcells uses qbuf if set
-                                pullcells(rcqual, cellref_current());
+                                pullcells(ch2, cellref_current());
                             }
                             break;
 
@@ -1028,7 +1030,7 @@ void vi_interaction(void) {
                              */
                         case 'v':
                             // XXX: 'v.' should get a range for the "value" cmd
-                            if (rcqual == 'r') {
+                            if (ch2 == 'r') {
                                 int c1 = 0, c2 = maxcol;
                                 struct frange *fr;
                                 if ((fr = get_current_frange())) {
@@ -1042,11 +1044,11 @@ void vi_interaction(void) {
                             break;
 
                         case 'Z':
-                            switch (rcqual) {
+                            switch (ch2) {
                             case 'r':   hiderows(currow, currow + uarg - 1); break;
                             case 'c':   hidecols(curcol, curcol + uarg - 1); break;
                             case 'Z':   if (modflg && curfile[0]) {
-                                            writefile(curfile, rangeref_total());
+                                            writefile(curfile, rangeref_total(), DCP_DEFAULT);
                                             running = 0;
                                         } else if (modflg) {
                                             error("No file name.");
@@ -1058,8 +1060,8 @@ void vi_interaction(void) {
 
                         case 's':
                             /* special case; no repeat count */
-                            if (rcqual == 'r')      rowshow_op();
-                            else                    colshow_op();
+                            if (ch2 == 'r') rowshow_op();
+                            else            colshow_op();
                             break;
                         }
                         break;
@@ -1160,7 +1162,7 @@ void vi_interaction(void) {
                         /* copy cell contents into line array */
                         buf_init(buf, line, sizeof line);
                         // XXX: the conversion should be localized
-                        editv(buf, currow, curcol, p, FALSE);
+                        editv(buf, currow, curcol, p, DCP_DEFAULT);
                         linelim = buf->len;
                         setmark('0');
                         cellassign = 1;
@@ -1175,7 +1177,7 @@ void vi_interaction(void) {
                     if (!locked_cell(p = lookat(currow, curcol))) {
                         /* copy cell contents into line array */
                         buf_init(buf, line, sizeof line);
-                        edits(buf, currow, curcol, p, FALSE);
+                        edits(buf, currow, curcol, p, DCP_DEFAULT);
                         linelim = buf->len;
                         setmark('0');
                         cellassign = 1;
@@ -1215,7 +1217,9 @@ void vi_interaction(void) {
                     set_line("color %d = ", c);
                     if (cpairs[c] && cpairs[c]->expr) {
                         /* copy color expression into line array */
-                        linelim = decompile(line, sizeof line, cpairs[c]->expr);
+                        // XXX: should pass -1, -1 as the cell reference?
+                        linelim = decompile(line, sizeof line, cpairs[c]->expr,
+                                            0, 0, DCP_DEFAULT);
                         edit_mode();
                     } else {
                         insert_mode();
@@ -3815,7 +3819,7 @@ static void formatcol(int arg) {
 }
 
 /* called from main() for -P/ option, via sc_cmd_put() */
-static void vi_select_range(const char *arg) {
+static int vi_select_range(const char *cmd, const char *arg) {
     int c;
 
     linelim = 0;
@@ -3839,12 +3843,12 @@ static void vi_select_range(const char *arg) {
             /* else drop through */
             FALLTHROUGH;
         case ctl('m'):
-            set_line("put ");
+            set_line("%s ", cmd);
             write_line('.');
             if (showrange)
                 write_line('.');
-            strlcat(line, arg, sizeof line);
-            linelim = strlen(line);
+            if (arg)
+                linelim = strlcat(line, arg, sizeof line);
             break;
         case ESC:
         case ctl('g'):
@@ -3867,9 +3871,10 @@ static void vi_select_range(const char *arg) {
         CLEAR_LINE;
         update(1);
     }
+    return linelim;
 }
 
-void sc_cmd_put(const char *arg) {
+void sc_cmd_put(const char *arg, int vopt) {
     if (*optarg == '/') {
         int in = dup(STDIN_FILENO);
         int out = dup(STDOUT_FILENO);
@@ -3886,17 +3891,18 @@ void sc_cmd_put(const char *arg) {
 
         // XXX: should not use global line array
         //      another ugly hack
-        vi_select_range(optarg); // sets linelim
+        vi_select_range("put", optarg); // sets linelim
         stopdisp();
         dup2(in, STDIN_FILENO);
         dup2(out, STDOUT_FILENO);
         close(in);
         close(out);
-        if (linelim > 0) {
-            parse_line(line);
-        }
     } else {
-        set_line("put %s", optarg);
+        set_line("put %s", optarg ? optarg : "");
+    }
+    if (linelim > 0) {
+        if (vopt)
+            strlcat(line, " *", sizeof line);
         parse_line(line);
     }
     linelim = -1;
@@ -3943,7 +3949,7 @@ int modcheck(const char *endstr) {
             return 1;
         else
         if (yn_ans == 1) {
-            if (writefile(curfile, rangeref_total()) < 0)
+            if (writefile(curfile, rangeref_total(), DCP_DEFAULT) < 0)
                 return 1;
         }
     } else if (modflg) {
@@ -3955,18 +3961,20 @@ int modcheck(const char *endstr) {
     return 0;
 }
 
-void editv(buf_t buf, int row, int col, struct ent *p, sc_bool_t value) {
+void editv(buf_t buf, int row, int col, struct ent *p, int dcp_flags) {
     buf_setf(buf, "let %s = ", v_name(row, col));
     if (p && (p->flags & IS_VALID)) {
-        if (value || (p->flags & IS_STREXPR) || p->expr == NULL) {
+        if ((dcp_flags & DCP_NO_EXPR) || (p->flags & IS_STREXPR) || p->expr == NULL) {
+            // XXX: should convert to locale: use out_const()?
             buf_printf(buf, "%.15g", p->v);
         } else {
-            decompile_node(buf, p->expr, 0);
+            // XXX: should pass row, col as the cell reference
+            decompile_expr(buf, p->expr, 0, 0, dcp_flags);
         }
     }
 }
 
-void edits(buf_t buf, int row, int col, struct ent *p, sc_bool_t value) {
+void edits(buf_t buf, int row, int col, struct ent *p, int dcp_flags) {
     int align = p ? (p->flags & ALIGN_MASK) : ALIGN_DEFAULT;
     const char *command;
 
@@ -3977,8 +3985,9 @@ void edits(buf_t buf, int row, int col, struct ent *p, sc_bool_t value) {
     case ALIGN_RIGHT:   command = "rightstring"; break;
     }
     buf_setf(buf, "%s %s = ", command, v_name(row, col));
-    if (!value && p && (p->flags & IS_STREXPR) && p->expr) {
-        decompile_node(buf, p->expr, 0);
+    if (!(dcp_flags & DCP_NO_EXPR) && p && (p->flags & IS_STREXPR) && p->expr) {
+        // XXX: should pass row, col as the cell reference
+        decompile_expr(buf, p->expr, 0, 0, dcp_flags);
     } else if (p && p->label) {
         buf_quotestr(buf, '"', p->label, '"');
     } else {
