@@ -378,7 +378,7 @@ $O/color.o: color.c $(DEPENDS)
 $O/crypt.o: crypt.c $(DEPENDS)
 	$(CC) $(_CFLAGS) -o $@ ${CRYPT} -c crypt.c
 
-$O/file.o: format.c $(DEPENDS)
+$O/file.o: file.c $(DEPENDS)
 	$(CC) $(_CFLAGS) -o $@ -c file.c
 
 $O/format.o: format.c $(DEPENDS)

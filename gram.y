@@ -468,12 +468,12 @@ command:  S_LET var_or_range '=' e      { let($2.left, $4); }
         | S_TEXEXT strarg               { set_string(&texext, $2); }
         | S_PUT strarg range noval      { dowritefile($2, $3, $4); }
         | S_PUT strarg noval            { dowritefile($2, rangeref_total(), $3); }
-        | S_PUT range noval             { write_cells(stdout, $2, $2.left, $3); }
-        | S_PUT range '/' var noval     { write_cells(stdout, $2, $4, $5); }
-        | S_PUT '%' '/' var noval       { write_cells(stdout, rangeref_total(), $4, $5); }
-        | S_PUT '/' var noval           { write_cells(stdout, rangeref_current(), $3, $4); }
-        | S_PUT '%' noval               { write_cells(stdout, rangeref_total(), cellref(0, 0), $3); }
-        | S_PUT noval                   { write_cells(stdout, rangeref_total(), cellref(0, 0), $2); }
+        | S_PUT range noval             { write_cells(stdout, $2, $2.left, $3 | DCP_NO_NAME); }
+        | S_PUT range '/' var noval     { write_cells(stdout, $2, $4, $5 | DCP_NO_NAME); }
+        | S_PUT '%' '/' var noval       { write_cells(stdout, rangeref_total(), $4, $5 | DCP_NO_NAME); }
+        | S_PUT '/' var noval           { write_cells(stdout, rangeref_current(), $3, $4 | DCP_NO_NAME); }
+        | S_PUT '%' noval               { write_cells(stdout, rangeref_total(), cellref(0, 0), $3 | DCP_NO_NAME); }
+        | S_PUT noval                   { write_cells(stdout, rangeref_total(), cellref(0, 0), $2 | DCP_NO_NAME); }
         | S_WRITE strarg range          { doprintfile($2, $3); }
         | S_WRITE strarg                { doprintfile($2, rangeref_total()); }
         | S_WRITE range                 { doprintfile(NULL, $2); }

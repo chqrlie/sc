@@ -433,74 +433,31 @@ void write_fd(FILE *f, rangeref_t rr, int dcp_flags) {
 
 void write_cells(FILE *f, rangeref_t rr, cellref_t cr, int dcp_flags) {
     buf_t(buf, FBUFLEN);
-    int r, c, mf, qtmp;
-    int dr = cr.row;
-    int dc = cr.col;
-    int r0 = rr.left.row;
-    int c0 = rr.left.col;
-    int rn = rr.right.row;
-    int cn = rr.right.col;
+    int r, c;
 
-    // XXX: should avoid messing with spreadsheet data
-    mf = modflg;
     dcp_flags |= DCP_NO_LOCALE;
-    if (dr != r0 || dc != c0) {
-        // XXX: should decompile with an offset
-        /* copy area to delbuf[++dbidx] */
-        yank_area(rr);
-        rn += dr - r0;
-        cn += dc - c0;
-        /* exchange target area with delbuf[dbidx] */
-        // XXX: Achtung! pullcells uses qbuf if set
-        qtmp = qbuf;
-        qbuf = 0;
-        pullcells('x', cr);
-        qbuf = qtmp;
-    }
-    for (r = dr; r <= rn; r++) {
-        for (c = dc; c <= cn; c++) {
+    for (r = rr.left.row; r <= rr.right.row; r++) {
+        for (c = rr.left.col; c <= rr.right.col; c++) {
             struct ent *p = *ATBL(tbl, r, c);
             if (p) {
+                int row = r + cr.row - rr.left.row;
+                int col = c + cr.col - rr.left.col;
                 if (p->label || (p->flags & IS_STREXPR)) {
-                    edits(buf, r, c, p, dcp_flags);
+                    edits(buf, row, col, p, dcp_flags);
                     fprintf(f, "%s\n", buf->buf);
                 }
                 if (p->flags & IS_VALID) {
-                    editv(buf, r, c, p, dcp_flags);
-#if 0
-                    // XXX: this ugly hack will patch the value
-                    //      but only a single match in the formula
-                    //      which may not even be a number!
-                    //      should pass localisation context to
-                    //      conversion function
-                    if (dpoint != '.') {
-                        char *dpointptr = strchr(buf->buf, dpoint);
-                        if (dpointptr != NULL)
-                            *dpointptr = '.';
-                    }
-#endif
+                    editv(buf, row, col, p, dcp_flags);
                     fprintf(f, "%s\n", buf->buf);
                 }
                 if (p->format) {
-                    buf_setf(buf, "fmt %s ", v_name(r, c));
+                    buf_setf(buf, "fmt %s ", v_name(row, col));
                     buf_quotestr(buf, '"', p->format, '"');
                     fprintf(f, "%s\n", buf->buf);
                 }
             }
         }
     }
-    // XXX: should avoid messing with spreadsheet data
-    if (dr != r0 || dc != c0) {
-        /* exchange target area back with delbuf[dbidx] */
-        // XXX: Achtung! pullcells uses qbuf if set
-        qtmp = qbuf;
-        qbuf = 0;
-        pullcells('x', cr);
-        qbuf = qtmp;
-        /* free delbuf[dbidx--] */
-        flush_saved(dbidx--);
-    }
-    modflg = mf;
 }
 
 int writefile(const char *fname, rangeref_t rr, int dcp_flags) {

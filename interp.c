@@ -1810,6 +1810,18 @@ struct decomp_t {
 static void decompile_node(decomp_t *dcp, struct enode *e, int priority);
 
 static void out_const(decomp_t *dcp, double v) {
+#if 0
+    // XXX: this ugly hack will patch the value
+    //      but only a single match in the formula
+    //      which may not even be a number!
+    //      should pass localisation context to
+    //      conversion function
+    if (dpoint != '.') {
+        char *dpointptr = strchr(buf->buf, dpoint);
+        if (dpointptr != NULL)
+            *dpointptr = '.';
+    }
+#endif
     buf_printf(dcp->buf, "%.15g", v);
 }
 
@@ -1818,27 +1830,33 @@ static void out_sconst(decomp_t *dcp, const char *s) {
 }
 
 static void out_var(decomp_t *dcp, struct ent_ptr v, int usename) {
+    int row, col;
     struct nrange *r;
 
-    if (!v.vp || (v.vp->flags & IS_DELETED)) {
+    if (!v.vp || (v.vp->flags & IS_DELETED)
+    ||  (row = v.vp->row + dcp->dr) < 0
+    ||  (col = v.vp->col + dcp->dc) < 0) {
         buf_puts(dcp->buf, "@ERR");
     } else
-    if (usename && (r = find_nrange_coords(rangeref(v.vp->row, v.vp->col, v.vp->row, v.vp->col))) != NULL && !r->r_is_range) {
+    if (!(dcp->flags & DCP_NO_NAME) && usename
+    &&  (r = find_nrange_coords(rangeref(v.vp->row, v.vp->col, v.vp->row, v.vp->col))) != NULL
+    &&  !r->r_is_range) {
         // XXX: this is incorrect if the named range has different flags
         buf_puts(dcp->buf, r->r_name);
     } else {
         buf_printf(dcp->buf, "%s%s%s%d",
-                   (v.vf & FIX_COL) ? "$" : "", coltoa(v.vp->col),
-                   (v.vf & FIX_ROW) ? "$" : "", v.vp->row);
+                   (v.vf & FIX_COL) ? "$" : "", coltoa(col),
+                   (v.vf & FIX_ROW) ? "$" : "", row);
     }
 }
 
 static void out_range(decomp_t *dcp, struct enode *e) {
     struct nrange *r;
 
-    if ((r = find_nrange_coords(rangeref(e->e.r.left.vp->row, e->e.r.left.vp->col,
-                                         e->e.r.right.vp->row, e->e.r.right.vp->col))) != NULL && r->r_is_range)
-    {
+    if (!(dcp->flags & DCP_NO_NAME)
+    &&  (r = find_nrange_coords(rangeref(e->e.r.left.vp->row, e->e.r.left.vp->col,
+                                         e->e.r.right.vp->row, e->e.r.right.vp->col))) != NULL
+    &&  r->r_is_range) {
         // XXX: this is incorrect if the named range has different flags
         buf_puts(dcp->buf, r->r_name);
     } else {

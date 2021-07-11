@@ -3969,7 +3969,7 @@ void editv(buf_t buf, int row, int col, struct ent *p, int dcp_flags) {
             buf_printf(buf, "%.15g", p->v);
         } else {
             // XXX: should pass row, col as the cell reference
-            decompile_expr(buf, p->expr, 0, 0, dcp_flags);
+            decompile_expr(buf, p->expr, row - p->row, col - p->col, dcp_flags);
         }
     }
 }
@@ -3987,7 +3987,7 @@ void edits(buf_t buf, int row, int col, struct ent *p, int dcp_flags) {
     buf_setf(buf, "%s %s = ", command, v_name(row, col));
     if (!(dcp_flags & DCP_NO_EXPR) && p && (p->flags & IS_STREXPR) && p->expr) {
         // XXX: should pass row, col as the cell reference
-        decompile_expr(buf, p->expr, 0, 0, dcp_flags);
+        decompile_expr(buf, p->expr, row - p->row, col - p->col, dcp_flags);
     } else if (p && p->label) {
         buf_quotestr(buf, '"', p->label, '"');
     } else {
