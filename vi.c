@@ -69,7 +69,8 @@ static void scroll_down(void);
 static void scroll_up(int);
 static void colshow_op(void);
 static void rowshow_op(void);
-static int checkmark(int c);
+static int setmark(int c);  /* convert and set the mark and return index or complain and return -1 */
+static int checkmark(int c);  /* convert mark char to index or complain and return -1 */
 static void markcell(void);
 static void dotick(int tick);
 static int get_rcqual(int ch);
@@ -687,7 +688,7 @@ void vi_interaction(void) {
                         /* copy cell contents into line array */
                         buf_init(buf, line, sizeof line);
                         // XXX: there should be no value yet
-                        editv(buf, currow, curcol, p);
+                        editv(buf, currow, curcol, p, FALSE);
                         linelim = buf->len;
                         cellassign = 1;
                         insert_mode();
@@ -741,57 +742,48 @@ void vi_interaction(void) {
 
                 case '@':
                     EvalAll();
-                    changed = 0;
+                    changed = 0;    // XXX: questionable
                     anychanged = TRUE;
                     break;
 
                 case '0': case '1': case '2': case '3': case '4':
                 case '5': case '6': case '7': case '8': case '9':
                 case '.':
-                    if (locked_cell(lookat(currow, curcol)))
-                        break;
-                    /* set mark 0 */
-                    savedcr[27] = cellref(currow, curcol);
-                    savedst[27] = cellref(strow, stcol);
-
-                    numeric_field = 1;
-                    set_line("let %s = %c", v_name(currow, curcol), c);
-                    cellassign = 1;
-                    insert_mode();
+                    if (!locked_cell(lookat(currow, curcol))) {
+                        set_line("let %s = %c", v_name(currow, curcol), c);
+                        setmark('0');
+                        numeric_field = 1;
+                        cellassign = 1;
+                        insert_mode();
+                    }
                     break;
 
                 case '+':
                 case '-':
-                    if (locked_cell(p = lookat(currow, curcol)))
-                        break;
-                    /* set mark 0 */
-                    savedcr[27] = cellref(currow, curcol);
-                    savedst[27] = cellref(strow, stcol);
-
-                    numeric_field = 1;
-                    /* copy cell contents into line array */
-                    buf_init(buf, line, sizeof line);
-                    // XXX: the conversion should be localized
-                    editv(buf, currow, curcol, p);
-                    linelim = buf->len;
-                    cellassign = 1;
-                    insert_mode();
-                    if (c == '-' || (p->flags & IS_VALID))
-                        write_line(c);
-                    else
-                        write_line(ctl('v'));
+                    if (!locked_cell(p = lookat(currow, curcol))) {
+                        /* copy cell contents into line array */
+                        buf_init(buf, line, sizeof line);
+                        // XXX: the conversion should be localized
+                        editv(buf, currow, curcol, p, FALSE);
+                        linelim = buf->len;
+                        setmark('0');
+                        numeric_field = 1;
+                        cellassign = 1;
+                        insert_mode();
+                        if (c == '-' || (p->flags & IS_VALID))
+                            write_line(c);
+                        else
+                            write_line(ctl('v'));
+                    }
                     break;
 
                 case '=':
-                    if (locked_cell(lookat(currow, curcol)))
-                        break;
-                    /* set mark 0 */
-                    savedcr[27] = cellref(currow, curcol);
-                    savedst[27] = cellref(strow, stcol);
-
-                    set_line("let %s = ", v_name(currow, curcol));
-                    cellassign = 1;
-                    insert_mode();
+                    if (!locked_cell(lookat(currow, curcol))) {
+                        set_line("let %s = ", v_name(currow, curcol));
+                        setmark('0');
+                        cellassign = 1;
+                        insert_mode();
+                    }
                     break;
 
                 case '!':
@@ -1015,7 +1007,7 @@ void vi_interaction(void) {
 
                         case 'p':
                             if (rcqual == '.') {
-                                set_line("pullcopy ");
+                                set_line("pullcopy [range] ");
                                 insert_mode();
                                 startshow();
                                 break;
@@ -1130,11 +1122,8 @@ void vi_interaction(void) {
                     break;
                 case '\\':
                     if (!locked_cell(lookat(currow, curcol))) {
-                        /* set mark 0 */
-                        savedcr[27] = cellref(currow, curcol);
-                        savedst[27] = cellref(strow, stcol);
-
                         set_line("label %s = \"", v_name(currow, curcol));
+                        setmark('0');
                         cellassign = 1;
                         insert_mode();
                     }
@@ -1142,11 +1131,8 @@ void vi_interaction(void) {
 
                 case '<':
                     if (!locked_cell(lookat(currow, curcol))) {
-                        /* set mark 0 */
-                        savedcr[27] = cellref(currow, curcol);
-                        savedst[27] = cellref(strow, stcol);
-
                         set_line("leftstring %s = \"", v_name(currow, curcol));
+                        setmark('0');
                         cellassign = 1;
                         insert_mode();
                     }
@@ -1154,11 +1140,9 @@ void vi_interaction(void) {
 
                 case '>':
                     if (!locked_cell(lookat(currow, curcol))) {
-                        /* set mark 0 */
-                        savedcr[27] = cellref(currow, curcol);
-                        savedst[27] = cellref(strow, stcol);
-
                         set_line("rightstring %s = \"", v_name(currow, curcol));
+                        setmark('0');
+                        cellassign = 1;
                         insert_mode();
                     }
                     break;
@@ -1173,15 +1157,12 @@ void vi_interaction(void) {
                     break;
                 case 'e':
                     if (!locked_cell(p = lookat(currow, curcol))) {
-                        /* set mark 0 */
-                        savedcr[27] = cellref(currow, curcol);
-                        savedst[27] = cellref(strow, stcol);
-
                         /* copy cell contents into line array */
                         buf_init(buf, line, sizeof line);
                         // XXX: the conversion should be localized
-                        editv(buf, currow, curcol, p);
+                        editv(buf, currow, curcol, p, FALSE);
                         linelim = buf->len;
+                        setmark('0');
                         cellassign = 1;
 
                         if (!(p->flags & IS_VALID)) {
@@ -1192,14 +1173,11 @@ void vi_interaction(void) {
                     break;
                 case 'E':
                     if (!locked_cell(p = lookat(currow, curcol))) {
-                        /* set mark 0 */
-                        savedcr[27] = cellref(currow, curcol);
-                        savedst[27] = cellref(strow, stcol);
-
                         /* copy cell contents into line array */
                         buf_init(buf, line, sizeof line);
-                        edits(buf, currow, curcol, p);
+                        edits(buf, currow, curcol, p, FALSE);
                         linelim = buf->len;
+                        setmark('0');
                         cellassign = 1;
                         edit_mode();
                     }
@@ -1425,10 +1403,8 @@ void vi_interaction(void) {
                         startshow();
                         break;
                     }
-                    if ((c = checkmark(c)) < 0) {
-                        error("Invalid mark (must be a-z, 0-9, ` or \')");
+                    if ((c = checkmark(c)) < 0)
                         break;
-                    }
                     if (savedcr[c].row == -1) {
                         error("Mark not set");
                         break;
@@ -1638,15 +1614,25 @@ static void rowshow_op(void) {
     }
 }
 
+/* convert mark char to index or complain and return -1 */
 static int checkmark(int c) {
     if (c == '`' || c == '\'')
         return 0;
-    else if (c >= 'a' && c <= 'z')
+    if (c >= 'a' && c <= 'z')
         return c - 'a' + 1;
-    else if (c >= '0' && c <= '9')
+    if (c >= '0' && c <= '9')
         return c - '0' + 1 + 26;
-    else
-        return -1;
+    error("Invalid mark %c (must be letter, digit, ` or ')", c);
+    return -1;
+}
+
+static int setmark(int c) {
+    int n = checkmark(c);
+    if (n >= 0) {
+        savedcr[n] = cellref(currow, curcol);
+        savedst[n] = cellref(strow, stcol);
+    }
+    return n;
 }
 
 static void markcell(void) {
@@ -1654,15 +1640,9 @@ static void markcell(void) {
 
     error("Mark cell:");
     c = nmgetch(1);
-    if (c == ESC || c == ctl('g')) {
+    if (c == ESC || c == ctl('g'))
         return;
-    }
-    if ((c = checkmark(c)) < 0) {
-        error("Invalid mark (must be letter, digit, ` or ')");
-        return;
-    }
-    savedcr[c] = cellref(currow, curcol);
-    savedst[c] = cellref(strow, stcol);
+    setmark(c);
 }
 
 static void dotick(int tick) {
@@ -1675,10 +1655,9 @@ static void dotick(int tick) {
     if (c == ESC || c == ctl('g')) {
         return;
     }
-    if ((c = checkmark(c)) < 0) {
-        error("Invalid mark (must be letter, digit, ` or ')");
+    if ((c = checkmark(c)) < 0)
         return;
-    }
+
     if (savedcr[c].row == -1) {
         error("Mark not set");
         return;
@@ -3976,10 +3955,10 @@ int modcheck(const char *endstr) {
     return 0;
 }
 
-void editv(buf_t buf, int row, int col, struct ent *p) {
+void editv(buf_t buf, int row, int col, struct ent *p, sc_bool_t value) {
     buf_setf(buf, "let %s = ", v_name(row, col));
     if (p && (p->flags & IS_VALID)) {
-        if ((p->flags & IS_STREXPR) || p->expr == NULL) {
+        if (value || (p->flags & IS_STREXPR) || p->expr == NULL) {
             buf_printf(buf, "%.15g", p->v);
         } else {
             decompile_node(buf, p->expr, 0);
@@ -3987,7 +3966,7 @@ void editv(buf_t buf, int row, int col, struct ent *p) {
     }
 }
 
-void edits(buf_t buf, int row, int col, struct ent *p) {
+void edits(buf_t buf, int row, int col, struct ent *p, sc_bool_t value) {
     int align = p ? (p->flags & ALIGN_MASK) : ALIGN_DEFAULT;
     const char *command;
 
@@ -3998,7 +3977,7 @@ void edits(buf_t buf, int row, int col, struct ent *p) {
     case ALIGN_RIGHT:   command = "rightstring"; break;
     }
     buf_setf(buf, "%s %s = ", command, v_name(row, col));
-    if (p && (p->flags & IS_STREXPR) && p->expr) {
+    if (!value && p && (p->flags & IS_STREXPR) && p->expr) {
         decompile_node(buf, p->expr, 0);
     } else if (p && p->label) {
         buf_quotestr(buf, '"', p->label, '"');

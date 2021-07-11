@@ -498,7 +498,7 @@ command:  S_LET var_or_range '=' e      { let($2.left, $4); }
         | S_YANK var_or_range           { yankr($2); }
         | S_VALUE                       { valueize_area(rangeref_current()); }
         | S_VALUE var_or_range          { valueize_area($2); }
-        | S_FILL var_or_range num num   { fillr($2, $3, $4); }
+        | S_FILL var_or_range num num   { fillr($2, $3, $4, calc_order == BYCOLS); }
         | S_SORT                        { dosortrange(rangeref_current(), NULL); }
         | S_SORT range                  { dosortrange($2, NULL); }
         | S_SORT range strarg           { dosortrange($2, $3); }

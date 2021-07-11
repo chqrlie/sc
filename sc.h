@@ -649,14 +649,14 @@ extern void set_fkey(int n, const char *str);
 extern void set_histfile(const char *str);
 extern void cmd_recalc(void);
 extern void cmd_run(const char *str);
-extern void edits(buf_t buf, int row, int col, struct ent *p);
-extern void editv(buf_t buf, int row, int col, struct ent *p);
+extern void edits(buf_t buf, int row, int col, struct ent *p, sc_bool_t value);
+extern void editv(buf_t buf, int row, int col, struct ent *p, sc_bool_t value);
 extern void efree(SCXMEM struct enode *e);
 extern void erase_area(int idx, int sr, int sc, int er, int ec, int ignorelock);
 extern void erasedb(void);
 extern void eraser(rangeref_t rr);
 extern void fgetnum(rangeref_t rr, int fd);
-extern void fillr(rangeref_t rr, double start, double inc);
+extern void fillr(rangeref_t rr, double start, double inc, int bycols);
 extern void fix_colors(int row1, int col1, int row2, int col2,
                        int delta1, int delta2, struct frange *fr);
 extern void fix_frames(int row1, int col1, int row2, int col2,

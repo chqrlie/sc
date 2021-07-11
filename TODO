@@ -1,14 +1,22 @@
 # TODO
 
-[ ] pass count to duprow() and dupcol() ???
+[ ] fix modflg, FullUpdate, modified, IS_CHANGED handling
 [ ] use sc_string_t: shared allocated strings with a reference count,
-    optionally hashed into a dictionary
+[ ] hash sc_string_t in a dictionary?
+[ ] validate and clip all ranges in commands
+[ ] add sheet number in cell references
+[ ] group sheet data in sheet_t structures
+[ ] make delbufs sheet_t instances
+[ ] make delbufs point to sheet_t instances, handle duplicates
+[ ] ignore unknown commands (keep them in a list?)
+[ ] pass count to duprow() and dupcol() ???
 [ ] use rangeref_t for find_range_coords() ?
 [ ] change representation for ranges: abs/rel coords instead of pointers
 [ ] handle dynamic types
 [ ] change the expression evaluator: use a stack of dynamically typed values
 [ ] cell value must be either a number or a string, with an optional expression
 [ ] use an array of format strings, store an index in the cell struct
+[ ] compile to bytecode
 [ ] implement virtual space: jagged 2D matrix
 [ ] add emacs keybinding stuff
 [ ] add emacs macro language

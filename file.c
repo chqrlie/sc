@@ -464,6 +464,7 @@ void write_cells(FILE *f, rangeref_t rr, cellref_t cr) {
     int c0 = rr.left.col;
     int rn = rr.right.row;
     int cn = rr.right.col;
+    sc_bool_t value_flag = Vopt;
 
     // XXX: should avoid messing with spreadsheet data
     mf = modflg;
@@ -479,18 +480,16 @@ void write_cells(FILE *f, rangeref_t rr, cellref_t cr) {
         pullcells('x', cr);
         qbuf = qtmp;
     }
-    // XXX: should avoid messing with spreadsheet data
-    if (Vopt) valueize_area(rangeref(dr, dc, rn, cn));
     for (r = dr; r <= rn; r++) {
         for (c = dc; c <= cn; c++) {
             struct ent *p = *ATBL(tbl, r, c);
             if (p) {
                 if (p->label || (p->flags & IS_STREXPR)) {
-                    edits(buf, r, c, p);
+                    edits(buf, r, c, p, value_flag);
                     fprintf(f, "%s\n", buf->buf);
                 }
                 if (p->flags & IS_VALID) {
-                    editv(buf, r, c, p);
+                    editv(buf, r, c, p, value_flag);
 #if 0
                     // XXX: this ugly hack will patch the value
                     //      but only a single match in the formula

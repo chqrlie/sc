@@ -1620,8 +1620,8 @@ void unlet(cellref_t cr) {
     v->cellerror = CELLOK;
     v->flags &= ~IS_VALID;
     v->flags |= IS_CHANGED;
-    changed++;
     FullUpdate++;
+    changed++;
     modflg++;
 }
 
@@ -1646,9 +1646,9 @@ void let(cellref_t cr, SCXMEM struct enode *e) {
     // XXX: test for constant expression is potentially incorrect
     unsigned isconstant = constant_expr(e, optimize);
 
-    if (v == NULL)
-        return;
-    if (locked_cell(v))
+    // XXX: locked cell checking is done in vi.c
+    //      should just return silently?
+    if (v == NULL || locked_cell(v))
         return;
 
     val = 0.0;
@@ -1668,9 +1668,9 @@ void let(cellref_t cr, SCXMEM struct enode *e) {
         if (v->cellerror != cellerror) {
             v->cellerror = cellerror;
             v->flags |= IS_CHANGED;
+            FullUpdate++;
             changed++;
             modflg++;
-            FullUpdate++;
         }
         if (exprerr) {
             efree(e);
@@ -1713,10 +1713,11 @@ void slet(cellref_t cr, SCXMEM struct enode *se, int align) {
     struct ent *v = lookat(cr.row, cr.col);
     SCXMEM char *p;
 
-    if (v == NULL)
+    // XXX: locked cell checking is done in vi.c
+    //      should just return silently?
+    if (v == NULL || locked_cell(v))
         return;
-    if (locked_cell(v))
-        return;
+
     exprerr = 0;
     signal(SIGFPE, eval_fpe);
     if (setjmp(fpe_save)) {
@@ -1732,9 +1733,9 @@ void slet(cellref_t cr, SCXMEM struct enode *se, int align) {
     if (v->cellerror != cellerror) {
         v->cellerror = cellerror;
         v->flags |= IS_CHANGED;
+        FullUpdate++;
         changed++;
         modflg++;
-        FullUpdate++;
     }
     signal(SIGFPE, doquit);
     if (exprerr) {
