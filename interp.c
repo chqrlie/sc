@@ -1612,6 +1612,7 @@ void unlet(cellref_t cr) {
     struct ent *v = lookat_nc(cr.row, cr.col);
     if (v == NULL)
         return;
+    // XXX: what if the cell is locked?
     v->v = 0.0;
     if (v->expr && !(v->flags & IS_STREXPR)) {
         efree(v->expr);
@@ -1648,7 +1649,7 @@ void let(cellref_t cr, SCXMEM struct enode *e) {
 
     // XXX: locked cell checking is done in vi.c
     //      should just return silently?
-    if (v == NULL || locked_cell(v))
+    if (v == NULL || (v->flags & IS_LOCKED))
         return;
 
     val = 0.0;
@@ -1715,7 +1716,7 @@ void slet(cellref_t cr, SCXMEM struct enode *se, int align) {
 
     // XXX: locked cell checking is done in vi.c
     //      should just return silently?
-    if (v == NULL || locked_cell(v))
+    if (v == NULL || (v->flags & IS_LOCKED))
         return;
 
     exprerr = 0;

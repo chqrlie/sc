@@ -577,7 +577,7 @@ extern int find_nrange_name(const char *name, int len, struct nrange **rng);
 struct nrange *find_nrange_coords(rangeref_t rr);
 extern int format(char *buf, size_t buflen, const char *fmt, int lprecision, double val, int *alignp);
 extern int growtbl(int rowcol, int toprow, int topcol);
-extern int locked_cell(struct ent *v);
+extern int locked_cell(int row, int col);
 extern int modcheck(const char *endstr);
 extern int plugin_exists(const char *name, int len, char *path, size_t size);
 extern int readfile(const char *fname, int eraseflg);

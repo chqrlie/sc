@@ -1,5 +1,6 @@
 # TODO
 
+[ ] write test cases for all commands and corner cases
 [ ] fix modflg, FullUpdate, modified, IS_CHANGED handling
 [ ] use sc_string_t: shared allocated strings with a reference count,
 [ ] hash sc_string_t in a dictionary?

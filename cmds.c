@@ -1526,11 +1526,11 @@ void format_cells(rangeref_t rr, const char *s) {
     range_normalize(&rr);
     for (r = rr.left.row; r <= rr.right.row; r++) {
         for (c = rr.left.col; c <= rr.right.col; c++) {
-            struct ent *n = lookat(r, c);
-            if (locked_cell(n))
+            struct ent *p = lookat(r, c);
+            if (p->flags & IS_LOCKED)
                 continue;
-            set_cstring(&n->format, s && *s ? s : NULL);
-            n->flags |= IS_CHANGED;
+            set_cstring(&p->format, s && *s ? s : NULL);
+            p->flags |= IS_CHANGED;
         }
     }
     FullUpdate++;
@@ -1823,9 +1823,10 @@ void erasedb(void) {
 }
 
 /* Returns 1 if cell is locked, 0 otherwise */
-int locked_cell(struct ent *p) {
+int locked_cell(int row, int col) {
+    struct ent *p = *ATBL(tbl, row, col);
     if (p && (p->flags & IS_LOCKED)) {
-        error("Cell %s%d is locked", coltoa(p->col), p->row);
+        error("Cell %s%d is locked", coltoa(col), row);
         return 1;
     }
     return 0;

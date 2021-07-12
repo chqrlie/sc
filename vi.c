@@ -751,7 +751,7 @@ void vi_interaction(void) {
                 case '0': case '1': case '2': case '3': case '4':
                 case '5': case '6': case '7': case '8': case '9':
                 case '.':
-                    if (!locked_cell(lookat(currow, curcol))) {
+                    if (!locked_cell(currow, curcol)) {
                         set_line("let %s = %c", v_name(currow, curcol), c);
                         setmark('0');
                         numeric_field = 1;
@@ -762,7 +762,8 @@ void vi_interaction(void) {
 
                 case '+':
                 case '-':
-                    if (!locked_cell(p = lookat(currow, curcol))) {
+                    if (!locked_cell(currow, curcol)) {
+                        p = lookat(currow, curcol);
                         /* copy cell contents into line array */
                         buf_init(buf, line, sizeof line);
                         // XXX: the conversion should be localized
@@ -780,7 +781,7 @@ void vi_interaction(void) {
                     break;
 
                 case '=':
-                    if (!locked_cell(lookat(currow, curcol))) {
+                    if (!locked_cell(currow, curcol)) {
                         set_line("let %s = ", v_name(currow, curcol));
                         setmark('0');
                         cellassign = 1;
@@ -1123,7 +1124,7 @@ void vi_interaction(void) {
                     help(HELP_INTRO);
                     break;
                 case '\\':
-                    if (!locked_cell(lookat(currow, curcol))) {
+                    if (!locked_cell(currow, curcol)) {
                         set_line("label %s = \"", v_name(currow, curcol));
                         setmark('0');
                         cellassign = 1;
@@ -1132,7 +1133,7 @@ void vi_interaction(void) {
                     break;
 
                 case '<':
-                    if (!locked_cell(lookat(currow, curcol))) {
+                    if (!locked_cell(currow, curcol)) {
                         set_line("leftstring %s = \"", v_name(currow, curcol));
                         setmark('0');
                         cellassign = 1;
@@ -1141,7 +1142,7 @@ void vi_interaction(void) {
                     break;
 
                 case '>':
-                    if (!locked_cell(lookat(currow, curcol))) {
+                    if (!locked_cell(currow, curcol)) {
                         set_line("rightstring %s = \"", v_name(currow, curcol));
                         setmark('0');
                         cellassign = 1;
@@ -1158,7 +1159,8 @@ void vi_interaction(void) {
                     range_align(rangeref_current(), ALIGN_CENTER);
                     break;
                 case 'e':
-                    if (!locked_cell(p = lookat(currow, curcol))) {
+                    if (!locked_cell(currow, curcol)) {
+                        p = lookat(currow, curcol);
                         /* copy cell contents into line array */
                         buf_init(buf, line, sizeof line);
                         // XXX: the conversion should be localized
@@ -1174,7 +1176,8 @@ void vi_interaction(void) {
                     }
                     break;
                 case 'E':
-                    if (!locked_cell(p = lookat(currow, curcol))) {
+                    if (!locked_cell(currow, curcol)) {
+                        p = lookat(currow, curcol);
                         /* copy cell contents into line array */
                         buf_init(buf, line, sizeof line);
                         edits(buf, currow, curcol, p, DCP_DEFAULT);
