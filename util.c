@@ -82,6 +82,19 @@ char *set_cstring(SCXMEM char **pp, const char *s) {
     return *pp = s ? scxdup(s) : NULL;
 }
 
+/*---------------- refcounted strings ----------------*/
+
+string_t *new_string(const char *s) {
+    size_t len = strlen(s);
+    string_t *str = scxmalloc(offsetof(string_t, s) + len + 1);
+    if (str) {
+        str->refcount = 1;
+        str->len = len;
+        memcpy(str->s, s, len + 1);
+    }
+    return str;
+}
+
 /*---------------- string utilities ----------------*/
 
 #ifndef HAVE_STRLCPY

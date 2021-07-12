@@ -24,7 +24,7 @@ static struct ent *freeents = NULL;
  */
 /* temporary sheet fragments: 4 work buffers and 36 named buffers (a-z,0-9) */
 SCXMEM struct ent *delbuf[DELBUFSIZE];
-SCXMEM char *delbuffmt[DELBUFSIZE];
+SCXMEM unsigned char *delbuffmt[DELBUFSIZE];
 int dbidx = -1;
 
 static struct ent *qbuf_was_here;  /* dummy cell structure for qbuf patching */
@@ -43,7 +43,7 @@ static void free_ent(int idx, struct ent *p, int unlock) {
 /* swap 2 entries in the delbuf array */
 static void deldata_swap(int idx1, int idx2) {
     struct ent *tmpbuf;
-    char *tmpfmt;
+    unsigned char *tmpfmt;
 
     tmpbuf = delbuf[idx1];
     delbuf[idx1] = delbuf[idx2];
@@ -177,10 +177,10 @@ int flush_saved(int idx) {
 void clearent(struct ent *v) {
     if (v) {
         v->v = 0.0;
-        set_string(&v->label, NULL);
+        set_string_t(&v->label, NULL);
         efree(v->expr);
         v->expr = NULL;
-        set_string(&v->format, NULL);
+        set_string_t(&v->format, NULL);
         v->cellerror = 0;
         v->flags = IS_CHANGED | IS_CLEARED;
         v->nrr = rangeref_empty();
@@ -700,10 +700,10 @@ void erase_area(int idx, int sr, int sc, int er, int ec, int ignorelock) {
     // XXX: assuming delbuffmt[idx] is NULL
     delbuffmt[idx] = scxmalloc((4*(ec-sc+1)+(er-sr+1))*sizeof(char));
     for (c = sc; c <= ec; c++) {
-        delbuffmt[idx][4*(c-sc)+0] = (char)fwidth[c];
-        delbuffmt[idx][4*(c-sc)+1] = (char)precision[c];
-        delbuffmt[idx][4*(c-sc)+2] = (char)realfmt[c];
-        delbuffmt[idx][4*(c-sc)+3] = (char)col_hidden[c];
+        delbuffmt[idx][4*(c-sc)+0] = (unsigned char)fwidth[c];
+        delbuffmt[idx][4*(c-sc)+1] = (unsigned char)precision[c];
+        delbuffmt[idx][4*(c-sc)+2] = (unsigned char)realfmt[c];
+        delbuffmt[idx][4*(c-sc)+3] = (unsigned char)col_hidden[c];
     }
     for (r = sr; r <= er; r++) {
         for (c = sc; c <= ec; c++) {
@@ -713,7 +713,7 @@ void erase_area(int idx, int sr, int sc, int er, int ec, int ignorelock) {
                 *pp = NULL;
             }
         }
-        delbuffmt[idx][4*(ec-sc+1)+(r-sr)] = (char)row_hidden[r];
+        delbuffmt[idx][4*(ec-sc+1)+(r-sr)] = (unsigned char)row_hidden[r];
     }
 }
 
@@ -1529,7 +1529,7 @@ void format_cells(rangeref_t rr, const char *s) {
             struct ent *p = lookat(r, c);
             if (p->flags & IS_LOCKED)
                 continue;
-            set_cstring(&p->format, s && *s ? s : NULL);
+            set_string_t(&p->format, s && *s ? new_string(s) : NULL);
             p->flags |= IS_CHANGED;
         }
     }
@@ -1719,18 +1719,19 @@ void copyent(struct ent *n, struct ent *p, int dr, int dc,
                 n->flags &= ~IS_STREXPR;
         }
         if (p->label) {
-            set_cstring(&n->label, p->label);
+            set_string_t(&n->label, dup_string(p->label));
         } else if (special != 'm') {
-            set_string(&n->label, NULL);
+            set_string_t(&n->label, NULL);
         }
         n->flags &= ~ALIGN_MASK;
         n->flags |= p->flags & ALIGN_MASK;
         n->flags |= p->flags & IS_LOCKED;
     }
     if (p->format) {
-        set_cstring(&n->format, p->format);
-    } else if (special != 'm' && special != 'f') {
-        set_string(&n->format, NULL);
+        set_string_t(&n->format, dup_string(p->format));
+    } else
+    if (special != 'm' && special != 'f') {
+        set_string_t(&n->format, NULL);
     }
     n->flags |= IS_CHANGED;
 }
@@ -1752,8 +1753,8 @@ void erasedb(void) {
             if (*pp) {
                 efree((*pp)->expr);
                 (*pp)->expr = NULL;
-                set_string(&(*pp)->label, NULL);
-                set_string(&(*pp)->format, NULL);
+                set_string_t(&(*pp)->label, NULL);
+                set_string_t(&(*pp)->format, NULL);
                 (*pp)->next = freeents; /* save [struct ent] for reuse */
                 freeents = *pp;
                 *pp = NULL;
@@ -1762,7 +1763,7 @@ void erasedb(void) {
     }
 
     for (c = 0; c < COLFORMATS; c++)
-        set_cstring(&colformat[c], NULL);
+        set_string_t(&colformat[c], NULL);
 
     maxrow = 0;
     maxcol = 0;
@@ -1884,7 +1885,7 @@ void cmd_select_qbuf(char c) {
 
 void cmd_setformat(int n, const char *str) {
     if (n >= 0 && n < 10) {
-        set_cstring(&colformat[n], str && *str ? str : NULL);
+        set_string_t(&colformat[n], str && *str ? new_string(str) : NULL);
         FullUpdate++;
         modflg++;
     } else {

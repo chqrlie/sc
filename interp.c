@@ -145,7 +145,6 @@ static double finfunc(int fun, double v1, double v2, double v3) {
 static SCXMEM char *dostindex(int minr, int minc, int maxr, int maxc, struct enode *val) {
     int r, c;
     struct ent *p;
-    SCXMEM char *pr;
 
     if (minr == maxr) {                 /* look along the row */
         r = minr;
@@ -161,10 +160,9 @@ static SCXMEM char *dostindex(int minr, int minc, int maxr, int maxc, struct eno
     if (c <= maxc && c >=minc && r <= maxr && r >=minr) {
         p = *ATBL(tbl, r, c);
         if (p && p->label) {
-            pr = scxdup(p->label);
             if (p->cellerror)
                 cellerror = CELLINVALID;
-            return pr;
+            return scxdup(p->label->s);
         }
     }
     return NULL;
@@ -235,7 +233,7 @@ static double dolookup(struct enode * val, int minr, int minc, int maxr, int max
         s = seval(val);
         for (r = minr, c = minc; r <= maxr && c <= maxc; r += incr, c += incc) {
             if ((p = *ATBL(tbl, r, c)) && p->label) {
-                if (strcmp(p->label, s) == 0) {
+                if (strcmp(p->label->s, s) == 0) {
                     fndr = incc ? (minr + offset) : r;
                     fndc = incr ? (minc + offset) : c;
                     if (ISVALID(fndr, fndc)) {
@@ -1057,8 +1055,8 @@ static SCXMEM char *doext(struct enode *se) {
  */
 
 static SCXMEM char *dosval(SCXMEM char *colstr, double rowdoub) {
-    struct ent *ep = getent(colstr, rowdoub);
-    const char *llabel = ep ? ep->label : "";
+    struct ent *p = getent(colstr, rowdoub);
+    const char *llabel = p ? p->label->s : "";
     return scxdup(llabel);
 }
 
@@ -1174,7 +1172,7 @@ SCXMEM char *seval(struct enode *se) {
                         }
                         if (!vp || !vp->label)
                             return NULL;
-                        return scxdup(vp->label);
+                        return scxdup(vp->label->s);
                     }
     case '#':       return docat(seval(se->e.o.left), seval(se->e.o.right));
     case 'f':       {
@@ -1324,12 +1322,13 @@ static void RealEvalOne(struct ent *p, int i, int j, int *chgct) {
         p->cellerror = cellerror;
         if (!v && !p->label) /* Everything's fine */
             return;
-        if (!p->label || !v || strcmp(v, p->label) != 0 || cellerror) {
+        if (!p->label || !v || strcmp(v, p->label->s) != 0 || cellerror) {
             (*chgct)++;
             p->flags |= IS_CHANGED;
             changed++;
         }
-        set_string(&p->label, v);
+        set_string_t(&p->label, new_string(v));
+        scxfree(v);
     } else {
         double v;
         if (setjmp(fpe_save)) {
@@ -1747,7 +1746,8 @@ void slet(cellref_t cr, SCXMEM struct enode *se, int align) {
     if (!loading)
         push_mark(cr.row, cr.col);
 
-    set_string(&v->label, p);
+    set_string_t(&v->label, new_string(p));
+    scxfree(p);
     v->flags &= ~ALIGN_MASK;
     v->flags |= IS_CHANGED | align;
     if (v->expr) {

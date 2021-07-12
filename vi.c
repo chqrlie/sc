@@ -1195,7 +1195,7 @@ void vi_interaction(void) {
                     if (p && p->format) {
                         buf_init(buf, line, sizeof line);
                         buf_setf(buf, "fmt [format] %s \"", v_name(currow, curcol));
-                        buf_quotestr(buf, 0, p->format, 0);
+                        buf_quotestr(buf, 0, p->format->s, 0);
                         linelim = buf->len;
                         edit_mode();
                     } else {
@@ -3776,7 +3776,7 @@ static void formatcol(int arg) {
                     if (colformat[c - '0']) {
                         buf_init(buf, line, sizeof line);
                         buf_setf(buf, "format %c = \"", c);
-                        buf_quotestr(buf, 0, colformat[c - '0'], 0);
+                        buf_quotestr(buf, 0, colformat[c - '0']->s, 0);
                         linelim = buf->len;
                         edit_mode();
                     } else {
@@ -3992,7 +3992,7 @@ void edits(buf_t buf, int row, int col, struct ent *p, int dcp_flags) {
         // XXX: should pass row, col as the cell reference
         decompile_expr(buf, p->expr, row - p->row, col - p->col, dcp_flags);
     } else if (p && p->label) {
-        buf_quotestr(buf, '"', p->label, '"');
+        buf_quotestr(buf, '"', p->label->s, '"');
     } else {
         /* output a single `"` for the user to start entering the string */
         buf_putc(buf, '"');

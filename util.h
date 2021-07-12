@@ -57,6 +57,32 @@ extern size_t strsplice(char *dst, size_t size, size_t from, size_t len1,
 extern char *get_basename(const char *filename);
 extern char *get_extension(const char *filename);
 
+/*---------------- refcounted string_t ----------------*/
+
+typedef struct string_t {
+    int refcount;
+    int len;
+    char s[1];
+}  string_t;
+
+string_t *new_string(const char *s);
+
+static inline string_t *dup_string(string_t *str) {
+    if (str) str->refcount++;
+    return str;
+}
+
+static inline void free_string(string_t *str) {
+    if (str && !--str->refcount)
+        scxfree(str);
+}
+
+static inline const char *s2s(const string_t *str) { return str->s; }
+static inline string_t *set_string_t(string_t **sp, string_t *str) {
+    free_string(*sp);
+    return *sp = str;
+}
+
 /*---------------- char buffer utilities ----------------*/
 
 /* buf_t structure to collect bufferized output */

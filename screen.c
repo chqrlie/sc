@@ -800,7 +800,6 @@ void update(int anychanged) {          /* did any cell really change in value? *
                          */
 
                         if (p->flags & IS_VALID) {
-                            const char *cfmt = p->format;
                             int note = (p->flags & HAS_NOTE) != 0;
                             int align = p->flags & ALIGN_MASK;
 
@@ -812,8 +811,8 @@ void update(int anychanged) {          /* did any cell really change in value? *
                             }
                             /* convert cell contents, do not test width, should not align */
                             *field = '\0';
-                            if (cfmt) {
-                                len = format(field, sizeof field, cfmt, precision[col], p->v, &align);
+                            if (p->format) {
+                                len = format(field, sizeof field, p->format->s, precision[col], p->v, &align);
                             } else {
                                 len = engformat(field, sizeof field, realfmt[col], precision[col], p->v, &align);
                             }
@@ -900,7 +899,7 @@ void update(int anychanged) {          /* did any cell really change in value? *
                          */
 
                         if (p->label) {
-                            showstring(p->label,
+                            showstring(p->label->s,
                                        p->flags & ALIGN_MASK,
                                        p->flags & IS_VALID,
                                        row, col, &nextcol, mxcol, &fieldlen,
@@ -980,7 +979,7 @@ void update(int anychanged) {          /* did any cell really change in value? *
 
             /* show the current cell's format */
             if (p && p->format) {
-                printw("(%s) ", p->format);
+                printw("(%s) ", p->format->s);
             } else {
                 printw("(%d %d %d) ", fwidth[curcol], precision[curcol],
                                       realfmt[curcol]);
@@ -1013,7 +1012,7 @@ void update(int anychanged) {          /* did any cell really change in value? *
                 if (p->label) {
                     /* has constant label only */
                     addch('\"');
-                    addstr(p->label);
+                    addstr(p->label->s);
                     addch('\"');
                     addch(' ');     /* separate label and value if any */
                 }
@@ -1367,7 +1366,7 @@ void showstring(const char *string,         /* to display */
             nextcol < fr->or_right->col - frightcols + 1)
         nextcol = fr->or_right->col - frightcols + 1;
     while ((slen > fieldlen) && (nextcol <= mxcol) &&
-            !((nc = lookat(row, nextcol))->flags & IS_VALID) && !(nc->label) &&
+            !((nc = lookat(row, nextcol))->flags & IS_VALID) && !nc->label &&
             (cslop || find_crange(row, nextcol) == cr)) {
 
         if (!col_hidden[nextcol])

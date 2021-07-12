@@ -51,9 +51,8 @@ void fgetnum(rangeref_t rr, int fd) {
                              p->cellerror == CELLERROR ? "ERROR" : "INVALID");
                 } else
                 if (p->flags & IS_VALID) {
-                    const char *cfmt = p->format;
-                    if (cfmt) {
-                        format(field, sizeof(field) - 1, cfmt, precision[col], p->v, &align);
+                    if (p->format) {
+                        format(field, sizeof(field) - 1, p->format->s, precision[col], p->v, &align);
                     } else {
                         engformat(field, sizeof(field) - 1, realfmt[col], precision[col], p->v, &align);
                     }
@@ -76,7 +75,7 @@ void getstring(rangeref_t rr, int fd) {
             struct ent *p = *ATBL(tbl, r, c);
             *buf = '\0';
             if (p && p->label)
-                snprintf(buf, sizeof buf - 1, "%s", p->label);
+                snprintf(buf, sizeof buf - 1, "%s", p->label->s);
             strlcat(buf, (c < rr.right.col) ? "\t" : "\n", sizeof buf);
             write(fd, buf, strlen(buf));
             if (brokenpipe)
@@ -123,7 +122,7 @@ void getfmt(rangeref_t rr, int fd) {
             struct ent *p = *ATBL(tbl, r, c);
             *buf = '\0';
             if (p && p->format)
-                snprintf(buf, sizeof buf - 1, "%s", p->format);
+                snprintf(buf, sizeof buf - 1, "%s", p->format->s);
             strlcat(buf, (c < rr.right.col) ? "\t" : "\n", sizeof buf);
             write(fd, buf, strlen(buf));
             if (brokenpipe)

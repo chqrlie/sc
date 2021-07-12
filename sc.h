@@ -130,9 +130,9 @@ struct range_s {
 /* info for each cell, only alloc'd when something is stored in a cell */
 struct ent {
     double v;                   /* v && label are set in EvalAll() */
-    SCXMEM char *label;         /* cell string value */
+    SCXMEM string_t *label;     /* cell string value */
     SCXMEM struct enode *expr;  /* cell formula */
-    SCXMEM char *format;        /* printf format for this cell */
+    SCXMEM string_t *format;    /* printf format for this cell */
     char cellerror;             /* error in a cell? (should pack with flags) */
     int row;
     short col;                  /* the cell col/row */
@@ -450,7 +450,7 @@ extern int colsinrange;         /* Number of cols in target range of a goto */
 extern SCXMEM int *fwidth;
 extern SCXMEM int *precision;
 extern SCXMEM int *realfmt;
-extern SCXMEM char *colformat[COLFORMATS];
+extern SCXMEM string_t *colformat[COLFORMATS];
 extern SCXMEM unsigned char *col_hidden;
 extern SCXMEM unsigned char *row_hidden;
 extern char line[FBUFLEN];
@@ -458,7 +458,7 @@ extern ssize_t linelim;
 extern int changed;
 /* temporary sheet fragments: stack of 4 work buffers and 36 named buffers (a-z,0-9) */
 extern SCXMEM struct ent *delbuf[DELBUFSIZE];
-extern SCXMEM char *delbuffmt[DELBUFSIZE];
+extern SCXMEM unsigned char *delbuffmt[DELBUFSIZE];
 extern int dbidx;
 extern int qbuf;                /* buffer no. specified by `"' command */
 extern int showsc, showsr;

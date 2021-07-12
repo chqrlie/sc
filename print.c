@@ -91,9 +91,8 @@ void printfile(const char *fname, rangeref_t rr) {
                                           "ERROR " : "INVALID "), sizeof field);
                     align |= ALIGN_CLIP;
                 } else {
-                    const char *cfmt = p->format;
-                    if (cfmt) {
-                        len = format(field, sizeof field, cfmt, precision[col], p->v, &align);
+                    if (p->format) {
+                        len = format(field, sizeof field, p->format->s, precision[col], p->v, &align);
                     } else {
                         len = engformat(field, sizeof field, realfmt[col], precision[col], p->v, &align);
                     }
@@ -124,8 +123,8 @@ void printfile(const char *fname, rangeref_t rr) {
                     buf_printf(buf, "%*s", fieldlen, field);
                 }
             } else
-            if ((s = p->label)) {
-                int slen = strlen(s);
+            if (p->label) {
+                int slen = strlen(s = p->label->s);
                 int pad = 0;
                 int soff = 0;
 
@@ -333,7 +332,6 @@ void tblprintfile(const char *fname, rangeref_t rr) {
 
         for (col = rr.left.col; col <= rr.right.col; col++) {
             struct ent *p = *ATBL(tbl, row, col);
-            const char *s;
 
             // XXX: print hidden columns?
             // XXX: should handle cell fusion
@@ -355,9 +353,8 @@ void tblprintfile(const char *fname, rangeref_t rr) {
                                         "ERROR" : "INVALID"), sizeof field);
                         align |= ALIGN_CLIP;
                     } else {
-                        const char *cfmt = p->format;
-                        if (cfmt) {
-                            format(field, sizeof field, cfmt, precision[col], p->v, &align);
+                        if (p->format) {
+                            format(field, sizeof field, p->format->s, precision[col], p->v, &align);
                         } else {
                             engformat(field, sizeof field, realfmt[col], precision[col], p->v, &align);
                         }
@@ -365,9 +362,9 @@ void tblprintfile(const char *fname, rangeref_t rr) {
                     // XXX: should fill fieldlen with * if too long
                     unspecial(f, field, coldelim);
                 }
-                if ((s = p->label)) {
+                if (p->label) {
                     // XXX: should handle repeated pattern starting with '\'
-                    unspecial(f, s, coldelim);
+                    unspecial(f, p->label->s, coldelim);
                 }
             }
             if (tbl_style == FRAME) {

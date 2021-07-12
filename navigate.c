@@ -260,9 +260,8 @@ void str_search(const char *s, rangeref_t rr, int num) {
                     str = (p->cellerror == CELLERROR) ? "ERROR" : "INVALID";
                 } else
                 if (p->flags & IS_VALID) {
-                    const char *cfmt = p->format;
-                    if (cfmt) {
-                        format(field, sizeof field, cfmt, precision[col], p->v, &align);
+                    if (p->format) {
+                        format(field, sizeof field, p->format->s, precision[col], p->v, &align);
                     } else {
                         engformat(field, sizeof field, realfmt[col], precision[col], p->v, &align);
                     }
@@ -276,7 +275,7 @@ void str_search(const char *s, rangeref_t rr, int num) {
                 }
             }
             if (gs.g_type == G_STR) {
-                str = p->label;
+                str = p->label->s;
             }
             if (str && *str
 #if defined(REGCOMP)

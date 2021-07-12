@@ -109,7 +109,7 @@
 #include "sc.h"
 
 // XXX: should allocate and reallocate this array
-SCXMEM char *colformat[COLFORMATS];
+SCXMEM string_t *colformat[COLFORMATS];
 
 /*****************************************************************************/
 
@@ -610,7 +610,7 @@ int engformat(char *buf, size_t size, int fmt, int lprecision, double val, int *
     time_t secs;
 
     if (fmt >= 0 && fmt < COLFORMATS && colformat[fmt])
-        return format(buf, size, colformat[fmt], lprecision, val, alignp);
+        return format(buf, size, colformat[fmt]->s, lprecision, val, alignp);
     switch (fmt) {
     case REFMTFIX:
         return snprintf(buf, size, "%.*f", lprecision, val);

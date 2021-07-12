@@ -387,7 +387,7 @@ void write_fd(FILE *f, rangeref_t rr, int dcp_flags) {
     write_abbrevs(f);
     for (c = 0; c < COLFORMATS; c++) {
         if (colformat[c])
-            fprintf(f, "format %d = \"%s\"\n", c, colformat[c]);
+            fprintf(f, "format %d = \"%s\"\n", c, colformat[c]->s);
     }
     for (c = rr.left.col; c <= rr.right.col; c++) {
         if (fwidth[c] != DEFWIDTH || precision[c] != DEFPREC || realfmt[c] != DEFREFMT) {
@@ -452,7 +452,7 @@ void write_cells(FILE *f, rangeref_t rr, cellref_t cr, int dcp_flags) {
                 }
                 if (p->format) {
                     buf_setf(buf, "fmt %s ", v_name(row, col));
-                    buf_quotestr(buf, '"', p->format, '"');
+                    buf_quotestr(buf, '"', p->format->s, '"');
                     fprintf(f, "%s\n", buf->buf);
                 }
             }

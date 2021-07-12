@@ -139,7 +139,7 @@ int compare(const void *a1, const void *a2) {
         if (sort[i].type) {
             if (p1 && p1->label) {
                 if (p2 && p2->label)
-                    result = strcmp(p1->label, p2->label);
+                    result = strcmp(p1->label->s, p2->label->s);
                 else
                     result = -1;
             } else

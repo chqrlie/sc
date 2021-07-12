@@ -159,7 +159,7 @@ static void dohistfile(SCXMEM char *str) {
 static SCXMEM char *get_strarg(cellref_t cr) {
     struct ent *p = lookat_nc(cr.row, cr.col);
     if (p && p->label) {
-        return scxdup(p->label);
+        return scxdup(p->label->s);
     } else {
         // XXX: should convert numeric value to string according to format?
         return scxdup("NULL_STRING");
