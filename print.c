@@ -14,7 +14,7 @@
 
 #define DEFCOLDELIM ':'
 
-void printfile(const char *fname, rangeref_t rr) {
+void printfile(SCXMEM string_t *str, rangeref_t rr) {
     char field[FBUFLEN];
     buf_t(buf, FBUFLEN);
     FILE *f;
@@ -23,6 +23,7 @@ void printfile(const char *fname, rangeref_t rr) {
     int row, col;
     char path[PATHLEN];
     char *ext;
+    const char *fname = str ? s2c(str) : NULL;
 
     if (fname) {
         /* printfile will be the [path/]file ---> [path/]file.out */
@@ -31,22 +32,24 @@ void printfile(const char *fname, rangeref_t rr) {
             ext = get_extension(path);
 
             /* keep the extension unless .sc or scext */
-            if (strcmp(ext, ".sc") && !(scext && !strcmp(ext, scext->s)))
+            if (strcmp(ext, ".sc") && !(scext && !strcmp(ext, s2c(scext))))
                 ext += strlen(ext);
 
             snprintf(ext, path + sizeof(path) - ext, ".%s",
-                     ascext ? ascext->s : "asc");
+                     ascext ? s2c(ascext) : "asc");
         } else {
             /* strarg in gram.y, always size of \0 terminated string. */
             strlcpy(path, fname, sizeof path);
         }
-        if (!strcmp(path, curfile) &&
-            !yn_ask("Confirm that you want to destroy the data base: (y,n)")) {
+        if (!strcmp(path, curfile)
+        &&  !yn_ask("Confirm that you want to destroy the data base: (y,n)")) {
+            free_string(str);
             return;
         }
 
         if ((f = openfile(path, sizeof path, &pid, NULL)) == NULL) {
-            error("Can't create file \"%s\"", path);
+            error("Cannot create file \"%s\"", path);
+            free_string(str);
             return;
         }
     } else {
@@ -92,7 +95,7 @@ void printfile(const char *fname, rangeref_t rr) {
                     align |= ALIGN_CLIP;
                 } else {
                     if (p->format) {
-                        len = format(field, sizeof field, p->format->s, precision[col], p->v, &align);
+                        len = format(field, sizeof field, s2c(p->format), precision[col], p->v, &align);
                     } else {
                         len = engformat(field, sizeof field, realfmt[col], precision[col], p->v, &align);
                     }
@@ -124,7 +127,7 @@ void printfile(const char *fname, rangeref_t rr) {
                 }
             } else
             if (p->label) {
-                int slen = strlen(s = p->label->s);
+                int slen = strlen(s = s2c(p->label));
                 int pad = 0;
                 int soff = 0;
 
@@ -195,9 +198,8 @@ void printfile(const char *fname, rangeref_t rr) {
     }
     buf_free(buf);
     if (fname) closefile(f, pid, 0);
+    free_string(str);
 }
-
-// XXX: move to print.c
 
 /* unspecial (backquote) things that are special chars in a table */
 static void unspecial(FILE *f, const char *str, int delim) {
@@ -214,13 +216,14 @@ static void unspecial(FILE *f, const char *str, int delim) {
     }
 }
 
-void tblprintfile(const char *fname, rangeref_t rr) {
+void tblprintfile(SCXMEM string_t *str, rangeref_t rr) {
     FILE *f;
     int pid;
     int row, col, ncols = rr.right.col - rr.left.col + 1;
     char coldelim = DEFCOLDELIM;
     char path[PATHLEN];
     char *ext;
+    const char *fname = str ? s2c(str) : "";
 
     /* tblprintfile will be the [path/]file ---> [path/]file.out */
     if (*fname == '\0') {
@@ -228,38 +231,41 @@ void tblprintfile(const char *fname, rangeref_t rr) {
         ext = get_extension(path);
 
         /* keep the extension unless .sc or scext */
-        if (strcmp(ext, ".sc") && !(scext && !strcmp(ext, scext->s)))
+        if (strcmp(ext, ".sc") && !(scext && !strcmp(ext, s2c(scext))))
             ext += strlen(ext);
 
         if (tbl_style == 0) {
             snprintf(ext, path + sizeof(path) - ext, ".%s",
-                     tbl0ext ? tbl0ext->s : "cln");
+                     tbl0ext ? s2c(tbl0ext) : "cln");
         } else
         if (tbl_style == TBL) {
             snprintf(ext, path + sizeof(path) - ext, ".%s",
-                     tblext ? tblext->s : "tbl");
+                     tblext ? s2c(tblext) : "tbl");
         } else
         if (tbl_style == LATEX) {
             snprintf(ext, path + sizeof(path) - ext, ".%s",
-                     latexext ? latexext->s : "lat");
+                     latexext ? s2c(latexext) : "lat");
         } else
         if (tbl_style == SLATEX) {
             snprintf(ext, path + sizeof(path) - ext, ".%s",
-                     slatexext ? slatexext->s : "stx");
+                     slatexext ? s2c(slatexext) : "stx");
         } else
         if (tbl_style == TEX) {
             snprintf(ext, path + sizeof(path) - ext, ".%s",
-                     texext ? texext->s : "tex");
+                     texext ? s2c(texext) : "tex");
         }
     } else {
         strlcpy(path, fname, sizeof path);
     }
-    if (!strcmp(path, curfile) &&
-        !yn_ask("Confirm that you want to destroy the data base: (y,n)"))
+    if (!strcmp(path, curfile)
+    &&  !yn_ask("Confirm that you want to destroy the data base: (y,n)")) {
+        free_string(str);
         return;
+    }
 
     if ((f = openfile(path, sizeof path, &pid, NULL)) == NULL) {
-        error("Can't create file \"%s\"", path);
+        error("Cannot create file \"%s\"", path);
+        free_string(str);
         return;
     }
 
@@ -354,7 +360,7 @@ void tblprintfile(const char *fname, rangeref_t rr) {
                         align |= ALIGN_CLIP;
                     } else {
                         if (p->format) {
-                            format(field, sizeof field, p->format->s, precision[col], p->v, &align);
+                            format(field, sizeof field, s2c(p->format), precision[col], p->v, &align);
                         } else {
                             engformat(field, sizeof field, realfmt[col], precision[col], p->v, &align);
                         }
@@ -364,7 +370,7 @@ void tblprintfile(const char *fname, rangeref_t rr) {
                 }
                 if (p->label) {
                     // XXX: should handle repeated pattern starting with '\'
-                    unspecial(f, p->label->s, coldelim);
+                    unspecial(f, s2c(p->label), coldelim);
                 }
             }
             if (tbl_style == FRAME) {
@@ -414,4 +420,5 @@ void tblprintfile(const char *fname, rangeref_t rr) {
     }
 
     closefile(f, pid, 0);
+    free_string(str);
 }

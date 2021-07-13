@@ -76,14 +76,17 @@ static inline void free_string(string_t *str) {
         scxfree(str);
 }
 
-static inline const char *s2s(const string_t *str) { return str->s; }
-static inline void set_string_t(SCXMEM string_t **sp, SCXMEM string_t *str) {
+static inline const char *s2c(const string_t *str) { return str->s; }
+static inline int slen(const string_t *str) { return str->len; }
+static inline int sempty(const string_t *str) { return !str || !str->len; }
+
+static inline void set_string(SCXMEM string_t **sp, SCXMEM string_t *str) {
     free_string(*sp);
     *sp = str;
 }
 
-extern void set_string(SCXMEM string_t **pp, SCXMEM char *s);
-extern void set_cstring(SCXMEM string_t **pp, const char *s);
+SCXMEM string_t *cat_strings(SCXMEM string_t *s1, SCXMEM string_t *s2);
+SCXMEM string_t *sub_string(SCXMEM string_t *, int v1_included, int v2_excluded);
 
 /*---------------- char buffer utilities ----------------*/
 

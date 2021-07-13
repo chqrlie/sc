@@ -324,10 +324,16 @@ int backup_file(const char *path) {
     return rc;
 }
 
-int cmd_plugin(const char *str) {
+int cmd_plugin(SCXMEM string_t *str) {
     char buf[PATHLEN];
-    snprintf(buf, sizeof buf, "|%s", str);
-    return readfile(buf, 0);
+    int res = -1;
+
+    if (!sempty(str)) {
+        snprintf(buf, sizeof buf, "|%s", s2c(str));
+        res = readfile(buf, 0);
+    }
+    free_string(str);
+    return res;
 }
 
 #ifndef NOPLUGINS
@@ -335,12 +341,14 @@ int cmd_plugin(const char *str) {
  * r(ead) or w(rite)
  */
 
-void addplugin(const char *ext, const char *plugin, char type) {
+void add_plugin(SCXMEM string_t *ext, SCXMEM string_t *plugin, char type) {
     struct impexfilt *fp;
     char mesg[PATHLEN];
 
-    if (!plugin_exists(plugin, -1, mesg, sizeof mesg)) {
-        error("Cannot find plugin %s", plugin);
+    if (!plugin_exists(s2c(plugin), -1, mesg, sizeof mesg)) {
+        error("Cannot find plugin %s", s2c(plugin));
+        free_string(ext);
+        free_string(plugin);
         return;
     }
     if (filt == NULL) {
@@ -353,8 +361,11 @@ void addplugin(const char *ext, const char *plugin, char type) {
         fp->next = scxmalloc(sizeof(struct impexfilt));
         fp = fp->next;
     }
-    strlcpy(fp->plugin, plugin, PATHLEN);
-    strlcpy(fp->ext, ext, PATHLEN);
+    // XXX: should use string_t
+    strlcpy(fp->plugin, s2c(plugin), PATHLEN);
+    strlcpy(fp->ext, s2c(ext), PATHLEN);
+    free_string(ext);
+    free_string(plugin);
     fp->type = type;
     fp->next = NULL;
 }
@@ -386,8 +397,9 @@ void write_fd(FILE *f, rangeref_t rr, int dcp_flags) {
     write_options(f);
     write_abbrevs(f);
     for (c = 0; c < COLFORMATS; c++) {
+        // XXX: what if colformat is empty?
         if (colformat[c])
-            fprintf(f, "format %d = \"%s\"\n", c, colformat[c]->s);
+            fprintf(f, "format %d = \"%s\"\n", c, s2c(colformat[c]));
     }
     for (c = rr.left.col; c <= rr.right.col; c++) {
         if (fwidth[c] != DEFWIDTH || precision[c] != DEFPREC || realfmt[c] != DEFREFMT) {
@@ -406,11 +418,11 @@ void write_fd(FILE *f, rangeref_t rr, int dcp_flags) {
     write_colors(f, 0);
     write_cranges(f);
 
-    if (mdir && mdir->len) fprintf(f, "mdir \"%s\"\n", mdir->s);
-    if (autorun && autorun->len) fprintf(f, "autorun \"%s\"\n", autorun->s);
+    if (!sempty(mdir)) fprintf(f, "mdir \"%s\"\n", s2c(mdir));
+    if (!sempty(autorun)) fprintf(f, "autorun \"%s\"\n", s2c(autorun));
     for (c = 0; c < FKEYS; c++) {
-        if (fkey[c] && fkey[c]->len)
-            fprintf(f, "fkey %d = \"%s\"\n", c, fkey[c]->s);
+        if (!sempty(fkey[c]))
+            fprintf(f, "fkey %d = \"%s\"\n", c, s2c(fkey[c]));
     }
     write_cells(f, rr, rr.left, dcp_flags);
     for (r = rr.left.row; r <= rr.right.row; r++) {
@@ -453,7 +465,7 @@ void write_cells(FILE *f, rangeref_t rr, cellref_t cr, int dcp_flags) {
                 }
                 if (p->format) {
                     buf_setf(buf, "fmt %s ", v_name(row, col));
-                    buf_quotestr(buf, '"', p->format->s, '"');
+                    buf_quotestr(buf, '"', s2c(p->format), '"');
                     fprintf(f, "%s\n", buf->buf);
                 }
             }
@@ -521,10 +533,10 @@ int writefile(const char *fname, rangeref_t rr, int dcp_flags) {
     *tpp = '\0';
     ext = get_extension(tfname);
     if (scext != NULL) {
-        if (!strcmp(ext, ".sc") || !strcmp(ext, scext->s))
+        if (!strcmp(ext, ".sc") || !strcmp(ext, s2c(scext)))
             *ext = '\0';
         strlcat(tfname, ".", sizeof tfname);
-        strlcat(tfname, scext->s, sizeof tfname);
+        strlcat(tfname, s2c(scext), sizeof tfname);
     }
 
     strlcpy(save, tfname, sizeof save);
@@ -573,8 +585,8 @@ int readfile(const char *fname, int eraseflg) {
     tempautolabel = autolabel;          /* turn off auto label when */
     autolabel = 0;                      /* reading a file */
 
-    if (*fname == '*' && mdir && mdir->len) {
-        strlcpy(save, mdir->s, sizeof save);
+    if (*fname == '*' && !sempty(mdir)) {
+        strlcpy(save, s2c(mdir), sizeof save);
         strlcat(save, fname, sizeof save);
     } else {
         if (*fname == '\0')
@@ -687,7 +699,7 @@ int readfile(const char *fname, int eraseflg) {
     if (eraseflg) {
         strlcpy(curfile, save, sizeof curfile);
         modflg = 0;
-        if (autorun && autorun->len && !skipautorun) readfile(autorun->s, 0);
+        if (!sempty(autorun) && !skipautorun) readfile(s2c(autorun), 0);
         skipautorun = 0;
         EvalAll();
         if (*save) {

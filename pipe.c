@@ -52,7 +52,7 @@ void fgetnum(rangeref_t rr, int fd) {
                 } else
                 if (p->flags & IS_VALID) {
                     if (p->format) {
-                        format(field, sizeof(field) - 1, p->format->s, precision[col], p->v, &align);
+                        format(field, sizeof(field) - 1, s2c(p->format), precision[col], p->v, &align);
                     } else {
                         engformat(field, sizeof(field) - 1, realfmt[col], precision[col], p->v, &align);
                     }
@@ -75,7 +75,7 @@ void getstring(rangeref_t rr, int fd) {
             struct ent *p = *ATBL(tbl, r, c);
             *buf = '\0';
             if (p && p->label)
-                snprintf(buf, sizeof buf - 1, "%s", p->label->s);
+                snprintf(buf, sizeof buf - 1, "%s", s2c(p->label));
             strlcat(buf, (c < rr.right.col) ? "\t" : "\n", sizeof buf);
             write(fd, buf, strlen(buf));
             if (brokenpipe)
@@ -122,7 +122,7 @@ void getfmt(rangeref_t rr, int fd) {
             struct ent *p = *ATBL(tbl, r, c);
             *buf = '\0';
             if (p && p->format)
-                snprintf(buf, sizeof buf - 1, "%s", p->format->s);
+                snprintf(buf, sizeof buf - 1, "%s", s2c(p->format));
             strlcat(buf, (c < rr.right.col) ? "\t" : "\n", sizeof buf);
             write(fd, buf, strlen(buf));
             if (brokenpipe)
@@ -147,12 +147,12 @@ void getframe(int fd) {
     write(fd, buf, strlen(buf));
 }
 
-void getrange(const char *name, int fd) {
+void getrange(SCXMEM string_t *name, int fd) {
     char buf[100];
     struct nrange *r;
 
     *buf = '\0';
-    if (!find_nrange_name(name, strlen(name), &r)) {
+    if (name && !find_nrange_name(s2c(name), slen(name), &r)) {
         snprintf(buf, sizeof buf - 1, "%s%s%s%d",
                 r->r_left.vf & FIX_COL ? "$" : "",
                 coltoa(r->r_left.vp->col),
@@ -169,9 +169,10 @@ void getrange(const char *name, int fd) {
     }
     strlcat(buf, "\n", sizeof buf);
     write(fd, buf, strlen(buf));
+    free_string(name);
 }
 
-void cmd_eval(struct enode *e, const char *fmt, int row, int col, int fd) {
+void cmd_eval(SCXMEM struct enode *e, SCXMEM string_t *fmt, int row, int col, int fd) {
     char buf[FBUFLEN];
     int align = ALIGN_DEFAULT;
     double v;
@@ -180,17 +181,19 @@ void cmd_eval(struct enode *e, const char *fmt, int row, int col, int fd) {
     gmycol = col;
 
     v = eval(e);
-    if (fmt) {
+    if (!sempty(fmt)) {
         /* convert cell contents, do not test width, should not align */
-        format(buf, sizeof buf - 1, fmt, precision[col], v, &align);
+        format(buf, sizeof buf - 1, s2c(fmt), precision[col], v, &align);
     } else {
         snprintf(buf, sizeof buf - 1, "%.15g", v);
     }
     strlcat(buf, "\n", sizeof buf);
     write(fd, buf, strlen(buf));
+    free_string(fmt);
+    efree(e);
 }
 
-void cmd_seval(struct enode *e, int row, int col, int fd) {
+void cmd_seval(SCXMEM struct enode *e, int row, int col, int fd) {
     SCXMEM string_t *str;
 
     gmyrow = row;
@@ -198,16 +201,18 @@ void cmd_seval(struct enode *e, int row, int col, int fd) {
 
     str = seval(e);
     if (str)
-        write(fd, str->s, str->len);
+        write(fd, s2c(str), slen(str));
     write(fd, "\n", 1);
     free_string(str);
+    efree(e);
 }
 
 // XXX: this is an ugly hack
-void cmd_query(const char *s, const char *data, int fd) {
+void cmd_query(SCXMEM string_t *s, SCXMEM string_t *data, int fd) {
     goraw();
     // XXX: should provide destination buffer
-    query(s, data);
+    // XXX: should pass string_t to query()
+    query(s2c(s), s2c(data));
     deraw(0);
     if (linelim >= 0) {
         write(fd, line, strlen(line));
@@ -218,6 +223,8 @@ void cmd_query(const char *s, const char *data, int fd) {
     linelim = -1;
     //CLEAR_LINE; // XXX: why this?
     update(0);
+    free_string(s);
+    free_string(data);
 }
 
 void dogetkey(int fd) {

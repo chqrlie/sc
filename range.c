@@ -20,33 +20,35 @@ int are_nranges(void) {
     return rng_base != NULL;
 }
 
-void add_nrange(const char *name, rangeref_t rr, int is_range) {
+void add_nrange(SCXMEM string_t *name, rangeref_t rr, int is_range) {
     struct nrange *r;
-    const char *p;
+    const char *p, *p0;
     struct nrange *prev = NULL;
     struct nrange *next;
 
     range_normalize(&rr);
 
-    if (!find_nrange_name(name, strlen(name), &prev)) {
-        error("Error: range name \"%s\" already defined", name);
+    if (name && !find_nrange_name(s2c(name), slen(name), &prev)) {
+        error("Error: range name \"%s\" already defined", s2c(name));
+        free_string(name);
         return;
     }
 
     /* Range name: must contain only letters, digits and _ */
-    for (p = name; *p; p++) {
+    for (p = s2c(name); *p; p++) {
         if (!isalnumchar_(*p)) {
-            error("Invalid range name \"%s\" - illegal combination", name);
+            error("Invalid range name \"%s\" - illegal combination", s2c(name));
+            free_string(name);
             return;
         }
     }
 
     /* Range name must not be cell name nor a valid number */
-    p = name;
+    p = p0 = s2c(name);
     if (isdigitchar(*p) ||
         (isalphachar(*p++) && (isdigitchar(*p) ||
                                (isalphachar(*p++) && isdigitchar(*p))))) {
-        if (*name == '0' && (name[1] == 'x' || name[1] == 'X')) {
+        if (*p0 == '0' && (p0[1] == 'x' || p0[1] == 'X')) {
             ++p;
             while (isxdigitchar(*++p))
                 continue;
@@ -57,15 +59,20 @@ void add_nrange(const char *name, rangeref_t rr, int is_range) {
         } else {
             while (isdigitchar(*++p))
                 continue;
-            if (isdigitchar(*name) && (*p == 'e' || *p == 'E')) {
+            if (isdigitchar(*p0) && (*p == 'e' || *p == 'E')) {
                 while (isdigitchar(*++p))
                     continue;
             }
         }
         if (!*p) {
-            error("Invalid range name \"%s\" - ambiguous", name);
+            error("Invalid range name \"%s\" - ambiguous", s2c(name));
+            free_string(name);
             return;
         }
+    }
+
+    if (is_range < 0) {
+        is_range = (rr.left.row != rr.right.row || rr.left.col != rr.right.col);
     }
 
     if (autolabel && rr.left.col > 0 && !is_range) {
@@ -74,7 +81,7 @@ void add_nrange(const char *name, rangeref_t rr, int is_range) {
             /* empty cell to the left of the defined cell:
                set the cell label to the name.
              */
-            set_cstring(&cp->label, name);
+            set_string(&cp->label, name);
             cp->flags &= ~ALIGN_MASK;
             cp->flags |= ALIGN_DEFAULT;
             FullUpdate++;
@@ -83,7 +90,7 @@ void add_nrange(const char *name, rangeref_t rr, int is_range) {
     }
 
     r = scxmalloc(sizeof(struct nrange));
-    r->r_name = scxdup(name);
+    r->r_name = name;
     r->r_left.vp = lookat(rr.left.row, rr.left.col);
     r->r_left.vf = rr.left.vf;
     r->r_right.vp = lookat(rr.right.row, rr.right.col);
@@ -122,7 +129,7 @@ void del_nrange(rangeref_t rr) {
         r->r_prev->r_next = r->r_next;
     else
         rng_base = r->r_next;
-    scxfree(r->r_name);
+    free_string(r->r_name);
     scxfree(r);
     modflg++;
 }
@@ -136,7 +143,7 @@ void clean_nrange(void) {
 
     while (r) {
         nextr = r->r_next;
-        scxfree(r->r_name);
+        free_string(r->r_name);
         scxfree(r);
         r = nextr;
     }
@@ -155,11 +162,13 @@ int find_nrange_name(const char *name, int len, struct nrange **rng) {
     }
     *rng = NULL;
     for (r = rng_base; r; r = r->r_next) {
-        if ((cmp = strncmp(name, r->r_name, len)) > 0)
+        const char *r_name = s2c(r->r_name);
+        if ((cmp = strncmp(name, r_name, len)) > 0)
             return cmp;
         *rng = r;
         if (cmp == 0) {
-            if (!exact || r->r_name[len] == '\0')
+            // XXX: should return cmp if len > strlen(r_name)
+            if (!exact || r_name[len] == '\0')
                 return cmp;
         }
     }
@@ -215,7 +224,7 @@ void write_nranges(FILE *f) {
 
     for (r = rng_tail; r; r = r->r_prev) {
         fprintf(f, "define \"%s\" %s%s%s%d",
-                r->r_name,
+                s2c(r->r_name),
                 r->r_left.vf & FIX_COL ? "$" : "",
                 coltoa(r->r_left.vp->col),
                 r->r_left.vf & FIX_ROW ? "$" : "",
@@ -244,7 +253,7 @@ void list_nranges(FILE *f) {
 
     for (r = rng_tail; r; r = r->r_prev) {
         fprintf(f, "  %-30s %s%s%s%d",
-                r->r_name,
+                s2c(r->r_name),
                 r->r_left.vf & FIX_COL ? "$" : "",
                 coltoa(r->r_left.vp->col),
                 r->r_left.vf & FIX_ROW ? "$" : "",
@@ -264,7 +273,7 @@ void list_nranges(FILE *f) {
 
 // XXX: should take cellref_t and a boolean to check and/or print flags
 //      and/or print named cells
-char *v_name(int row, int col) {
+const char *v_name(int row, int col) {
     struct nrange *r;
     static unsigned int bufn;
     static char buf[4][20];
@@ -272,7 +281,7 @@ char *v_name(int row, int col) {
     // XXX: should we test the is_range flag?
     r = find_nrange_coords(rangeref(row, col, row, col));
     if (r) {
-        return r->r_name;
+        return s2c(r->r_name);
     } else {
         char *vname = buf[bufn++ & 3];
         snprintf(vname, sizeof buf[0], "%s%d", coltoa(col), row);
@@ -282,13 +291,13 @@ char *v_name(int row, int col) {
 
 // XXX: should take rangeref_t and a boolean to check and/or print flags
 //      and/or print named cells
-char *r_name(int r1, int c1, int r2, int c2) {
+const char *r_name(int r1, int c1, int r2, int c2) {
     struct nrange *r;
     static char buf[100];
 
     r = find_nrange_coords(rangeref(r1, c1, r2, c2));
     if (r) {
-        return r->r_name;
+        return s2c(r->r_name);
     } else {
         // XXX: should not accept partial range names?
         snprintf(buf, sizeof buf, "%s:%s", v_name(r1, c1), v_name(r2, c2));

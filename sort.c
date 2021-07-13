@@ -19,11 +19,11 @@ struct sortcrit {
 static SCXMEM struct sortcrit *sort;
 static int howmany;
 
-void sortrange(rangeref_t rr, const char *criteria) {
+void sortrange(rangeref_t rr, SCXMEM string_t *criteria) {
     SCXMEM int *rows;
     int minr, minc, maxr, maxc;
     int i, r, nrows, col, len, qtmp;
-    const char *cp = criteria;
+    const char *cp;
     struct ent *p;
 
     range_normalize(&rr);
@@ -38,7 +38,7 @@ void sortrange(rangeref_t rr, const char *criteria) {
     for (i = 0, r = minr; r <= maxr; r++, i++)
         rows[i] = r;
 
-    if (!criteria) {
+    if (sempty(criteria)) {
         sort[0].direction = 1;
         sort[0].type = 1;
         sort[0].column = minc;
@@ -47,7 +47,7 @@ void sortrange(rangeref_t rr, const char *criteria) {
         sort[1].column = minc;
         howmany = 2;
     } else {
-        for (howmany = 0; *cp; howmany++) {
+        for (howmany = 0, cp = s2c(criteria); *cp; howmany++) {
             if (howmany > 1)
                 sort = scxrealloc(sort, (howmany + 1) * (sizeof(struct sortcrit)));
             switch (*cp++) {
@@ -114,6 +114,7 @@ void sortrange(rangeref_t rr, const char *criteria) {
     // XXX: should actually move to the new position of the same cell
 
 fail:
+    free_string(criteria);
     scxfree(sort);
     sort = NULL;
     howmany = 0;
@@ -139,7 +140,7 @@ int compare(const void *a1, const void *a2) {
         if (sort[i].type) {
             if (p1 && p1->label) {
                 if (p2 && p2->label)
-                    result = strcmp(p1->label->s, p2->label->s);
+                    result = strcmp(s2c(p1->label), s2c(p2->label));
                 else
                     result = -1;
             } else

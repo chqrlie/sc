@@ -402,7 +402,7 @@ static int getrow(const char *p) {
 }
 
 /* turns a column number into [A-Z][A-Z] */
-char *coltoa(int col) {
+const char *coltoa(int col) {
     static char rname[8];
     char *p = rname;
 

@@ -96,21 +96,50 @@ string_t *new_string_len(const char *s, size_t len) {
     return str;
 }
 
-void set_string(SCXMEM string_t **pp, SCXMEM char *s) {
-    /* allocate string_t before freeing destination in case
-       s refers to the destination string */
-    SCXMEM string_t *str = s ? new_string(s) : NULL;
-    scxfree(s);
-    free_string(*pp);
-    *pp = str;
+SCXMEM string_t *cat_strings(SCXMEM string_t *s1, SCXMEM string_t *s2) {
+    size_t len1, len2;
+    SCXMEM string_t *s3;
+
+    if (sempty(s1)) {
+        free_string(s1);
+        return s2;
+    }
+    if (sempty(s2)) {
+        free_string(s2);
+        return s1;
+    }
+    len1 = slen(s1);
+    len2 = slen(s2);
+    s3 = new_string_len(NULL, len1 + len2);
+    memcpy(s3->s, s1->s, len1);
+    memcpy(s3->s + len1, s2->s, len2 + 1);
+    free_string(s1);
+    free_string(s2);
+    return s3;
 }
 
-void set_cstring(SCXMEM string_t **pp, const char *s) {
-    /* allocate string_t before freeing destination in case
-       s refers to the destination string */
-    SCXMEM string_t *str = s ? new_string(s) : NULL;
-    free_string(*pp);
-    *pp = str;
+// XXX: should handle UTF-8
+/* v1 and v2 are zero based offsets, v1 is incuded, v2 is excluded */
+SCXMEM string_t *sub_string(SCXMEM string_t *s, int v1, int v2) {
+    SCXMEM string_t *p;
+    int len;
+
+    if (!s)
+        return NULL;
+
+    len = slen(s);
+    if (v2 >= len) {                /* past end */
+        v2 = len;                   /* to end */
+        if (v1 == 0)
+            return dup_string(s);
+    }
+    if (v1 < 0 || v1 >= v2) {       /* out of range, return empty string */
+        p = new_string("");
+    } else {
+        p = new_string_len(&s->s[v1], v2 - v1);
+    }
+    free_string(s);
+    return p;
 }
 
 /*---------------- string utilities ----------------*/

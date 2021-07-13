@@ -28,7 +28,7 @@ struct go_save gs;
 static void g_free(void) {
     switch (gs.g_type) {
     case G_STR:
-    case G_NSTR: set_string_t(&gs.g_s, NULL); break;
+    case G_NSTR: set_string(&gs.g_s, NULL); break;
     default: break;
     }
     gs.g_type = G_NONE;
@@ -56,7 +56,7 @@ void go_last(void) {
         num++;
         FALLTHROUGH;
     case G_STR:
-        str_search(gs.g_s->s, gs.g_rr, num);
+        str_search(dup_string(gs.g_s), gs.g_rr, num);
         break;
 
     default:
@@ -181,7 +181,7 @@ void num_search(double n, rangeref_t rr, int errsearch) {
 }
 
 /* 'goto' a cell containing a matching string */
-void str_search(const char *s, rangeref_t rr, int num) {
+void str_search(SCXMEM string_t *str, rangeref_t rr, int num) {
     char field[FBUFLEN];
     struct ent *p;
     int found = 0;
@@ -194,18 +194,26 @@ void str_search(const char *s, rangeref_t rr, int num) {
     regex_t preg;
     int errcode;
 #endif
+    const char *s;
+
+    if (!str)
+        return;
+
+    s = s2c(str);
 
 #if defined(REGCOMP)
     if ((errcode = regcomp(&preg, s, REG_EXTENDED))) {
         char buf[160];
         regerror(errcode, &preg, buf, sizeof(buf));
         error("%s", buf);
+        free_string(str);
         return;
     }
 #endif
 #if defined(RE_COMP)
     if ((tmp = re_comp(s)) != NULL) {
         error("%s", tmp);
+        free_string(str);
         return;
     }
 #endif
@@ -213,6 +221,7 @@ void str_search(const char *s, rangeref_t rr, int num) {
     if ((tmp = regcmp(s, NULL)) == NULL) {
         cellerror = CELLERROR;
         error("Invalid search string");
+        free_string(str);
         return;
     }
 #endif
@@ -221,7 +230,7 @@ void str_search(const char *s, rangeref_t rr, int num) {
 
     g_free();
     gs.g_type = G_STR + num;
-    set_cstring(&gs.g_s, s);
+    set_string(&gs.g_s, str);
     gs.g_rr = rr;
     firstrow = rr.left.row;
     firstcol = rr.left.col;
@@ -251,17 +260,17 @@ void str_search(const char *s, rangeref_t rr, int num) {
         }
         if (!col_hidden[col] && (p = *ATBL(tbl, row, col))) {
             /* convert cell contents, do not test width, ignore alignment */
-            const char *str = field;
+            const char *s1 = field;
             int align = ALIGN_DEFAULT;
 
             *field = '\0';
             if (gs.g_type == G_NSTR) {
                 if (p->cellerror) {
-                    str = (p->cellerror == CELLERROR) ? "ERROR" : "INVALID";
+                    s1 = (p->cellerror == CELLERROR) ? "ERROR" : "INVALID";
                 } else
                 if (p->flags & IS_VALID) {
                     if (p->format) {
-                        format(field, sizeof field, p->format->s, precision[col], p->v, &align);
+                        format(field, sizeof field, s2c(p->format), precision[col], p->v, &align);
                     } else {
                         engformat(field, sizeof field, realfmt[col], precision[col], p->v, &align);
                     }
@@ -275,19 +284,19 @@ void str_search(const char *s, rangeref_t rr, int num) {
                 }
             }
             if (gs.g_type == G_STR) {
-                str = p->label->s;
+                s1 = s2c(p->label);
             }
-            if (str && *str
+            if (s1 && *s1
 #if defined(REGCOMP)
-            &&  (regexec(&preg, str, 0, NULL, 0) == 0)
+            &&  (regexec(&preg, s1, 0, NULL, 0) == 0)
 #else
 #if defined(RE_COMP)
-            &&  (re_exec(str) != 0)
+            &&  (re_exec(s1) != 0)
 #else
 #if defined(REGCMP)
-            &&  (regex(tmp, str) != NULL)
+            &&  (regex(tmp, s1) != NULL)
 #else
-            &&  (strcmp(s, str) == 0)
+            &&  (strcmp(s, s1) == 0)
 #endif
 #endif
 #endif

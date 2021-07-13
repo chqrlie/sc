@@ -663,7 +663,7 @@ void vi_interaction(void) {
                     narg = uarg * 10 + (c - '0');
                 }
             } else
-            if (c == KEY_F(1) && !(fkey[c - KEY_F0] && fkey[c - KEY_F0]->len)) {
+            if (c == KEY_F(1) && sempty(fkey[c - KEY_F0])) {
                 deraw(1);
                 system("man sc");
                 goraw();
@@ -711,11 +711,11 @@ void vi_interaction(void) {
             } else
             if (c >= KEY_F0 && c <= KEY_F(FKEYS-1)) {
                 /* a function key was pressed */
-                if (fkey[c - KEY_F0] && fkey[c - KEY_F0]->len) {
+                if (!sempty(fkey[c - KEY_F0])) {
                     char *tpp;
 
                     insert_mode();
-                    strlcpy(line, fkey[c - KEY_F0]->s, sizeof line);
+                    strlcpy(line, s2c(fkey[c - KEY_F0]), sizeof line);
                     linelim = 0;
                     for (tpp = line; *tpp != '\0'; tpp++) {
                         if (*tpp == '\\' && tpp[1] == '"') {
@@ -1195,7 +1195,7 @@ void vi_interaction(void) {
                     if (p && p->format) {
                         buf_init(buf, line, sizeof line);
                         buf_setf(buf, "fmt [format] %s \"", v_name(currow, curcol));
-                        buf_quotestr(buf, 0, p->format->s, 0);
+                        buf_quotestr(buf, 0, s2c(p->format), 0);
                         linelim = buf->len;
                         edit_mode();
                     } else {
@@ -1244,11 +1244,11 @@ void vi_interaction(void) {
                     if (*curfile) {
                         ext = get_extension(curfile);
                         /* keep the extension unless .sc or scext */
-                        if (strcmp(ext, ".sc") && !(scext && !strcmp(ext, scext->s)))
+                        if (strcmp(ext, ".sc") && !(scext && !strcmp(ext, s2c(scext))))
                             ext += strlen(ext);
                         error("Default path is \"%.*s.%s\"",
                               (int)(ext - curfile), curfile,
-                              scext ? scext->s : "sc");
+                              scext ? s2c(scext) : "sc");
                     }
                     insert_mode();
                     break;
@@ -1257,8 +1257,8 @@ void vi_interaction(void) {
                     insert_mode();
                     break;
                 case 'R':
-                    if (mdir && mdir->len)
-                        set_line("merge [\"macro_file\"] \"%s", mdir->s);
+                    if (!sempty(mdir))
+                        set_line("merge [\"macro_file\"] \"%s", s2c(mdir));
                     else
                         set_line("merge [\"macro_file\"] \"");
                     insert_mode();
@@ -1268,8 +1268,8 @@ void vi_interaction(void) {
                     insert_mode();
                     break;
                 case 'A':
-                    if (autorun && autorun->len)
-                        set_line("autorun [\"macro_file\"] \"%s", autorun->s);
+                    if (!sempty(autorun))
+                        set_line("autorun [\"macro_file\"] \"%s", s2c(autorun));
                     else
                         set_line("autorun [\"macro_file\"] \"");
                     insert_mode();
@@ -1285,11 +1285,11 @@ void vi_interaction(void) {
                     if (*curfile) {
                         ext = get_extension(curfile);
                         /* keep the extension unless .sc or scext */
-                        if (strcmp(ext, ".sc") && !(scext && !strcmp(ext, scext->s)))
+                        if (strcmp(ext, ".sc") && !(scext && !strcmp(ext, s2c(scext))))
                             ext += strlen(ext);
                         error("Default file is \"%.*s.%s\"",
                               (int)(ext - curfile), curfile,
-                              ascext ? ascext->s : "asc");
+                              ascext ? s2c(ascext) : "asc");
                     }
                     insert_mode();
                     break;
@@ -1303,28 +1303,28 @@ void vi_interaction(void) {
                     if (*curfile) {
                         ext = get_extension(curfile);
                         /* keep the extension unless .sc or scext */
-                        if (strcmp(ext, ".sc") && !(scext && !strcmp(ext, scext->s)))
+                        if (strcmp(ext, ".sc") && !(scext && !strcmp(ext, s2c(scext))))
                             ext += strlen(ext);
                         if (tbl_style == 0) {
                             error("Default file is \"%.*s.%s\"",
                                   (int)(ext - curfile), curfile,
-                                  tbl0ext ? tbl0ext->s : "cln");
+                                  tbl0ext ? s2c(tbl0ext) : "cln");
                         } else if (tbl_style == TBL) {
                             error("Default file is \"%.*s.%s\"",
                                   (int)(ext - curfile), curfile,
-                                  tblext ? tblext->s : "tbl");
+                                  tblext ? s2c(tblext) : "tbl");
                         } else if (tbl_style == LATEX) {
                             error("Default file is \"%.*s.%s\"",
                                   (int)(ext - curfile), curfile,
-                                  latexext ? latexext->s : "lat");
+                                  latexext ? s2c(latexext) : "lat");
                         } else if (tbl_style == SLATEX) {
                             error("Default file is \"%.*s.%s\"",
                                   (int)(ext - curfile), curfile,
-                                  slatexext ? slatexext->s : "stx");
+                                  slatexext ? s2c(slatexext) : "stx");
                         } else if (tbl_style == TEX) {
                             error("Default file is \"%.*s.%s\"",
                                   (int)(ext - curfile), curfile,
-                                  texext ? texext->s : "tex");
+                                  texext ? s2c(texext) : "tex");
                         }
                     }
                     insert_mode();
@@ -2235,7 +2235,7 @@ static void dotab(void) {
             if (!find_nrange_name(completethis, -len, &lastmatch)) {
                 firstmatch = lastmatch;
                 while (firstmatch->r_next &&
-                       !strncmp(completethis, firstmatch->r_next->r_name, len))
+                       !strncmp(completethis, s2c(firstmatch->r_next->r_name), len))
                     firstmatch = firstmatch->r_next;
                 nextmatch = firstmatch;
             } else
@@ -2245,7 +2245,7 @@ static void dotab(void) {
             len = line + linelim - completethis;
             strsplice(line, sizeof line, completethis - line, len, NULL, 0);
             linelim -= len;
-            ins_string(nextmatch->r_name);
+            ins_string(s2c(nextmatch->r_name));
             if (completethis[-1] == ' ' && line[linelim] != ' ')
                 ins_in_line(' ');
             if (nextmatch == lastmatch)
@@ -2607,7 +2607,7 @@ static void doabbrev(void) {
         if (len > 1 || pos == 0 || line[pos-1] == ' ') {
             linelim = pos;
             del_in_line(len, 0);
-            ins_string(a->exp);
+            ins_string(s2c(a->exp));
         }
     }
 }
@@ -3777,7 +3777,7 @@ static void formatcol(int arg) {
                     if (colformat[c - '0']) {
                         buf_init(buf, line, sizeof line);
                         buf_setf(buf, "format %c = \"", c);
-                        buf_quotestr(buf, 0, colformat[c - '0']->s, 0);
+                        buf_quotestr(buf, 0, s2c(colformat[c - '0']), 0);
                         linelim = buf->len;
                         edit_mode();
                     } else {
@@ -3993,7 +3993,7 @@ void edits(buf_t buf, int row, int col, struct ent *p, int dcp_flags) {
         // XXX: should pass row, col as the cell reference
         decompile_expr(buf, p->expr, row - p->row, col - p->col, dcp_flags);
     } else if (p && p->label) {
-        buf_quotestr(buf, '"', p->label->s, '"');
+        buf_quotestr(buf, '"', s2c(p->label), '"');
     } else {
         /* output a single `"` for the user to start entering the string */
         buf_putc(buf, '"');

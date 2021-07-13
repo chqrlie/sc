@@ -79,14 +79,12 @@ static struct ent *getent(SCXMEM string_t *colstr, double row);
 static double donval(SCXMEM string_t *colstr, double row);
 static double dolmax(struct enode *);
 static double dolmin(struct enode *);
-static SCXMEM string_t *docat(SCXMEM string_t *s1, SCXMEM string_t *s2);
 static SCXMEM string_t *dodate(time_t, SCXMEM string_t *);
 static SCXMEM string_t *dofmt(SCXMEM string_t *fmtstr, double v);
 static SCXMEM string_t *doext(struct enode *);
 static SCXMEM string_t *dosval(SCXMEM string_t *colstr, double row);
 static SCXMEM string_t *docapital(SCXMEM string_t *s);
 static SCXMEM string_t *docase(int acase, SCXMEM string_t *s);  // UPPER or LOWER
-static SCXMEM string_t *dosubstr(SCXMEM string_t *, int, int);
 
 #ifdef RINT
 double rint(double d);
@@ -234,7 +232,7 @@ static double dolookup(struct enode * val, int minr, int minc, int maxr, int max
         s = seval(val);
         for (r = minr, c = minc; r <= maxr && c <= maxc; r += incr, c += incc) {
             if ((p = *ATBL(tbl, r, c)) && p->label) {
-                if (strcmp(p->label->s, s->s) == 0) {
+                if (strcmp(s2c(p->label), s2c(s)) == 0) {
                     fndr = incc ? (minr + offset) : r;
                     fndc = incr ? (minc + offset) : c;
                     if (ISVALID(fndr, fndc)) {
@@ -554,7 +552,7 @@ static double doston(SCXMEM string_t *s) {
     if (!s)
         return 0.0;
 
-    v = strtod(s->s, NULL);
+    v = strtod(s2c(s), NULL);
     free_string(s);
     return v;
 }
@@ -567,7 +565,7 @@ static double doeqs(SCXMEM string_t *s1, SCXMEM string_t *s2) {
 
     if (!s1 || !s2)
         v = 0.0;
-    else if (strcmp(s1->s, s2->s) == 0)
+    else if (strcmp(s2c(s1), s2c(s2)) == 0)
         v = 1.0;
     else
         v = 0.0;
@@ -596,8 +594,8 @@ static struct ent *getent(SCXMEM string_t *colstr, double rowdoub) {
 
     if (((row = (int)floor(rowdoub)) >= 0)
     &&  (row < maxrows)                          /* in range */
-    &&  ((col = atocol(colstr->s, &collen)) >= 0)   /* has column */
-    &&  (colstr->s[collen] == '\0')                 /* exact match */
+    &&  ((col = atocol(s2c(colstr), &collen)) >= 0)   /* has column */
+    &&  (s2c(colstr)[collen] == '\0')                 /* exact match */
     &&  (col < maxcols)) {                       /* in range */
         p = *ATBL(tbl, row, col);
         if (p && p->cellerror)
@@ -931,25 +929,9 @@ static double fn2_eval(double (*fn)(double, double), double arg1, double arg2) {
  * All returned strings are assumed to be xalloced.
  */
 
-static SCXMEM string_t *docat(SCXMEM string_t *s1, SCXMEM string_t *s2) {
-    size_t len1, len2;
-    SCXMEM string_t *s3;
-
-    if (!s1) return s2;
-    if (!s2) return s1;
-    len1 = s1->len;
-    len2 = s2->len;
-    s3 = new_string_len(NULL, len1 + len2);
-    memcpy(s3->s, s1->s, len1);
-    memcpy(s3->s + len1, s2->s, len2 + 1);
-    free_string(s1);
-    free_string(s2);
-    return s3;
-}
-
 static SCXMEM string_t *dodate(time_t tloc, SCXMEM string_t *fmtstr) {
     char buff[FBUFLEN];
-    const char *fmt = fmtstr ? fmtstr->s : "%a %b %d %H:%M:%S %Y";
+    const char *fmt = fmtstr ? s2c(fmtstr) : "%a %b %d %H:%M:%S %Y";
     // XXX: should check format string
     ((size_t (*)(char *, size_t, const char *, const struct tm *tm))strftime)
         (buff, sizeof buff, fmt, localtime(&tloc));
@@ -965,7 +947,7 @@ static SCXMEM string_t *dofmt(SCXMEM string_t *fmtstr, double v) {
     // XXX: Achtung Minen! snprintf from user supplied format string
     // XXX: MUST validate format string for no or single arg of type double
     // Prevent warning: format string is not a string literal [-Werror,-Wformat-nonliteral]
-    ((int (*)(char *, size_t, const char *, ...))snprintf)(buff, FBUFLEN, fmtstr->s, v);
+    ((int (*)(char *, size_t, const char *, ...))snprintf)(buff, FBUFLEN, s2c(fmtstr), v);
     free_string(fmtstr);
     return new_string(buff);
 }
@@ -1002,17 +984,17 @@ static SCXMEM string_t *doext(struct enode *se) {
 
     if (!extfunc) {
         error("Warning: external functions disabled; using %s value",
-              (se->e.o.s && *se->e.o.s->s) ? "previous" : "null");
+              sempty(se->e.o.s) ? "null" : "previous");
         free_string(command);
     } else {
-        if (!command || !*command->s) {
+        if (sempty(command)) {
             error("Warning: external function given null command name");
             cellerror = CELLERROR;
             free_string(command);
         } else {
             FILE *pf;
 
-            snprintf(buff, sizeof buff, "%s %.13g", command->s, value); /* build cmd line */
+            snprintf(buff, sizeof buff, "%s %.13g", s2c(command), value); /* build cmd line */
             free_string(command);
 
             error("Running external function...");
@@ -1028,7 +1010,7 @@ static SCXMEM string_t *doext(struct enode *se) {
                     size_t len = strlen(buff);
                     if (len && buff[len - 1] == '\n')   /* contains newline */
                         buff[--len] = '\0';             /* end string there */
-                    set_cstring(&se->e.o.s, buff);
+                    set_string(&se->e.o.s, new_string(buff));
                     error(" "); /* erase notice */
                 }
                 pclose(pf);
@@ -1050,38 +1032,12 @@ static SCXMEM string_t *doext(struct enode *se) {
 
 static SCXMEM string_t *dosval(SCXMEM string_t *colstr, double rowdoub) {
     struct ent *p = getent(colstr, rowdoub);
-    if (p && p->label)
+    if (p && p->label) {
         return dup_string(p->label);
-    else
-        return new_string("");
-}
-
-
-/*
- * Substring:  Note that v1 and v2 are one-based to users, but zero-based
- * when calling this routine.
- */
-
-// XXX: should handle UTF-8
-static SCXMEM string_t *dosubstr(SCXMEM string_t *s, int v1, int v2) {
-    SCXMEM string_t *p;
-
-    if (!s)
-        return NULL;
-
-    v2++;                           /* exclude end index */
-    if (v2 >= s->len) {             /* past end */
-        v2 = s->len;                /* to end */
-        if (v1 == 0)
-            return dup_string(s);
-    }
-    if (v1 < 0 || v1 >= v2) {       /* out of range, return empty string */
-        free_string(s);
+    } else {
+        // XXX: should convert numeric value
         return new_string("");
     }
-    p = new_string_len(&s->s[v1], v2 - v1);
-    free_string(s);
-    return p;
 }
 
 /*
@@ -1093,10 +1049,10 @@ static SCXMEM string_t *docase(int acase, SCXMEM string_t *s) {
     SCXMEM string_t *s2;
     char *p;
 
-    if (!s || !s->len)
+    if (sempty(s))
         return s;
 
-    s2 = new_string_len(s->s, s->len);
+    s2 = new_string_len(s->s, slen(s));
     if (!s2)
         return s2;
     free_string(s);
@@ -1128,10 +1084,10 @@ static SCXMEM string_t *docapital(SCXMEM string_t *s) {
     int skip = 1;
     int AllUpper = 1;
 
-    if (!s || !s->len)
+    if (sempty(s))
         return s;
 
-    s2 = new_string_len(s->s, s->len);
+    s2 = new_string_len(s2c(s), slen(s));
     if (!s2)
         return s2;
     free_string(s);
@@ -1175,7 +1131,7 @@ SCXMEM string_t *seval(struct enode *se) {
                             return NULL;
                         return dup_string(vp->label);
                     }
-    case '#':       return docat(seval(se->e.o.left), seval(se->e.o.right));
+    case '#':       return cat_strings(seval(se->e.o.left), seval(se->e.o.right));
     case 'f':       {
                         int rtmp = rowoffset;
                         int ctmp = coloffset;
@@ -1207,9 +1163,11 @@ SCXMEM string_t *seval(struct enode *se) {
                     }
     case EXT:       return doext(se);
     case SVAL:      return dosval(seval(se->e.o.left), eval(se->e.o.right));
-    case SUBSTR:    return dosubstr(seval(se->e.o.left),
-                                    (int)eval(se->e.o.right->e.o.left) - 1,
-                                    (int)eval(se->e.o.right->e.o.right) - 1);
+
+                    /* Substring: Note that v1 and v2 are one-based and v2 is included */
+    case SUBSTR:    return sub_string(seval(se->e.o.left),
+                                      (int)eval(se->e.o.right->e.o.left) - 1,
+                                      (int)eval(se->e.o.right->e.o.right));
     case COLTOA:    return new_string(coltoa((int)eval(se->e.o.left)));
     case FILENAME:  {
                         int n = (int)eval(se->e.o.left);
@@ -1323,12 +1281,12 @@ static void RealEvalOne(struct ent *p, int i, int j, int *chgct) {
         p->cellerror = cellerror;
         if (!v && !p->label) /* Everything's fine */
             return;
-        if (!p->label || !v || strcmp(v->s, p->label->s) != 0 || cellerror) {
+        if (!p->label || !v || strcmp(s2c(v), s2c(p->label)) != 0 || cellerror) {
             (*chgct)++;
             p->flags |= IS_CHANGED;
             changed++;
         }
-        set_string_t(&p->label, v);
+        set_string(&p->label, v);
     } else {
         double v;
         if (setjmp(fpe_save)) {
@@ -1426,7 +1384,7 @@ struct SCXMEM enode *new_const(int op, double a1) {
     return p;
 }
 
-struct SCXMEM enode *new_str(SCXMEM char *s) {
+struct SCXMEM enode *new_str(SCXMEM string_t *s) {
     SCXMEM struct enode *p;
 
     if (freeenodes) {
@@ -1436,7 +1394,7 @@ struct SCXMEM enode *new_str(SCXMEM char *s) {
         p = scxmalloc(sizeof(struct enode));
     }
     p->op = O_SCONST;
-    p->e.s = new_string(s);
+    p->e.s = s;
     return p;
 }
 
@@ -1746,7 +1704,7 @@ void slet(cellref_t cr, SCXMEM struct enode *se, int align) {
     if (!loading)
         push_mark(cr.row, cr.col);
 
-    set_string_t(&v->label, p);
+    set_string(&v->label, p);
     v->flags &= ~ALIGN_MASK;
     v->flags |= IS_CHANGED | align;
     if (v->expr) {
@@ -1786,7 +1744,7 @@ void efree(SCXMEM struct enode *e) {
     }
 }
 
-char *coltoa(int col) {
+const char *coltoa(int col) {
     static unsigned int bufn;
     static char buf[4][4];
     char *rname = buf[bufn++ & 3];
@@ -1845,7 +1803,7 @@ static void out_var(decomp_t *dcp, struct ent_ptr v, int usename) {
     &&  (r = find_nrange_coords(rangeref(v.vp->row, v.vp->col, v.vp->row, v.vp->col))) != NULL
     &&  !r->r_is_range) {
         // XXX: this is incorrect if the named range has different flags
-        buf_puts(dcp->buf, r->r_name);
+        buf_puts(dcp->buf, s2c(r->r_name));
     } else {
         buf_printf(dcp->buf, "%s%s%s%d",
                    (v.vf & FIX_COL) ? "$" : "", coltoa(col),
@@ -1861,7 +1819,7 @@ static void out_range(decomp_t *dcp, struct enode *e) {
                                          e->e.r.right.vp->row, e->e.r.right.vp->col))) != NULL
     &&  r->r_is_range) {
         // XXX: this is incorrect if the named range has different flags
-        buf_puts(dcp->buf, r->r_name);
+        buf_puts(dcp->buf, s2c(r->r_name));
     } else {
         out_var(dcp, e->e.r.left, 0);
         buf_putc(dcp->buf, ':');
@@ -1989,7 +1947,7 @@ static void decompile_node(decomp_t *dcp, struct enode *e, int priority) {
         case '!':       unary_arg(dcp, "!", e); break;
         case O_VAR:     out_var(dcp, e->e.v, 1); break;
         case O_CONST:   out_const(dcp, e->e.k); break;
-        case O_SCONST:  out_sconst(dcp, e->e.s->s); break;
+        case O_SCONST:  out_sconst(dcp, s2c(e->e.s)); break;
 
         case SUM:       index_arg(dcp, "@sum", e); break;
         case PROD:      index_arg(dcp, "@prod", e); break;

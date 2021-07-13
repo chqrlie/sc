@@ -177,10 +177,10 @@ int flush_saved(int idx) {
 void clearent(struct ent *v) {
     if (v) {
         v->v = 0.0;
-        set_string_t(&v->label, NULL);
+        set_string(&v->label, NULL);
         efree(v->expr);
         v->expr = NULL;
-        set_string_t(&v->format, NULL);
+        set_string(&v->format, NULL);
         v->cellerror = 0;
         v->flags = IS_CHANGED | IS_CLEARED;
         v->nrr = rangeref_empty();
@@ -1518,10 +1518,14 @@ void unlock_cells(rangeref_t rr) {
     modflg++;
 }
 
-void format_cells(rangeref_t rr, const char *s) {
+void format_cells(rangeref_t rr, SCXMEM string_t *s) {
     int r, c;
 
-    if (s && !*s) s = NULL;
+    if (s && !*s2c(s)) {
+        free_string(s);
+        s = NULL;
+    }
+
     // XXX: should be skip locked cells silently
     //      or should be fail with an error
     range_normalize(&rr);
@@ -1530,10 +1534,11 @@ void format_cells(rangeref_t rr, const char *s) {
             struct ent *p = lookat(r, c);
             if (p->flags & IS_LOCKED)
                 continue;
-            set_cstring(&p->format, s);
+            set_string(&p->format, dup_string(s));
             p->flags |= IS_CHANGED;
         }
     }
+    free_string(s);
     FullUpdate++;
     modflg++;
 }
@@ -1720,19 +1725,19 @@ void copyent(struct ent *n, struct ent *p, int dr, int dc,
                 n->flags &= ~IS_STREXPR;
         }
         if (p->label) {
-            set_string_t(&n->label, dup_string(p->label));
+            set_string(&n->label, dup_string(p->label));
         } else if (special != 'm') {
-            set_string_t(&n->label, NULL);
+            set_string(&n->label, NULL);
         }
         n->flags &= ~ALIGN_MASK;
         n->flags |= p->flags & ALIGN_MASK;
         n->flags |= p->flags & IS_LOCKED;
     }
     if (p->format) {
-        set_string_t(&n->format, dup_string(p->format));
+        set_string(&n->format, dup_string(p->format));
     } else
     if (special != 'm' && special != 'f') {
-        set_string_t(&n->format, NULL);
+        set_string(&n->format, NULL);
     }
     n->flags |= IS_CHANGED;
 }
@@ -1754,8 +1759,8 @@ void erasedb(void) {
             if (*pp) {
                 efree((*pp)->expr);
                 (*pp)->expr = NULL;
-                set_string_t(&(*pp)->label, NULL);
-                set_string_t(&(*pp)->format, NULL);
+                set_string(&(*pp)->label, NULL);
+                set_string(&(*pp)->format, NULL);
                 (*pp)->next = freeents; /* save [struct ent] for reuse */
                 freeents = *pp;
                 *pp = NULL;
@@ -1764,7 +1769,7 @@ void erasedb(void) {
     }
 
     for (c = 0; c < COLFORMATS; c++)
-        set_string_t(&colformat[c], NULL);
+        set_string(&colformat[c], NULL);
 
     maxrow = 0;
     maxcol = 0;
@@ -1793,11 +1798,11 @@ void erasedb(void) {
         savedst[c] = cellref(-1, -1);
     }
 
-    set_string_t(&mdir, NULL);
-    set_string_t(&autorun, NULL);
+    set_string(&mdir, NULL);
+    set_string(&autorun, NULL);
 
     for (c = 0; c < FKEYS; c++)
-        set_string_t(&fkey[c], NULL);
+        set_string(&fkey[c], NULL);
 
     // XXX: this should be in a different function
     /*
@@ -1849,8 +1854,29 @@ static int any_locked_cells(int r1, int c1, int r2, int c2) {
     return 0;
 }
 
-void set_histfile(const char *str) {
-    strlcpy(histfile, str, sizeof histfile);
+void set_histfile(SCXMEM string_t *str) {
+    strlcpy(histfile, str ? s2c(str) : "", sizeof histfile);
+    free_string(str);
+}
+
+void set_mdir(SCXMEM string_t *str) {
+    set_string(&mdir, str);
+    modflg++;
+}
+
+void set_autorun(SCXMEM string_t *str) {
+    set_string(&autorun, str);
+    modflg++;
+}
+
+void set_fkey(int n, SCXMEM string_t *str) {
+    if (n >= 0 && n < FKEYS) {
+        set_string(&fkey[n], str);
+        modflg++;
+    } else {
+        free_string(str);
+        error("Invalid function key");
+    }
 }
 
 void cmd_select_qbuf(char c) {
@@ -1865,27 +1891,33 @@ void cmd_select_qbuf(char c) {
     }
 }
 
-void cmd_setformat(int n, const char *str) {
+void cmd_setformat(int n, SCXMEM string_t *str) {
     if (n >= 0 && n < 10) {
-        if (str && !*str) str = NULL;
-        set_cstring(&colformat[n], str);
+        if (str && !*s2c(str)) {
+            free_string(str);
+            str = NULL;
+        }
+        set_string(&colformat[n], str);
         FullUpdate++;
         modflg++;
     } else {
         error("Invalid format number");
+        free_string(str);
     }
 }
 
-void cmd_run(const char *str) {
+void cmd_run(SCXMEM string_t *str) {
+    const char *cmd = str ? s2c(str) : "";
     deraw(1);
-    system(str);
-    if (*str && str[strlen(str) - 1] != '&') {
+    system(cmd);
+    if (*cmd && cmd[strlen(cmd) - 1] != '&') {
         printf("Press any key to continue ");
         fflush(stdout);
         cbreak();
         nmgetch(0);
     }
     goraw();
+    free_string(str);
 }
 
 void addnote(cellref_t cr, rangeref_t rr) {

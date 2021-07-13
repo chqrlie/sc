@@ -2,8 +2,10 @@
 
 [ ] write test cases for all commands and corner cases
 [ ] fix modflg, FullUpdate, modified, IS_CHANGED handling
-[ ] use sc_string_t: shared allocated strings with a reference count,
 [ ] hash sc_string_t in a dictionary?
+[ ] special case some sc_string_t like the empty string?
+[ ] all LISTABBREV instead of ABBREV hack?
+[ ] same for DEFINE with one or no arguments?
 [ ] validate and clip all ranges in commands
 [ ] add sheet number in cell references
 [ ] group sheet data in sheet_t structures
@@ -59,3 +61,4 @@
 [X] use rangeref_t and HAS_NOTE flag for notes
 [X] remove currow/curcol side effects in yankrows() and yankcols()
 [X] remove cellassign side effect
+[X] use sc_string_t: shared allocated strings with a reference count,

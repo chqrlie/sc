@@ -604,7 +604,7 @@ void update(int anychanged) {          /* did any cell really change in value? *
              i <= mxcol;
              i++)
         {
-            char *colname;
+            const char *colname;
             int len, width;
 
             if (fleftcols && stcol >= fr->or_left->col && col == rescol + flcols)
@@ -812,7 +812,7 @@ void update(int anychanged) {          /* did any cell really change in value? *
                             /* convert cell contents, do not test width, should not align */
                             *field = '\0';
                             if (p->format) {
-                                len = format(field, sizeof field, p->format->s, precision[col], p->v, &align);
+                                len = format(field, sizeof field, s2c(p->format), precision[col], p->v, &align);
                             } else {
                                 len = engformat(field, sizeof field, realfmt[col], precision[col], p->v, &align);
                             }
@@ -899,7 +899,7 @@ void update(int anychanged) {          /* did any cell really change in value? *
                          */
 
                         if (p->label) {
-                            showstring(p->label->s,
+                            showstring(s2c(p->label),
                                        p->flags & ALIGN_MASK,
                                        p->flags & IS_VALID,
                                        row, col, &nextcol, mxcol, &fieldlen,
@@ -979,7 +979,7 @@ void update(int anychanged) {          /* did any cell really change in value? *
 
             /* show the current cell's format */
             if (p && p->format) {
-                printw("(%s) ", p->format->s);
+                printw("(%s) ", s2c(p->format));
             } else {
                 printw("(%d %d %d) ", fwidth[curcol], precision[curcol],
                                       realfmt[curcol]);
@@ -1012,7 +1012,7 @@ void update(int anychanged) {          /* did any cell really change in value? *
                 if (p->label) {
                     /* has constant label only */
                     addch('\"');
-                    addstr(p->label->s);
+                    addstr(s2c(p->label));
                     addch('\"');
                     addch(' ');     /* separate label and value if any */
                 }

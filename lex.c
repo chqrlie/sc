@@ -33,7 +33,7 @@ static sigret_t fpe_trap(int);
 typedef union {
     int ival;
     double fval;
-    SCXMEM char *sval;
+    SCXMEM string_t *sval;
     SCXMEM struct enode *enode;
     struct cellref cval;
     struct rangeref rval;
@@ -244,7 +244,7 @@ int yylex(void) {
             if (plugin_exists(p0, p - p0, path, PATHLEN)) {
                 // XXX: really catenate the rest of the input line?
                 strlcat(path, p, PATHLEN);
-                yylval.sval = scxdup(path);
+                yylval.sval = new_string(path);
                 ret = PLUGIN;
                 break;
             } else {
@@ -339,17 +339,16 @@ int yylex(void) {
         } else
         if (*p == '"') {
             const char *p1;
-            size_t size = 1;
             char *ptr;
             p++;  /* skip the '"' */
             /* "string" or "string\"quoted\"" */
-            for (p1 = p; *p1 && *p1 != '"' && *p1 != '\n'; p1++) {
+            for (p1 = p, len = 0; *p1 && *p1 != '"' && *p1 != '\n'; p1++) {
                 if (*p1 == '\\' && (p1[1] == '"' || p1[1] == '\\'))
                     p1++;
-                size++;
+                len++;
             }
-            ptr = scxmalloc(size);
-            yylval.sval = ptr;
+            yylval.sval = new_string_len(NULL, len);
+            ptr = yylval.sval->s;
             while (*p && *p != '"' && *p != '\n') {
                 if (*p == '\\' && (p[1] == '"' || p[1] == '\\'))
                     p++;

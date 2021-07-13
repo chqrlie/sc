@@ -609,8 +609,9 @@ int engformat(char *buf, size_t size, int fmt, int lprecision, double val, int *
     double engmant, engabs, engexp;
     time_t secs;
 
+    // XXX: should ignore empty colformat?
     if (fmt >= 0 && fmt < COLFORMATS && colformat[fmt])
-        return format(buf, size, colformat[fmt]->s, lprecision, val, alignp);
+        return format(buf, size, s2c(colformat[fmt]), lprecision, val, alignp);
     switch (fmt) {
     case REFMTFIX:
         return snprintf(buf, size, "%.*f", lprecision, val);
