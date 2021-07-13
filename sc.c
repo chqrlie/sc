@@ -48,17 +48,17 @@ int cslop;
 int qbuf;       /* buffer no. specified by " command */
 int modflg;
 int numeric;
-SCXMEM char *mdir;
-SCXMEM char *autorun;
+SCXMEM string_t *mdir;
+SCXMEM string_t *autorun;
 int skipautorun;
-SCXMEM char *fkey[FKEYS];
-SCXMEM char *scext;
-SCXMEM char *ascext;
-SCXMEM char *tbl0ext;
-SCXMEM char *tblext;
-SCXMEM char *latexext;
-SCXMEM char *slatexext;
-SCXMEM char *texext;
+SCXMEM string_t *fkey[FKEYS];
+SCXMEM string_t *scext;
+SCXMEM string_t *ascext;
+SCXMEM string_t *tbl0ext;
+SCXMEM string_t *tblext;
+SCXMEM string_t *latexext;
+SCXMEM string_t *slatexext;
+SCXMEM string_t *texext;
 int scrc = 0;
 int showsc, showsr;     /* Starting cell for highlighted range */
 int usecurses = TRUE;   /* Use curses unless piping/redirection or using -q */

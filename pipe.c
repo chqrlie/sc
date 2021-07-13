@@ -191,16 +191,16 @@ void cmd_eval(struct enode *e, const char *fmt, int row, int col, int fd) {
 }
 
 void cmd_seval(struct enode *e, int row, int col, int fd) {
-    SCXMEM char *s;
+    SCXMEM string_t *str;
 
     gmyrow = row;
     gmycol = col;
 
-    s = seval(e);
-    if (s)
-        write(fd, s, strlen(s));
+    str = seval(e);
+    if (str)
+        write(fd, str->s, str->len);
     write(fd, "\n", 1);
-    scxfree(s);
+    free_string(str);
 }
 
 // XXX: this is an ugly hack

@@ -1521,6 +1521,7 @@ void unlock_cells(rangeref_t rr) {
 void format_cells(rangeref_t rr, const char *s) {
     int r, c;
 
+    if (s && !*s) s = NULL;
     // XXX: should be skip locked cells silently
     //      or should be fail with an error
     range_normalize(&rr);
@@ -1529,7 +1530,7 @@ void format_cells(rangeref_t rr, const char *s) {
             struct ent *p = lookat(r, c);
             if (p->flags & IS_LOCKED)
                 continue;
-            set_string_t(&p->format, s && *s ? new_string(s) : NULL);
+            set_cstring(&p->format, s);
             p->flags |= IS_CHANGED;
         }
     }
@@ -1792,11 +1793,11 @@ void erasedb(void) {
         savedst[c] = cellref(-1, -1);
     }
 
-    set_cstring(&mdir, NULL);
-    set_cstring(&autorun, NULL);
+    set_string_t(&mdir, NULL);
+    set_string_t(&autorun, NULL);
 
     for (c = 0; c < FKEYS; c++)
-        set_cstring(&fkey[c], NULL);
+        set_string_t(&fkey[c], NULL);
 
     // XXX: this should be in a different function
     /*
@@ -1848,25 +1849,6 @@ static int any_locked_cells(int r1, int c1, int r2, int c2) {
     return 0;
 }
 
-void set_mdir(const char *str) {
-    set_cstring(&mdir, str && *str ? str : NULL);
-    modflg++;
-}
-
-void set_autorun(const char *str) {
-    set_cstring(&autorun, str && *str ? str : NULL);
-    modflg++;
-}
-
-void set_fkey(int n, const char *str) {
-    if (n > 0 && n <= FKEYS) {
-        set_cstring(&fkey[n - 1], str && *str ? str : NULL);
-        modflg++;
-    } else {
-        error("Invalid function key");
-    }
-}
-
 void set_histfile(const char *str) {
     strlcpy(histfile, str, sizeof histfile);
 }
@@ -1885,7 +1867,8 @@ void cmd_select_qbuf(char c) {
 
 void cmd_setformat(int n, const char *str) {
     if (n >= 0 && n < 10) {
-        set_string_t(&colformat[n], str && *str ? new_string(str) : NULL);
+        if (str && !*str) str = NULL;
+        set_cstring(&colformat[n], str);
         FullUpdate++;
         modflg++;
     } else {

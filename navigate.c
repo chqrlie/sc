@@ -28,7 +28,7 @@ struct go_save gs;
 static void g_free(void) {
     switch (gs.g_type) {
     case G_STR:
-    case G_NSTR: set_string(&gs.g_s, NULL); break;
+    case G_NSTR: set_string_t(&gs.g_s, NULL); break;
     default: break;
     }
     gs.g_type = G_NONE;
@@ -56,7 +56,7 @@ void go_last(void) {
         num++;
         FALLTHROUGH;
     case G_STR:
-        str_search(gs.g_s, gs.g_rr, num);
+        str_search(gs.g_s->s, gs.g_rr, num);
         break;
 
     default:
@@ -221,7 +221,7 @@ void str_search(const char *s, rangeref_t rr, int num) {
 
     g_free();
     gs.g_type = G_STR + num;
-    gs.g_s = scxdup(s);
+    set_cstring(&gs.g_s, s);
     gs.g_rr = rr;
     firstrow = rr.left.row;
     firstcol = rr.left.col;

@@ -39,8 +39,6 @@ extern SCXMEM void *scxmalloc(size_t n);
 extern SCXMEM void *scxrealloc(SCXMEM void *ptr, size_t n);
 extern SCXMEM char *scxdup(const char *s);
 extern void scxfree(SCXMEM void *p);
-extern char *set_string(SCXMEM char **pp, SCXMEM char *s);
-extern char *set_cstring(SCXMEM char **pp, const char *s);
 
 /*---------------- string utilities ----------------*/
 
@@ -66,6 +64,7 @@ typedef struct string_t {
 }  string_t;
 
 string_t *new_string(const char *s);
+string_t *new_string_len(const char *s, size_t len);
 
 static inline string_t *dup_string(string_t *str) {
     if (str) str->refcount++;
@@ -78,10 +77,13 @@ static inline void free_string(string_t *str) {
 }
 
 static inline const char *s2s(const string_t *str) { return str->s; }
-static inline string_t *set_string_t(string_t **sp, string_t *str) {
+static inline void set_string_t(SCXMEM string_t **sp, SCXMEM string_t *str) {
     free_string(*sp);
-    return *sp = str;
+    *sp = str;
 }
+
+extern void set_string(SCXMEM string_t **pp, SCXMEM char *s);
+extern void set_cstring(SCXMEM string_t **pp, const char *s);
 
 /*---------------- char buffer utilities ----------------*/
 

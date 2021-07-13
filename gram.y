@@ -137,18 +137,23 @@ static void doquery(SCXMEM char *s, SCXMEM char *data, int fd) {
 }
 
 static void domdir(SCXMEM char *str) {
-    set_mdir(s2c(str));
-    scxfree(str);
+    set_string(&mdir, str);
+    modflg++;
 }
 
 static void doautorun(SCXMEM char *str) {
-    set_autorun(s2c(str));
-    scxfree(str);
+    set_string(&autorun, str);
+    modflg++;
 }
 
 static void dofkey(int n, SCXMEM char *str) {
-    set_fkey(n, s2c(str));
-    scxfree(str);
+    if (n >= 0 && n < FKEYS) {
+        set_string(&fkey[n], str);
+        modflg++;
+    } else {
+        scxfree(str);
+        error("Invalid function key");
+    }
 }
 
 static void dohistfile(SCXMEM char *str) {

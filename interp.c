@@ -61,7 +61,7 @@ static int constant_expr(struct enode *e, int full);
 static void RealEvalOne(struct ent *p, int i, int j, int *chgct);
 
 static double finfunc(int fun, double v1, double v2, double v3);
-static SCXMEM char *dostindex(int minr, int minc, int maxr, int maxc, struct enode *val);
+static SCXMEM string_t *dostindex(int minr, int minc, int maxr, int maxc, struct enode *val);
 static double doindex(int minr, int minc, int maxr, int maxc, struct enode *val);
 static double docount(int, int, int, int, struct enode *);
 static double dosum(int, int, int, int, struct enode *);
@@ -73,20 +73,20 @@ static double domin(int, int, int, int, struct enode *);
 static double dodts(int, int, int);
 static double dotts(int, int, int);
 static double dotime(int, double);
-static double doston(SCXMEM char *);
-static double doeqs(SCXMEM char *s1, SCXMEM char *s2);
-static struct ent *getent(SCXMEM char *colstr, double row);
-static double donval(SCXMEM char *colstr, double row);
+static double doston(SCXMEM string_t *);
+static double doeqs(SCXMEM string_t *s1, SCXMEM string_t *s2);
+static struct ent *getent(SCXMEM string_t *colstr, double row);
+static double donval(SCXMEM string_t *colstr, double row);
 static double dolmax(struct enode *);
 static double dolmin(struct enode *);
-static SCXMEM char *docat(SCXMEM char *s1, SCXMEM char *s2);
-static SCXMEM char *dodate(time_t, const char *);
-static SCXMEM char *dofmt(SCXMEM char *fmtstr, double v);
-static SCXMEM char *doext(struct enode *);
-static SCXMEM char *dosval(SCXMEM char *colstr, double row);
-static char *docapital(char *s);  // in place
-static char *docase(int acase, char *s);  // in place, UPPER or LOWER
-static SCXMEM char *dosubstr(SCXMEM char *, int, int);
+static SCXMEM string_t *docat(SCXMEM string_t *s1, SCXMEM string_t *s2);
+static SCXMEM string_t *dodate(time_t, SCXMEM string_t *);
+static SCXMEM string_t *dofmt(SCXMEM string_t *fmtstr, double v);
+static SCXMEM string_t *doext(struct enode *);
+static SCXMEM string_t *dosval(SCXMEM string_t *colstr, double row);
+static SCXMEM string_t *docapital(SCXMEM string_t *s);
+static SCXMEM string_t *docase(int acase, SCXMEM string_t *s);  // UPPER or LOWER
+static SCXMEM string_t *dosubstr(SCXMEM string_t *, int, int);
 
 #ifdef RINT
 double rint(double d);
@@ -142,7 +142,7 @@ static double finfunc(int fun, double v1, double v2, double v3) {
     return answer;
 }
 
-static SCXMEM char *dostindex(int minr, int minc, int maxr, int maxc, struct enode *val) {
+static SCXMEM string_t *dostindex(int minr, int minc, int maxr, int maxc, struct enode *val) {
     int r, c;
     struct ent *p;
 
@@ -162,7 +162,7 @@ static SCXMEM char *dostindex(int minr, int minc, int maxr, int maxc, struct eno
         if (p && p->label) {
             if (p->cellerror)
                 cellerror = CELLINVALID;
-            return scxdup(p->label->s);
+            return dup_string(p->label);
         }
     }
     return NULL;
@@ -200,7 +200,6 @@ static double dolookup(struct enode * val, int minr, int minc, int maxr, int max
     int r, c;
     struct ent *p = NULL;
     int incr, incc, fndr, fndc;
-    SCXMEM char *s = NULL;
 
     incr = vflag;
     incc = 1 - vflag;
@@ -229,11 +228,13 @@ static double dolookup(struct enode * val, int minr, int minc, int maxr, int max
             }
         }
     } else {
+        SCXMEM string_t *s;
+
         cellerror = CELLOK;
         s = seval(val);
         for (r = minr, c = minc; r <= maxr && c <= maxc; r += incr, c += incc) {
             if ((p = *ATBL(tbl, r, c)) && p->label) {
-                if (strcmp(p->label->s, s) == 0) {
+                if (strcmp(p->label->s, s->s) == 0) {
                     fndr = incc ? (minr + offset) : r;
                     fndc = incr ? (minc + offset) : c;
                     if (ISVALID(fndr, fndc)) {
@@ -250,7 +251,7 @@ static double dolookup(struct enode * val, int minr, int minc, int maxr, int max
         }
         if (p && (p->flags & IS_VALID))
             ret = p->v;
-        scxfree(s);
+        free_string(s);
     }
     return ret;
 }
@@ -547,18 +548,18 @@ static double dotime(int which, double when) {
     return 0.0;
 }
 
-static double doston(SCXMEM char *s) {
+static double doston(SCXMEM string_t *s) {
     double v;
 
     if (!s)
         return 0.0;
 
-    v = strtod(s, NULL);
-    scxfree(s);
+    v = strtod(s->s, NULL);
+    free_string(s);
     return v;
 }
 
-static double doeqs(SCXMEM char *s1, SCXMEM char *s2) {
+static double doeqs(SCXMEM string_t *s1, SCXMEM string_t *s2) {
     double v;
 
     if (!s1 && !s2)
@@ -566,13 +567,13 @@ static double doeqs(SCXMEM char *s1, SCXMEM char *s2) {
 
     if (!s1 || !s2)
         v = 0.0;
-    else if (strcmp(s1, s2) == 0)
+    else if (strcmp(s1->s, s2->s) == 0)
         v = 1.0;
     else
         v = 0.0;
 
-    scxfree(s1);
-    scxfree(s2);
+    free_string(s1);
+    free_string(s2);
 
     return v;
 }
@@ -583,7 +584,7 @@ static double doeqs(SCXMEM char *s1, SCXMEM char *s2) {
  * Use only the integer part of the column number.  Always free the string.
  */
 
-static struct ent *getent(SCXMEM char *colstr, double rowdoub) {
+static struct ent *getent(SCXMEM string_t *colstr, double rowdoub) {
     int collen;             /* length of string */
     int row, col;           /* integer values   */
     struct ent *p = NULL;   /* selected entry   */
@@ -595,14 +596,14 @@ static struct ent *getent(SCXMEM char *colstr, double rowdoub) {
 
     if (((row = (int)floor(rowdoub)) >= 0)
     &&  (row < maxrows)                          /* in range */
-    &&  ((col = atocol(colstr, &collen)) >= 0)   /* has column */
-    &&  (colstr[collen] == '\0')                 /* exact match */
+    &&  ((col = atocol(colstr->s, &collen)) >= 0)   /* has column */
+    &&  (colstr->s[collen] == '\0')                 /* exact match */
     &&  (col < maxcols)) {                       /* in range */
         p = *ATBL(tbl, row, col);
         if (p && p->cellerror)
             cellerror = CELLINVALID;
     }
-    scxfree(colstr);
+    free_string(colstr);
     return p;
 }
 
@@ -611,7 +612,7 @@ static struct ent *getent(SCXMEM char *colstr, double rowdoub) {
  * number, return the selected cell's numeric value, if any.
  */
 
-static double donval(SCXMEM char *colstr, double rowdoub) {
+static double donval(SCXMEM string_t *colstr, double rowdoub) {
     struct ent *ep = getent(colstr, rowdoub);
 
     return (ep && (ep->flags & IS_VALID)) ? ep->v : 0.0;
@@ -930,34 +931,33 @@ static double fn2_eval(double (*fn)(double, double), double arg1, double arg2) {
  * All returned strings are assumed to be xalloced.
  */
 
-static SCXMEM char *docat(SCXMEM char *s1, SCXMEM char *s2) {
+static SCXMEM string_t *docat(SCXMEM string_t *s1, SCXMEM string_t *s2) {
     size_t len1, len2;
-    char *p;
+    SCXMEM string_t *s3;
 
     if (!s1) return s2;
     if (!s2) return s1;
-    len1 = strlen(s1);
-    len2 = strlen(s2);
-    p = scxmalloc(len1 + len2 + 1);
-    memcpy(p, s1, len1);
-    memcpy(p + len1, s2, len2 + 1);
-    scxfree(s1);
-    scxfree(s2);
-    return p;
+    len1 = s1->len;
+    len2 = s2->len;
+    s3 = new_string_len(NULL, len1 + len2);
+    memcpy(s3->s, s1->s, len1);
+    memcpy(s3->s + len1, s2->s, len2 + 1);
+    free_string(s1);
+    free_string(s2);
+    return s3;
 }
 
-static SCXMEM char *dodate(time_t tloc, const char *fmtstr) {
+static SCXMEM string_t *dodate(time_t tloc, SCXMEM string_t *fmtstr) {
     char buff[FBUFLEN];
-
-    if (!fmtstr)
-        fmtstr = "%a %b %d %H:%M:%S %Y";
+    const char *fmt = fmtstr ? fmtstr->s : "%a %b %d %H:%M:%S %Y";
     // XXX: should check format string
     ((size_t (*)(char *, size_t, const char *, const struct tm *tm))strftime)
-        (buff, sizeof buff, fmtstr, localtime(&tloc));
-    return scxdup(buff);
+        (buff, sizeof buff, fmt, localtime(&tloc));
+    free_string(fmtstr);
+    return new_string(buff);
 }
 
-static SCXMEM char *dofmt(SCXMEM char *fmtstr, double v) {
+static SCXMEM string_t *dofmt(SCXMEM string_t *fmtstr, double v) {
     char buff[FBUFLEN];
 
     if (!fmtstr)
@@ -965,9 +965,9 @@ static SCXMEM char *dofmt(SCXMEM char *fmtstr, double v) {
     // XXX: Achtung Minen! snprintf from user supplied format string
     // XXX: MUST validate format string for no or single arg of type double
     // Prevent warning: format string is not a string literal [-Werror,-Wformat-nonliteral]
-    ((int (*)(char *, size_t, const char *, ...))snprintf)(buff, FBUFLEN, fmtstr, v);
-    scxfree(fmtstr);
-    return scxdup(buff);
+    ((int (*)(char *, size_t, const char *, ...))snprintf)(buff, FBUFLEN, fmtstr->s, v);
+    free_string(fmtstr);
+    return new_string(buff);
 }
 
 
@@ -983,39 +983,37 @@ static SCXMEM char *dofmt(SCXMEM char *fmtstr, double v) {
 
 #ifdef NOEXTFUNCS
 
-static SCXMEM char *doext(struct enode *se) {
-    SCXMEM char *command = seval(se->e.o.left);
+static SCXMEM string_t *doext(struct enode *se) {
+    SCXMEM string_t *command = seval(se->e.o.left);
     double value = eval(se->e.o.right);
 
     error("Warning: External functions unavailable");
     cellerror = CELLERROR;      /* not sure if this should be a cellerror */
-    scxfree(command);
-    return scxdup("");
+    free_string(command);
+    return new_string("");
 }
 
 #else /* NOEXTFUNCS */
 
-static SCXMEM char *doext(struct enode *se) {
+static SCXMEM string_t *doext(struct enode *se) {
     char buff[FBUFLEN];         /* command line/return, not permanently alloc */
-    SCXMEM char *command;
-    double value;
+    SCXMEM string_t *command = seval(se->e.o.left);
+    double value = eval(se->e.o.right);
 
-    command = seval(se->e.o.left);
-    value = eval(se->e.o.right);
     if (!extfunc) {
         error("Warning: external functions disabled; using %s value",
-              (se->e.o.s && *se->e.o.s) ? "previous" : "null");
-        scxfree(command);
+              (se->e.o.s && *se->e.o.s->s) ? "previous" : "null");
+        free_string(command);
     } else {
-        if (!command || !*command) {
+        if (!command || !*command->s) {
             error("Warning: external function given null command name");
             cellerror = CELLERROR;
-            scxfree(command);
+            free_string(command);
         } else {
             FILE *pf;
 
-            snprintf(buff, sizeof buff, "%s %.13g", command, value); /* build cmd line */
-            scxfree(command);
+            snprintf(buff, sizeof buff, "%s %.13g", command->s, value); /* build cmd line */
+            free_string(command);
 
             error("Running external function...");
             refresh();
@@ -1030,18 +1028,14 @@ static SCXMEM char *doext(struct enode *se) {
                     size_t len = strlen(buff);
                     if (len && buff[len - 1] == '\n')   /* contains newline */
                         buff[--len] = '\0';             /* end string there */
-                    if (!se->e.o.s || strcmp(se->e.o.s, buff)) {
-                        se->e.o.s = scxrealloc(se->e.o.s, len + 1);
-                        if (se->e.o.s)
-                            memcpy(se->e.o.s, buff, len + 1);
-                    }
+                    set_cstring(&se->e.o.s, buff);
                     error(" "); /* erase notice */
                 }
                 pclose(pf);
             }
         }
     }
-    return scxdup(se->e.o.s ? se->e.o.s : "");
+    return se->e.o.s ? dup_string(se->e.o.s) : new_string("");
 }
 
 #endif  /* NOEXTFUNCS */
@@ -1054,10 +1048,12 @@ static SCXMEM char *doext(struct enode *se) {
  * the expression is saved in a file, etc.
  */
 
-static SCXMEM char *dosval(SCXMEM char *colstr, double rowdoub) {
+static SCXMEM string_t *dosval(SCXMEM string_t *colstr, double rowdoub) {
     struct ent *p = getent(colstr, rowdoub);
-    const char *llabel = p ? p->label->s : "";
-    return scxdup(llabel);
+    if (p && p->label)
+        return dup_string(p->label);
+    else
+        return new_string("");
 }
 
 
@@ -1067,26 +1063,24 @@ static SCXMEM char *dosval(SCXMEM char *colstr, double rowdoub) {
  */
 
 // XXX: should handle UTF-8
-static SCXMEM char *dosubstr(SCXMEM char *s, int v1, int v2) {
-    SCXMEM char *p;
-    char *s1, *s2;
+static SCXMEM string_t *dosubstr(SCXMEM string_t *s, int v1, int v2) {
+    SCXMEM string_t *p;
 
     if (!s)
         return NULL;
 
-    if (v2 >= (ssize_t)strlen(s))       /* past end */
-        v2 = strlen(s) - 1;             /* to end   */
-
-    if (v1 < 0 || v1 > v2) {            /* out of range, return null string */
-        scxfree(s);
-        return scxdup("");
+    v2++;                           /* exclude end index */
+    if (v2 >= s->len) {             /* past end */
+        v2 = s->len;                /* to end */
+        if (v1 == 0)
+            return dup_string(s);
     }
-    s2 = p = scxmalloc(v2 - v1 + 2);
-    s1 = &s[v1];
-    for (; v1 <= v2; v1++)
-        *s2++ = *s1++;
-    *s2 = '\0';
-    scxfree(s);
+    if (v1 < 0 || v1 >= v2) {       /* out of range, return empty string */
+        free_string(s);
+        return new_string("");
+    }
+    p = new_string_len(&s->s[v1], v2 - v1);
+    free_string(s);
     return p;
 }
 
@@ -1095,28 +1089,30 @@ static SCXMEM char *dosubstr(SCXMEM char *s, int v1, int v2) {
  */
 
 // XXX: should handle UTF-8 encoded UNICODE stuff
-// XXX: string argument is modified in place?
-static char *docase(int acase, char *s) {
-    char *p = s;
+static SCXMEM string_t *docase(int acase, SCXMEM string_t *s) {
+    SCXMEM string_t *s2;
+    char *p;
 
-    if (s == NULL)
-        return NULL;
+    if (!s || !s->len)
+        return s;
 
+    s2 = new_string_len(s->s, s->len);
+    if (!s2)
+        return s2;
+    free_string(s);
     if (acase == UPPER) {
-        while (*p != '\0' ) {
+        for (p = s2->s; *p; p++) {
             if (islowerchar(*p))
                 *p = toupperchar(*p);
-            p++;
         }
     } else
     if (acase == LOWER) {
-        while (*p != '\0') {
+        for (p = s2->s; *p; p++) {
             if (isupperchar(*p))
                 *p = tolowerchar(*p);
-            p++;
         }
     }
-    return s;
+    return s2;
 }
 
 /*
@@ -1126,21 +1122,26 @@ static char *docase(int acase, char *s) {
  * if the string is all upper we will lower rest of words.
  */
 
-static char *docapital(char *s) {
+static SCXMEM string_t *docapital(SCXMEM string_t *s) {
+    SCXMEM string_t *s2;
     char *p;
     int skip = 1;
     int AllUpper = 1;
 
-    if (s == NULL)
-        return NULL;
+    if (!s || !s->len)
+        return s;
 
-    for (p = s; *p; p++) {
+    s2 = new_string_len(s->s, s->len);
+    if (!s2)
+        return s2;
+    free_string(s);
+    for (p = s2->s; *p; p++) {
         if (islowerchar(*p)) {
             AllUpper = 0;
             break;
         }
     }
-    for (p = s; *p; p++) {
+    for (p = s2->s; *p; p++) {
         if (!isalnumchar(*p))
             skip = 1;
         else
@@ -1152,13 +1153,13 @@ static char *docapital(char *s) {
         if (isupperchar(*p) && AllUpper != 0)
             *p = tolowerchar(*p);
     }
-    return s;
+    return s2;
 }
 
-SCXMEM char *seval(struct enode *se) {
+SCXMEM string_t *seval(struct enode *se) {
     if (se == NULL) return NULL;
     switch (se->op) {
-    case O_SCONST:  return scxdup(se->e.s);
+    case O_SCONST:  return dup_string(se->e.s);
     case O_VAR:     {
                         struct ent *vp = se->e.v.vp;
                         int row, col;
@@ -1172,13 +1173,13 @@ SCXMEM char *seval(struct enode *se) {
                         }
                         if (!vp || !vp->label)
                             return NULL;
-                        return scxdup(vp->label->s);
+                        return dup_string(vp->label);
                     }
     case '#':       return docat(seval(se->e.o.left), seval(se->e.o.right));
     case 'f':       {
                         int rtmp = rowoffset;
                         int ctmp = coloffset;
-                        SCXMEM char *ret;
+                        SCXMEM string_t *ret;
                         rowoffset = coloffset = 0;
                         ret = seval(se->e.o.left);
                         rowoffset = rtmp;
@@ -1209,11 +1210,11 @@ SCXMEM char *seval(struct enode *se) {
     case SUBSTR:    return dosubstr(seval(se->e.o.left),
                                     (int)eval(se->e.o.right->e.o.left) - 1,
                                     (int)eval(se->e.o.right->e.o.right) - 1);
-    case COLTOA:    return scxdup(coltoa((int)eval(se->e.o.left)));
+    case COLTOA:    return new_string(coltoa((int)eval(se->e.o.left)));
     case FILENAME:  {
                         int n = (int)eval(se->e.o.left);
                         const char *s = n ? curfile : get_basename(curfile);
-                        return scxdup(s);
+                        return new_string(s);
                     }
     default:
                     error("Illegal string expression");
@@ -1310,11 +1311,11 @@ static void RealEvalOne(struct ent *p, int i, int j, int *chgct) {
     gmycol = j;
 
     if (p->flags & IS_STREXPR) {
-        SCXMEM char *v;
+        SCXMEM string_t *v;
         if (setjmp(fpe_save)) {
             error("Floating point exception %s", v_name(i, j));
             cellerror = CELLERROR;
-            v = scxdup("");
+            v = new_string("");
         } else {
             cellerror = CELLOK;
             v = seval(p->expr);
@@ -1322,13 +1323,12 @@ static void RealEvalOne(struct ent *p, int i, int j, int *chgct) {
         p->cellerror = cellerror;
         if (!v && !p->label) /* Everything's fine */
             return;
-        if (!p->label || !v || strcmp(v, p->label->s) != 0 || cellerror) {
+        if (!p->label || !v || strcmp(v->s, p->label->s) != 0 || cellerror) {
             (*chgct)++;
             p->flags |= IS_CHANGED;
             changed++;
         }
-        set_string_t(&p->label, new_string(v));
-        scxfree(v);
+        set_string_t(&p->label, v);
     } else {
         double v;
         if (setjmp(fpe_save)) {
@@ -1436,7 +1436,7 @@ struct SCXMEM enode *new_str(SCXMEM char *s) {
         p = scxmalloc(sizeof(struct enode));
     }
     p->op = O_SCONST;
-    p->e.s = s;
+    p->e.s = new_string(s);
     return p;
 }
 
@@ -1554,7 +1554,7 @@ struct enode *copye(struct enode *e, int Rdelta, int Cdelta,
             break;
         case '$':
         case EXT:
-            ret->e.s = scxdup(e->e.s);
+            ret->e.s = dup_string(e->e.s);
             if (e->op == '$')       /* Drop through if ret->op is EXT */
                 break;
             FALLTHROUGH;
@@ -1711,7 +1711,7 @@ void let(cellref_t cr, SCXMEM struct enode *e) {
 
 void slet(cellref_t cr, SCXMEM struct enode *se, int align) {
     struct ent *v = lookat(cr.row, cr.col);
-    SCXMEM char *p;
+    SCXMEM string_t *p;
 
     // XXX: locked cell checking is done in vi.c
     //      should just return silently?
@@ -1725,7 +1725,7 @@ void slet(cellref_t cr, SCXMEM struct enode *se, int align) {
         error("Floating point exception in cell %s",
               v_name(cr.row, cr.col));
         cellerror = CELLERROR;
-        p = scxdup("");
+        p = new_string("");
     } else {
         cellerror = CELLOK;
         p = seval(se);
@@ -1739,15 +1739,14 @@ void slet(cellref_t cr, SCXMEM struct enode *se, int align) {
     }
     signal(SIGFPE, doquit);
     if (exprerr) {
-        scxfree(p);
+        free_string(p);
         efree(se);
         return;
     }
     if (!loading)
         push_mark(cr.row, cr.col);
 
-    set_string_t(&v->label, new_string(p));
-    scxfree(p);
+    set_string_t(&v->label, p);
     v->flags &= ~ALIGN_MASK;
     v->flags |= IS_CHANGED | align;
     if (v->expr) {
@@ -1774,11 +1773,14 @@ void efree(SCXMEM struct enode *e) {
             efree(e->e.o.left);
             efree(e->e.o.right);
         }
-        if (e->op == O_SCONST)
-            scxfree(e->e.s);
-        else
-        if (e->op == EXT)
-            scxfree(e->e.o.s);
+        if (e->op == O_SCONST) {
+            free_string(e->e.s);
+            e->e.s = NULL;
+        } else
+        if (e->op == EXT) {
+            free_string(e->e.o.s);
+            e->e.o.s = NULL;
+        }
         e->e.o.left = freeenodes;
         freeenodes = e;
     }
@@ -1987,7 +1989,7 @@ static void decompile_node(decomp_t *dcp, struct enode *e, int priority) {
         case '!':       unary_arg(dcp, "!", e); break;
         case O_VAR:     out_var(dcp, e->e.v, 1); break;
         case O_CONST:   out_const(dcp, e->e.k); break;
-        case O_SCONST:  out_sconst(dcp, e->e.s); break;
+        case O_SCONST:  out_sconst(dcp, e->e.s->s); break;
 
         case SUM:       index_arg(dcp, "@sum", e); break;
         case PROD:      index_arg(dcp, "@prod", e); break;

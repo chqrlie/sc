@@ -57,7 +57,7 @@ extern const char *progname;
 #define DEFPREC      2      /* Default precision */
 #define DEFREFMT  REFMTFIX  /* Make default format fixed point  THA 10/14/90 */
 
-#define FKEYS            24   /* Number of function keys available */
+#define FKEYS            25   /* Number of function keys available (0..24) */
 #define HISTLEN         100   /* Number of history entries for vi emulation */
 #define CPAIRS            8   /* Number of color pairs available */
 #define COLFORMATS       10   /* Number of custom column formats */
@@ -149,10 +149,10 @@ struct enode {
         double k;               /* constant # */
         struct ent_ptr v;       /* ref. another cell */
         struct range_s r;       /* op is on a range */
-        SCXMEM char *s;         /* op is a string constant */
+        SCXMEM string_t *s;     /* op is a string constant */
         struct {                /* other cells use to eval()/seval() */
             SCXMEM struct enode *left, *right;
-            SCXMEM char *s;     /* previous value of @ext function in case */
+            SCXMEM string_t *s; /* previous value of @ext function in case */
         } o;                    /*      external functions are turned off */
     } e;
 };
@@ -204,7 +204,7 @@ struct impexfilt {
 struct go_save {
     int g_type;
     double g_n;
-    SCXMEM char *g_s;
+    SCXMEM string_t *g_s;
     rangeref_t g_rr;
     cellref_t st;
     int stflag;
@@ -480,13 +480,13 @@ extern char mode_ind;           /* Mode indicator */
 extern int seenerr;
 extern int emacs_bindings;      /* use emacs-like bindings */
 extern sc_bool_t sc_decimal;    /* Set if there was a decimal point in the number */
-extern SCXMEM char *scext;
-extern SCXMEM char *ascext;
-extern SCXMEM char *tbl0ext;
-extern SCXMEM char *tblext;
-extern SCXMEM char *latexext;
-extern SCXMEM char *slatexext;
-extern SCXMEM char *texext;
+extern SCXMEM string_t *scext;
+extern SCXMEM string_t *ascext;
+extern SCXMEM string_t *tbl0ext;
+extern SCXMEM string_t *tblext;
+extern SCXMEM string_t *latexext;
+extern SCXMEM string_t *slatexext;
+extern SCXMEM string_t *texext;
 extern struct go_save gs;
 
 static inline cellref_t cellref(int row, int col) {
@@ -564,7 +564,7 @@ extern char *findplugin(const char *ext, char type);
 extern char *coltoa(int col);
 extern char *v_name(int row, int col);
 extern char *r_name(int r1, int c1, int r2, int c2);
-extern SCXMEM char *seval(struct enode *se);
+extern SCXMEM string_t *seval(struct enode *se);
 extern double eval(struct enode *e);
 extern int are_frames(void);
 extern int are_nranges(void);
@@ -650,9 +650,6 @@ extern int duprow(cellref_t cr);
 extern void cmd_query(const char *s, const char *data, int fd);
 extern void cmd_status(int fd);
 extern int cmd_plugin(const char *str);
-extern void set_mdir(const char *str);
-extern void set_autorun(const char *str);
-extern void set_fkey(int n, const char *str);
 extern void set_histfile(const char *str);
 extern void cmd_recalc(void);
 extern void cmd_run(const char *str);
@@ -746,10 +743,10 @@ extern int modflg;
 #ifndef NOCRYPT
 extern int Crypt;
 #endif
-extern SCXMEM char *mdir;
-extern SCXMEM char *autorun;
+extern SCXMEM string_t *mdir;
+extern SCXMEM string_t *autorun;
 extern int skipautorun;
-extern SCXMEM char *fkey[FKEYS];
+extern SCXMEM string_t *fkey[FKEYS];
 extern int scrc;
 extern double prescale;
 extern int extfunc;

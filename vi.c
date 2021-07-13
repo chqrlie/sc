@@ -109,7 +109,7 @@ static int search_dir;      /* Search direction:  forward = 0; back = 1 */
 static int mode = INSERT_MODE;
 static struct hist {
     unsigned int len;
-    char *histline;
+    SCXMEM char *histline;  /* should use string_t */
 } history[HISTLEN + 1];
 
 static int histp = 0;
@@ -663,7 +663,7 @@ void vi_interaction(void) {
                     narg = uarg * 10 + (c - '0');
                 }
             } else
-            if (c == KEY_F(1) && !fkey[c - KEY_F0 - 1]) {
+            if (c == KEY_F(1) && !(fkey[c - KEY_F0] && fkey[c - KEY_F0]->len)) {
                 deraw(1);
                 system("man sc");
                 goraw();
@@ -709,13 +709,13 @@ void vi_interaction(void) {
                 else
                     p->v -= (double)uarg;
             } else
-            if (c > KEY_F0 && c <= KEY_F(FKEYS)) {
+            if (c >= KEY_F0 && c <= KEY_F(FKEYS-1)) {
                 /* a function key was pressed */
-                if (fkey[c - KEY_F0 - 1]) {
+                if (fkey[c - KEY_F0] && fkey[c - KEY_F0]->len) {
                     char *tpp;
 
                     insert_mode();
-                    strlcpy(line, fkey[c - KEY_F0 - 1], sizeof line);
+                    strlcpy(line, fkey[c - KEY_F0]->s, sizeof line);
                     linelim = 0;
                     for (tpp = line; *tpp != '\0'; tpp++) {
                         if (*tpp == '\\' && tpp[1] == '"') {
@@ -1244,11 +1244,11 @@ void vi_interaction(void) {
                     if (*curfile) {
                         ext = get_extension(curfile);
                         /* keep the extension unless .sc or scext */
-                        if (strcmp(ext, ".sc") && !(scext && !strcmp(ext, scext)))
+                        if (strcmp(ext, ".sc") && !(scext && !strcmp(ext, scext->s)))
                             ext += strlen(ext);
                         error("Default path is \"%.*s.%s\"",
                               (int)(ext - curfile), curfile,
-                              scext ? scext : "sc");
+                              scext ? scext->s : "sc");
                     }
                     insert_mode();
                     break;
@@ -1257,8 +1257,8 @@ void vi_interaction(void) {
                     insert_mode();
                     break;
                 case 'R':
-                    if (mdir)
-                        set_line("merge [\"macro_file\"] \"%s", mdir);
+                    if (mdir && mdir->len)
+                        set_line("merge [\"macro_file\"] \"%s", mdir->s);
                     else
                         set_line("merge [\"macro_file\"] \"");
                     insert_mode();
@@ -1268,8 +1268,8 @@ void vi_interaction(void) {
                     insert_mode();
                     break;
                 case 'A':
-                    if (autorun)
-                        set_line("autorun [\"macro_file\"] \"%s", autorun);
+                    if (autorun && autorun->len)
+                        set_line("autorun [\"macro_file\"] \"%s", autorun->s);
                     else
                         set_line("autorun [\"macro_file\"] \"");
                     insert_mode();
@@ -1285,11 +1285,11 @@ void vi_interaction(void) {
                     if (*curfile) {
                         ext = get_extension(curfile);
                         /* keep the extension unless .sc or scext */
-                        if (strcmp(ext, ".sc") && !(scext && !strcmp(ext, scext)))
+                        if (strcmp(ext, ".sc") && !(scext && !strcmp(ext, scext->s)))
                             ext += strlen(ext);
                         error("Default file is \"%.*s.%s\"",
                               (int)(ext - curfile), curfile,
-                              ascext ? ascext : "asc");
+                              ascext ? ascext->s : "asc");
                     }
                     insert_mode();
                     break;
@@ -1303,28 +1303,28 @@ void vi_interaction(void) {
                     if (*curfile) {
                         ext = get_extension(curfile);
                         /* keep the extension unless .sc or scext */
-                        if (strcmp(ext, ".sc") && !(scext && !strcmp(ext, scext)))
+                        if (strcmp(ext, ".sc") && !(scext && !strcmp(ext, scext->s)))
                             ext += strlen(ext);
                         if (tbl_style == 0) {
                             error("Default file is \"%.*s.%s\"",
                                   (int)(ext - curfile), curfile,
-                                  tbl0ext ? tbl0ext : "cln");
+                                  tbl0ext ? tbl0ext->s : "cln");
                         } else if (tbl_style == TBL) {
                             error("Default file is \"%.*s.%s\"",
                                   (int)(ext - curfile), curfile,
-                                  tblext ? tblext : "tbl");
+                                  tblext ? tblext->s : "tbl");
                         } else if (tbl_style == LATEX) {
                             error("Default file is \"%.*s.%s\"",
                                   (int)(ext - curfile), curfile,
-                                  latexext ? latexext : "lat");
+                                  latexext ? latexext->s : "lat");
                         } else if (tbl_style == SLATEX) {
                             error("Default file is \"%.*s.%s\"",
                                   (int)(ext - curfile), curfile,
-                                  slatexext ? slatexext : "stx");
+                                  slatexext ? slatexext->s : "stx");
                         } else if (tbl_style == TEX) {
                             error("Default file is \"%.*s.%s\"",
                                   (int)(ext - curfile), curfile,
-                                  texext ? texext : "tex");
+                                  texext ? texext->s : "tex");
                         }
                     }
                     insert_mode();
@@ -2954,7 +2954,8 @@ static void save_hist(void) {
         strlcpy(history[lasthist].histline, line, history[lasthist].len);
         histsessionnew++;
     }
-    set_string(&history[0].histline, NULL);
+    scxfree(history[0].histline);
+    history[0].histline = NULL;
     history[0].len = 0;
     histp = 0;
 }

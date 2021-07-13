@@ -74,7 +74,7 @@ void add_nrange(const char *name, rangeref_t rr, int is_range) {
             /* empty cell to the left of the defined cell:
                set the cell label to the name.
              */
-            set_string_t(&cp->label, new_string(name));
+            set_cstring(&cp->label, name);
             cp->flags &= ~ALIGN_MASK;
             cp->flags |= ALIGN_DEFAULT;
             FullUpdate++;

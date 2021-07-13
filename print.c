@@ -31,11 +31,11 @@ void printfile(const char *fname, rangeref_t rr) {
             ext = get_extension(path);
 
             /* keep the extension unless .sc or scext */
-            if (strcmp(ext, ".sc") && !(scext && !strcmp(ext, scext)))
+            if (strcmp(ext, ".sc") && !(scext && !strcmp(ext, scext->s)))
                 ext += strlen(ext);
 
             snprintf(ext, path + sizeof(path) - ext, ".%s",
-                     ascext ? ascext : "asc");
+                     ascext ? ascext->s : "asc");
         } else {
             /* strarg in gram.y, always size of \0 terminated string. */
             strlcpy(path, fname, sizeof path);
@@ -228,28 +228,28 @@ void tblprintfile(const char *fname, rangeref_t rr) {
         ext = get_extension(path);
 
         /* keep the extension unless .sc or scext */
-        if (strcmp(ext, ".sc") && !(scext && !strcmp(ext, scext)))
+        if (strcmp(ext, ".sc") && !(scext && !strcmp(ext, scext->s)))
             ext += strlen(ext);
 
         if (tbl_style == 0) {
             snprintf(ext, path + sizeof(path) - ext, ".%s",
-                     tbl0ext ? tbl0ext : "cln");
+                     tbl0ext ? tbl0ext->s : "cln");
         } else
         if (tbl_style == TBL) {
             snprintf(ext, path + sizeof(path) - ext, ".%s",
-                     tblext ? tblext : "tbl");
+                     tblext ? tblext->s : "tbl");
         } else
         if (tbl_style == LATEX) {
             snprintf(ext, path + sizeof(path) - ext, ".%s",
-                     latexext ? latexext : "lat");
+                     latexext ? latexext->s : "lat");
         } else
         if (tbl_style == SLATEX) {
             snprintf(ext, path + sizeof(path) - ext, ".%s",
-                     slatexext ? slatexext : "stx");
+                     slatexext ? slatexext->s : "stx");
         } else
         if (tbl_style == TEX) {
             snprintf(ext, path + sizeof(path) - ext, ".%s",
-                     texext ? texext : "tex");
+                     texext ? texext->s : "tex");
         }
     } else {
         strlcpy(path, fname, sizeof path);

@@ -406,10 +406,11 @@ void write_fd(FILE *f, rangeref_t rr, int dcp_flags) {
     write_colors(f, 0);
     write_cranges(f);
 
-    if (mdir) fprintf(f, "mdir \"%s\"\n", mdir);
-    if (autorun) fprintf(f, "autorun \"%s\"\n", autorun);
+    if (mdir && mdir->len) fprintf(f, "mdir \"%s\"\n", mdir->s);
+    if (autorun && autorun->len) fprintf(f, "autorun \"%s\"\n", autorun->s);
     for (c = 0; c < FKEYS; c++) {
-        if (fkey[c]) fprintf(f, "fkey %d = \"%s\"\n", c + 1, fkey[c]);
+        if (fkey[c] && fkey[c]->len)
+            fprintf(f, "fkey %d = \"%s\"\n", c, fkey[c]->s);
     }
     write_cells(f, rr, rr.left, dcp_flags);
     for (r = rr.left.row; r <= rr.right.row; r++) {
@@ -520,10 +521,10 @@ int writefile(const char *fname, rangeref_t rr, int dcp_flags) {
     *tpp = '\0';
     ext = get_extension(tfname);
     if (scext != NULL) {
-        if (!strcmp(ext, ".sc") || (scext && !strcmp(ext, scext)))
+        if (!strcmp(ext, ".sc") || !strcmp(ext, scext->s))
             *ext = '\0';
         strlcat(tfname, ".", sizeof tfname);
-        strlcat(tfname, scext, sizeof tfname);
+        strlcat(tfname, scext->s, sizeof tfname);
     }
 
     strlcpy(save, tfname, sizeof save);
@@ -572,8 +573,8 @@ int readfile(const char *fname, int eraseflg) {
     tempautolabel = autolabel;          /* turn off auto label when */
     autolabel = 0;                      /* reading a file */
 
-    if (*fname == '*' && mdir) {
-        strlcpy(save, mdir, sizeof save);
+    if (*fname == '*' && mdir && mdir->len) {
+        strlcpy(save, mdir->s, sizeof save);
         strlcat(save, fname, sizeof save);
     } else {
         if (*fname == '\0')
@@ -686,7 +687,7 @@ int readfile(const char *fname, int eraseflg) {
     if (eraseflg) {
         strlcpy(curfile, save, sizeof curfile);
         modflg = 0;
-        if (autorun && !skipautorun) readfile(autorun, 0);
+        if (autorun && autorun->len && !skipautorun) readfile(autorun->s, 0);
         skipautorun = 0;
         EvalAll();
         if (*save) {

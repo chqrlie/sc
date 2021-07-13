@@ -72,16 +72,6 @@ void scxfree(void *p) {
     }
 }
 
-char *set_string(SCXMEM char **pp, SCXMEM char *s) {
-    scxfree(*pp);
-    return *pp = s;
-}
-
-char *set_cstring(SCXMEM char **pp, const char *s) {
-    scxfree(*pp);
-    return *pp = s ? scxdup(s) : NULL;
-}
-
 /*---------------- refcounted strings ----------------*/
 
 string_t *new_string(const char *s) {
@@ -93,6 +83,34 @@ string_t *new_string(const char *s) {
         memcpy(str->s, s, len + 1);
     }
     return str;
+}
+
+string_t *new_string_len(const char *s, size_t len) {
+    string_t *str = scxmalloc(offsetof(string_t, s) + len + 1);
+    if (str) {
+        str->refcount = 1;
+        str->len = len;
+        if (s) memcpy(str->s, s, len);
+        str->s[len] = '\0';
+    }
+    return str;
+}
+
+void set_string(SCXMEM string_t **pp, SCXMEM char *s) {
+    /* allocate string_t before freeing destination in case
+       s refers to the destination string */
+    SCXMEM string_t *str = s ? new_string(s) : NULL;
+    scxfree(s);
+    free_string(*pp);
+    *pp = str;
+}
+
+void set_cstring(SCXMEM string_t **pp, const char *s) {
+    /* allocate string_t before freeing destination in case
+       s refers to the destination string */
+    SCXMEM string_t *str = s ? new_string(s) : NULL;
+    free_string(*pp);
+    *pp = str;
 }
 
 /*---------------- string utilities ----------------*/
