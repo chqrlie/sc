@@ -89,7 +89,6 @@ struct key {
 // XXX: should warp in a structure for recursive calls to parse_line()
 static const char *src_line;
 static const char *src_pos;
-static int isfunc;
 static sc_bool_t isgoto;
 static sc_bool_t issetting;
 static sc_bool_t colstate;
@@ -100,7 +99,6 @@ int parse_line(const char *buf) {
     while (isspacechar(*buf))
         buf++;
     src_pos = src_line = buf;
-    isfunc = 0;
     isgoto = 0;
     issetting = 0;
     colstate = 0;
@@ -163,6 +161,7 @@ int yylex(void) {
     const char *p = src_pos;
     const char *p0;
     int ret = -1, len;
+    sc_bool_t isfunc = 0;
     struct nrange *r;
 
     for (;;) {
@@ -179,12 +178,10 @@ int yylex(void) {
             ret = -1;
             break;
         }
-#if 0
         if (*p == '@' && isalphachar_(p[1])) {
             isfunc = 1;
             p++;
         }
-#endif
         src_pos = p0 = p;
         if (isalphachar_(*p) || *p == '$') {
             // XXX: should only accept '$' in cell references
@@ -203,6 +200,16 @@ int yylex(void) {
                     break;
                 }
             }
+            if (isfunc) {
+                isfunc = 0;
+                if ((yylval.ival = lookup_name(funcres, p0, p - p0)) >= 0) {
+                    ret = yylval.ival;
+                    break;
+                }
+                yylval.ival = ret = '@'; // unknown function name, return single '@'
+                p = p0;
+                break;
+            }
             if (parse_cellref(p0, &yylval.cval, &len) && len == p - p0) {
                 ret = VAR;
                 break;
@@ -220,13 +227,6 @@ int yylex(void) {
             }
             if (issetting) {
                 if ((yylval.ival = lookup_name(settingres, p0, p - p0)) >= 0) {
-                    ret = yylval.ival;
-                    break;
-                }
-            }
-            if (isfunc) {
-                isfunc--;
-                if ((yylval.ival = lookup_name(funcres, p0, p - p0)) >= 0) {
                     ret = yylval.ival;
                     break;
                 }
@@ -251,7 +251,7 @@ int yylex(void) {
                 break;
             } else {
                 yyerror("Unintelligible word");
-                ret = -1;
+                ret = WORD;
                 break;
             }
         } else
@@ -267,7 +267,6 @@ int yylex(void) {
                 // XXX: was: yylval.fval = v; but gcc complains about v getting clobbered
                 yylval.fval = 0.0;
                 error("Floating point exception\n");
-                //isfunc = isgoto = 0;
                 return FNUMBER;
             }
 
@@ -362,7 +361,6 @@ int yylex(void) {
             ret = STRING;
         } else {
             yylval.ival = ret = *p++;
-            if (ret == '@') isfunc = 1;
         }
         break;
     }
