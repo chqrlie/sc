@@ -83,15 +83,7 @@ struct key {
     int val;
 };
 
-static struct key experres[] = {
-#include "experres.h"
-    { 0, 0 }
-};
-
-static struct key statres[] = {
-#include "statres.h"
-    { 0, 0 }
-};
+#include "tokens.h"
 
 /* Lexer context */
 // XXX: should warp in a structure for recursive calls to parse_line()
@@ -99,6 +91,7 @@ static const char *src_line;
 static const char *src_pos;
 static int isfunc;
 static sc_bool_t isgoto;
+static sc_bool_t issetting;
 static sc_bool_t colstate;
 static int dateflag;
 
@@ -109,6 +102,7 @@ int parse_line(const char *buf) {
     src_pos = src_line = buf;
     isfunc = 0;
     isgoto = 0;
+    issetting = 0;
     colstate = 0;
     dateflag = 0;
     ret = yyparse();
@@ -185,6 +179,12 @@ int yylex(void) {
             ret = -1;
             break;
         }
+#if 0
+        if (*p == '@' && isalphachar_(p[1])) {
+            isfunc = 1;
+            p++;
+        }
+#endif
         src_pos = p0 = p;
         if (isalphachar_(*p) || *p == '$') {
             // XXX: should only accept '$' in cell references
@@ -193,18 +193,13 @@ int yylex(void) {
 
             if (p0 == src_line) {
                 /* look up command name */
-                if ((ret = lookup_name(statres, p0, p - p0)) >= 0) {
+                if ((ret = lookup_name(cmdres, p0, p - p0)) >= 0) {
                     yylval.ival = ret;
+                    /* set context for specific keywords */
                     /* accept column names for some commands */
                     colstate = (ret <= S_FORMAT);
-                    /* goto only accepts ERROR and INVALID as keywords */
-                    // XXX: should use proper context
-                    if (ret == S_GOTO) {
-                        isgoto = 1;
-                        isfunc = 1;
-                    }
-                    /* set accepts multiple keywords */
-                    if (ret == S_SET) isfunc = 100;
+                    if (ret == S_GOTO) isgoto = 1;
+                    if (ret == S_SET) issetting = 1;
                     break;
                 }
             }
@@ -216,17 +211,24 @@ int yylex(void) {
                 ret = COL;
                 break;
             }
+            if (isgoto) {
+                if ((yylval.ival = lookup_name(gotores, p0, p - p0)) >= 0) {
+                    isgoto = 0;
+                    ret = yylval.ival;
+                    break;
+                }
+            }
+            if (issetting) {
+                if ((yylval.ival = lookup_name(settingres, p0, p - p0)) >= 0) {
+                    ret = yylval.ival;
+                    break;
+                }
+            }
             if (isfunc) {
                 isfunc--;
-                if ((yylval.ival = lookup_name(experres, p0, p - p0)) >= 0) {
+                if ((yylval.ival = lookup_name(funcres, p0, p - p0)) >= 0) {
                     ret = yylval.ival;
-                    if (isgoto) {
-                        isfunc = isgoto = 0;
-                        if (ret == K_ERROR || ret == K_INVALID)
-                            break;
-                    } else {
-                        break;
-                    }
+                    break;
                 }
             }
             if (!find_nrange_name(p0, p - p0, &r)) {
@@ -265,7 +267,7 @@ int yylex(void) {
                 // XXX: was: yylval.fval = v; but gcc complains about v getting clobbered
                 yylval.fval = 0.0;
                 error("Floating point exception\n");
-                isfunc = isgoto = 0;
+                //isfunc = isgoto = 0;
                 return FNUMBER;
             }
 
@@ -318,7 +320,7 @@ int yylex(void) {
                     yylval.fval = strtod(nstart, &endp);
                     p = endp;
                     if (!isfinite(yylval.fval))
-                        ret = K_ERR;
+                        ret = F_ERR;
                     else
                         sc_decimal = TRUE;
                 } else {
@@ -360,8 +362,7 @@ int yylex(void) {
             ret = STRING;
         } else {
             yylval.ival = ret = *p++;
-            if (ret == '@')
-                isfunc = 1;
+            if (ret == '@') isfunc = 1;
         }
         break;
     }

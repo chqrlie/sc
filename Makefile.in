@@ -387,13 +387,24 @@ $O/format.o: format.c $(DEPENDS)
 $O/frame.o: frame.c $(DEPENDS)
 	$(CC) $(_CFLAGS) -o $@ -c frame.c
 
-experres.h: gram.y Makefile
-	sed -e '/%token.*K_/!d' -e '/%token.*K_\(.*\)/s//	{ "\1", K_\1 },/' < gram.y > $@
-#	sed -f eres.sed < gram.y > experres.h
-
-statres.h: gram.y Makefile
-	sed -e '/%token.*S_/!d' -e '/%token.*S_\(.*\)/s//	{ "\1", S_\1 },/' < gram.y > $@
-#	sed -f sres.sed < gram.y > statres.h
+tokens.h: gram.y Makefile
+	@echo '/* file generated automatically, do not edit */' > $@
+	@echo 'static struct key cmdres[] = { // commands' >> $@
+	sed -e '/%token.*S_/!d' -e '/%token.*S_\(.*\)/s//	{ "\1", S_\1 },/' < gram.y >> $@
+	@echo '    { 0, 0 }' >> $@
+	@echo '};' >> $@
+	@echo 'static struct key gotores[] = { // goto targets' >> $@
+	sed -e '/%token.*G_/!d' -e '/%token.*G_\(.*\)/s//	{ "\1", G_\1 },/' < gram.y >> $@
+	@echo '    { 0, 0 }' >> $@
+	@echo '};' >> $@
+	@echo 'static struct key funcres[] = { // function names' >> $@
+	sed -e '/%token.*F_/!d' -e '/%token.*F_\(.*\)/s//	{ "\1", F_\1 },/' < gram.y >> $@
+	@echo '    { 0, 0 }' >> $@
+	@echo '};' >> $@
+	@echo 'static struct key settingres[] = { // settings' >> $@
+	sed -e '/%token.*K_/!d' -e '/%token.*K_\(.*\)/s//	{ "\1", K_\1 },/' < gram.y >> $@
+	@echo '    { 0, 0 }' >> $@
+	@echo '};' >> $@
 
 $O/gram.o: $(YTAB).c $(YTAB).h $(DEPENDS)
 	$(CC) $(_CFLAGS) -o $@ ${USELOCALE} -c $(YTAB).c
@@ -404,7 +415,7 @@ $O/help.o: help.c $(DEPENDS)
 $O/interp.o: interp.c $(DEPENDS)
 	$(CC) $(_CFLAGS) -o $@ ${FLOAT_STORE} ${IEEE_MATH} ${SIGVOID} ${RINT} ${REGEX} ${FMOD} -c interp.c
 
-$O/lex.o: $(YTAB).h $(YTAB).c lex.c $(DEPENDS) $(YTAB).h experres.h statres.h
+$O/lex.o: $(YTAB).h $(YTAB).c lex.c $(DEPENDS) $(YTAB).h tokens.h
 	$(CC) $(_CFLAGS) -o $@ ${SIMPLE} ${IEEE_MATH} ${LIBRARY} ${SIGVOID} ${NO_NOTIMEOUT} -c lex.c
 
 $O/lotus.o: lotus.c $(DEPENDS)

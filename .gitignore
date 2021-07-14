@@ -3,21 +3,21 @@ Makefile
 compat.h
 config.h
 config.log
+# intermediary make targets
+tokens.h
+y.tab.h
+y.tab.c
 # temp files
 m
 t
 x
 # targets
 .obj
-experres.h
 psc
 psc.1
 sc
 sc.1
 scqref
 scqref.1
-statres.h
 xsc
 xsc.1
-y.tab.h
-y.tab.c

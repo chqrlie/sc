@@ -194,73 +194,94 @@ static SCXMEM string_t *get_strarg(cellref_t cr) {
 %token S_PLUGIN
 %token S_PLUGOUT
 
-%token K_ERROR
-%token K_INVALID
-%token K_FIXED
-%token K_SUM
-%token K_PROD
-%token K_AVG
-%token K_STDDEV
-%token K_COUNT
-%token K_ROWS
-%token K_COLS
-%token K_ABS
-%token K_ACOS
-%token K_ASIN
-%token K_ATAN
-%token K_ATAN2
-%token K_CEIL
-%token K_COS
-%token K_EXP
-%token K_FABS
-%token K_FLOOR
-%token K_HYPOT
-%token K_LN
-%token K_LOG
-%token K_PI
-%token K_POW
-%token K_SIN
-%token K_SQRT
-%token K_TAN
-%token K_DTR
-%token K_RTD
-%token K_MAX
-%token K_MIN
-%token K_RAND
-%token K_RANDBETWEEN
-%token K_RND
-%token K_ROUND
-%token K_IF
+/* goto keywords */
+%token G_ERROR
+%token G_INVALID
 
-%token K_PV
-%token K_FV
-%token K_PMT
+/* function names */
+%token F_FIXED
+%token F_SUM
+%token F_PROD
+%token F_AVG
+%token F_STDDEV
+%token F_COUNT
+%token F_ROWS
+%token F_COLS
+%token F_ABS
+%token F_ACOS
+%token F_ASIN
+%token F_ATAN
+%token F_ATAN2
+%token F_CEIL
+%token F_COS
+%token F_EXP
+%token F_FABS
+%token F_FLOOR
+%token F_HYPOT
+%token F_LN
+%token F_LOG
+%token F_PI
+%token F_POW
+%token F_SIN
+%token F_SQRT
+%token F_TAN
+%token F_DTR
+%token F_RTD
+%token F_MAX
+%token F_MIN
+%token F_RAND
+%token F_RANDBETWEEN
+%token F_RND
+%token F_ROUND
+%token F_IF
 
-%token K_HOUR
-%token K_MINUTE
-%token K_SECOND
-%token K_MONTH
-%token K_DAY
-%token K_YEAR
-%token K_NOW
-%token K_DATE
-%token K_DTS
-%token K_TTS
-%token K_FMT
-%token K_SUBSTR
-%token K_UPPER
-%token K_LOWER
-%token K_CAPITAL
-%token K_STON
-%token K_EQS
-%token K_EXT
-%token K_NVAL
-%token K_SVAL
-%token K_LOOKUP
-%token K_HLOOKUP
-%token K_VLOOKUP
-%token K_INDEX
-%token K_STINDEX
+%token F_PV
+%token F_FV
+%token F_PMT
+
+%token F_HOUR
+%token F_MINUTE
+%token F_SECOND
+%token F_MONTH
+%token F_DAY
+%token F_YEAR
+%token F_NOW
+%token F_DATE
+%token F_DTS
+%token F_TTS
+%token F_FMT
+%token F_SUBSTR
+%token F_UPPER
+%token F_LOWER
+%token F_CAPITAL
+%token F_STON
+%token F_EQS
+%token F_EXT
+%token F_NVAL
+%token F_SVAL
+%token F_LOOKUP
+%token F_HLOOKUP
+%token F_VLOOKUP
+%token F_INDEX
+%token F_STINDEX
+%token F_BLACK
+%token F_RED
+%token F_GREEN
+%token F_YELLOW
+%token F_BLUE
+%token F_MAGENTA
+%token F_CYAN
+%token F_WHITE
+%token F_FILENAME
+%token F_MYROW
+%token F_MYCOL
+%token F_LASTROW
+%token F_LASTCOL
+%token F_COLTOA
+%token F_NUMITER
+%token F_ERR
+
+/* setting names */
 %token K_AUTO
 %token K_AUTOCALC
 %token K_AUTOINSERT
@@ -281,14 +302,6 @@ static SCXMEM string_t *get_strarg(cellref_t cr) {
 %token K_BRAILLE
 %token K_BACKUP
 %token K_MOUSE
-%token K_BLACK
-%token K_RED
-%token K_GREEN
-%token K_YELLOW
-%token K_BLUE
-%token K_MAGENTA
-%token K_CYAN
-%token K_WHITE
 %token K_TBLSTYLE
 %token K_TBL
 %token K_LATEX
@@ -296,12 +309,6 @@ static SCXMEM string_t *get_strarg(cellref_t cr) {
 %token K_TEX
 %token K_FRAME
 %token K_RNDTOEVEN
-%token K_FILENAME
-%token K_MYROW
-%token K_MYCOL
-%token K_LASTROW
-%token K_LASTCOL
-%token K_COLTOA
 %token K_CRACTION
 %token K_CRROW
 %token K_CRCOL
@@ -309,7 +316,6 @@ static SCXMEM string_t *get_strarg(cellref_t cr) {
 %token K_COLLIMIT
 %token K_PAGESIZE
 %token K_NUMITER
-%token K_ERR
 %token K_SCRC
 %token K_LOCALE
 %token K_EMACS
@@ -594,121 +600,121 @@ noval:                                  { $$ = DCP_DEFAULT; }
         ;
 
 term:     var                           { $$ = new_var(O_VAR, $1); }
-        | '@' K_FIXED term              { $$ = new_node('f', $3, NULL); }
-        | '(' '@' K_FIXED ')' term      { $$ = new_node('F', $5, NULL); }
-        | '@' K_SUM '(' var_or_range ')'  { $$ = new_range(SUM, $4, NULL); }
-        | '@' K_SUM '(' range ',' e ')'  { $$ = new_range(SUM, $4, $6); }
-        | '@' K_PROD '(' var_or_range ')'  { $$ = new_range(PROD, $4, NULL); }
-        | '@' K_PROD '(' range ',' e ')'  { $$ = new_range(PROD, $4, $6); }
-        | '@' K_AVG '(' var_or_range ')'  { $$ = new_range(AVG, $4, NULL); }
-        | '@' K_AVG '(' range ',' e ')'  { $$ = new_range(AVG, $4, $6); }
-        | '@' K_STDDEV '(' var_or_range ')'  { $$ = new_range(STDDEV, $4, NULL); }
-        | '@' K_STDDEV '(' range ',' e ')'  { $$ = new_range(STDDEV, $4, $6); }
-        | '@' K_COUNT '(' var_or_range ')'  { $$ = new_range(COUNT, $4, NULL); }
-        | '@' K_COUNT '(' range ',' e ')'  { $$ = new_range(COUNT, $4, $6); }
-        | '@' K_MAX '(' var_or_range ')'  { $$ = new_range(MAX, $4, NULL); }
-        | '@' K_MAX '(' range ',' e ')'  { $$ = new_range(MAX, $4, $6); }
-        | '@' K_MAX '(' e ',' expr_list ')'  { $$ = new_node(LMAX, $6, $4); }
-        | '@' K_MIN '(' var_or_range ')'  { $$ = new_range(MIN, $4, NULL); }
-        | '@' K_MIN '(' range ',' e ')'  { $$ = new_range(MIN, $4, $6); }
-        | '@' K_MIN '(' e ',' expr_list ')'  { $$ = new_node(LMIN, $6, $4); }
-        | '@' K_ROWS '(' var_or_range ')'  { $$ = new_range('R', $4, NULL); }
-        | '@' K_COLS '(' var_or_range ')'  { $$ = new_range('C', $4, NULL); }
+        | '@' F_FIXED term              { $$ = new_node('f', $3, NULL); }
+        | '(' '@' F_FIXED ')' term      { $$ = new_node('F', $5, NULL); }
+        | '@' F_SUM '(' var_or_range ')'  { $$ = new_range(SUM, $4, NULL); }
+        | '@' F_SUM '(' range ',' e ')'  { $$ = new_range(SUM, $4, $6); }
+        | '@' F_PROD '(' var_or_range ')'  { $$ = new_range(PROD, $4, NULL); }
+        | '@' F_PROD '(' range ',' e ')'  { $$ = new_range(PROD, $4, $6); }
+        | '@' F_AVG '(' var_or_range ')'  { $$ = new_range(AVG, $4, NULL); }
+        | '@' F_AVG '(' range ',' e ')'  { $$ = new_range(AVG, $4, $6); }
+        | '@' F_STDDEV '(' var_or_range ')'  { $$ = new_range(STDDEV, $4, NULL); }
+        | '@' F_STDDEV '(' range ',' e ')'  { $$ = new_range(STDDEV, $4, $6); }
+        | '@' F_COUNT '(' var_or_range ')'  { $$ = new_range(COUNT, $4, NULL); }
+        | '@' F_COUNT '(' range ',' e ')'  { $$ = new_range(COUNT, $4, $6); }
+        | '@' F_MAX '(' var_or_range ')'  { $$ = new_range(MAX, $4, NULL); }
+        | '@' F_MAX '(' range ',' e ')'  { $$ = new_range(MAX, $4, $6); }
+        | '@' F_MAX '(' e ',' expr_list ')'  { $$ = new_node(LMAX, $6, $4); }
+        | '@' F_MIN '(' var_or_range ')'  { $$ = new_range(MIN, $4, NULL); }
+        | '@' F_MIN '(' range ',' e ')'  { $$ = new_range(MIN, $4, $6); }
+        | '@' F_MIN '(' e ',' expr_list ')'  { $$ = new_node(LMIN, $6, $4); }
+        | '@' F_ROWS '(' var_or_range ')'  { $$ = new_range('R', $4, NULL); }
+        | '@' F_COLS '(' var_or_range ')'  { $$ = new_range('C', $4, NULL); }
 
-        | '@' K_ABS '(' e ')'           { $$ = new_node(ABS, $4, NULL); }
-        | '@' K_ACOS '(' e ')'          { $$ = new_node(ACOS, $4, NULL); }
-        | '@' K_ASIN '(' e ')'          { $$ = new_node(ASIN, $4, NULL); }
-        | '@' K_ATAN '(' e ')'          { $$ = new_node(ATAN, $4, NULL); }
-        | '@' K_ATAN2 '(' e ',' e ')'   { $$ = new_node(ATAN2, $4, $6); }
-        | '@' K_CEIL '(' e ')'          { $$ = new_node(CEIL, $4, NULL); }
-        | '@' K_COS '(' e ')'           { $$ = new_node(COS, $4, NULL); }
-        | '@' K_EXP '(' e ')'           { $$ = new_node(EXP, $4, NULL); }
-        | '@' K_FABS '(' e ')'          { $$ = new_node(FABS, $4, NULL); }
-        | '@' K_FLOOR '(' e ')'         { $$ = new_node(FLOOR, $4, NULL); }
-        | '@' K_HYPOT '(' e ',' e ')'   { $$ = new_node(HYPOT, $4, $6); }
-        | '@' K_LN '(' e ')'            { $$ = new_node(LOG, $4, NULL); }
-        | '@' K_LOG '(' e ')'           { $$ = new_node(LOG10, $4, NULL); }
-        | '@' K_POW '(' e ',' e ')'     { $$ = new_node(POW, $4, $6); }
-        | '@' K_SIN '(' e ')'           { $$ = new_node(SIN, $4, NULL); }
-        | '@' K_SQRT '(' e ')'          { $$ = new_node(SQRT, $4, NULL); }
-        | '@' K_TAN '(' e ')'           { $$ = new_node(TAN, $4, NULL); }
-        | '@' K_DTR '(' e ')'           { $$ = new_node(DTR, $4, NULL); }
-        | '@' K_RTD '(' e ')'           { $$ = new_node(RTD, $4, NULL); }
-        | '@' K_RAND '(' ')'            { $$ = new_node(RAND, NULL, NULL); }
-        | '@' K_RANDBETWEEN '(' e ',' e ')'  { $$ = new_node(RANDBETWEEN, $4, $6); }
-        | '@' K_RND '(' e ')'           { $$ = new_node(RND, $4, NULL); }
-        | '@' K_ROUND '(' e ',' e ')'   { $$ = new_node(ROUND, $4, $6); }
+        | '@' F_ABS '(' e ')'           { $$ = new_node(ABS, $4, NULL); }
+        | '@' F_ACOS '(' e ')'          { $$ = new_node(ACOS, $4, NULL); }
+        | '@' F_ASIN '(' e ')'          { $$ = new_node(ASIN, $4, NULL); }
+        | '@' F_ATAN '(' e ')'          { $$ = new_node(ATAN, $4, NULL); }
+        | '@' F_ATAN2 '(' e ',' e ')'   { $$ = new_node(ATAN2, $4, $6); }
+        | '@' F_CEIL '(' e ')'          { $$ = new_node(CEIL, $4, NULL); }
+        | '@' F_COS '(' e ')'           { $$ = new_node(COS, $4, NULL); }
+        | '@' F_EXP '(' e ')'           { $$ = new_node(EXP, $4, NULL); }
+        | '@' F_FABS '(' e ')'          { $$ = new_node(FABS, $4, NULL); }
+        | '@' F_FLOOR '(' e ')'         { $$ = new_node(FLOOR, $4, NULL); }
+        | '@' F_HYPOT '(' e ',' e ')'   { $$ = new_node(HYPOT, $4, $6); }
+        | '@' F_LN '(' e ')'            { $$ = new_node(LOG, $4, NULL); }
+        | '@' F_LOG '(' e ')'           { $$ = new_node(LOG10, $4, NULL); }
+        | '@' F_POW '(' e ',' e ')'     { $$ = new_node(POW, $4, $6); }
+        | '@' F_SIN '(' e ')'           { $$ = new_node(SIN, $4, NULL); }
+        | '@' F_SQRT '(' e ')'          { $$ = new_node(SQRT, $4, NULL); }
+        | '@' F_TAN '(' e ')'           { $$ = new_node(TAN, $4, NULL); }
+        | '@' F_DTR '(' e ')'           { $$ = new_node(DTR, $4, NULL); }
+        | '@' F_RTD '(' e ')'           { $$ = new_node(RTD, $4, NULL); }
+        | '@' F_RAND '(' ')'            { $$ = new_node(RAND, NULL, NULL); }
+        | '@' F_RANDBETWEEN '(' e ',' e ')'  { $$ = new_node(RANDBETWEEN, $4, $6); }
+        | '@' F_RND '(' e ')'           { $$ = new_node(RND, $4, NULL); }
+        | '@' F_ROUND '(' e ',' e ')'   { $$ = new_node(ROUND, $4, $6); }
 
-        | '@' K_IF '(' e ',' e ',' e ')' { $$ = new_node(IF, $4, new_node(',', $6, $8)); }
+        | '@' F_IF '(' e ',' e ',' e ')' { $$ = new_node(IF, $4, new_node(',', $6, $8)); }
 
-        | '@' K_PV '(' e ',' e ',' e ')' { $$ = new_node(PV, $4, new_node(':', $6, $8)); }
-        | '@' K_FV '(' e ',' e ',' e ')' { $$ = new_node(FV, $4, new_node(':', $6, $8)); }
-        | '@' K_PMT '(' e ',' e ',' e ')' { $$ = new_node(PMT, $4, new_node(':', $6, $8)); }
+        | '@' F_PV '(' e ',' e ',' e ')' { $$ = new_node(PV, $4, new_node(':', $6, $8)); }
+        | '@' F_FV '(' e ',' e ',' e ')' { $$ = new_node(FV, $4, new_node(':', $6, $8)); }
+        | '@' F_PMT '(' e ',' e ',' e ')' { $$ = new_node(PMT, $4, new_node(':', $6, $8)); }
 
-        | '@' K_HOUR '(' e ')'          { $$ = new_node(HOUR, $4, NULL); }
-        | '@' K_MINUTE '(' e ')'        { $$ = new_node(MINUTE, $4, NULL); }
-        | '@' K_SECOND '(' e ')'        { $$ = new_node(SECOND, $4, NULL); }
-        | '@' K_MONTH '(' e ')'         { $$ = new_node(MONTH, $4, NULL); }
-        | '@' K_DAY '(' e ')'           { $$ = new_node(DAY, $4, NULL); }
-        | '@' K_YEAR '(' e ')'          { $$ = new_node(YEAR, $4, NULL); }
-        | '@' K_NOW                     { $$ = new_node(NOW, NULL, NULL); }
-        | '@' K_DTS '(' e ',' e ',' e ')'  { $$ = new_node(DTS, $4, new_node(',', $6, $8)); }
+        | '@' F_HOUR '(' e ')'          { $$ = new_node(HOUR, $4, NULL); }
+        | '@' F_MINUTE '(' e ')'        { $$ = new_node(MINUTE, $4, NULL); }
+        | '@' F_SECOND '(' e ')'        { $$ = new_node(SECOND, $4, NULL); }
+        | '@' F_MONTH '(' e ')'         { $$ = new_node(MONTH, $4, NULL); }
+        | '@' F_DAY '(' e ')'           { $$ = new_node(DAY, $4, NULL); }
+        | '@' F_YEAR '(' e ')'          { $$ = new_node(YEAR, $4, NULL); }
+        | '@' F_NOW                     { $$ = new_node(NOW, NULL, NULL); }
+        | '@' F_DTS '(' e ',' e ',' e ')'  { $$ = new_node(DTS, $4, new_node(',', $6, $8)); }
                                         // XXX: should return a specific token, same for x/x/x and x:x and x:x:x
         | NUMBER '.' NUMBER '.' NUMBER  { $$ = new_node(DTS,
                                                    new_const(O_CONST, (double)$1),
                                                    new_node(',', new_const(O_CONST, (double)$3),
                                                        new_const(O_CONST, (double)$5))); }
-        | '@' K_TTS '(' e ',' e ',' e ')'  { $$ = new_node(TTS, $4, new_node(',', $6, $8)); }
-        | '@' K_STON '(' e ')'          { $$ = new_node(STON, $4, NULL); }
-        | '@' K_EQS '(' e ',' e ')'     { $$ = new_node(EQS, $4, $6); }
-        | '@' K_DATE '(' e ')'          { $$ = new_node(DATE, $4, NULL); }
-        | '@' K_DATE '(' e ',' e ')'    { $$ = new_node(DATE, $4, $6); }
-        | '@' K_FMT '(' e ',' e ')'     { $$ = new_node(FMT, $4, $6); }
-        | '@' K_UPPER '(' e ')'         { $$ = new_node(UPPER, $4, NULL); }
-        | '@' K_LOWER '(' e ')'         { $$ = new_node(LOWER, $4, NULL); }
-        | '@' K_CAPITAL '(' e ')'       { $$ = new_node(CAPITAL, $4, NULL); }
-        | '@' K_INDEX '(' range ',' e ')'  { $$ = new_range(INDEX, $4, $6); }
-        | '@' K_INDEX '(' e ',' range ')'  { $$ = new_range(INDEX, $6, $4); }
-        | '@' K_INDEX '(' range ',' e ',' e ')'  { $$ = new_range(INDEX, $4, new_node(',', $6, $8)); }
-        | '@' K_LOOKUP '(' range ',' e ')'  { $$ = new_range(LOOKUP, $4, $6); }
-        | '@' K_LOOKUP '(' e ',' range ')'  { $$ = new_range(LOOKUP, $6, $4); }
-        | '@' K_HLOOKUP '(' range ',' e ',' e ')'  { $$ = new_range(HLOOKUP, $4, new_node(',', $6, $8)); }
-        | '@' K_HLOOKUP '(' e ',' range ',' e ')'  { $$ = new_range(HLOOKUP, $6, new_node(',', $4, $8)); }
-        | '@' K_VLOOKUP '(' range ',' e ',' e ')'  { $$ = new_range(VLOOKUP, $4, new_node(',', $6, $8)); }
-        | '@' K_VLOOKUP '(' e ',' range ',' e ')'  { $$ = new_range(VLOOKUP, $6, new_node(',', $4, $8)); }
-        | '@' K_STINDEX '(' range ',' e ')'  { $$ = new_range(STINDEX, $4, $6); }
-        | '@' K_STINDEX '(' e ',' range ')'  { $$ = new_range(STINDEX, $6, $4); }
-        | '@' K_STINDEX '(' range ',' e ',' e ')'  { $$ = new_range(STINDEX, $4, new_node(',', $6, $8)); }
-        | '@' K_EXT '(' e ',' e ')'     { $$ = new_node(EXT, $4, $6); }
-        | '@' K_NVAL '(' e ',' e ')'    { $$ = new_node(NVAL, $4, $6); }
-        | '@' K_SVAL '(' e ',' e ')'    { $$ = new_node(SVAL, $4, $6); }
-        | '@' K_SUBSTR '(' e ',' e ',' e ')'  { $$ = new_node(SUBSTR, $4, new_node(',', $6, $8)); }
+        | '@' F_TTS '(' e ',' e ',' e ')'  { $$ = new_node(TTS, $4, new_node(',', $6, $8)); }
+        | '@' F_STON '(' e ')'          { $$ = new_node(STON, $4, NULL); }
+        | '@' F_EQS '(' e ',' e ')'     { $$ = new_node(EQS, $4, $6); }
+        | '@' F_DATE '(' e ')'          { $$ = new_node(DATE, $4, NULL); }
+        | '@' F_DATE '(' e ',' e ')'    { $$ = new_node(DATE, $4, $6); }
+        | '@' F_FMT '(' e ',' e ')'     { $$ = new_node(FMT, $4, $6); }
+        | '@' F_UPPER '(' e ')'         { $$ = new_node(UPPER, $4, NULL); }
+        | '@' F_LOWER '(' e ')'         { $$ = new_node(LOWER, $4, NULL); }
+        | '@' F_CAPITAL '(' e ')'       { $$ = new_node(CAPITAL, $4, NULL); }
+        | '@' F_INDEX '(' range ',' e ')'  { $$ = new_range(INDEX, $4, $6); }
+        | '@' F_INDEX '(' e ',' range ')'  { $$ = new_range(INDEX, $6, $4); }
+        | '@' F_INDEX '(' range ',' e ',' e ')'  { $$ = new_range(INDEX, $4, new_node(',', $6, $8)); }
+        | '@' F_LOOKUP '(' range ',' e ')'  { $$ = new_range(LOOKUP, $4, $6); }
+        | '@' F_LOOKUP '(' e ',' range ')'  { $$ = new_range(LOOKUP, $6, $4); }
+        | '@' F_HLOOKUP '(' range ',' e ',' e ')'  { $$ = new_range(HLOOKUP, $4, new_node(',', $6, $8)); }
+        | '@' F_HLOOKUP '(' e ',' range ',' e ')'  { $$ = new_range(HLOOKUP, $6, new_node(',', $4, $8)); }
+        | '@' F_VLOOKUP '(' range ',' e ',' e ')'  { $$ = new_range(VLOOKUP, $4, new_node(',', $6, $8)); }
+        | '@' F_VLOOKUP '(' e ',' range ',' e ')'  { $$ = new_range(VLOOKUP, $6, new_node(',', $4, $8)); }
+        | '@' F_STINDEX '(' range ',' e ')'  { $$ = new_range(STINDEX, $4, $6); }
+        | '@' F_STINDEX '(' e ',' range ')'  { $$ = new_range(STINDEX, $6, $4); }
+        | '@' F_STINDEX '(' range ',' e ',' e ')'  { $$ = new_range(STINDEX, $4, new_node(',', $6, $8)); }
+        | '@' F_EXT '(' e ',' e ')'     { $$ = new_node(EXT, $4, $6); }
+        | '@' F_NVAL '(' e ',' e ')'    { $$ = new_node(NVAL, $4, $6); }
+        | '@' F_SVAL '(' e ',' e ')'    { $$ = new_node(SVAL, $4, $6); }
+        | '@' F_SUBSTR '(' e ',' e ',' e ')'  { $$ = new_node(SUBSTR, $4, new_node(',', $6, $8)); }
         |     '(' e ')'                 { $$ = $2; }
         |     '+' term                  { $$ = $2; }
         |     '-' term                  { $$ = new_node('m', $2, NULL); }
         |     NUMBER                    { $$ = new_const(O_CONST, (double)$1); }
         |     FNUMBER                   { $$ = new_const(O_CONST, $1); }
-        | '@' K_PI                      { $$ = new_node(PI_, NULL, NULL); }
+        | '@' F_PI                      { $$ = new_node(PI_, NULL, NULL); }
         |     STRING                    { $$ = new_str($1); }
         |     '~' term                  { $$ = new_node('!', $2, NULL); }
         |     '!' term                  { $$ = new_node('!', $2, NULL); }
-        | '@' K_FILENAME '(' e ')'      { $$ = new_node(FILENAME, $4, NULL); }
-        | '@' K_MYROW                   { $$ = new_node(MYROW, NULL, NULL); }
-        | '@' K_MYCOL                   { $$ = new_node(MYCOL, NULL, NULL); }
-        | '@' K_LASTROW                 { $$ = new_node(LASTROW, NULL, NULL); }
-        | '@' K_LASTCOL                 { $$ = new_node(LASTCOL, NULL, NULL); }
-        | '@' K_COLTOA '(' e ')'        { $$ = new_node(COLTOA, $4, NULL); }
-        | '@' K_NUMITER                 { $$ = new_node(NUMITER, NULL, NULL); }
-        | '@' K_ERR                     { $$ = new_node(ERR_, NULL, NULL); }
-        |     K_ERR                     { $$ = new_node(ERR_, NULL, NULL); }
-        | '@' K_BLACK                   { $$ = new_node(BLACK, NULL, NULL); }
-        | '@' K_RED                     { $$ = new_node(RED, NULL, NULL); }
-        | '@' K_GREEN                   { $$ = new_node(GREEN, NULL, NULL); }
-        | '@' K_YELLOW                  { $$ = new_node(YELLOW, NULL, NULL); }
-        | '@' K_BLUE                    { $$ = new_node(BLUE, NULL, NULL); }
-        | '@' K_MAGENTA                 { $$ = new_node(MAGENTA, NULL, NULL); }
-        | '@' K_CYAN                    { $$ = new_node(CYAN, NULL, NULL); }
-        | '@' K_WHITE                   { $$ = new_node(WHITE, NULL, NULL); }
+        | '@' F_FILENAME '(' e ')'      { $$ = new_node(FILENAME, $4, NULL); }
+        | '@' F_MYROW                   { $$ = new_node(MYROW, NULL, NULL); }
+        | '@' F_MYCOL                   { $$ = new_node(MYCOL, NULL, NULL); }
+        | '@' F_LASTROW                 { $$ = new_node(LASTROW, NULL, NULL); }
+        | '@' F_LASTCOL                 { $$ = new_node(LASTCOL, NULL, NULL); }
+        | '@' F_COLTOA '(' e ')'        { $$ = new_node(COLTOA, $4, NULL); }
+        | '@' F_NUMITER                 { $$ = new_node(NUMITER, NULL, NULL); }
+        | '@' F_ERR                     { $$ = new_node(ERR_, NULL, NULL); }
+        |     F_ERR                     { $$ = new_node(ERR_, NULL, NULL); }  // XXX: should handle errors differently
+        | '@' F_BLACK                   { $$ = new_node(BLACK, NULL, NULL); }
+        | '@' F_RED                     { $$ = new_node(RED, NULL, NULL); }
+        | '@' F_GREEN                   { $$ = new_node(GREEN, NULL, NULL); }
+        | '@' F_YELLOW                  { $$ = new_node(YELLOW, NULL, NULL); }
+        | '@' F_BLUE                    { $$ = new_node(BLUE, NULL, NULL); }
+        | '@' F_MAGENTA                 { $$ = new_node(MAGENTA, NULL, NULL); }
+        | '@' F_CYAN                    { $$ = new_node(CYAN, NULL, NULL); }
+        | '@' F_WHITE                   { $$ = new_node(WHITE, NULL, NULL); }
         ;
 
 /* expressions */
@@ -824,8 +830,8 @@ setitem : K_AUTO                    { setautocalc(1); }
         ;
 
 /* types of errors, to 'goto' */
-errlist:  K_ERROR range             { num_search(0.0, $2, CELLERROR); }
-        | K_ERROR                   { num_search(0.0, rangeref_total(), CELLERROR); }
-        | K_INVALID range           { num_search(0.0, $2, CELLINVALID); }
-        | K_INVALID                 { num_search(0.0, rangeref_total(), CELLINVALID); }
+errlist:  G_ERROR range             { num_search(0.0, $2, CELLERROR); }
+        | G_ERROR                   { num_search(0.0, rangeref_total(), CELLERROR); }
+        | G_INVALID range           { num_search(0.0, $2, CELLINVALID); }
+        | G_INVALID                 { num_search(0.0, rangeref_total(), CELLINVALID); }
         ;
