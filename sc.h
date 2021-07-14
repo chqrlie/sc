@@ -218,6 +218,10 @@ struct go_save {
 #define O_SCONST '$'
 #define REDUCE 0200     /* Or'ed into OP if operand is a range */
 
+#define OP_LE 128
+#define OP_GE 129
+#define OP_NE 130
+
 #define OP_BASE 256
 #define ACOS      (OP_BASE + 0)
 #define ASIN      (OP_BASE + 1)
@@ -584,9 +588,18 @@ extern struct abbrev *find_abbr(const char *abbrev, int len, struct abbrev **pre
 extern struct enode *copye(struct enode *e, int Rdelta, int Cdelta,
                            int r1, int c1, int r2, int c2, int transpose);
 
-extern SCXMEM struct enode *new_node(int op, SCXMEM struct enode *a1, SCXMEM struct enode *a2);
-extern SCXMEM struct enode *new_const(int op, double a1);
-extern SCXMEM struct enode *new_range(int op, rangeref_t rr, SCXMEM struct enode *a2);
+extern SCXMEM struct enode *new_op0(int op);
+extern SCXMEM struct enode *new_op1(int op, SCXMEM struct enode *a1);
+extern SCXMEM struct enode *new_op2(int op, SCXMEM struct enode *a1,
+                                    SCXMEM struct enode *a2);
+extern SCXMEM struct enode *new_op3(int op, SCXMEM struct enode *a1,
+                                    SCXMEM struct enode *a2,
+                                    SCXMEM struct enode *a3);
+extern SCXMEM struct enode *new_const(double a1);
+extern SCXMEM struct enode *new_range0(int op, rangeref_t rr);
+extern SCXMEM struct enode *new_range1(int op, rangeref_t rr, SCXMEM struct enode *a1);
+extern SCXMEM struct enode *new_range2(int op, rangeref_t rr, SCXMEM struct enode *a1,
+                                       SCXMEM struct enode *a2);
 extern SCXMEM struct enode *new_str(SCXMEM string_t *s);
 extern SCXMEM struct enode *new_var(int op, cellref_t cr);
 /* a linked list of free [struct ent]'s, uses .next as the pointer */

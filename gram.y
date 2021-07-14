@@ -400,6 +400,8 @@ command:  S_LET var_or_range '=' e      { let($2.left, $4); }
         | S_VALUE                       { valueize_area(rangeref_current()); }
         | S_VALUE var_or_range          { valueize_area($2); }
         | S_FILL var_or_range num num   { fillr($2, $3, $4, calc_order == BYCOLS); }
+        | S_FILL var_or_range num       { fillr($2, $3, 0, calc_order == BYCOLS); }
+        | S_FILL var_or_range           { fillr($2, 0, 0, calc_order == BYCOLS); }
         | S_SORT                        { sortrange(rangeref_current(), NULL); }
         | S_SORT range                  { sortrange($2, NULL); }
         | S_SORT range strarg           { sortrange($2, $3); }
@@ -600,146 +602,145 @@ noval:                                  { $$ = DCP_DEFAULT; }
         ;
 
 term:     var                           { $$ = new_var(O_VAR, $1); }
-        | F_FIXED term                  { $$ = new_node('f', $2, NULL); }
-        | '(' F_FIXED ')' term          { $$ = new_node('F', $4, NULL); }
-        | F_SUM '(' var_or_range ')'    { $$ = new_range(SUM, $3, NULL); }
-        | F_SUM '(' range ',' e ')'     { $$ = new_range(SUM, $3, $5); }
-        | F_PROD '(' var_or_range ')'   { $$ = new_range(PROD, $3, NULL); }
-        | F_PROD '(' range ',' e ')'    { $$ = new_range(PROD, $3, $5); }
-        | F_AVG '(' var_or_range ')'    { $$ = new_range(AVG, $3, NULL); }
-        | F_AVG '(' range ',' e ')'     { $$ = new_range(AVG, $3, $5); }
-        | F_STDDEV '(' var_or_range ')' { $$ = new_range(STDDEV, $3, NULL); }
-        | F_STDDEV '(' range ',' e ')'  { $$ = new_range(STDDEV, $3, $5); }
-        | F_COUNT '(' var_or_range ')'  { $$ = new_range(COUNT, $3, NULL); }
-        | F_COUNT '(' range ',' e ')'   { $$ = new_range(COUNT, $3, $5); }
-        | F_MAX '(' var_or_range ')'    { $$ = new_range(MAX, $3, NULL); }
-        | F_MAX '(' range ',' e ')'     { $$ = new_range(MAX, $3, $5); }
-        | F_MAX '(' e ',' expr_list ')' { $$ = new_node(LMAX, $5, $3); }
-        | F_MIN '(' var_or_range ')'    { $$ = new_range(MIN, $3, NULL); }
-        | F_MIN '(' range ',' e ')'     { $$ = new_range(MIN, $3, $5); }
-        | F_MIN '(' e ',' expr_list ')' { $$ = new_node(LMIN, $5, $3); }
-        | F_ROWS '(' var_or_range ')'   { $$ = new_range('R', $3, NULL); }
-        | F_COLS '(' var_or_range ')'   { $$ = new_range('C', $3, NULL); }
+        | F_FIXED term                  { $$ = new_op1('f', $2); }
+        | '(' F_FIXED ')' term          { $$ = new_op1('F', $4); }
+        | F_SUM '(' var_or_range ')'    { $$ = new_range0(SUM, $3); }
+        | F_SUM '(' range ',' e ')'     { $$ = new_range1(SUM, $3, $5); }
+        | F_PROD '(' var_or_range ')'   { $$ = new_range0(PROD, $3); }
+        | F_PROD '(' range ',' e ')'    { $$ = new_range1(PROD, $3, $5); }
+        | F_AVG '(' var_or_range ')'    { $$ = new_range0(AVG, $3); }
+        | F_AVG '(' range ',' e ')'     { $$ = new_range1(AVG, $3, $5); }
+        | F_STDDEV '(' var_or_range ')' { $$ = new_range0(STDDEV, $3); }
+        | F_STDDEV '(' range ',' e ')'  { $$ = new_range1(STDDEV, $3, $5); }
+        | F_COUNT '(' var_or_range ')'  { $$ = new_range0(COUNT, $3); }
+        | F_COUNT '(' range ',' e ')'   { $$ = new_range1(COUNT, $3, $5); }
+        | F_MAX '(' var_or_range ')'    { $$ = new_range0(MAX, $3); }
+        | F_MAX '(' range ',' e ')'     { $$ = new_range1(MAX, $3, $5); }
+        | F_MAX '(' e ',' expr_list ')' { $$ = new_op2(LMAX, $3, $5); }
+        | F_MIN '(' var_or_range ')'    { $$ = new_range0(MIN, $3); }
+        | F_MIN '(' range ',' e ')'     { $$ = new_range1(MIN, $3, $5); }
+        | F_MIN '(' e ',' expr_list ')' { $$ = new_op2(LMIN, $3, $5); }
+        | F_ROWS '(' var_or_range ')'   { $$ = new_range0('R', $3); }
+        | F_COLS '(' var_or_range ')'   { $$ = new_range0('C', $3); }
 
-        | F_ABS '(' e ')'               { $$ = new_node(ABS, $3, NULL); }
-        | F_ACOS '(' e ')'              { $$ = new_node(ACOS, $3, NULL); }
-        | F_ASIN '(' e ')'              { $$ = new_node(ASIN, $3, NULL); }
-        | F_ATAN '(' e ')'              { $$ = new_node(ATAN, $3, NULL); }
-        | F_ATAN2 '(' e ',' e ')'       { $$ = new_node(ATAN2, $3, $5); }
-        | F_CEIL '(' e ')'              { $$ = new_node(CEIL, $3, NULL); }
-        | F_COS '(' e ')'               { $$ = new_node(COS, $3, NULL); }
-        | F_EXP '(' e ')'               { $$ = new_node(EXP, $3, NULL); }
-        | F_FABS '(' e ')'              { $$ = new_node(FABS, $3, NULL); }
-        | F_FLOOR '(' e ')'             { $$ = new_node(FLOOR, $3, NULL); }
-        | F_HYPOT '(' e ',' e ')'       { $$ = new_node(HYPOT, $3, $5); }
-        | F_LN '(' e ')'                { $$ = new_node(LOG, $3, NULL); }
-        | F_LOG '(' e ')'               { $$ = new_node(LOG10, $3, NULL); }
-        | F_POW '(' e ',' e ')'         { $$ = new_node(POW, $3, $5); }
-        | F_SIN '(' e ')'               { $$ = new_node(SIN, $3, NULL); }
-        | F_SQRT '(' e ')'              { $$ = new_node(SQRT, $3, NULL); }
-        | F_TAN '(' e ')'               { $$ = new_node(TAN, $3, NULL); }
-        | F_DTR '(' e ')'               { $$ = new_node(DTR, $3, NULL); }
-        | F_RTD '(' e ')'               { $$ = new_node(RTD, $3, NULL); }
-        | F_RAND '(' ')'                { $$ = new_node(RAND, NULL, NULL); }
-        | F_RANDBETWEEN '(' e ',' e ')' { $$ = new_node(RANDBETWEEN, $3, $5); }
-        | F_RND '(' e ')'               { $$ = new_node(RND, $3, NULL); }
-        | F_ROUND '(' e ',' e ')'       { $$ = new_node(ROUND, $3, $5); }
+        | F_ABS '(' e ')'               { $$ = new_op1(ABS, $3); }
+        | F_ACOS '(' e ')'              { $$ = new_op1(ACOS, $3); }
+        | F_ASIN '(' e ')'              { $$ = new_op1(ASIN, $3); }
+        | F_ATAN '(' e ')'              { $$ = new_op1(ATAN, $3); }
+        | F_ATAN2 '(' e ',' e ')'       { $$ = new_op2(ATAN2, $3, $5); }
+        | F_CEIL '(' e ')'              { $$ = new_op1(CEIL, $3); }
+        | F_COS '(' e ')'               { $$ = new_op1(COS, $3); }
+        | F_EXP '(' e ')'               { $$ = new_op1(EXP, $3); }
+        | F_FABS '(' e ')'              { $$ = new_op1(FABS, $3); }
+        | F_FLOOR '(' e ')'             { $$ = new_op1(FLOOR, $3); }
+        | F_HYPOT '(' e ',' e ')'       { $$ = new_op2(HYPOT, $3, $5); }
+        | F_LN '(' e ')'                { $$ = new_op1(LOG, $3); }
+        | F_LOG '(' e ')'               { $$ = new_op1(LOG10, $3); }
+        | F_POW '(' e ',' e ')'         { $$ = new_op2(POW, $3, $5); }
+        | F_SIN '(' e ')'               { $$ = new_op1(SIN, $3); }
+        | F_SQRT '(' e ')'              { $$ = new_op1(SQRT, $3); }
+        | F_TAN '(' e ')'               { $$ = new_op1(TAN, $3); }
+        | F_DTR '(' e ')'               { $$ = new_op1(DTR, $3); }
+        | F_RTD '(' e ')'               { $$ = new_op1(RTD, $3); }
+        | F_RAND '(' ')'                { $$ = new_op0(RAND); }
+        | F_RANDBETWEEN '(' e ',' e ')' { $$ = new_op2(RANDBETWEEN, $3, $5); }
+        | F_RND '(' e ')'               { $$ = new_op1(RND, $3); }
+        | F_ROUND '(' e ',' e ')'       { $$ = new_op2(ROUND, $3, $5); }
 
-        | F_IF '(' e ',' e ',' e ')'    { $$ = new_node(IF, $3, new_node(',', $5, $7)); }
+        | F_IF '(' e ',' e ',' e ')'    { $$ = new_op3(IF, $3, $5, $7); }
 
-        | F_PV '(' e ',' e ',' e ')'    { $$ = new_node(PV, $3, new_node(':', $5, $7)); }
-        | F_FV '(' e ',' e ',' e ')'    { $$ = new_node(FV, $3, new_node(':', $5, $7)); }
-        | F_PMT '(' e ',' e ',' e ')'   { $$ = new_node(PMT, $3, new_node(':', $5, $7)); }
+        | F_PV '(' e ',' e ',' e ')'    { $$ = new_op3(PV, $3, $5, $7); }
+        | F_FV '(' e ',' e ',' e ')'    { $$ = new_op3(FV, $3, $5, $7); }
+        | F_PMT '(' e ',' e ',' e ')'   { $$ = new_op3(PMT, $3, $5, $7); }
 
-        | F_HOUR '(' e ')'              { $$ = new_node(HOUR, $3, NULL); }
-        | F_MINUTE '(' e ')'            { $$ = new_node(MINUTE, $3, NULL); }
-        | F_SECOND '(' e ')'            { $$ = new_node(SECOND, $3, NULL); }
-        | F_MONTH '(' e ')'             { $$ = new_node(MONTH, $3, NULL); }
-        | F_DAY '(' e ')'               { $$ = new_node(DAY, $3, NULL); }
-        | F_YEAR '(' e ')'              { $$ = new_node(YEAR, $3, NULL); }
-        | F_NOW                         { $$ = new_node(NOW, NULL, NULL); }
-        | F_DTS '(' e ',' e ',' e ')'   { $$ = new_node(DTS, $3, new_node(',', $5, $7)); }
+        | F_HOUR '(' e ')'              { $$ = new_op1(HOUR, $3); }
+        | F_MINUTE '(' e ')'            { $$ = new_op1(MINUTE, $3); }
+        | F_SECOND '(' e ')'            { $$ = new_op1(SECOND, $3); }
+        | F_MONTH '(' e ')'             { $$ = new_op1(MONTH, $3); }
+        | F_DAY '(' e ')'               { $$ = new_op1(DAY, $3); }
+        | F_YEAR '(' e ')'              { $$ = new_op1(YEAR, $3); }
+        | F_NOW                         { $$ = new_op0(NOW); }
+        | F_DTS '(' e ',' e ',' e ')'   { $$ = new_op3(DTS, $3, $5, $7); }
                                         // XXX: should return a specific token, same for x/x/x and x:x and x:x:x
-        | NUMBER '.' NUMBER '.' NUMBER  { $$ = new_node(DTS,
-                                                        new_const(O_CONST, (double)$1),
-                                                        new_node(',', new_const(O_CONST, (double)$3),
-                                                                 new_const(O_CONST, (double)$5))); }
-        | F_TTS '(' e ',' e ',' e ')'   { $$ = new_node(TTS, $3, new_node(',', $5, $7)); }
-        | F_STON '(' e ')'              { $$ = new_node(STON, $3, NULL); }
-        | F_EQS '(' e ',' e ')'         { $$ = new_node(EQS, $3, $5); }
-        | F_DATE '(' e ')'              { $$ = new_node(DATE, $3, NULL); }
-        | F_DATE '(' e ',' e ')'        { $$ = new_node(DATE, $3, $5); }
-        | F_FMT '(' e ',' e ')'         { $$ = new_node(FMT, $3, $5); }
-        | F_UPPER '(' e ')'             { $$ = new_node(UPPER, $3, NULL); }
-        | F_LOWER '(' e ')'             { $$ = new_node(LOWER, $3, NULL); }
-        | F_CAPITAL '(' e ')'           { $$ = new_node(CAPITAL, $3, NULL); }
-        | F_INDEX '(' range ',' e ')'   { $$ = new_range(INDEX, $3, $5); }
-        | F_INDEX '(' e ',' range ')'   { $$ = new_range(INDEX, $5, $3); }
-        | F_INDEX '(' range ',' e ',' e ')'  { $$ = new_range(INDEX, $3, new_node(',', $5, $7)); }
-        | F_LOOKUP '(' range ',' e ')'  { $$ = new_range(LOOKUP, $3, $5); }
-        | F_LOOKUP '(' e ',' range ')'  { $$ = new_range(LOOKUP, $5, $3); }
-        | F_HLOOKUP '(' range ',' e ',' e ')'  { $$ = new_range(HLOOKUP, $3, new_node(',', $5, $7)); }
-        | F_HLOOKUP '(' e ',' range ',' e ')'  { $$ = new_range(HLOOKUP, $5, new_node(',', $3, $7)); }
-        | F_VLOOKUP '(' range ',' e ',' e ')'  { $$ = new_range(VLOOKUP, $3, new_node(',', $5, $7)); }
-        | F_VLOOKUP '(' e ',' range ',' e ')'  { $$ = new_range(VLOOKUP, $5, new_node(',', $3, $7)); }
-        | F_STINDEX '(' range ',' e ')' { $$ = new_range(STINDEX, $3, $5); }
-        | F_STINDEX '(' e ',' range ')' { $$ = new_range(STINDEX, $5, $3); }
-        | F_STINDEX '(' range ',' e ',' e ')'  { $$ = new_range(STINDEX, $3, new_node(',', $5, $7)); }
-        | F_EXT '(' e ',' e ')'         { $$ = new_node(EXT, $3, $5); }
-        | F_NVAL '(' e ',' e ')'        { $$ = new_node(NVAL, $3, $5); }
-        | F_SVAL '(' e ',' e ')'        { $$ = new_node(SVAL, $3, $5); }
-        | F_SUBSTR '(' e ',' e ',' e ')'  { $$ = new_node(SUBSTR, $3, new_node(',', $5, $7)); }
+        | NUMBER '.' NUMBER '.' NUMBER  { $$ = new_op3(DTS, new_const((double)$1),
+                                                       new_const((double)$3), new_const((double)$5)); }
+        | F_TTS '(' e ',' e ',' e ')'   { $$ = new_op3(TTS, $3, $5, $7); }
+        | F_STON '(' e ')'              { $$ = new_op1(STON, $3); }
+        | F_EQS '(' e ',' e ')'         { $$ = new_op2(EQS, $3, $5); }
+        | F_DATE '(' e ')'              { $$ = new_op1(DATE, $3); }
+        | F_DATE '(' e ',' e ')'        { $$ = new_op2(DATE, $3, $5); }
+        | F_FMT '(' e ',' e ')'         { $$ = new_op2(FMT, $3, $5); }
+        | F_UPPER '(' e ')'             { $$ = new_op1(UPPER, $3); }
+        | F_LOWER '(' e ')'             { $$ = new_op1(LOWER, $3); }
+        | F_CAPITAL '(' e ')'           { $$ = new_op1(CAPITAL, $3); }
+        | F_INDEX '(' range ',' e ')'   { $$ = new_range1(INDEX, $3, $5); }
+        | F_INDEX '(' e ',' range ')'   { $$ = new_range1(INDEX, $5, $3); }
+        | F_INDEX '(' range ',' e ',' e ')'  { $$ = new_range2(INDEX, $3, $5, $7); }
+        | F_LOOKUP '(' range ',' e ')'  { $$ = new_range1(LOOKUP, $3, $5); }
+        | F_LOOKUP '(' e ',' range ')'  { $$ = new_range1(LOOKUP, $5, $3); }
+        | F_HLOOKUP '(' range ',' e ',' e ')'  { $$ = new_range2(HLOOKUP, $3, $5, $7); }
+        | F_HLOOKUP '(' e ',' range ',' e ')'  { $$ = new_range2(HLOOKUP, $5, $3, $7); }
+        | F_VLOOKUP '(' range ',' e ',' e ')'  { $$ = new_range2(VLOOKUP, $3, $5, $7); }
+        | F_VLOOKUP '(' e ',' range ',' e ')'  { $$ = new_range2(VLOOKUP, $5, $3, $7); }
+        | F_STINDEX '(' range ',' e ')' { $$ = new_range1(STINDEX, $3, $5); }
+        | F_STINDEX '(' e ',' range ')' { $$ = new_range1(STINDEX, $5, $3); }
+        | F_STINDEX '(' range ',' e ',' e ')'  { $$ = new_range2(STINDEX, $3, $5, $7); }
+        | F_EXT '(' e ',' e ')'         { $$ = new_op2(EXT, $3, $5); }
+        | F_NVAL '(' e ',' e ')'        { $$ = new_op2(NVAL, $3, $5); }
+        | F_SVAL '(' e ',' e ')'        { $$ = new_op2(SVAL, $3, $5); }
+        | F_SUBSTR '(' e ',' e ',' e ')'  { $$ = new_op3(SUBSTR, $3, $5, $7); }
         |     '(' e ')'                 { $$ = $2; }
         |     '+' term                  { $$ = $2; }
-        |     '-' term                  { $$ = new_node('m', $2, NULL); }
-        |     NUMBER                    { $$ = new_const(O_CONST, (double)$1); }
-        |     FNUMBER                   { $$ = new_const(O_CONST, $1); }
-        | F_PI                          { $$ = new_node(PI_, NULL, NULL); }
+        |     '-' term                  { $$ = new_op1('m', $2); }
+        |     NUMBER                    { $$ = new_const((double)$1); }
+        |     FNUMBER                   { $$ = new_const($1); }
+        | F_PI                          { $$ = new_op0(PI_); }
         |     STRING                    { $$ = new_str($1); }
-        |     '~' term                  { $$ = new_node('!', $2, NULL); }
-        |     '!' term                  { $$ = new_node('!', $2, NULL); }
-        | F_FILENAME '(' e ')'          { $$ = new_node(FILENAME, $3, NULL); }
-        | F_MYROW                       { $$ = new_node(MYROW, NULL, NULL); }
-        | F_MYCOL                       { $$ = new_node(MYCOL, NULL, NULL); }
-        | F_LASTROW                     { $$ = new_node(LASTROW, NULL, NULL); }
-        | F_LASTCOL                     { $$ = new_node(LASTCOL, NULL, NULL); }
-        | F_COLTOA '(' e ')'            { $$ = new_node(COLTOA, $3, NULL); }
-        | F_NUMITER                     { $$ = new_node(NUMITER, NULL, NULL); }
-        | F_ERR                         { $$ = new_node(ERR_, NULL, NULL); } // XXX: should handle errors differently
-        | F_BLACK                       { $$ = new_node(BLACK, NULL, NULL); }
-        | F_RED                         { $$ = new_node(RED, NULL, NULL); }
-        | F_GREEN                       { $$ = new_node(GREEN, NULL, NULL); }
-        | F_YELLOW                      { $$ = new_node(YELLOW, NULL, NULL); }
-        | F_BLUE                        { $$ = new_node(BLUE, NULL, NULL); }
-        | F_MAGENTA                     { $$ = new_node(MAGENTA, NULL, NULL); }
-        | F_CYAN                        { $$ = new_node(CYAN, NULL, NULL); }
-        | F_WHITE                       { $$ = new_node(WHITE, NULL, NULL); }
+        |     '~' term                  { $$ = new_op1('!', $2); }
+        |     '!' term                  { $$ = new_op1('!', $2); }
+        | F_FILENAME '(' e ')'          { $$ = new_op1(FILENAME, $3); }
+        | F_MYROW                       { $$ = new_op0(MYROW); }
+        | F_MYCOL                       { $$ = new_op0(MYCOL); }
+        | F_LASTROW                     { $$ = new_op0(LASTROW); }
+        | F_LASTCOL                     { $$ = new_op0(LASTCOL); }
+        | F_COLTOA '(' e ')'            { $$ = new_op1(COLTOA, $3); }
+        | F_NUMITER                     { $$ = new_op0(NUMITER); }
+        | F_ERR                         { $$ = new_op0(ERR_); } // XXX: should handle errors differently
+        | F_BLACK                       { $$ = new_op0(BLACK); }
+        | F_RED                         { $$ = new_op0(RED); }
+        | F_GREEN                       { $$ = new_op0(GREEN); }
+        | F_YELLOW                      { $$ = new_op0(YELLOW); }
+        | F_BLUE                        { $$ = new_op0(BLUE); }
+        | F_MAGENTA                     { $$ = new_op0(MAGENTA); }
+        | F_CYAN                        { $$ = new_op0(CYAN); }
+        | F_WHITE                       { $$ = new_op0(WHITE); }
         ;
 
 /* expressions */
-e:        e '+' e                   { $$ = new_node('+', $1, $3); }
-        | e '-' e                   { $$ = new_node('-', $1, $3); }
-        | e '*' e                   { $$ = new_node('*', $1, $3); }
-        | e '/' e                   { $$ = new_node('/', $1, $3); }
-        | e '%' e                   { $$ = new_node('%', $1, $3); }
-        | e '^' e                   { $$ = new_node('^', $1, $3); }
+e:        e '+' e                   { $$ = new_op2('+', $1, $3); }
+        | e '-' e                   { $$ = new_op2('-', $1, $3); }
+        | e '*' e                   { $$ = new_op2('*', $1, $3); }
+        | e '/' e                   { $$ = new_op2('/', $1, $3); }
+        | e '%' e                   { $$ = new_op2('%', $1, $3); }
+        | e '^' e                   { $$ = new_op2('^', $1, $3); }
         | term
-        | e '?' e ':' e             { $$ = new_node('?', $1, new_node(':', $3, $5)); }
-        | e ';' e                   { $$ = new_node(';', $1, $3); }
-        | e '<' e                   { $$ = new_node('<', $1, $3); }
-        | e '=' e                   { $$ = new_node('=', $1, $3); }
-        | e '>' e                   { $$ = new_node('>', $1, $3); }
-        | e '&' e                   { $$ = new_node('&', $1, $3); }
-        | e '|' e                   { $$ = new_node('|', $1, $3); }
-        | e '<' '=' e               { $$ = new_node('!', new_node('>', $1, $4), NULL); } // XXX: incorrect for NaN
-        | e '!' '=' e               { $$ = new_node('!', new_node('=', $1, $4), NULL); } // XXX: incorrect for NaN
-        | e '<' '>' e               { $$ = new_node('!', new_node('=', $1, $4), NULL); } // XXX: incorrect for NaN
-        | e '>' '=' e               { $$ = new_node('!', new_node('<', $1, $4), NULL); } // XXX: incorrect for NaN
-        | e '#' e                   { $$ = new_node('#', $1, $3); }
+        | e '?' e ':' e             { $$ = new_op3('?', $1, $3, $5); }
+        | e ';' e                   { $$ = new_op2(';', $1, $3); }
+        | e '<' e                   { $$ = new_op2('<', $1, $3); }
+        | e '=' e                   { $$ = new_op2('=', $1, $3); }
+        | e '>' e                   { $$ = new_op2('>', $1, $3); }
+        | e '&' e                   { $$ = new_op2('&', $1, $3); }
+        | e '|' e                   { $$ = new_op2('|', $1, $3); }
+                                    /* should separate tokens to fix potential precedence issues */
+        | e '<' '=' e               { $$ = new_op2(OP_LE, $1, $4); }
+        | e '!' '=' e               { $$ = new_op2(OP_NE, $1, $4); }
+        | e '<' '>' e               { $$ = new_op2(OP_NE, $1, $4); }
+        | e '>' '=' e               { $$ = new_op2(OP_GE, $1, $4); }
+        | e '#' e                   { $$ = new_op2('#', $1, $3); }
         ;
 
-expr_list: e                        { $$ = new_node(ELIST, NULL, $1); }
-        | expr_list ',' e           { $$ = new_node(ELIST, $1, $3); }
+expr_list: e                        { $$ = new_op1(ELIST, $1); }
+        | e ',' expr_list           { $$ = new_op2(ELIST, $1, $3); }
         ;
 
 range:    VAR ':' VAR               { $$.left = $1; $$.right = $3; }

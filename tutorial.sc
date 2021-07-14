@@ -77,6 +77,7 @@ let D28 = @sum(D26:D27)
 let E28 = @sum(E26:E27)
 let F28 = @sum(F26:F27)
 let G28 = @sum(G26:G27)=@sum(D28:F28)?1:0
+let H28 = @max(1,2,3,4,5,A1)
 leftstring A29 = "To see what the cell contains, just move the cursor"
 leftstring A30 = "onto the cell.  The contents will show up on line 1 in the brackets."
 leftstring A32 = "You can enter data into cells like this:"
@@ -140,4 +141,4 @@ leftstring A89 = "The basic commands.  Much more detail is available"
 leftstring A90 = "in the man page."
 leftstring A92 = "To quit this program, type 'q'."
 leftstring D94 = "GOOD LUCK!"
-goto G28 A0
+goto H28 A0

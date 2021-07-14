@@ -50,7 +50,7 @@ static int repct = 1;   /* Make repct a global variable so that the
                            function @numiter can access it */
 
 /* a linked list of free [struct enodes]'s, uses .e.o.left as the pointer */
-static struct enode *freeenodes = NULL;
+static struct enode *free_enodes = NULL;
 
 static double dolookup(struct enode *val, int minr, int minc, int maxr,
                        int maxc, int offr, int offc);
@@ -254,31 +254,33 @@ static double dolookup(struct enode * val, int minr, int minc, int maxr, int max
     return ret;
 }
 
+/*---------------- aggregate functions ----------------*/
+
 static double docount(int minr, int minc, int maxr, int maxc, struct enode *e) {
-    int v;
     int r, c;
+    int count;
     int cellerr = CELLOK;
     struct ent *p;
 
-    v = 0;
+    count = 0;
     for (r = minr; r <= maxr; r++) {
         for (c = minc; c <= maxc; c++) {
             if (e) {
                 rowoffset = r - minr;
                 coloffset = c - minc;
+                if (!eval(e))
+                    continue;
             }
-            if (!e || eval(e)) {
-                if ((p = *ATBL(tbl, r, c)) && (p->flags & IS_VALID)) {
-                    if (p->cellerror)
-                        cellerr = CELLINVALID;
-                    v++;
-                }
+            if ((p = *ATBL(tbl, r, c)) && (p->flags & IS_VALID)) {
+                if (p->cellerror)
+                    cellerr = CELLINVALID;
+                count++;
             }
         }
     }
     cellerror = cellerr;
     rowoffset = coloffset = 0;
-    return (double)v;
+    return (double)count;
 }
 
 static double dosum(int minr, int minc, int maxr, int maxc, struct enode *e) {
@@ -293,13 +295,13 @@ static double dosum(int minr, int minc, int maxr, int maxc, struct enode *e) {
             if (e) {
                 rowoffset = r - minr;
                 coloffset = c - minc;
+                if (!eval(e))
+                    continue;
             }
-            if (!e || eval(e)) {
-                if ((p = *ATBL(tbl, r, c)) && (p->flags & IS_VALID)) {
-                    if (p->cellerror)
-                        cellerr = CELLINVALID;
-                    v += p->v;
-                }
+            if ((p = *ATBL(tbl, r, c)) && (p->flags & IS_VALID)) {
+                if (p->cellerror)
+                    cellerr = CELLINVALID;
+                v += p->v;
             }
         }
     }
@@ -320,13 +322,13 @@ static double doprod(int minr, int minc, int maxr, int maxc, struct enode *e) {
             if (e) {
                 rowoffset = r - minr;
                 coloffset = c - minc;
+                if (!eval(e))
+                    continue;
             }
-            if (!e || eval(e)) {
-                if ((p = *ATBL(tbl, r, c)) && (p->flags & IS_VALID)) {
-                    if (p->cellerror)
-                        cellerr = CELLINVALID;
-                    v *= p->v;
-                }
+            if ((p = *ATBL(tbl, r, c)) && (p->flags & IS_VALID)) {
+                if (p->cellerror)
+                    cellerr = CELLINVALID;
+                v *= p->v;
             }
         }
     }
@@ -349,14 +351,14 @@ static double doavg(int minr, int minc, int maxr, int maxc, struct enode *e) {
             if (e) {
                 rowoffset = r - minr;
                 coloffset = c - minc;
+                if (!eval(e))
+                    continue;
             }
-            if (!e || eval(e)) {
-                if ((p = *ATBL(tbl, r, c)) && (p->flags & IS_VALID)) {
-                    if (p->cellerror)
-                        cellerr = CELLINVALID;
-                    v += p->v;
-                    count++;
-                }
+            if ((p = *ATBL(tbl, r, c)) && (p->flags & IS_VALID)) {
+                if (p->cellerror)
+                    cellerr = CELLINVALID;
+                v += p->v;
+                count++;
             }
         }
     }
@@ -372,64 +374,65 @@ static double doavg(int minr, int minc, int maxr, int maxc, struct enode *e) {
 static double dostddev(int minr, int minc, int maxr, int maxc, struct enode *e) {
     double lp, rp, v, nd;
     int r, c;
-    int n;
-    int cellerr = CELLOK;
-    struct ent *p;
-
-    n = 0;
-    lp = 0.0;
-    rp = 0.0;
-    for (r = minr; r <= maxr; r++) {
-        for (c = minc; c <= maxc; c++) {
-            if (e) {
-                rowoffset = r - minr;
-                coloffset = c - minc;
-            }
-            if (!e || eval(e)) {
-                if ((p = *ATBL(tbl, r, c)) && (p->flags & IS_VALID)) {
-                    if (p->cellerror)
-                        cellerr = CELLINVALID;
-                    v = p->v;
-                    lp += v * v;
-                    rp += v;
-                    n++;
-                }
-            }
-        }
-    }
-    cellerror = cellerr;
-    rowoffset = coloffset = 0;
-
-    if (n <= 1)
-        return 0.0;
-    nd = (double)n;
-    return sqrt((nd * lp - rp * rp) / (nd * (nd - 1)));
-}
-
-static double domax(int minr, int minc, int maxr, int maxc, struct enode *e) {
-    double v = 0.0;
-    int r, c;
     int count;
     int cellerr = CELLOK;
     struct ent *p;
 
+    lp = 0.0;
+    rp = 0.0;
     count = 0;
     for (r = minr; r <= maxr; r++) {
         for (c = minc; c <= maxc; c++) {
             if (e) {
                 rowoffset = r - minr;
                 coloffset = c - minc;
+                if (!eval(e))
+                    continue;
             }
-            if (!e || eval(e)) {
-                if ((p = *ATBL(tbl, r, c)) && (p->flags & IS_VALID)) {
-                    if (p->cellerror)
-                        cellerr = CELLINVALID;
-                    if (!count++) {
-                        v = p->v;
-                    } else
-                    if (p->v > v)
-                        v = p->v;
-                }
+            if ((p = *ATBL(tbl, r, c)) && (p->flags & IS_VALID)) {
+                if (p->cellerror)
+                    cellerr = CELLINVALID;
+                v = p->v;
+                lp += v * v;
+                rp += v;
+                count++;
+            }
+        }
+    }
+    cellerror = cellerr;
+    rowoffset = coloffset = 0;
+
+    if (count <= 1)
+        return 0.0;
+    nd = (double)count;
+    return sqrt((nd * lp - rp * rp) / (nd * (nd - 1)));
+}
+
+static double domax(int minr, int minc, int maxr, int maxc, struct enode *e) {
+    double v;
+    int r, c;
+    int count;
+    int cellerr = CELLOK;
+    struct ent *p;
+
+    v = 0.0;
+    count = 0;
+    for (r = minr; r <= maxr; r++) {
+        for (c = minc; c <= maxc; c++) {
+            if (e) {
+                rowoffset = r - minr;
+                coloffset = c - minc;
+                if (!eval(e))
+                    continue;
+            }
+            if ((p = *ATBL(tbl, r, c)) && (p->flags & IS_VALID)) {
+                if (p->cellerror)
+                    cellerr = CELLINVALID;
+                if (!count++) {
+                    v = p->v;
+                } else
+                if (p->v > v)
+                    v = p->v;
             }
         }
     }
@@ -439,30 +442,30 @@ static double domax(int minr, int minc, int maxr, int maxc, struct enode *e) {
 }
 
 static double domin(int minr, int minc, int maxr, int maxc, struct enode *e) {
-    double v = 0.0;
+    double v;
     int r, c;
     int count;
     int cellerr = CELLOK;
     struct ent *p;
 
+    v = 0.0;
     count = 0;
     for (r = minr; r <= maxr; r++) {
         for (c = minc; c <= maxc; c++) {
             if (e) {
                 rowoffset = r - minr;
                 coloffset = c - minc;
+                if (!eval(e))
+                    continue;
             }
-            if (!e || eval(e)) {
-                if ((p = *ATBL(tbl, r, c)) && (p->flags & IS_VALID)) {
-                    if (p->cellerror)
-                        cellerr = CELLINVALID;
-
-                    if (!count++) {
-                        v = p->v;
-                    } else
-                    if (p->v < v)
-                        v = p->v;
-                }
+            if ((p = *ATBL(tbl, r, c)) && (p->flags & IS_VALID)) {
+                if (p->cellerror)
+                    cellerr = CELLINVALID;
+                if (!count++) {
+                    v = p->v;
+                } else
+                if (p->v < v)
+                    v = p->v;
             }
         }
     }
@@ -470,6 +473,8 @@ static double domin(int minr, int minc, int maxr, int maxc, struct enode *e) {
     rowoffset = coloffset = 0;
     return v;
 }
+
+/*---------------- date and time functions ----------------*/
 
 static double dodts(int e1, int e2, int e3) {
     int mdays[12] = { 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
@@ -629,8 +634,8 @@ static double dolmax(struct enode *ep) {
     struct enode *p;
 
     cellerror = CELLOK;
-    for (p = ep; p; p = p->e.o.left) {
-        double v = eval(p->e.o.right);
+    for (p = ep; p; p = p->e.o.right) {
+        double v = eval(p->e.o.left);
         if (!count || v > maxval) {
             maxval = v;
             count++;
@@ -647,8 +652,8 @@ static double dolmin(struct enode *ep) {
     struct enode *p;
 
     cellerror = CELLOK;
-    for (p = ep; p; p = p->e.o.left) {
-        double v = eval(p->e.o.right);
+    for (p = ep; p; p = p->e.o.right) {
+        double v = eval(p->e.o.left);
         if (!count || v < minval) {
             minval = v;
             count++;
@@ -697,12 +702,19 @@ double eval(struct enode *e) {
                     }
     case '^':       return fn2_eval(pow, eval(e->e.o.left), eval(e->e.o.right));
     case '<':       return eval(e->e.o.left) < eval(e->e.o.right);
+    case OP_LE:     return eval(e->e.o.left) <= eval(e->e.o.right);
     case '=':       {
                         double l = eval(e->e.o.left);
                         double r = eval(e->e.o.right);
                         return l == r;
                     }
+    case OP_NE:     {
+                        double l = eval(e->e.o.left);
+                        double r = eval(e->e.o.right);
+                        return l != r;
+                    }
     case '>':       return eval(e->e.o.left) >  eval(e->e.o.right);
+    case OP_GE:     return eval(e->e.o.left) >= eval(e->e.o.right);
     case '&':       return eval(e->e.o.left) && eval(e->e.o.right);
     case '|':       return eval(e->e.o.left) || eval(e->e.o.right);
     case IF:
@@ -731,11 +743,10 @@ double eval(struct enode *e) {
                     return e->e.k;
     case O_VAR:     {
                         struct ent *vp = e->e.v.vp;
-                        int row, col;
                         if (vp && (rowoffset || coloffset)) {
-                            row = e->e.v.vf & FIX_ROW ?
+                            int row = (e->e.v.vf & FIX_ROW) ?
                                 vp->row : vp->row + rowoffset;
-                            col = e->e.v.vf & FIX_COL ?
+                            int col = (e->e.v.vf & FIX_COL) ?
                                 vp->col : vp->col + coloffset;
                             checkbounds(&row, &col);
                             vp = *ATBL(tbl, row, col);
@@ -850,12 +861,12 @@ double eval(struct enode *e) {
     case PMT:       return finfunc(e->op, eval(e->e.o.left),
                                    eval(e->e.o.right->e.o.left),
                                    eval(e->e.o.right->e.o.right));
-    case HOUR:      return dotime(HOUR, eval(e->e.o.left));
-    case MINUTE:    return dotime(MINUTE, eval(e->e.o.left));
-    case SECOND:    return dotime(SECOND, eval(e->e.o.left));
-    case MONTH:     return dotime(MONTH, eval(e->e.o.left));
-    case DAY:       return dotime(DAY, eval(e->e.o.left));
-    case YEAR:      return dotime(YEAR, eval(e->e.o.left));
+    case HOUR:
+    case MINUTE:
+    case SECOND:
+    case MONTH:
+    case DAY:
+    case YEAR:      return dotime(e->op, eval(e->e.o.left));
     case NOW:       return donow();
     case DTS:       return dodts((int)eval(e->e.o.left),
                                  (int)eval(e->e.o.right->e.o.left),
@@ -1327,14 +1338,19 @@ void setautocalc(int i) {
 
 /*---------------- expression tree construction ----------------*/
 
-SCXMEM struct enode *new_node(int op, SCXMEM struct enode *a1, SCXMEM struct enode *a2) {
+static SCXMEM struct enode *new_node(int op, SCXMEM struct enode *a1, SCXMEM struct enode *a2) {
     SCXMEM struct enode *p;
 
-    if (freeenodes) {
-        p = freeenodes;
-        freeenodes = p->e.o.left;
+    if (free_enodes) {
+        p = free_enodes;
+        free_enodes = p->e.o.left;
     } else {
         p = scxmalloc(sizeof(struct enode));
+        if (!p) {
+            efree(a1);
+            efree(a2);
+            return NULL;
+        }
     }
     p->op = op;
     p->e.o.left = a1;
@@ -1343,81 +1359,96 @@ SCXMEM struct enode *new_node(int op, SCXMEM struct enode *a1, SCXMEM struct eno
     return p;
 }
 
+SCXMEM struct enode *new_op0(int op) {
+    return new_node(op, NULL, NULL);
+}
+
+SCXMEM struct enode *new_op1(int op, SCXMEM struct enode *a1) {
+    if (!a1) return NULL;
+    return new_node(op, a1, NULL);
+}
+
+SCXMEM struct enode *new_op2(int op, SCXMEM struct enode *a1, SCXMEM struct enode *a2) {
+    if (!a1 || !a2) {
+        efree(a1);
+        efree(a2);
+        return NULL;
+    }
+    return new_node(op, a1, a2);
+}
+
+SCXMEM struct enode *new_op3(int op, SCXMEM struct enode *a1,
+                             SCXMEM struct enode *a2,
+                             SCXMEM struct enode *a3)
+{
+    if (!a1 || !a2 || !a3) {
+        efree(a1);
+        efree(a2);
+        efree(a3);
+        return NULL;
+    }
+    return new_node(op, a1, new_node(op == '?' ? ':' : ',', a2, a3));
+}
+
 SCXMEM struct enode *new_var(int op, cellref_t cr) {
     SCXMEM struct enode *p;
 
-    if (freeenodes) {
-        p = freeenodes;
-        freeenodes = p->e.o.left;
-    } else {
-        p = scxmalloc(sizeof(struct enode));
+    if ((p = new_node(op, NULL, NULL))) {
+        p->e.v.vf = cr.vf;
+        p->e.v.vp = lookat(cr.row, cr.col);
     }
-    p->op = op;
-    p->e.v.vf = cr.vf;
-    p->e.v.vp = lookat(cr.row, cr.col);
     return p;
 }
 
-SCXMEM struct enode *new_range(int op, rangeref_t rr, SCXMEM struct enode *a2) {
+static SCXMEM struct enode *new_range(int op, rangeref_t rr, SCXMEM struct enode *a1) {
     SCXMEM struct enode *p;
-    SCXMEM struct enode *p0;
 
-    if (freeenodes) {
-        p = freeenodes;
-        freeenodes = p->e.o.left;
+    if ((p = new_node(REDUCE | op, NULL, NULL))) {
+        p->e.r.left.vf = rr.left.vf;
+        p->e.r.left.vp = lookat(rr.left.row, rr.left.col);
+        p->e.r.right.vf = rr.right.vf;
+        p->e.r.right.vp = lookat(rr.right.row, rr.right.col);
+
+        if (op != 'R' && op != 'C')
+            p = new_node(op, p, a1);
     } else {
-        p = scxmalloc(sizeof(struct enode));
+        efree(a1);
     }
-    p->op = REDUCE | op;
-    p->e.r.left.vf = rr.left.vf;
-    p->e.r.left.vp = lookat(rr.left.row, rr.left.col);
-    p->e.r.right.vf = rr.right.vf;
-    p->e.r.right.vp = lookat(rr.right.row, rr.right.col);
-
-    if (op == 'R' || op == 'C')
-        return p;
-
-    if (freeenodes) {
-        p0 = freeenodes;
-        freeenodes = p0->e.o.left;
-    } else {
-        p0 = scxmalloc(sizeof(struct enode));
-    }
-    p0->op = op;
-    p0->e.o.left = p;
-    p0->e.o.right = a2;
-    p0->e.o.s = NULL;
-    return p0;
+    return p;
 }
 
-SCXMEM struct enode *new_const(int op, double a1) {
+SCXMEM struct enode *new_range0(int op, rangeref_t rr) {
+    return new_range(op, rr, NULL);
+}
+
+SCXMEM struct enode *new_range1(int op, rangeref_t rr, SCXMEM struct enode *a1) {
+    if (!a1) return NULL;
+    return new_range(op, rr, a1);
+}
+
+SCXMEM struct enode *new_range2(int op, rangeref_t rr, SCXMEM struct enode *a1,
+                                SCXMEM struct enode *a2)
+{
+    return new_range(op, rr, new_op2(',', a1, a2));
+}
+
+SCXMEM struct enode *new_const(double a1) {
     SCXMEM struct enode *p;
 
-    if (freeenodes) {
-        p = freeenodes;
-        freeenodes = p->e.o.left;
-    } else {
-        p = scxmalloc(sizeof(struct enode));
-    }
-    p->op = op;
-    p->e.k = a1;
+    if ((p = new_node(O_CONST, NULL, NULL)))
+        p->e.k = a1;
     return p;
 }
 
 SCXMEM struct enode *new_str(SCXMEM string_t *s) {
     SCXMEM struct enode *p;
 
-    if (freeenodes) {
-        p = freeenodes;
-        freeenodes = p->e.o.left;
-    } else {
-        p = scxmalloc(sizeof(struct enode));
-    }
-    p->op = O_SCONST;
-    p->e.s = s;
+    if ((p = new_node(O_SCONST, NULL, NULL)))
+        p->e.s = s;
     return p;
 }
 
+// XXX: should check for allocation failure and return NULL
 struct enode *copye(struct enode *e, int Rdelta, int Cdelta,
                     int r1, int c1, int r2, int c2, int transpose)
 {
@@ -1426,17 +1457,14 @@ struct enode *copye(struct enode *e, int Rdelta, int Cdelta,
     static struct enode *range = NULL;
 
     if (e == NULL)
-        ret = NULL;
-    else
+        return NULL;
+
     if (e->op & REDUCE) {
         int newrow, newcol;
-        if (freeenodes) {
-            ret = freeenodes;
-            freeenodes = ret->e.o.left;
-        } else {
-            ret = scxmalloc(sizeof (struct enode));
-        }
-        ret->op = e->op;
+
+        if (!(ret = new_node(e->op, NULL, NULL)))
+            return NULL;
+
         newrow = e->e.r.left.vf & FIX_ROW ||
                  e->e.r.left.vp->row < r1 || e->e.r.left.vp->row > r2 ||
                  e->e.r.left.vp->col < c1 || e->e.r.left.vp->col > c2 ?
@@ -1468,12 +1496,9 @@ struct enode *copye(struct enode *e, int Rdelta, int Cdelta,
     } else {
         struct enode *temprange = NULL;
 
-        if (freeenodes) {
-            ret = freeenodes;
-            freeenodes = ret->e.o.left;
-        } else
-            ret = scxmalloc(sizeof (struct enode));
-        ret->op = e->op;
+        if (!(ret = new_node(e->op, NULL, NULL)))
+            return NULL;
+
         switch (ret->op) {
         case SUM:
         case PROD:
@@ -1526,17 +1551,20 @@ struct enode *copye(struct enode *e, int Rdelta, int Cdelta,
             if (( range && ret->op == 'F') ||
                 (!range && ret->op == 'f')   )
                 Rdelta = Cdelta = 0;
+            // XXX: should check for allocation failure
             ret->e.o.left = copye(e->e.o.left, Rdelta, Cdelta,
                                   r1, c1, r2, c2, transpose);
             ret->e.o.right = NULL;
             break;
         case '$':
         case EXT:
+            // XXX: should check for allocation failure
             ret->e.s = dup_string(e->e.s);
             if (e->op == '$')       /* Drop through if ret->op is EXT */
                 break;
             FALLTHROUGH;
         default:
+            // XXX: should check for allocation failure
             ret->e.o.left = copye(e->e.o.left, Rdelta, Cdelta,
                                   r1, c1, r2, c2, transpose);
             ret->e.o.right = copye(e->e.o.right, Rdelta, Cdelta,
@@ -1551,6 +1579,7 @@ struct enode *copye(struct enode *e, int Rdelta, int Cdelta,
         case STDDEV:
         case MAX:
         case MIN:
+            // XXX: horrible hack!
             range = temprange;
         }
     }
@@ -1759,8 +1788,8 @@ void efree(SCXMEM struct enode *e) {
             free_string(e->e.o.s);
             e->e.o.s = NULL;
         }
-        e->e.o.left = freeenodes;
-        freeenodes = e;
+        e->e.o.left = free_enodes;
+        free_enodes = e;
     }
 }
 
@@ -1853,12 +1882,12 @@ static void out_range(decomp_t *dcp, struct enode *e) {
  *      of the ELIST tree
  */
 static void decompile_list(decomp_t *dcp, struct enode *p) {
-    if (p) {
-        if (p->e.o.left) {
-            decompile_list(dcp, p->e.o.left);    /* depth first */
-            buf_putc(dcp->buf, ',');
-        }
-        decompile_node(dcp, p->e.o.right, 0);
+    while (p) {
+        decompile_node(dcp, p->e.o.left, 0);
+        if (!p->e.o.right)
+            break;
+        buf_putc(dcp->buf, ',');
+        p = p->e.o.right;
     }
 }
 
@@ -1931,9 +1960,9 @@ static void index_arg(decomp_t *dcp, const char *s, struct enode *e) {
 static void list_arg(decomp_t *dcp, const char *s, struct enode *e) {
     buf_puts(dcp->buf, s);
     buf_putc(dcp->buf, '(');
-    decompile_node(dcp, e->e.o.right, 0);
+    decompile_node(dcp, e->e.o.left, 0);
     buf_putc(dcp->buf, ',');
-    decompile_list(dcp, e->e.o.left);
+    decompile_list(dcp, e->e.o.right);
     buf_putc(dcp->buf, ')');
 }
 
