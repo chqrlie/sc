@@ -663,7 +663,7 @@ void yankcols(int c1, int c2) {
     ncols = maxcol - c1 + 1;
 
     if (arg > ncols) {
-        error("Can't yank %d column%s, %d column%s left",
+        error("Cannot yank %d column%s, %d column%s left",
               arg, (arg != 1 ? "s" : ""), ncols, (ncols != 1 ? "s" : ""));
         return;
     }

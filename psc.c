@@ -425,7 +425,7 @@ const char *coltoa(int col) {
        ptr = newptr__; \
     } while (0)
 
-static const char nowider[] = "The table can't be any wider";
+static const char nowider[] = "The table cannot be any wider";
 
 /*
  * grow the main && auxiliary tables (reset maxrows/maxcols as needed)

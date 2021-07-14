@@ -505,7 +505,7 @@ static double dodts(int e1, int e2, int e3) {
 
 static double dotts(int hr, int min, int sec) {
     if (hr < 0 || hr > 23 || min < 0 || min > 59 || sec < 0 || sec > 59) {
-        error ("@tts: Invalid argument");
+        error("@tts: Invalid argument");
         cellerror = CELLERROR;
         return 0.0;
     }
@@ -621,6 +621,8 @@ static double donval(SCXMEM string_t *colstr, double rowdoub) {
  *      The left pointer is a chain of ELIST nodes, the right pointer
  *      is a value.
  */
+// XXX: should swap left and right
+// XXX: should handle vars and ranges in list
 static double dolmax(struct enode *ep) {
     int count = 0;
     double maxval = 0.0;
@@ -637,6 +639,8 @@ static double dolmax(struct enode *ep) {
     return maxval;
 }
 
+// XXX: should swap left and right
+// XXX: should handle vars and ranges in list
 static double dolmin(struct enode *ep) {
     int count = 0;
     double minval = 0.0;
@@ -880,8 +884,9 @@ double eval(struct enode *e) {
     case MAGENTA:   return (double)COLOR_MAGENTA;
     case CYAN:      return (double)COLOR_CYAN;
     case WHITE:     return (double)COLOR_WHITE;
-    default:        error ("Illegal numeric expression");
+    default:        error("Illegal numeric expression");
                     exprerr = 1;
+                    break;
     }
     cellerror = CELLERROR;
     return 0.0;

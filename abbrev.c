@@ -51,7 +51,7 @@ void add_abbr(SCXMEM string_t *name, SCXMEM string_t *exp) {
             snprintf(px, sizeof px, "| %s", pager);
             f = openfile(px, sizeof px, &pid, NULL);
             if (!f) {
-                error("Can't open pipe to %s", pager);
+                error("Cannot open pipe to %s", pager);
             } else {
                 fprintf(f, "\n%-15s %s\n", "Abbreviation", "Expanded");
                 if (!brokenpipe)
@@ -97,7 +97,7 @@ void add_abbr(SCXMEM string_t *name, SCXMEM string_t *exp) {
         if (a) {
             error("abbrev \"%s %s\"", s2c(a->name), s2c(a->exp));
         } else {
-            error("abbreviation \"%s\" doesn't exist", s2c(name));
+            error("abbreviation \"%s\" does not exist", s2c(name));
         }
         free_string(name);
         free_string(exp);

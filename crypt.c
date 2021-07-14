@@ -27,14 +27,14 @@ void creadfile(const char *save, int eraseflg) {
         return;
 
     if ((fildes = open(findhome(save), O_RDONLY, 0)) < 0) {
-        error ("Can't read file \"%s\"", save);
+        error("Cannot read file \"%s\"", save);
         return;
     }
 
     if (eraseflg) erasedb();
 
     if (pipe(pipefd) < 0) {
-        error("Can't make pipe to child");
+        error("Cannot make pipe to child");
         return;
     }
 
@@ -58,7 +58,7 @@ void creadfile(const char *save, int eraseflg) {
         close(pipefd[1]);        /* close pipe output */
         if ((f = fdopen(pipefd[0], "r")) == NULL) {
             kill(pid, 9);
-            error("Can't fdopen file \"%s\"", save);
+            error("Cannot fdopen file \"%s\"", save);
             close(pipefd[0]);
             return;
         }
@@ -108,7 +108,7 @@ int cwritefile(char *fname, rangeref_t rr, int dcp_flags) {
         fn++;
 
     if (*fn == '|') {
-        error("Can't have encrypted pipe");
+        error("Cannot have encrypted pipe");
         return -1;
     }
 
@@ -119,12 +119,12 @@ int cwritefile(char *fname, rangeref_t rr, int dcp_flags) {
             (yn_ask("Could not create backup copy, Save anyway?: (y,n)") != 1))
         return 0;
     if ((fildes = open(busave, O_TRUNC|O_WRONLY|O_CREAT, 0600)) < 0) {
-        error("Can't create file \"%s\"", save);
+        error("Cannot create file \"%s\"", save);
         return -1;
     }
 
     if (pipe(pipefd) < 0) {
-        error("Can't make pipe to child\n");
+        error("Cannot make pipe to child\n");
         return -1;
     }
 
@@ -151,7 +151,7 @@ int cwritefile(char *fname, rangeref_t rr, int dcp_flags) {
         f = fdopen(pipefd[1], "w");
         if (f == 0) {
             kill(pid, -9);
-            error("Can't fdopen file \"%s\"", save);
+            error("Cannot fdopen file \"%s\"", save);
             close(pipefd[1]);
             return -1;
         }

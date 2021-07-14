@@ -699,7 +699,7 @@ void vi_interaction(void) {
                     continue;
                 }
                 if (p->expr && !(p->flags & IS_STREXPR)) {
-                    error("Can't increment/decrement a formula\n");
+                    error("Cannot increment/decrement a formula\n");
                     continue;
                 }
                 FullUpdate++;
@@ -2922,7 +2922,7 @@ static void list_all(void) {
     snprintf(px, sizeof px, "| %s", pager);
     f = openfile(px, sizeof px, &pid, NULL);
     if (!f) {
-        error("Can't open pipe to %s", pager);
+        error("Cannot open pipe to %s", pager);
         return;
     }
     if (!brokenpipe) fprintf(f, "Named Ranges:\n=============\n\n");
@@ -3461,7 +3461,7 @@ static void dogoto(void) {
     strlcpy(tempc, line, templen);
     tempi = linelim;
 
-    /* Can't switch back to navigate mode if insert_mode() is used here
+    /* Cannot switch back to navigate mode if insert_mode() is used here
      * instead of toggle_navigate_mode(), which is what we want when doing
      * a goto from within navigate mode.
      */

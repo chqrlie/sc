@@ -109,7 +109,7 @@ FILE *openfile(char *fname, size_t fnamesiz, int *rpid, int *rfd) {
     fnamesiz--;
     efname = findhome(fname, fnamesiz);
     if (pipe(pipefd) < 0 || (rfd != NULL && pipe(pipefd+2) < 0)) {
-        error("Can't make pipe to child");
+        error("Cannot make pipe to child");
         *rpid = 0;
         return 0;
     }
@@ -229,7 +229,7 @@ char *findhome(char *path, size_t pathsiz) {
                     *namep++ = *pathptr++;
             *namep = '\0';
             if ((pwent = getpwnam(name)) == NULL) {
-                error("Can't find user %s", name);
+                error("Cannot find user %s", name);
                 return NULL;
             }
             strlcpy(tmppath, pwent->pw_dir, sizeof tmppath);
@@ -547,7 +547,7 @@ int writefile(const char *fname, rangeref_t rr, int dcp_flags) {
         }
     }
     if ((f = openfile(tfname, sizeof tfname, &pid, NULL)) == NULL) {
-        error("Can't create file \"%s\"", save);
+        error("Cannot create file \"%s\"", save);
         return -1;
     }
 
@@ -627,10 +627,10 @@ int readfile(const char *fname, int eraseflg) {
     if (Crypt) {
         int ret = 0;
         if (*save == '-' && strlen(fname) == 1)
-            error("Can't use encryption in a pipeline.");
+            error("Cannot use encryption in a pipeline.");
         else
         if (*save == '|')
-            error("Can't use encryption with advanced macros.");
+            error("Cannot use encryption with advanced macros.");
         else
             ret = creadfile(save, eraseflg);
         autolabel = tempautolabel;
@@ -646,7 +646,7 @@ int readfile(const char *fname, int eraseflg) {
         *save = '\0';
     } else {
         if ((f = openfile(save, sizeof save, &pid, &rfd)) == NULL) {
-            error("Can't read file \"%s\"", save);
+            error("Cannot read file \"%s\"", save);
             autolabel = tempautolabel;
             return 0;
         }

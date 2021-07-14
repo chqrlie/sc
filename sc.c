@@ -355,7 +355,7 @@ static void diesave(void) {
         if (writefile(path, rangeref_total(), DCP_DEFAULT) < 0) {
             snprintf(path, sizeof path, "/tmp/%s", SAVENAME);
             if (writefile(path, rangeref_total(), DCP_DEFAULT) < 0)
-                error("Couldn't save current spreadsheet, Sorry");
+                error("Could not save current spreadsheet, Sorry");
         }
     }
 }
