@@ -1322,7 +1322,7 @@ void setautocalc(int i) {
 
 /*---------------- expression tree construction ----------------*/
 
-SCXMEM struct enode *new(int op, SCXMEM struct enode *a1, SCXMEM struct enode *a2) {
+SCXMEM struct enode *new_node(int op, SCXMEM struct enode *a1, SCXMEM struct enode *a2) {
     SCXMEM struct enode *p;
 
     if (freeenodes) {
@@ -1338,7 +1338,7 @@ SCXMEM struct enode *new(int op, SCXMEM struct enode *a1, SCXMEM struct enode *a
     return p;
 }
 
-struct SCXMEM enode *new_var(int op, cellref_t cr) {
+SCXMEM struct enode *new_var(int op, cellref_t cr) {
     SCXMEM struct enode *p;
 
     if (freeenodes) {
@@ -1353,8 +1353,9 @@ struct SCXMEM enode *new_var(int op, cellref_t cr) {
     return p;
 }
 
-struct SCXMEM enode *new_range(int op, rangeref_t rr) {
+SCXMEM struct enode *new_range(int op, rangeref_t rr, SCXMEM struct enode *a2) {
     SCXMEM struct enode *p;
+    SCXMEM struct enode *p0;
 
     if (freeenodes) {
         p = freeenodes;
@@ -1362,15 +1363,29 @@ struct SCXMEM enode *new_range(int op, rangeref_t rr) {
     } else {
         p = scxmalloc(sizeof(struct enode));
     }
-    p->op = op;
+    p->op = REDUCE | op;
     p->e.r.left.vf = rr.left.vf;
     p->e.r.left.vp = lookat(rr.left.row, rr.left.col);
     p->e.r.right.vf = rr.right.vf;
     p->e.r.right.vp = lookat(rr.right.row, rr.right.col);
-    return p;
+
+    if (op == 'R' || op == 'C')
+        return p;
+
+    if (freeenodes) {
+        p0 = freeenodes;
+        freeenodes = p0->e.o.left;
+    } else {
+        p0 = scxmalloc(sizeof(struct enode));
+    }
+    p0->op = op;
+    p0->e.o.left = p;
+    p0->e.o.right = a2;
+    p0->e.o.s = NULL;
+    return p0;
 }
 
-struct SCXMEM enode *new_const(int op, double a1) {
+SCXMEM struct enode *new_const(int op, double a1) {
     SCXMEM struct enode *p;
 
     if (freeenodes) {
@@ -1384,7 +1399,7 @@ struct SCXMEM enode *new_const(int op, double a1) {
     return p;
 }
 
-struct SCXMEM enode *new_str(SCXMEM string_t *s) {
+SCXMEM struct enode *new_str(SCXMEM string_t *s) {
     SCXMEM struct enode *p;
 
     if (freeenodes) {

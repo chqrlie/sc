@@ -7,6 +7,7 @@ abbrev "abc this is normal"
 abbrev "xxx this is an error"
 format E 14 2 0
 format F 13 0 0
+format G 13 2 0
 define "page1" A0:H23
 define "page2" A24:H43
 define "page3" A44:H63
@@ -64,12 +65,18 @@ let E26 = 1234.5
 fmt E26 ",#.&"
 let F26 = E26
 fmt F26 ",#.&\"#\""
+let G26 = @sum(D26:F26)
 leftstring A27 = "Cell d24 contains a formula"
 let D27 = D26+88
 let E27 = 12345678
 fmt E27 ",#.&"
 let F27 = E27
 fmt F27 ",#.&"
+let G27 = @sum(D27:F27)
+let D28 = @sum(D26:D27)
+let E28 = @sum(E26:E27)
+let F28 = @sum(F26:F27)
+let G28 = @sum(G26:G27)=@sum(D28:F28)?1:0
 leftstring A29 = "To see what the cell contains, just move the cursor"
 leftstring A30 = "onto the cell.  The contents will show up on line 1 in the brackets."
 leftstring A32 = "You can enter data into cells like this:"
@@ -133,4 +140,4 @@ leftstring A89 = "The basic commands.  Much more detail is available"
 leftstring A90 = "in the man page."
 leftstring A92 = "To quit this program, type 'q'."
 leftstring D94 = "GOOD LUCK!"
-goto F26 A0
+goto G28 A0

@@ -537,7 +537,7 @@ static inline rangeref_t rangeref_empty(void) {
 rangeref_t *range_normalize(rangeref_t *rr);
 
 /* styles */
-extern struct SCXMEM colorpair *cpairs[CPAIRS + 1];
+extern SCXMEM struct colorpair *cpairs[CPAIRS + 1];
 extern int are_colors(void);
 extern void change_color(int pair, struct enode *e);
 extern void initcolor(int colornum);
@@ -584,9 +584,9 @@ extern struct abbrev *find_abbr(const char *abbrev, int len, struct abbrev **pre
 extern struct enode *copye(struct enode *e, int Rdelta, int Cdelta,
                            int r1, int c1, int r2, int c2, int transpose);
 
-extern SCXMEM struct enode *new(int op, SCXMEM struct enode *a1, SCXMEM struct enode *a2);
+extern SCXMEM struct enode *new_node(int op, SCXMEM struct enode *a1, SCXMEM struct enode *a2);
 extern SCXMEM struct enode *new_const(int op, double a1);
-extern SCXMEM struct enode *new_range(int op, rangeref_t rr);
+extern SCXMEM struct enode *new_range(int op, rangeref_t rr, SCXMEM struct enode *a2);
 extern SCXMEM struct enode *new_str(SCXMEM string_t *s);
 extern SCXMEM struct enode *new_var(int op, cellref_t cr);
 /* a linked list of free [struct ent]'s, uses .next as the pointer */

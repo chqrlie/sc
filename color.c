@@ -149,7 +149,7 @@ void clean_crange(void) {
     struct crange *cr;
 
     cr = color_base;
-    color_base = NULL;
+    color_base = color_tail = NULL;
     while (cr) {
         struct crange *nextcr = cr->r_next;
         scxfree(cr);

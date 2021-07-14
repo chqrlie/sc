@@ -147,13 +147,12 @@ void add_frange(int flags, rangeref_t orr, rangeref_t irr,
 
 void clean_frange(void) {
     struct frange *fr;
-    struct frange *nextfr;
 
     fr = frame_base;
     frame_base = frame_tail = NULL;
 
     while (fr) {
-        nextfr = fr->r_next;
+        struct frange *nextfr = fr->r_next;
         scxfree(fr);
         fr = nextfr;
     }

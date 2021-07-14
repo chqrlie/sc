@@ -31,8 +31,7 @@ static void free_abbr(SCXMEM struct abbrev *a, struct abbrev *prev) {
 
 /* add an abbreviation */
 void add_abbr(SCXMEM string_t *name, SCXMEM string_t *exp) {
-    struct abbrev *a;
-    struct abbrev *prev;
+    struct abbrev *a, *prev;
     const char *p;
     int i;
 
@@ -128,8 +127,7 @@ void add_abbr(SCXMEM string_t *name, SCXMEM string_t *exp) {
 }
 
 void del_abbr(SCXMEM string_t *name) {
-    struct abbrev *a;
-    struct abbrev *prev;
+    struct abbrev *a, *prev;
 
     if (name && (a = find_abbr(s2c(name), -1, &prev)) != NULL)
         free_abbr(a, prev);
@@ -168,6 +166,7 @@ void write_abbrevs(FILE *f) {
     struct abbrev *a;
 
     for (a = abbr_base; a; a = a->next) {
+        // XXX: should quote expansion string
         fprintf(f, "abbrev \"%s %s\"\n", s2c(a->name), s2c(a->exp));
     }
 }
