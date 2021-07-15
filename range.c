@@ -12,7 +12,6 @@
 static struct nrange *rng_base;
 static struct nrange *rng_tail;
 
-static void sync_enode(struct enode *e);
 static void fix_enode(struct enode *e, int row1, int col1, int row2, int col2,
                       int delta1, int delta2, struct frange *fr);
 
@@ -188,15 +187,35 @@ struct nrange *find_nrange_coords(rangeref_t rr) {
     return r;
 }
 
-void sync_ranges(void) {
-    int i, j;
+void sync_nranges(void) {
     struct nrange *r;
-    struct ent *p;
 
     for (r = rng_base; r; r = r->r_next) {
         r->r_left.vp = lookat(r->r_left.vp->row, r->r_left.vp->col);
         r->r_right.vp = lookat(r->r_right.vp->row, r->r_right.vp->col);
     }
+}
+
+// XXX: this duplicates sync_expr() ?
+static void sync_enode(struct enode *e) {
+    if (e) {
+        // XXX: should sync 'v' nodes too?
+        if (e->type == OP_TYPE_RANGE) {
+            e->e.r.left.vp = lookat(e->e.r.left.vp->row, e->e.r.left.vp->col);
+            e->e.r.right.vp = lookat(e->e.r.right.vp->row, e->e.r.right.vp->col);
+        } else
+        if (e->type == OP_TYPE_NODES) {
+            sync_enode(e->e.o.left);
+            sync_enode(e->e.o.right);
+        }
+    }
+}
+
+void sync_ranges(void) {
+    int i, j;
+    struct ent *p;
+
+    sync_nranges();
     for (i = 0; i <= maxrow; i++) {
         for (j = 0; j <= maxcol; j++) {
             if ((p = *ATBL(tbl, i, j)) && p->expr)
@@ -205,18 +224,6 @@ void sync_ranges(void) {
     }
     sync_franges();
     sync_cranges();
-}
-
-static void sync_enode(struct enode *e) {
-    if (e) {
-        if ((e->op & REDUCE)) {
-            e->e.r.left.vp = lookat(e->e.r.left.vp->row, e->e.r.left.vp->col);
-            e->e.r.right.vp = lookat(e->e.r.right.vp->row, e->e.r.right.vp->col);
-        } else if (e->op != O_VAR && e->op != O_CONST && e->op != O_SCONST) {
-            sync_enode(e->e.o.left);
-            sync_enode(e->e.o.right);
-        }
-    }
 }
 
 void write_nranges(FILE *f) {
@@ -271,6 +278,22 @@ void list_nranges(FILE *f) {
     }
 }
 
+const char *coltoa(int col) {
+    static unsigned int bufn;
+    static char buf[4][4];
+    char *rname = buf[bufn++ & 3];
+    char *p = rname;
+
+    // XXX: use more than 2 letters?
+    if (col > 25) {
+        *p++ = col / 26 + 'A' - 1;
+        col %= 26;
+    }
+    *p++ = col + 'A';
+    *p = '\0';
+    return rname;
+}
+
 // XXX: should take cellref_t and a boolean to check and/or print flags
 //      and/or print named cells
 const char *v_name(int row, int col) {
@@ -279,8 +302,7 @@ const char *v_name(int row, int col) {
     static char buf[4][20];
 
     // XXX: should we test the is_range flag?
-    r = find_nrange_coords(rangeref(row, col, row, col));
-    if (r) {
+    if ((r = find_nrange_coords(rangeref(row, col, row, col)))) {
         return s2c(r->r_name);
     } else {
         char *vname = buf[bufn++ & 3];
@@ -293,15 +315,16 @@ const char *v_name(int row, int col) {
 //      and/or print named cells
 const char *r_name(int r1, int c1, int r2, int c2) {
     struct nrange *r;
-    static char buf[100];
+    static unsigned int bufn;
+    static char buf[2][100];
 
-    r = find_nrange_coords(rangeref(r1, c1, r2, c2));
-    if (r) {
+    if ((r = find_nrange_coords(rangeref(r1, c1, r2, c2)))) {
         return s2c(r->r_name);
     } else {
-        // XXX: should not accept partial range names?
-        snprintf(buf, sizeof buf, "%s:%s", v_name(r1, c1), v_name(r2, c2));
-        return buf;
+        char *rname = buf[bufn++ & 1];
+        snprintf(rname, sizeof buf[0], "%s%d:%s%d",
+                 coltoa(c1), r1, coltoa(c2), r2);
+        return rname;
     }
 }
 
@@ -349,7 +372,8 @@ static void fix_enode(struct enode *e, int row1, int col1, int row2, int col2,
                       int delta1, int delta2, struct frange *fr)
 {
     if (e) {
-        if ((e->op & REDUCE)) {
+        // XXX: should fix 'v' nodes too?
+        if (e->type == OP_TYPE_RANGE) {
             int r1 = e->e.r.left.vp->row;
             int c1 = e->e.r.left.vp->col;
             int r2 = e->e.r.right.vp->row;
@@ -369,7 +393,7 @@ static void fix_enode(struct enode *e, int row1, int col1, int row2, int col2,
             e->e.r.left.vp = lookat(r1, c1);
             e->e.r.right.vp = lookat(r2, c2);
         } else
-        if (e->op != O_VAR && e->op != O_CONST && e->op != O_SCONST) {
+        if (e->type == OP_TYPE_NODES) {
             fix_enode(e->e.o.left, row1, col1, row2, col2, delta1, delta2, fr);
             fix_enode(e->e.o.right, row1, col1, row2, col2, delta1, delta2, fr);
         }

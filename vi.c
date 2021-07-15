@@ -2267,21 +2267,21 @@ static void startshow(void) {
 
 /* insert the range we defined by moving around the screen, see startshow() */
 static void showdr(void) {
-    char r[32];
+    char buf[32];
+    const char *r = buf;
     int minsr = showsr < currow ? showsr : currow;
     int minsc = showsc < curcol ? showsc : curcol;
     int maxsr = showsr > currow ? showsr : currow;
     int maxsc = showsc > curcol ? showsc : curcol;
 
     if (showrange == SHOWROWS) {
-        snprintf(r, sizeof r, "%d:%d", minsr, maxsr);
-        ins_string(r);
+        snprintf(buf, sizeof buf, "%d:%d", minsr, maxsr);
     } else if (showrange == SHOWCOLS) {
-        snprintf(r, sizeof r, "%s:%s", coltoa(minsc), coltoa(maxsc));
-        ins_string(r);
+        snprintf(buf, sizeof buf, "%s:%s", coltoa(minsc), coltoa(maxsc));
     } else {
-        ins_string(r_name(minsr, minsc, maxsr, maxsc));
+        r = r_name(minsr, minsc, maxsr, maxsc);
     }
+    ins_string(r);
     toggle_navigate_mode();
     showrange = 0;
 }

@@ -53,7 +53,7 @@ static struct sc_style const default_style[1+CPAIRS] = {
 #endif
 };
 
-int init_style(int n, int fg, int bg, struct enode *expr) {
+int init_style(int n, int fg, int bg, enode_t *expr) {
     if (n < 1 || n > CPAIRS)
         return -1;
     if (!cpairs[n])
@@ -79,7 +79,7 @@ void initcolor(int colornum) {
     select_style(STYLE_CELL, 0);
 }
 
-void change_color(int pair, struct enode *e) {
+void change_color(int pair, enode_t *e) {
     int v;
 
     if (pair < 1 || pair > CPAIRS) {
@@ -181,9 +181,9 @@ void write_cranges(FILE *f) {
     struct crange *r;
 
     for (r = color_tail; r; r = r->r_prev) {
-        fprintf(f, "color %s:%s %d\n",
-                v_name(r->r_left->row, r->r_left->col),
-                v_name(r->r_right->row, r->r_right->col),
+        fprintf(f, "color %s %d\n",
+                r_name(r->r_left->row, r->r_left->col,
+                       r->r_right->row, r->r_right->col),
                 r->r_color);
     }
 }

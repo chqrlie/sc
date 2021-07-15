@@ -66,7 +66,7 @@ static SCXMEM string_t *get_strarg(cellref_t cr) {
     int ival;
     double fval;
     SCXMEM string_t *sval;
-    SCXMEM struct enode *enode;
+    SCXMEM enode_t *enode;
     struct cellref cval;
     struct rangeref rval;
 }

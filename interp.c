@@ -50,26 +50,26 @@ static int repct = 1;   /* Make repct a global variable so that the
                            function @numiter can access it */
 
 /* a linked list of free [struct enodes]'s, uses .e.o.left as the pointer */
-static struct enode *free_enodes = NULL;
+static enode_t *free_enodes = NULL;
 
-static double dolookup(struct enode *val, int minr, int minc, int maxr,
+static double dolookup(enode_t *val, int minr, int minc, int maxr,
                        int maxc, int offr, int offc);
 static double fn1_eval(double (*fn)(double), double arg);
 static double fn2_eval(double (*fn)(double, double), double arg1, double arg2);
 static int RealEvalAll(void);
-static int constant_expr(struct enode *e, int full);
+static int constant_expr(enode_t *e, int full);
 static void RealEvalOne(struct ent *p, int i, int j, int *chgct);
 
 static double finfunc(int fun, double v1, double v2, double v3);
-static SCXMEM string_t *dostindex(int minr, int minc, int maxr, int maxc, struct enode *val);
-static double doindex(int minr, int minc, int maxr, int maxc, struct enode *val);
-static double docount(int, int, int, int, struct enode *);
-static double dosum(int, int, int, int, struct enode *);
-static double doprod(int, int, int, int, struct enode *);
-static double doavg(int, int, int, int, struct enode *);
-static double dostddev(int, int, int, int, struct enode *);
-static double domax(int, int, int, int, struct enode *);
-static double domin(int, int, int, int, struct enode *);
+static SCXMEM string_t *dostindex(int minr, int minc, int maxr, int maxc, enode_t *val);
+static double doindex(int minr, int minc, int maxr, int maxc, enode_t *val);
+static double docount(int, int, int, int, enode_t *);
+static double dosum(int, int, int, int, enode_t *);
+static double doprod(int, int, int, int, enode_t *);
+static double doavg(int, int, int, int, enode_t *);
+static double dostddev(int, int, int, int, enode_t *);
+static double domax(int, int, int, int, enode_t *);
+static double domin(int, int, int, int, enode_t *);
 static double dodts(int, int, int);
 static double dotts(int, int, int);
 static double dotime(int, double);
@@ -77,11 +77,11 @@ static double doston(SCXMEM string_t *);
 static double doeqs(SCXMEM string_t *s1, SCXMEM string_t *s2);
 static struct ent *getent(SCXMEM string_t *colstr, double row);
 static double donval(SCXMEM string_t *colstr, double row);
-static double dolmax(struct enode *);
-static double dolmin(struct enode *);
+static double dolmax(enode_t *);
+static double dolmin(enode_t *);
 static SCXMEM string_t *dodate(time_t, SCXMEM string_t *);
 static SCXMEM string_t *dofmt(SCXMEM string_t *fmtstr, double v);
-static SCXMEM string_t *doext(struct enode *);
+static SCXMEM string_t *doext(enode_t *);
 static SCXMEM string_t *dosval(SCXMEM string_t *colstr, double row);
 static SCXMEM string_t *docapital(SCXMEM string_t *s);
 static SCXMEM string_t *docase(int acase, SCXMEM string_t *s);  // UPPER or LOWER
@@ -140,7 +140,7 @@ static double finfunc(int fun, double v1, double v2, double v3) {
     return answer;
 }
 
-static SCXMEM string_t *dostindex(int minr, int minc, int maxr, int maxc, struct enode *val) {
+static SCXMEM string_t *dostindex(int minr, int minc, int maxr, int maxc, enode_t *val) {
     int r, c;
     struct ent *p;
 
@@ -166,7 +166,7 @@ static SCXMEM string_t *dostindex(int minr, int minc, int maxr, int maxc, struct
     return NULL;
 }
 
-static double doindex(int minr, int minc, int maxr, int maxc, struct enode *val) {
+static double doindex(int minr, int minc, int maxr, int maxc, enode_t *val) {
     int r, c;
     struct ent *p;
 
@@ -193,7 +193,7 @@ static double doindex(int minr, int minc, int maxr, int maxc, struct enode *val)
         return 0.0;
 }
 
-static double dolookup(struct enode * val, int minr, int minc, int maxr, int maxc, int offset, int vflag) {
+static double dolookup(enode_t * val, int minr, int minc, int maxr, int maxc, int offset, int vflag) {
     double v, ret = 0.0;
     int r, c;
     struct ent *p = NULL;
@@ -256,7 +256,7 @@ static double dolookup(struct enode * val, int minr, int minc, int maxr, int max
 
 /*---------------- aggregate functions ----------------*/
 
-static double docount(int minr, int minc, int maxr, int maxc, struct enode *e) {
+static double docount(int minr, int minc, int maxr, int maxc, enode_t *e) {
     int r, c;
     int count;
     int cellerr = CELLOK;
@@ -283,7 +283,7 @@ static double docount(int minr, int minc, int maxr, int maxc, struct enode *e) {
     return (double)count;
 }
 
-static double dosum(int minr, int minc, int maxr, int maxc, struct enode *e) {
+static double dosum(int minr, int minc, int maxr, int maxc, enode_t *e) {
     double v;
     int r, c;
     int cellerr = CELLOK;
@@ -310,7 +310,7 @@ static double dosum(int minr, int minc, int maxr, int maxc, struct enode *e) {
     return v;
 }
 
-static double doprod(int minr, int minc, int maxr, int maxc, struct enode *e) {
+static double doprod(int minr, int minc, int maxr, int maxc, enode_t *e) {
     double v;
     int r, c;
     int cellerr = CELLOK;
@@ -337,7 +337,7 @@ static double doprod(int minr, int minc, int maxr, int maxc, struct enode *e) {
     return v;
 }
 
-static double doavg(int minr, int minc, int maxr, int maxc, struct enode *e) {
+static double doavg(int minr, int minc, int maxr, int maxc, enode_t *e) {
     double v;
     int r, c;
     int count;
@@ -371,7 +371,7 @@ static double doavg(int minr, int minc, int maxr, int maxc, struct enode *e) {
         return v / (double)count;
 }
 
-static double dostddev(int minr, int minc, int maxr, int maxc, struct enode *e) {
+static double dostddev(int minr, int minc, int maxr, int maxc, enode_t *e) {
     double lp, rp, v, nd;
     int r, c;
     int count;
@@ -408,7 +408,7 @@ static double dostddev(int minr, int minc, int maxr, int maxc, struct enode *e) 
     return sqrt((nd * lp - rp * rp) / (nd * (nd - 1)));
 }
 
-static double domax(int minr, int minc, int maxr, int maxc, struct enode *e) {
+static double domax(int minr, int minc, int maxr, int maxc, enode_t *e) {
     double v;
     int r, c;
     int count;
@@ -441,7 +441,7 @@ static double domax(int minr, int minc, int maxr, int maxc, struct enode *e) {
     return v;
 }
 
-static double domin(int minr, int minc, int maxr, int maxc, struct enode *e) {
+static double domin(int minr, int minc, int maxr, int maxc, enode_t *e) {
     double v;
     int r, c;
     int count;
@@ -628,10 +628,10 @@ static double donval(SCXMEM string_t *colstr, double rowdoub) {
  */
 // XXX: should swap left and right
 // XXX: should handle vars and ranges in list
-static double dolmax(struct enode *ep) {
+static double dolmax(enode_t *ep) {
     int count = 0;
     double maxval = 0.0;
-    struct enode *p;
+    enode_t *p;
 
     cellerror = CELLOK;
     for (p = ep; p; p = p->e.o.right) {
@@ -646,10 +646,10 @@ static double dolmax(struct enode *ep) {
 
 // XXX: should swap left and right
 // XXX: should handle vars and ranges in list
-static double dolmin(struct enode *ep) {
+static double dolmin(enode_t *ep) {
     int count = 0;
     double minval = 0.0;
-    struct enode *p;
+    enode_t *p;
 
     cellerror = CELLOK;
     for (p = ep; p; p = p->e.o.right) {
@@ -662,7 +662,7 @@ static double dolmin(struct enode *ep) {
     return minval;
 }
 
-double eval(struct enode *e) {
+double eval(enode_t *e) {
     if (e == NULL) {
         cellerror = CELLINVALID;
         return 0.0;
@@ -803,29 +803,29 @@ double eval(struct enode *e) {
                 return doindex(minr, minc, maxr, maxc, e->e.o.right);
             }
         }
-    case REDUCE | 'R': return abs(e->e.r.right.vp->row - e->e.r.left.vp->row) + 1;
-    case REDUCE | 'C': return abs(e->e.r.right.vp->col - e->e.r.left.vp->col) + 1;
+    case 'R':       return abs(e->e.r.right.vp->row - e->e.r.left.vp->row) + 1;
+    case 'C':       return abs(e->e.r.right.vp->col - e->e.r.left.vp->col) + 1;
 
-    case ABS:        return fn1_eval( fabs, eval(e->e.o.left));
-    case ACOS:       return fn1_eval( acos, eval(e->e.o.left));
-    case ASIN:       return fn1_eval( asin, eval(e->e.o.left));
-    case ATAN:       return fn1_eval( atan, eval(e->e.o.left));
-    case ATAN2:      return fn2_eval( atan2, eval(e->e.o.left), eval(e->e.o.right));
-    case CEIL:       return fn1_eval( ceil, eval(e->e.o.left));
-    case COS:        return fn1_eval( cos, eval(e->e.o.left));
-    case EXP:        return fn1_eval( exp, eval(e->e.o.left));
-    case FABS:       return fn1_eval( fabs, eval(e->e.o.left));
-    case FLOOR:      return fn1_eval( floor, eval(e->e.o.left));
-    case HYPOT:      return fn2_eval( hypot, eval(e->e.o.left), eval(e->e.o.right));
-    case LOG:        return fn1_eval( log, eval(e->e.o.left));
-    case LOG10:      return fn1_eval( log10, eval(e->e.o.left));
-    case POW:        return fn2_eval( pow, eval(e->e.o.left), eval(e->e.o.right));
-    case SIN:        return fn1_eval( sin, eval(e->e.o.left));
-    case SQRT:       return fn1_eval( sqrt, eval(e->e.o.left));
-    case TAN:        return fn1_eval( tan, eval(e->e.o.left));
-    case DTR:        return dtr(eval(e->e.o.left));
-    case RTD:        return rtd(eval(e->e.o.left));
-    case RAND:       return (double)rand() / ((double)RAND_MAX + 1);
+    case ABS:       return fn1_eval( fabs, eval(e->e.o.left));
+    case ACOS:      return fn1_eval( acos, eval(e->e.o.left));
+    case ASIN:      return fn1_eval( asin, eval(e->e.o.left));
+    case ATAN:      return fn1_eval( atan, eval(e->e.o.left));
+    case ATAN2:     return fn2_eval( atan2, eval(e->e.o.left), eval(e->e.o.right));
+    case CEIL:      return fn1_eval( ceil, eval(e->e.o.left));
+    case COS:       return fn1_eval( cos, eval(e->e.o.left));
+    case EXP:       return fn1_eval( exp, eval(e->e.o.left));
+    case FABS:      return fn1_eval( fabs, eval(e->e.o.left));
+    case FLOOR:     return fn1_eval( floor, eval(e->e.o.left));
+    case HYPOT:     return fn2_eval( hypot, eval(e->e.o.left), eval(e->e.o.right));
+    case LOG:       return fn1_eval( log, eval(e->e.o.left));
+    case LOG10:     return fn1_eval( log10, eval(e->e.o.left));
+    case POW:       return fn2_eval( pow, eval(e->e.o.left), eval(e->e.o.right));
+    case SIN:       return fn1_eval( sin, eval(e->e.o.left));
+    case SQRT:      return fn1_eval( sqrt, eval(e->e.o.left));
+    case TAN:       return fn1_eval( tan, eval(e->e.o.left));
+    case DTR:       return dtr(eval(e->e.o.left));
+    case RTD:       return rtd(eval(e->e.o.left));
+    case RAND:      return (double)rand() / ((double)RAND_MAX + 1);
     case RANDBETWEEN: return (double)rand_between(eval(e->e.o.left), eval(e->e.o.right));
     case RND:
         if (rndtoeven) {
@@ -981,7 +981,7 @@ static SCXMEM string_t *dofmt(SCXMEM string_t *fmtstr, double v) {
 
 #ifdef NOEXTFUNCS
 
-static SCXMEM string_t *doext(struct enode *se) {
+static SCXMEM string_t *doext(enode_t *se) {
     SCXMEM string_t *command = seval(se->e.o.left);
     double value = eval(se->e.o.right);
 
@@ -993,7 +993,7 @@ static SCXMEM string_t *doext(struct enode *se) {
 
 #else /* NOEXTFUNCS */
 
-static SCXMEM string_t *doext(struct enode *se) {
+static SCXMEM string_t *doext(enode_t *se) {
     char buff[FBUFLEN];         /* command line/return, not permanently alloc */
     SCXMEM string_t *command = seval(se->e.o.left);
     double value = eval(se->e.o.right);
@@ -1128,7 +1128,7 @@ static SCXMEM string_t *docapital(SCXMEM string_t *s) {
     return s2;
 }
 
-SCXMEM string_t *seval(struct enode *se) {
+SCXMEM string_t *seval(enode_t *se) {
     if (se == NULL) return NULL;
     switch (se->op) {
     case O_SCONST:  return dup_string(se->e.s);
@@ -1280,14 +1280,14 @@ static int RealEvalAll(void) {
     return chgct;
 }
 
-static void RealEvalOne(struct ent *p, int i, int j, int *chgct) {
-    gmyrow = i;
-    gmycol = j;
+static void RealEvalOne(struct ent *p, int row, int col, int *chgct) {
+    gmyrow = row;
+    gmycol = col;
 
     if (p->flags & IS_STREXPR) {
         SCXMEM string_t *v;
         if (setjmp(fpe_save)) {
-            error("Floating point exception %s", v_name(i, j));
+            error("Floating point exception %s", v_name(row, col));
             cellerror = CELLERROR;
             v = new_string("");
         } else {
@@ -1306,7 +1306,7 @@ static void RealEvalOne(struct ent *p, int i, int j, int *chgct) {
     } else {
         double v;
         if (setjmp(fpe_save)) {
-            error("Floating point exception %s", v_name(i, j));
+            error("Floating point exception %s", v_name(row, col));
             cellerror = CELLERROR;
             v = 0.0;
         } else {
@@ -1338,14 +1338,14 @@ void setautocalc(int i) {
 
 /*---------------- expression tree construction ----------------*/
 
-static SCXMEM struct enode *new_node(int op, SCXMEM struct enode *a1, SCXMEM struct enode *a2) {
-    SCXMEM struct enode *p;
+static SCXMEM enode_t *new_node(int op, SCXMEM enode_t *a1, SCXMEM enode_t *a2) {
+    SCXMEM enode_t *p;
 
     if (free_enodes) {
         p = free_enodes;
         free_enodes = p->e.o.left;
     } else {
-        p = scxmalloc(sizeof(struct enode));
+        p = scxmalloc(sizeof(enode_t));
         if (!p) {
             efree(a1);
             efree(a2);
@@ -1353,22 +1353,23 @@ static SCXMEM struct enode *new_node(int op, SCXMEM struct enode *a1, SCXMEM str
         }
     }
     p->op = op;
+    p->type = OP_TYPE_NODES;
     p->e.o.left = a1;
     p->e.o.right = a2;
     p->e.o.s = NULL;
     return p;
 }
 
-SCXMEM struct enode *new_op0(int op) {
+SCXMEM enode_t *new_op0(int op) {
     return new_node(op, NULL, NULL);
 }
 
-SCXMEM struct enode *new_op1(int op, SCXMEM struct enode *a1) {
+SCXMEM enode_t *new_op1(int op, SCXMEM enode_t *a1) {
     if (!a1) return NULL;
     return new_node(op, a1, NULL);
 }
 
-SCXMEM struct enode *new_op2(int op, SCXMEM struct enode *a1, SCXMEM struct enode *a2) {
+SCXMEM enode_t *new_op2(int op, SCXMEM enode_t *a1, SCXMEM enode_t *a2) {
     if (!a1 || !a2) {
         efree(a1);
         efree(a2);
@@ -1377,9 +1378,8 @@ SCXMEM struct enode *new_op2(int op, SCXMEM struct enode *a1, SCXMEM struct enod
     return new_node(op, a1, a2);
 }
 
-SCXMEM struct enode *new_op3(int op, SCXMEM struct enode *a1,
-                             SCXMEM struct enode *a2,
-                             SCXMEM struct enode *a3)
+SCXMEM enode_t *new_op3(int op, SCXMEM enode_t *a1, SCXMEM enode_t *a2,
+                        SCXMEM enode_t *a3)
 {
     if (!a1 || !a2 || !a3) {
         efree(a1);
@@ -1390,20 +1390,22 @@ SCXMEM struct enode *new_op3(int op, SCXMEM struct enode *a1,
     return new_node(op, a1, new_node(op == '?' ? ':' : ',', a2, a3));
 }
 
-SCXMEM struct enode *new_var(int op, cellref_t cr) {
-    SCXMEM struct enode *p;
+SCXMEM enode_t *new_var(int op, cellref_t cr) {
+    SCXMEM enode_t *p;
 
     if ((p = new_node(op, NULL, NULL))) {
+        p->type = OP_TYPE_VAR;
         p->e.v.vf = cr.vf;
         p->e.v.vp = lookat(cr.row, cr.col);
     }
     return p;
 }
 
-static SCXMEM struct enode *new_range(int op, rangeref_t rr, SCXMEM struct enode *a1) {
-    SCXMEM struct enode *p;
+static SCXMEM enode_t *new_range(int op, rangeref_t rr, SCXMEM enode_t *a1) {
+    SCXMEM enode_t *p;
 
-    if ((p = new_node(REDUCE | op, NULL, NULL))) {
+    if ((p = new_node(op, NULL, NULL))) {
+        p->type = OP_TYPE_RANGE;
         p->e.r.left.vf = rr.left.vf;
         p->e.r.left.vp = lookat(rr.left.row, rr.left.col);
         p->e.r.right.vf = rr.right.vf;
@@ -1417,88 +1419,123 @@ static SCXMEM struct enode *new_range(int op, rangeref_t rr, SCXMEM struct enode
     return p;
 }
 
-SCXMEM struct enode *new_range0(int op, rangeref_t rr) {
+SCXMEM enode_t *new_range0(int op, rangeref_t rr) {
     return new_range(op, rr, NULL);
 }
 
-SCXMEM struct enode *new_range1(int op, rangeref_t rr, SCXMEM struct enode *a1) {
+SCXMEM enode_t *new_range1(int op, rangeref_t rr, SCXMEM enode_t *a1) {
     if (!a1) return NULL;
     return new_range(op, rr, a1);
 }
 
-SCXMEM struct enode *new_range2(int op, rangeref_t rr, SCXMEM struct enode *a1,
-                                SCXMEM struct enode *a2)
+SCXMEM enode_t *new_range2(int op, rangeref_t rr, SCXMEM enode_t *a1,
+                           SCXMEM enode_t *a2)
 {
     return new_range(op, rr, new_op2(',', a1, a2));
 }
 
-SCXMEM struct enode *new_const(double a1) {
-    SCXMEM struct enode *p;
+SCXMEM enode_t *new_const(double v) {
+    SCXMEM enode_t *p;
 
-    if ((p = new_node(O_CONST, NULL, NULL)))
-        p->e.k = a1;
+    if ((p = new_node(O_CONST, NULL, NULL))) {
+        p->type = OP_TYPE_DOUBLE;
+        p->e.k = v;
+    }
     return p;
 }
 
-SCXMEM struct enode *new_str(SCXMEM string_t *s) {
-    SCXMEM struct enode *p;
+SCXMEM enode_t *new_str(SCXMEM string_t *s) {
+    SCXMEM enode_t *p;
 
-    if ((p = new_node(O_SCONST, NULL, NULL)))
+    if ((p = new_node(O_SCONST, NULL, NULL))) {
+        p->type = OP_TYPE_STRING;
         p->e.s = s;
+    }
     return p;
 }
 
-// XXX: should check for allocation failure and return NULL
-struct enode *copye(struct enode *e, int Rdelta, int Cdelta,
-                    int r1, int c1, int r2, int c2, int transpose)
+enode_t *copye(enode_t *e, int Rdelta, int Cdelta,
+               int r1, int c1, int r2, int c2, int transpose, enode_t *range)
 {
-    struct enode *ret;
-    // XXX: horrible hack to copy aggregate ops
-    static struct enode *range = NULL;
+    enode_t *ret;
 
     if (e == NULL)
         return NULL;
 
-    if (e->op & REDUCE) {
+    if (!(ret = new_node(e->op, NULL, NULL)))
+        return NULL;
+
+    if (e->type == OP_TYPE_RANGE) {
         int newrow, newcol;
 
-        if (!(ret = new_node(e->op, NULL, NULL)))
-            return NULL;
+        ret->type = OP_TYPE_RANGE;
 
-        newrow = e->e.r.left.vf & FIX_ROW ||
-                 e->e.r.left.vp->row < r1 || e->e.r.left.vp->row > r2 ||
-                 e->e.r.left.vp->col < c1 || e->e.r.left.vp->col > c2 ?
-                 e->e.r.left.vp->row :
-                 transpose ? r1 + Rdelta + e->e.r.left.vp->col - c1 :
-                 e->e.r.left.vp->row + Rdelta;
-        newcol = e->e.r.left.vf & FIX_COL ||
-                 e->e.r.left.vp->row < r1 || e->e.r.left.vp->row > r2 ||
-                 e->e.r.left.vp->col < c1 || e->e.r.left.vp->col > c2 ?
-                 e->e.r.left.vp->col :
-                 transpose ? c1 + Cdelta + e->e.r.left.vp->row - r1 :
-                 e->e.r.left.vp->col + Cdelta;
+        newrow = (e->e.r.left.vf & FIX_ROW ||
+                  e->e.r.left.vp->row < r1 || e->e.r.left.vp->row > r2 ||
+                  e->e.r.left.vp->col < c1 || e->e.r.left.vp->col > c2 ?
+                  e->e.r.left.vp->row :
+                  transpose ? r1 + Rdelta + e->e.r.left.vp->col - c1 :
+                  e->e.r.left.vp->row + Rdelta);
+        newcol = (e->e.r.left.vf & FIX_COL ||
+                  e->e.r.left.vp->row < r1 || e->e.r.left.vp->row > r2 ||
+                  e->e.r.left.vp->col < c1 || e->e.r.left.vp->col > c2 ?
+                  e->e.r.left.vp->col :
+                  transpose ? c1 + Cdelta + e->e.r.left.vp->row - r1 :
+                  e->e.r.left.vp->col + Cdelta);
         ret->e.r.left.vp = lookat(newrow, newcol);
         ret->e.r.left.vf = e->e.r.left.vf;
-        newrow = e->e.r.right.vf & FIX_ROW ||
-                 e->e.r.right.vp->row < r1 || e->e.r.right.vp->row > r2 ||
-                 e->e.r.right.vp->col < c1 || e->e.r.right.vp->col > c2 ?
-                 e->e.r.right.vp->row :
-                 transpose ? r1 + Rdelta + e->e.r.right.vp->col - c1 :
-                 e->e.r.right.vp->row + Rdelta;
-        newcol = e->e.r.right.vf & FIX_COL ||
-                 e->e.r.right.vp->row < r1 || e->e.r.right.vp->row > r2 ||
-                 e->e.r.right.vp->col < c1 || e->e.r.right.vp->col > c2 ?
-                 e->e.r.right.vp->col :
-                 transpose ? c1 + Cdelta + e->e.r.right.vp->row - r1 :
-                 e->e.r.right.vp->col + Cdelta;
+        newrow = (e->e.r.right.vf & FIX_ROW ||
+                  e->e.r.right.vp->row < r1 || e->e.r.right.vp->row > r2 ||
+                  e->e.r.right.vp->col < c1 || e->e.r.right.vp->col > c2 ?
+                  e->e.r.right.vp->row :
+                  transpose ? r1 + Rdelta + e->e.r.right.vp->col - c1 :
+                  e->e.r.right.vp->row + Rdelta);
+        newcol = (e->e.r.right.vf & FIX_COL ||
+                  e->e.r.right.vp->row < r1 || e->e.r.right.vp->row > r2 ||
+                  e->e.r.right.vp->col < c1 || e->e.r.right.vp->col > c2 ?
+                  e->e.r.right.vp->col :
+                  transpose ? c1 + Cdelta + e->e.r.right.vp->row - r1 :
+                  e->e.r.right.vp->col + Cdelta);
         ret->e.r.right.vp = lookat(newrow, newcol);
         ret->e.r.right.vf = e->e.r.right.vf;
+    } else
+    if (e->type == OP_TYPE_VAR) {
+        int newrow, newcol;
+        ret->type = OP_TYPE_VAR;
+        if (range
+        &&  e->e.v.vp->row >= range->e.r.left.vp->row
+        &&  e->e.v.vp->row <= range->e.r.right.vp->row
+        &&  e->e.v.vp->col >= range->e.r.left.vp->col
+        &&  e->e.v.vp->col <= range->e.r.right.vp->col) {
+            newrow = (range->e.r.left.vf & FIX_ROW ?
+                      e->e.v.vp->row : e->e.v.vp->row + Rdelta);
+            newcol = (range->e.r.left.vf & FIX_COL ?
+                      e->e.v.vp->col : e->e.v.vp->col + Cdelta);
+        } else {
+            newrow = (e->e.v.vf & FIX_ROW ||
+                      e->e.v.vp->row < r1 || e->e.v.vp->row > r2 ||
+                      e->e.v.vp->col < c1 || e->e.v.vp->col > c2 ?
+                      e->e.v.vp->row :
+                      transpose ? r1 + Rdelta + e->e.v.vp->col - c1 :
+                      e->e.v.vp->row + Rdelta);
+            newcol = (e->e.v.vf & FIX_COL ||
+                      e->e.v.vp->row < r1 || e->e.v.vp->row > r2 ||
+                      e->e.v.vp->col < c1 || e->e.v.vp->col > c2 ?
+                      e->e.v.vp->col :
+                      transpose ? c1 + Cdelta + e->e.v.vp->row - r1 :
+                      e->e.v.vp->col + Cdelta);
+        }
+        ret->e.v.vp = lookat(newrow, newcol);
+        ret->e.v.vf = e->e.v.vf;
+    } else
+    if (e->type == OP_TYPE_VAR) {
+        ret->type = OP_TYPE_DOUBLE;
+        ret->e.k = e->e.k;
+    } else
+    if (e->type == OP_TYPE_STRING) {
+        ret->type = OP_TYPE_STRING;
+        ret->e.s = dup_string(e->e.s);
     } else {
-        struct enode *temprange = NULL;
-
-        if (!(ret = new_node(e->op, NULL, NULL)))
-            return NULL;
-
         switch (ret->op) {
         case SUM:
         case PROD:
@@ -1507,80 +1544,32 @@ struct enode *copye(struct enode *e, int Rdelta, int Cdelta,
         case STDDEV:
         case MAX:
         case MIN:
-            temprange = range;
+            // XXX: this hack is for SUM.IF and similar
             range = e->e.o.left;
             r1 = 0;
             c1 = 0;
             r2 = maxrow;
             c2 = maxcol;
-        }
-        switch (ret->op) {
-        case 'v': {
-                int newrow, newcol;
-                if (range && e->e.v.vp->row >= range->e.r.left.vp->row &&
-                        e->e.v.vp->row <= range->e.r.right.vp->row &&
-                        e->e.v.vp->col >= range->e.r.left.vp->col &&
-                        e->e.v.vp->col <= range->e.r.right.vp->col) {
-                    newrow = range->e.r.left.vf & FIX_ROW ?
-                             e->e.v.vp->row : e->e.v.vp->row + Rdelta;
-                    newcol = range->e.r.left.vf & FIX_COL ?
-                             e->e.v.vp->col : e->e.v.vp->col + Cdelta;
-                } else {
-                    newrow = e->e.v.vf & FIX_ROW ||
-                             e->e.v.vp->row < r1 || e->e.v.vp->row > r2 ||
-                             e->e.v.vp->col < c1 || e->e.v.vp->col > c2 ?
-                             e->e.v.vp->row :
-                             transpose ? r1 + Rdelta + e->e.v.vp->col - c1 :
-                             e->e.v.vp->row + Rdelta;
-                    newcol = e->e.v.vf & FIX_COL ||
-                             e->e.v.vp->row < r1 || e->e.v.vp->row > r2 ||
-                             e->e.v.vp->col < c1 || e->e.v.vp->col > c2 ?
-                             e->e.v.vp->col :
-                             transpose ? c1 + Cdelta + e->e.v.vp->row - r1 :
-                             e->e.v.vp->col + Cdelta;
-                }
-                ret->e.v.vp = lookat(newrow, newcol);
-                ret->e.v.vf = e->e.v.vf;
-                break;
-            }
-        case 'k':
-            ret->e.k = e->e.k;
             break;
         case 'f':
-        case 'F':
-            if (( range && ret->op == 'F') ||
-                (!range && ret->op == 'f')   )
+            if (!range)
                 Rdelta = Cdelta = 0;
-            // XXX: should check for allocation failure
-            ret->e.o.left = copye(e->e.o.left, Rdelta, Cdelta,
-                                  r1, c1, r2, c2, transpose);
-            ret->e.o.right = NULL;
             break;
-        case '$':
+        case 'F':
+            if (range)
+                Rdelta = Cdelta = 0;
+            break;
         case EXT:
-            // XXX: should check for allocation failure
-            ret->e.s = dup_string(e->e.s);
-            if (e->op == '$')       /* Drop through if ret->op is EXT */
-                break;
-            FALLTHROUGH;
-        default:
-            // XXX: should check for allocation failure
-            ret->e.o.left = copye(e->e.o.left, Rdelta, Cdelta,
-                                  r1, c1, r2, c2, transpose);
-            ret->e.o.right = copye(e->e.o.right, Rdelta, Cdelta,
-                                   r1, c1, r2, c2, transpose);
+            ret->e.o.s = dup_string(e->e.o.s);
             break;
         }
-        switch (ret->op) {
-        case SUM:
-        case PROD:
-        case AVG:
-        case COUNT:
-        case STDDEV:
-        case MAX:
-        case MIN:
-            // XXX: horrible hack!
-            range = temprange;
+        if ((e->e.o.left && !(ret->e.o.left = copye(e->e.o.left, Rdelta, Cdelta,
+                                                    r1, c1, r2, c2, transpose, range)))
+        ||  (e->e.o.right && !(ret->e.o.right = copye(e->e.o.right, Rdelta, Cdelta,
+                                                      r1, c1, r2, c2, transpose, range))))
+        {
+            efree(ret);
+            return NULL;
         }
     }
     return ret;
@@ -1589,17 +1578,18 @@ struct enode *copye(struct enode *e, int Rdelta, int Cdelta,
 /*
  * Say if an expression is a constant (return 1) or not.
  */
-static int constant_expr(struct enode *e, int full) {
+static int constant_expr(enode_t *e, int full) {
     return (e == NULL
         ||  e->op == O_CONST
         ||  e->op == O_SCONST
         ||  (e->op == 'm' && constant_expr(e->e.o.left, 0)) /* unary minus */
         ||  (full
-        &&   e->op != O_VAR
-        &&   !(e->op & REDUCE)
+        &&   e->type == OP_TYPE_NODES
         &&   constant_expr(e->e.o.left, full)
         &&   constant_expr(e->e.o.right, full)
-        &&   e->op != EXT     /* functions look like constants but aren't */
+        &&   e->op != RAND     /* non pure functions */
+        &&   e->op != RANDBETWEEN
+        &&   e->op != EXT
         &&   e->op != NVAL
         &&   e->op != SVAL
         &&   e->op != NOW
@@ -1647,7 +1637,7 @@ static void push_mark(int row, int col) {
 }
 
 /* set the numeric part of a cell */
-void let(cellref_t cr, SCXMEM struct enode *e) {
+void let(cellref_t cr, SCXMEM enode_t *e) {
     struct ent *v = lookat(cr.row, cr.col);
     double val;
     // XXX: test for constant expression is potentially incorrect
@@ -1716,7 +1706,7 @@ void let(cellref_t cr, SCXMEM struct enode *e) {
         push_mark(cr.row, cr.col);
 }
 
-void slet(cellref_t cr, SCXMEM struct enode *se, int align) {
+void slet(cellref_t cr, SCXMEM enode_t *se, int align) {
     struct ent *v = lookat(cr.row, cr.col);
     SCXMEM string_t *p;
 
@@ -1773,40 +1763,19 @@ void slet(cellref_t cr, SCXMEM struct enode *se, int align) {
     modflg++;
 }
 
-void efree(SCXMEM struct enode *e) {
+void efree(SCXMEM enode_t *e) {
     if (e) {
-        if (e->op != O_VAR && e->op != O_CONST && e->op != O_SCONST
-                && !(e->op & REDUCE)) {
+        if (e->type == OP_TYPE_NODES) {
             efree(e->e.o.left);
             efree(e->e.o.right);
-        }
-        if (e->op == O_SCONST) {
-            free_string(e->e.s);
-            e->e.s = NULL;
+            free_string(e->e.o.s);  // only EXT nodes?
         } else
-        if (e->op == EXT) {
-            free_string(e->e.o.s);
-            e->e.o.s = NULL;
+        if (e->type == OP_TYPE_STRING) {
+            free_string(e->e.s);
         }
         e->e.o.left = free_enodes;
         free_enodes = e;
     }
-}
-
-const char *coltoa(int col) {
-    static unsigned int bufn;
-    static char buf[4][4];
-    char *rname = buf[bufn++ & 3];
-    char *p = rname;
-
-    // XXX: use more than 2 letters?
-    if (col > 25) {
-        *p++ = col / 26 + 'A' - 1;
-        col %= 26;
-    }
-    *p++ = col + 'A';
-    *p = '\0';
-    return rname;
 }
 
 /*---- expression decompiler ----*/
@@ -1817,7 +1786,7 @@ struct decomp_t {
     int dr, dc, flags;
 };
 
-static void decompile_node(decomp_t *dcp, struct enode *e, int priority);
+static void decompile_node(decomp_t *dcp, enode_t *e, int priority);
 
 static void out_const(decomp_t *dcp, double v) {
 #if 0
@@ -1860,7 +1829,7 @@ static void out_var(decomp_t *dcp, struct ent_ptr v, int usename) {
     }
 }
 
-static void out_range(decomp_t *dcp, struct enode *e) {
+static void out_range(decomp_t *dcp, enode_t *e) {
     struct nrange *r;
 
     if (!(dcp->flags & DCP_NO_NAME)
@@ -1881,7 +1850,7 @@ static void out_range(decomp_t *dcp, struct enode *e) {
  *      they were entered, we must do a depth-first eval
  *      of the ELIST tree
  */
-static void decompile_list(decomp_t *dcp, struct enode *p) {
+static void decompile_list(decomp_t *dcp, enode_t *p) {
     while (p) {
         decompile_node(dcp, p->e.o.left, 0);
         if (!p->e.o.right)
@@ -1891,19 +1860,19 @@ static void decompile_list(decomp_t *dcp, struct enode *p) {
     }
 }
 
-static void unary_arg(decomp_t *dcp, const char *s, struct enode *e) {
+static void unary_arg(decomp_t *dcp, const char *s, enode_t *e) {
     buf_puts(dcp->buf, s);
     decompile_node(dcp, e->e.o.left, 30);
 }
 
-static void one_arg(decomp_t *dcp, const char *s, struct enode *e) {
+static void one_arg(decomp_t *dcp, const char *s, enode_t *e) {
     buf_puts(dcp->buf, s);
     buf_putc(dcp->buf, '(');
     decompile_node(dcp, e->e.o.left, 0);
     buf_putc(dcp->buf, ')');
 }
 
-static void two_arg(decomp_t *dcp, const char *s, struct enode *e) {
+static void two_arg(decomp_t *dcp, const char *s, enode_t *e) {
     buf_puts(dcp->buf, s);
     buf_putc(dcp->buf, '(');
     decompile_node(dcp, e->e.o.left, 0);
@@ -1913,7 +1882,7 @@ static void two_arg(decomp_t *dcp, const char *s, struct enode *e) {
     buf_putc(dcp->buf, ')');
 }
 
-static void three_arg(decomp_t *dcp, const char *s, struct enode *e) {
+static void three_arg(decomp_t *dcp, const char *s, enode_t *e) {
     buf_puts(dcp->buf, s);
     buf_putc(dcp->buf, '(');
     decompile_node(dcp, e->e.o.left, 0);
@@ -1924,14 +1893,14 @@ static void three_arg(decomp_t *dcp, const char *s, struct enode *e) {
     buf_putc(dcp->buf, ')');
 }
 
-static void range_arg(decomp_t *dcp, const char *s, struct enode *e) {
+static void range_arg(decomp_t *dcp, const char *s, enode_t *e) {
     buf_puts(dcp->buf, s);
     buf_putc(dcp->buf, '(');
     out_range(dcp, e);
     buf_putc(dcp->buf, ')');
 }
 
-static void two_arg_index(decomp_t *dcp, const char *s, struct enode *e) {
+static void two_arg_index(decomp_t *dcp, const char *s, enode_t *e) {
     buf_puts(dcp->buf, s);
     buf_putc(dcp->buf, '(');
     out_range(dcp, e->e.o.left);
@@ -1942,7 +1911,7 @@ static void two_arg_index(decomp_t *dcp, const char *s, struct enode *e) {
     buf_putc(dcp->buf, ')');
 }
 
-static void index_arg(decomp_t *dcp, const char *s, struct enode *e) {
+static void index_arg(decomp_t *dcp, const char *s, enode_t *e) {
     if (e->e.o.right && e->e.o.right->op == ',') {
         two_arg_index(dcp, s, e);
         return;
@@ -1957,7 +1926,7 @@ static void index_arg(decomp_t *dcp, const char *s, struct enode *e) {
     buf_putc(dcp->buf, ')');
 }
 
-static void list_arg(decomp_t *dcp, const char *s, struct enode *e) {
+static void list_arg(decomp_t *dcp, const char *s, enode_t *e) {
     buf_puts(dcp->buf, s);
     buf_putc(dcp->buf, '(');
     decompile_node(dcp, e->e.o.left, 0);
@@ -1966,7 +1935,7 @@ static void list_arg(decomp_t *dcp, const char *s, struct enode *e) {
     buf_putc(dcp->buf, ')');
 }
 
-static void decompile_node(decomp_t *dcp, struct enode *e, int priority) {
+static void decompile_node(decomp_t *dcp, enode_t *e, int priority) {
     if (e) {
         int mypriority;
         switch (e->op) {
@@ -2005,8 +1974,8 @@ static void decompile_node(decomp_t *dcp, struct enode *e, int priority) {
         case STDDEV:    index_arg(dcp, "@stddev", e); break;
         case MAX:       index_arg(dcp, "@max", e); break;
         case MIN:       index_arg(dcp, "@min", e); break;
-        case REDUCE | 'R': range_arg(dcp, "@rows", e); break;
-        case REDUCE | 'C': range_arg(dcp, "@cols", e); break;
+        case 'R':       range_arg(dcp, "@rows", e); break;
+        case 'C':       range_arg(dcp, "@cols", e); break;
 
         case ABS:       one_arg(dcp, "@abs", e); break;
         case ACOS:      one_arg(dcp, "@acos", e); break;
@@ -2094,28 +2063,35 @@ static void decompile_node(decomp_t *dcp, struct enode *e, int priority) {
 }
 
 // XXX: should get a context with a cell reference
-void decompile_expr(buf_t buf, struct enode *e, int dr, int dc, int flags) {
+void decompile_expr(buf_t buf, enode_t *e, int dr, int dc, int flags) {
     decomp_t ctx = { buf, dr, dc, flags };
     decompile_node(&ctx, e, 0);
 }
 
 // XXX: should get a context with a cell reference
-int decompile(char *dest, size_t size, struct enode *e,
-              int dr, int dc, int flags)
-{
+int decompile(char *dest, size_t size, enode_t *e, int dr, int dc, int flags) {
     buf_t buf;
     buf_init(buf, dest, size);
     decompile_expr(buf, e, dr, dc, flags);
     return buf->len;
 }
 
-int etype(struct enode *e) {
+int etype(enode_t *e) {
     if (e == NULL)
         return NUM;
+
     switch (e->op) {
-    case UPPER: case LOWER: case CAPITAL:
-    case O_SCONST: case '#': case DATE: case FMT: case STINDEX:
-    case EXT: case SVAL: case SUBSTR:
+    case UPPER:
+    case LOWER:
+    case CAPITAL:
+    case O_SCONST:
+    case '#':
+    case DATE:
+    case FMT:
+    case STINDEX:
+    case EXT:
+    case SVAL:
+    case SUBSTR:
         return STR;
 
     case '?':
@@ -2123,19 +2099,16 @@ int etype(struct enode *e) {
         return etype(e->e.o.right->e.o.left);
 
     case 'f':
+    case 'F':
         return etype(e->e.o.right);
 
     case O_VAR: {
-            struct ent *p;
-            p = e->e.v.vp;
+            struct ent *p = e->e.v.vp;
             if (p->expr)
                 return (p->flags & IS_STREXPR) ? STR : NUM;
-            else if (p->label)
-                return STR;
             else
-                return NUM;
+                return p->label ? STR : NUM;
         }
-
     default:
         return NUM;
     }

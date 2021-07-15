@@ -88,6 +88,7 @@ void sortrange(rangeref_t rr, SCXMEM string_t *criteria) {
     erase_area(++dbidx, minr, minc, maxr, maxc, 1);
     // XXX: make formulas that refer to the sort range
     //      point to empty cells
+    // XXX: should we use sync_refs() instead?
     sync_ranges();
     for (i = 0, p = delbuf[dbidx]; p; p = p->next) {
         if (rows[i] != p->row) {

@@ -127,11 +127,13 @@ struct range_s {
 #define VALID_CELL(p, r, c) ((p = *ATBL(tbl, r, c)) && \
                              ((p->flags & IS_VALID) || p->label))
 
+typedef struct enode enode_t;
+
 /* info for each cell, only alloc'd when something is stored in a cell */
 struct ent {
     double v;                   /* v && label are set in EvalAll() */
     SCXMEM string_t *label;     /* cell string value */
-    SCXMEM struct enode *expr;  /* cell formula */
+    SCXMEM enode_t *expr;       /* cell formula */
     SCXMEM string_t *format;    /* printf format for this cell */
     char cellerror;             /* error in a cell? (should pack with flags) */
     int row;
@@ -143,7 +145,13 @@ struct ent {
 
 /* stores type of operation this cell will perform */
 struct enode {
-    int op;
+    short op;
+    short type;
+#define OP_TYPE_NODES   0
+#define OP_TYPE_VAR     1
+#define OP_TYPE_RANGE   2
+#define OP_TYPE_DOUBLE  3
+#define OP_TYPE_STRING  4
     union {
         int gram_match;         /* some compilers (hp9000ipc) need this */
         double k;               /* constant # */
@@ -151,7 +159,7 @@ struct enode {
         struct range_s r;       /* op is on a range */
         SCXMEM string_t *s;     /* op is a string constant */
         struct {                /* other cells use to eval()/seval() */
-            SCXMEM struct enode *left, *right;
+            SCXMEM enode_t *left, *right;
             SCXMEM string_t *s; /* previous value of @ext function in case */
         } o;                    /*      external functions are turned off */
     } e;
@@ -160,8 +168,8 @@ struct enode {
 /* stores a range (left, right) */
 struct nrange {
     struct ent_ptr r_left, r_right;
-    SCXMEM string_t *r_name;                /* possible name for this range */
-    struct nrange *r_next, *r_prev;      /* chained ranges */
+    SCXMEM string_t *r_name;            /* possible name for this range */
+    struct nrange *r_next, *r_prev;     /* chained ranges */
     int r_is_range;
 };
 
@@ -182,7 +190,7 @@ struct crange {
 struct colorpair {
     int fg;
     int bg;
-    struct enode *expr;
+    enode_t *expr;
 };
 
 /* stores an abbreviation and its expansion */
@@ -216,13 +224,12 @@ struct go_save {
 #define O_CONST 'k'
 #define O_ECONST 'E'    /* constant cell w/ an error */
 #define O_SCONST '$'
-#define REDUCE 0200     /* Or'ed into OP if operand is a range */
 
-#define OP_LE 128
-#define OP_GE 129
-#define OP_NE 130
+#define OP_LE 'l'
+#define OP_GE 'g'
+#define OP_NE 'n'
 
-#define OP_BASE 256
+#define OP_BASE 128
 #define ACOS      (OP_BASE + 0)
 #define ASIN      (OP_BASE + 1)
 #define ATAN      (OP_BASE + 2)
@@ -333,11 +340,11 @@ struct go_save {
 #define SHOWCOLS 4
 
 /* tblprint style output for: */
-#define TBL     1               /* 'tbl' */
-#define LATEX   2               /* 'LaTeX' */
-#define TEX     3               /* 'TeX' */
-#define SLATEX  4               /* 'SLaTeX' (Scandinavian LaTeX) */
-#define FRAME   5               /* tblprint style output for FrameMaker */
+#define TBL     1       /* 'tbl' */
+#define LATEX   2       /* 'LaTeX' */
+#define TEX     3       /* 'TeX' */
+#define SLATEX  4       /* 'SLaTeX' (Scandinavian LaTeX) */
+#define FRAME   5       /* tblprint style output for FrameMaker */
 
 /* Types for etype() */
 #define NUM     1
@@ -345,10 +352,10 @@ struct go_save {
 
 #define GROWAMT 30      /* default minimum amount to grow */
 
-#define GROWNEW     1       /* first time table */
-#define GROWROW     2       /* add rows */
-#define GROWCOL     4       /* add columns */
-#define GROWBOTH    6       /* grow both */
+#define GROWNEW     1   /* first time table */
+#define GROWROW     2   /* add rows */
+#define GROWCOL     4   /* add columns */
+#define GROWBOTH    6   /* grow both */
 
 /*---------------- curses stuff ----------------*/
 
@@ -543,7 +550,7 @@ rangeref_t *range_normalize(rangeref_t *rr);
 /* styles */
 extern SCXMEM struct colorpair *cpairs[CPAIRS + 1];
 extern int are_colors(void);
-extern void change_color(int pair, struct enode *e);
+extern void change_color(int pair, enode_t *e);
 extern void initcolor(int colornum);
 extern void list_colors(FILE *f);
 extern void write_colors(FILE *f, int indent);
@@ -556,7 +563,7 @@ extern void sc_setcolor(int set);
 #define STYLE_FRAME     5
 #define STYLE_FRAME_CUR 6
 #define STYLE_RANGE     5
-extern int init_style(int n, int fg, int bg, struct enode *expr);
+extern int init_style(int n, int fg, int bg, enode_t *expr);
 extern void select_style(int style, int rev);
 
 extern FILE *openfile(char *fname, size_t fnamesiz, int *rpid, int *rfd);
@@ -565,15 +572,15 @@ extern char *findplugin(const char *ext, char type);
 extern const char *coltoa(int col);
 extern const char *v_name(int row, int col);
 extern const char *r_name(int r1, int c1, int r2, int c2);
-extern SCXMEM string_t *seval(struct enode *se);
-extern double eval(struct enode *e);
+extern SCXMEM string_t *seval(enode_t *se);
+extern double eval(enode_t *e);
 extern int are_frames(void);
 extern int are_nranges(void);
 extern int atocol(const char *s, int *lenp);
 extern int creadfile(const char *save, int eraseflg);
 extern int cwritefile(const char *fname, rangeref_t rr, int dcp_flags);
 extern int engformat(char *buf, size_t size, int fmt, int lprecision, double val, int *alignp);
-extern int etype(struct enode *e);
+extern int etype(enode_t *e);
 extern int find_nrange_name(const char *name, int len, struct nrange **rng);
 struct nrange *find_nrange_coords(rangeref_t rr);
 extern int format(char *buf, size_t buflen, const char *fmt, int lprecision, double val, int *alignp);
@@ -585,23 +592,21 @@ extern int readfile(const char *fname, int eraseflg);
 extern int writefile(const char *fname, rangeref_t rr, int dcp_flags);
 extern int yn_ask(const char *msg);
 extern struct abbrev *find_abbr(const char *abbrev, int len, struct abbrev **prev);
-extern struct enode *copye(struct enode *e, int Rdelta, int Cdelta,
-                           int r1, int c1, int r2, int c2, int transpose);
+extern enode_t *copye(enode_t *e, int Rdelta, int Cdelta,
+                      int r1, int c1, int r2, int c2, int transpose, enode_t *range);
 
-extern SCXMEM struct enode *new_op0(int op);
-extern SCXMEM struct enode *new_op1(int op, SCXMEM struct enode *a1);
-extern SCXMEM struct enode *new_op2(int op, SCXMEM struct enode *a1,
-                                    SCXMEM struct enode *a2);
-extern SCXMEM struct enode *new_op3(int op, SCXMEM struct enode *a1,
-                                    SCXMEM struct enode *a2,
-                                    SCXMEM struct enode *a3);
-extern SCXMEM struct enode *new_const(double a1);
-extern SCXMEM struct enode *new_range0(int op, rangeref_t rr);
-extern SCXMEM struct enode *new_range1(int op, rangeref_t rr, SCXMEM struct enode *a1);
-extern SCXMEM struct enode *new_range2(int op, rangeref_t rr, SCXMEM struct enode *a1,
-                                       SCXMEM struct enode *a2);
-extern SCXMEM struct enode *new_str(SCXMEM string_t *s);
-extern SCXMEM struct enode *new_var(int op, cellref_t cr);
+extern SCXMEM enode_t *new_op0(int op);
+extern SCXMEM enode_t *new_op1(int op, SCXMEM enode_t *a1);
+extern SCXMEM enode_t *new_op2(int op, SCXMEM enode_t *a1, SCXMEM enode_t *a2);
+extern SCXMEM enode_t *new_op3(int op, SCXMEM enode_t *a1,
+                               SCXMEM enode_t *a2, SCXMEM enode_t *a3);
+extern SCXMEM enode_t *new_const(double a1);
+extern SCXMEM enode_t *new_range0(int op, rangeref_t rr);
+extern SCXMEM enode_t *new_range1(int op, rangeref_t rr, SCXMEM enode_t *a1);
+extern SCXMEM enode_t *new_range2(int op, rangeref_t rr, SCXMEM enode_t *a1,
+                                  SCXMEM enode_t *a2);
+extern SCXMEM enode_t *new_str(SCXMEM string_t *s);
+extern SCXMEM enode_t *new_var(int op, cellref_t cr);
 /* a linked list of free [struct ent]'s, uses .next as the pointer */
 extern struct ent *lookat(int row, int col);    /* allocates the cell */
 extern struct ent *lookat_nc(int row, int col); /* does not allocate the cell */
@@ -641,10 +646,10 @@ extern void copyent(struct ent *n, struct ent *p,
 #define DCP_NO_NAME    1
 #define DCP_NO_LOCALE  2
 #define DCP_NO_EXPR    4
-extern int decompile(char *dest, size_t size, struct enode *e,
+extern int decompile(char *dest, size_t size, enode_t *e,
                      int dr, int dc, int dcp_flags);
 // XXX: should pass a context with a cell reference
-extern void decompile_expr(buf_t buf, struct enode *e,
+extern void decompile_expr(buf_t buf, enode_t *e,
                            int dr, int dc, int flags);
 extern void del_nrange(rangeref_t rr);
 extern void del_abbr(SCXMEM string_t *abbrev);
@@ -668,7 +673,7 @@ extern void cmd_recalc(void);
 extern void cmd_run(SCXMEM string_t *str);
 extern void edits(buf_t buf, int row, int col, struct ent *p, int dcp_flags);
 extern void editv(buf_t buf, int row, int col, struct ent *p, int dcp_flags);
-extern void efree(SCXMEM struct enode *e);
+extern void efree(SCXMEM enode_t *e);
 extern void erase_area(int idx, int sr, int sc, int er, int ec, int ignorelock);
 extern void erasedb(void);
 extern void eraser(rangeref_t rr);
@@ -699,7 +704,7 @@ extern int insertcol(cellref_t cr, int arg, int delta);
 extern int insertrow(cellref_t cr, int arg, int delta);
 extern void kbd_again(void);
 extern void unlet(cellref_t cr);
-extern void let(cellref_t cr, SCXMEM struct enode *e);
+extern void let(cellref_t cr, SCXMEM enode_t *e);
 extern void list_nranges(FILE *f);
 extern void lock_cells(rangeref_t rr);
 extern void move_area(int dr, int dc, rangeref_t rr);
@@ -719,13 +724,14 @@ extern void setcalcorder(int i);
 extern void showcol(int c1, int c2);
 extern void showrow(int r1, int r2);
 extern void signals(void);
-extern void slet(cellref_t cr, SCXMEM struct enode *se, int align);
+extern void slet(cellref_t cr, SCXMEM enode_t *se, int align);
 extern void sortrange(rangeref_t rr, SCXMEM string_t *criteria);
 extern void startdisp(void);
 extern void stopdisp(void);
 extern void str_search(SCXMEM string_t *s, rangeref_t rr, int num);
 extern void sync_cranges(void);
 extern void sync_franges(void);
+extern void sync_nranges(void);
 extern void sync_ranges(void);
 extern void sync_refs(void);
 extern void tblprintfile(SCXMEM string_t *fname, rangeref_t rr);
@@ -805,8 +811,8 @@ extern void yankrows(int r1, int r2);
 extern void list_frames(FILE *fp);
 extern void yankr(rangeref_t rr);
 extern void dogetkey(int fd);
-extern void cmd_seval(SCXMEM struct enode *e, int row, int col, int fd);
-extern void cmd_eval(SCXMEM struct enode *e, SCXMEM string_t *fmt, int row, int col, int fd);
+extern void cmd_seval(SCXMEM enode_t *e, int row, int col, int fd);
+extern void cmd_eval(SCXMEM enode_t *e, SCXMEM string_t *fmt, int row, int col, int fd);
 extern void getrange(SCXMEM string_t *name, int fd);
 extern void getframe(int fd);
 extern void add_abbr(SCXMEM string_t *name, SCXMEM string_t *exp);

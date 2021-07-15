@@ -34,7 +34,7 @@ typedef union {
     int ival;
     double fval;
     SCXMEM string_t *sval;
-    SCXMEM struct enode *enode;
+    SCXMEM enode_t *enode;
     struct cellref cval;
     struct rangeref rval;
 } YYSTYPE;

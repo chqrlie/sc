@@ -185,11 +185,11 @@ void write_franges(FILE *f) {
     struct frange *r;
 
     for (r = frame_tail; r; r = r->r_prev) {
-        fprintf(f, "frame %s:%s %s:%s\n",
-                v_name(r->or_left->row, r->or_left->col),
-                v_name(r->or_right->row, r->or_right->col),
-                v_name(r->ir_left->row, r->ir_left->col),
-                v_name(r->ir_right->row, r->ir_right->col));
+        fprintf(f, "frame %s %s\n",
+                r_name(r->or_left->row, r->or_left->col,
+                       r->or_right->row, r->or_right->col),
+                r_name(r->ir_left->row, r->ir_left->col,
+                       r->ir_right->row, r->ir_right->col));
     }
 }
 

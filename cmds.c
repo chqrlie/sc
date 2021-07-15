@@ -1549,33 +1549,28 @@ void format_cells(rangeref_t rr, SCXMEM string_t *s) {
  * be hanging around before the call, but not referenced by an entry
  * in tbl.  Thus the free_ent calls in sc.c
  */
-static void sync_expr(struct enode *e) {
+static void sync_expr(enode_t *e) {
     if (e == NULL)
         return;
 
-    if (e->op & REDUCE) {
-        e->e.r.right.vp = lookat(e->e.r.right.vp->row, e->e.r.right.vp->col);
+    if (e->type == OP_TYPE_RANGE) {
         e->e.r.left.vp = lookat(e->e.r.left.vp->row, e->e.r.left.vp->col);
-    } else {
-        switch (e->op) {
-        case 'v':
-            if (e->e.v.vp->flags & IS_CLEARED) {
-                e->op = ERR_;
-                e->e.o.left = NULL;
-                e->e.o.right = NULL;
-            } else
-            if (e->e.v.vp->flags & MAY_SYNC) {
-                e->e.v.vp = lookat(e->e.v.vp->row, e->e.v.vp->col);
-            }
-            break;
-        case 'k':
-        case '$':
-            break;
-        default:
-            sync_expr(e->e.o.right);
-            sync_expr(e->e.o.left);
-            break;
+        e->e.r.right.vp = lookat(e->e.r.right.vp->row, e->e.r.right.vp->col);
+    } else
+    if (e->type == OP_TYPE_VAR) {
+        if (e->e.v.vp->flags & IS_CLEARED) {
+            e->op = ERR_;
+            e->e.o.left = NULL;
+            e->e.o.right = NULL;
+        } else
+        if (e->e.v.vp->flags & MAY_SYNC) {
+            e->e.v.vp = lookat(e->e.v.vp->row, e->e.v.vp->col);
         }
+    } else
+    if (e->type == OP_TYPE_NODES) {
+        // XXX: why not left then right?
+        sync_expr(e->e.o.right);
+        sync_expr(e->e.o.left);
     }
 }
 
@@ -1718,7 +1713,8 @@ void copyent(struct ent *n, struct ent *p, int dr, int dc,
             n->flags |= p->flags & IS_VALID;
         }
         if (special != 'm' || p->expr) {
-            n->expr = copye(p->expr, dr, dc, r1, c1, r2, c2, special == 't');
+            n->expr = copye(p->expr, dr, dc, r1, c1, r2, c2,
+                            special == 't', NULL);
             if (p->flags & IS_STREXPR)
                 n->flags |= IS_STREXPR;
             else

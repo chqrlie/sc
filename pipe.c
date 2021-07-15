@@ -172,7 +172,7 @@ void getrange(SCXMEM string_t *name, int fd) {
     free_string(name);
 }
 
-void cmd_eval(SCXMEM struct enode *e, SCXMEM string_t *fmt, int row, int col, int fd) {
+void cmd_eval(SCXMEM enode_t *e, SCXMEM string_t *fmt, int row, int col, int fd) {
     char buf[FBUFLEN];
     int align = ALIGN_DEFAULT;
     double v;
@@ -193,7 +193,7 @@ void cmd_eval(SCXMEM struct enode *e, SCXMEM string_t *fmt, int row, int col, in
     efree(e);
 }
 
-void cmd_seval(SCXMEM struct enode *e, int row, int col, int fd) {
+void cmd_seval(SCXMEM enode_t *e, int row, int col, int fd) {
     SCXMEM string_t *str;
 
     gmyrow = row;
