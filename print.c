@@ -223,7 +223,7 @@ void tblprintfile(SCXMEM string_t *str, rangeref_t rr) {
     char coldelim = DEFCOLDELIM;
     char path[PATHLEN];
     char *ext;
-    const char *fname = str ? s2c(str) : "";
+    const char *fname = s2str(str);
 
     /* tblprintfile will be the [path/]file ---> [path/]file.out */
     if (*fname == '\0') {

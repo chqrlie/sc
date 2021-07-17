@@ -207,22 +207,18 @@ void cmd_seval(SCXMEM enode_t *e, int row, int col, int fd) {
     efree(e);
 }
 
-// XXX: this is an ugly hack
 void cmd_query(SCXMEM string_t *s, SCXMEM string_t *data, int fd) {
+    char buf[FBUFLEN];
+    int len;
+
     goraw();
-    // XXX: should provide destination buffer
-    // XXX: should pass string_t to query()
-    query(s2c(s), s2c(data));
+    len = query(buf, sizeof buf, s ? s2c(s) : NULL, data ? s2c(data) : NULL);
     deraw(0);
-    if (linelim >= 0) {
-        write(fd, line, strlen(line));
+    if (len >= 0) {
+        write(fd, buf, len);
         write(fd, "\n", 1);
     }
 
-    line[0] = '\0';
-    linelim = -1;
-    //CLEAR_LINE; // XXX: why this?
-    update(0);
     free_string(s);
     free_string(data);
 }

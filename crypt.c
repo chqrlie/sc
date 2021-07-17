@@ -85,7 +85,6 @@ void creadfile(const char *save, int eraseflg) {
     close(pipefd[0]);
     while (pid != wait(&fildes))
         continue;
-    //linelim = -1;
     if (eraseflg) {
         strlcpy(curfile, save, sizeof curfile);
         modflg = 0;

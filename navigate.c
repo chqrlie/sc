@@ -187,21 +187,23 @@ void str_search(SCXMEM string_t *str, rangeref_t rr, int num) {
     int found = 0;
     int firstrow, firstcol, lastrow, lastcol;
     int row, col, endr, endc;
-#if defined(RE_COMP) || defined(REGCMP)
-    char *tmp = NULL;
-#endif
-#if defined(REGCOMP)
+    const char *s;
+#if defined REGCOMP
     regex_t preg;
     int errcode;
+#elif defined RE_COMP
+    char *tmp = NULL;
+#elif defined REGCMP
+    char *tmp = NULL;
+#else
 #endif
-    const char *s;
 
     if (!str)
         return;
 
     s = s2c(str);
 
-#if defined(REGCOMP)
+#if defined REGCOMP
     if ((errcode = regcomp(&preg, s, REG_EXTENDED))) {
         char buf[160];
         regerror(errcode, &preg, buf, sizeof(buf));
@@ -209,21 +211,21 @@ void str_search(SCXMEM string_t *str, rangeref_t rr, int num) {
         free_string(str);
         return;
     }
-#endif
-#if defined(RE_COMP)
+#elif defined RE_COMP
     if ((tmp = re_comp(s)) != NULL) {
         error("%s", tmp);
         free_string(str);
         return;
     }
-#endif
-#if defined(REGCMP)
+#elif defined REGCMP
     if ((tmp = regcmp(s, NULL)) == NULL) {
         cellerror = CELLERROR;
         error("Invalid search string");
         free_string(str);
         return;
     }
+#else
+    /* otherwise nothing to do, will just use strcmp() */
 #endif
     if (!loading)
         remember(0);
@@ -287,18 +289,14 @@ void str_search(SCXMEM string_t *str, rangeref_t rr, int num) {
                 s1 = s2c(p->label);
             }
             if (s1 && *s1
-#if defined(REGCOMP)
+#if defined REGCOMP
             &&  (regexec(&preg, s1, 0, NULL, 0) == 0)
-#else
-#if defined(RE_COMP)
+#elif defined RE_COMP
             &&  (re_exec(s1) != 0)
-#else
-#if defined(REGCMP)
+#elif defined REGCMP
             &&  (regex(tmp, s1) != NULL)
 #else
             &&  (strcmp(s, s1) == 0)
-#endif
-#endif
 #endif
                 ) {
                 found = 1;
@@ -308,11 +306,12 @@ void str_search(SCXMEM string_t *str, rangeref_t rr, int num) {
         if (row == endr && col == endc)
             break;
     }
-#if defined(REGCOMP)
+#if defined REGCOMP
     regfree(&preg);
-#endif
-#if defined(REGCMP)
+#elif defined RE_COMP
+#elif defined REGCMP
     free(tmp);
+#else
 #endif
     if (found) {
         currow = row;

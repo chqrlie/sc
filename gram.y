@@ -25,19 +25,27 @@ extern int yychar;
 #endif
 
 static void doerror(SCXMEM string_t *s) {
-    error("%s", s2c(s));
-    free_string(s);
+    if (s) {
+        error("%s", s2c(s));
+        free_string(s);
+    }
 }
 
 static int doreadfile(SCXMEM string_t *fname, int eraseflg) {
-    int ret = readfile(s2c(fname), eraseflg);
-    free_string(fname);
+    int ret = -1;
+    if (fname) {
+        ret = readfile(s2c(fname), eraseflg);
+        free_string(fname);
+    }
     return ret;
 }
 
 static int dowritefile(SCXMEM string_t *fname, rangeref_t rr, int dcp_flags) {
-    int ret = writefile(s2c(fname), rr, dcp_flags);
-    free_string(fname);
+    int ret = -1;
+    if (fname) {
+        ret = writefile(s2c(fname), rr, dcp_flags);
+        free_string(fname);
+    }
     return ret;
 }
 

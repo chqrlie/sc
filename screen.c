@@ -289,6 +289,7 @@ void update(int anychanged) {          /* did any cell really change in value? *
                 stcol = -1;
         }
 
+        // XXX: should compute goto target area and shift screen?
         while (stcol < 0 || curcol < stcol || stcol + lcols - 1 < curcol ||
                 (colsinrange != fwidth[curcol] && stcol != curcol &&
                 stcol + lcols - 1 < gs.g_rr.right.col)) {
@@ -968,7 +969,7 @@ void update(int anychanged) {          /* did any cell really change in value? *
             move(lastmy, lastmx);
     } else {
         if (showtop) {                  /* show top line */
-            printw("%s%d ", coltoa(curcol), currow);
+            printw("%s%d: ", coltoa(curcol), currow);
 
             if ((p = *ATBL(tbl, currow, curcol)) && (p->flags & HAS_NOTE)) {
                 /* Show the cell note range */
@@ -1006,15 +1007,15 @@ void update(int anychanged) {          /* did any cell really change in value? *
                 if (p->expr && (p->flags & IS_STREXPR)) {
                     addch('{');
                     addstr(field);
-                    addch('}');     /* and this '}' is for vi % */
-                    addch(' ');     /* separate sexpr and value if any */
+                    addch('}');
+                    addch(' ');
                 } else
                 if (p->label) {
                     /* has constant label only */
                     addch('\"');
-                    addstr(s2c(p->label));
+                    addstr(s2c(p->label));  // XXX: should encode string?
                     addch('\"');
-                    addch(' ');     /* separate label and value if any */
+                    addch(' ');
                 }
 
                 /*
@@ -1029,20 +1030,21 @@ void update(int anychanged) {          /* did any cell really change in value? *
                     addch('[');
                     addstr(field);
                     addch(']');
+                    addch(' ');
                 }
                 /* Display if cell is locked */
                 if (p->flags & IS_LOCKED)
-                    addstr(" locked");
+                    addstr("locked ");
             }
         }
-        if (braille)
+        if (braille) {
             if (message)
                 move(1, 0);
             else if (braillealt)
                 move(0, 0);
             else
                 move(lastmy, lastmx);
-        else if (showcell)
+        } else if (showcell)
             move(lines - 1, cols - 1);
         else
             move(lastmy, lastmx + fwidth[sc_lastcol]);
@@ -1434,7 +1436,6 @@ void showstring(const char *string,         /* to display */
 void cmd_redraw(void) {
     if (usecurses) {
         clearok(stdscr, TRUE);
-        //linelim = -1;
         update(1);
         refresh();
         changed = 0;

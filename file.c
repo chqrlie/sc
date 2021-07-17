@@ -418,6 +418,7 @@ void write_fd(FILE *f, rangeref_t rr, int dcp_flags) {
     write_colors(f, 0);
     write_cranges(f);
 
+    // XXX: should encode strings?
     if (!sempty(mdir)) fprintf(f, "mdir \"%s\"\n", s2c(mdir));
     if (!sempty(autorun)) fprintf(f, "autorun \"%s\"\n", s2c(autorun));
     for (c = 0; c < FKEYS; c++) {
@@ -695,7 +696,6 @@ int readfile(const char *fname, int eraseflg) {
         freopen("/dev/tty", "r", stdin);
         goraw();
     }
-    //linelim = -1;
     if (eraseflg) {
         strlcpy(curfile, save, sizeof curfile);
         modflg = 0;

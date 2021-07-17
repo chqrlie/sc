@@ -25,9 +25,12 @@ void add_nrange(SCXMEM string_t *name, rangeref_t rr, int is_range) {
     struct nrange *prev = NULL;
     struct nrange *next;
 
+    if (!name)
+        return;
+
     range_normalize(&rr);
 
-    if (name && !find_nrange_name(s2c(name), slen(name), &prev)) {
+    if (!find_nrange_name(s2c(name), slen(name), &prev)) {
         error("Error: range name \"%s\" already defined", s2c(name));
         free_string(name);
         return;

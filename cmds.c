@@ -1851,7 +1851,7 @@ static int any_locked_cells(int r1, int c1, int r2, int c2) {
 }
 
 void set_histfile(SCXMEM string_t *str) {
-    strlcpy(histfile, str ? s2c(str) : "", sizeof histfile);
+    strlcpy(histfile, s2str(str), sizeof histfile);
     free_string(str);
 }
 
@@ -1903,7 +1903,7 @@ void cmd_setformat(int n, SCXMEM string_t *str) {
 }
 
 void cmd_run(SCXMEM string_t *str) {
-    const char *cmd = str ? s2c(str) : "";
+    const char *cmd = s2str(str);
     deraw(1);
     system(cmd);
     if (*cmd && cmd[strlen(cmd) - 1] != '&') {

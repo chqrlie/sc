@@ -23,18 +23,19 @@
 #include <signal.h>
 #include <setjmp.h>
 #include <time.h>
-#ifdef REGCOMP
+
+#if defined REGCOMP
 #include <regex.h>
-#endif
-#include "sc.h"
-#ifdef RE_COMP
+#elif defined RE_COMP
 extern char *re_comp(char *s);
 extern char *re_exec(char *s);
-#endif
-#ifdef REGCMP
+#elif defined REGCMP
 char *regcmp();
 char *regex();
+#else
 #endif
+
+#include "sc.h"
 
 #define ISVALID(r,c)    ((r)>=0 && (r)<maxrows && (c)>=0 && (c)<maxcols)
 
@@ -232,7 +233,7 @@ static double dolookup(enode_t * val, int minr, int minc, int maxr, int maxc, in
         s = seval(val);
         for (r = minr, c = minc; r <= maxr && c <= maxc; r += incr, c += incc) {
             if ((p = *ATBL(tbl, r, c)) && p->label) {
-                if (strcmp(s2c(p->label), s2c(s)) == 0) {
+                if (strcmp(s2c(p->label), s2str(s)) == 0) {
                     fndr = incc ? (minr + offset) : r;
                     fndc = incr ? (minc + offset) : c;
                     if (ISVALID(fndr, fndc)) {

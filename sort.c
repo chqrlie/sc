@@ -33,8 +33,11 @@ void sortrange(rangeref_t rr, SCXMEM string_t *criteria) {
     maxc = rr.right.col;
     nrows = maxr - minr + 1;
 
-    sort = scxmalloc(2 * sizeof(*sort));
-    rows = scxmalloc(nrows * sizeof(*rows));
+    sort = scxmalloc(sizeof(*sort) * 2);
+    rows = scxmalloc(sizeof(*rows) * nrows);
+    if (!sort || !rows)
+        goto fail;
+
     for (i = 0, r = minr; r <= maxr; r++, i++)
         rows[i] = r;
 
@@ -48,8 +51,11 @@ void sortrange(rangeref_t rr, SCXMEM string_t *criteria) {
         howmany = 2;
     } else {
         for (howmany = 0, cp = s2c(criteria); *cp; howmany++) {
-            if (howmany > 1)
+            if (howmany > 1) {
                 sort = scxrealloc(sort, (howmany + 1) * (sizeof(struct sortcrit)));
+                if (!sort)
+                    goto fail;  // XXX: memory leak
+            }
             switch (*cp++) {
             case '+':
                 sort[howmany].direction = 1;

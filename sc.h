@@ -462,7 +462,7 @@ extern SCXMEM string_t *colformat[COLFORMATS];
 extern SCXMEM unsigned char *col_hidden;
 extern SCXMEM unsigned char *row_hidden;
 extern char line[FBUFLEN];
-extern ssize_t linelim;
+extern int linelim;
 extern int changed;
 /* temporary sheet fragments: stack of 4 work buffers and 36 named buffers (a-z,0-9) */
 extern SCXMEM struct ent *delbuf[DELBUFSIZE];
@@ -713,7 +713,7 @@ extern void moveto(rangeref_t rr, cellref_t st);
 extern void num_search(double n, rangeref_t rr, int errsearch);
 extern void printfile(SCXMEM string_t *fname, rangeref_t rr);
 extern void pullcells(int to_insert, cellref_t cr);
-extern void query(const char *s, const char *data);
+extern int query(char *dest, int destsize, const char *s, const char *data);
 extern void read_hist(void);
 extern void remember(int save);
 extern void resetkbd(void);

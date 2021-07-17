@@ -77,6 +77,8 @@ static inline void free_string(string_t *str) {
 }
 
 static inline const char *s2c(const string_t *str) { return str->s; }
+static inline const char *s2str(const string_t *str) { return str ? str->s : ""; }
+
 static inline int slen(const string_t *str) { return str->len; }
 static inline int sempty(const string_t *str) { return !str || !str->len; }
 
