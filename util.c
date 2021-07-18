@@ -12,6 +12,7 @@
 #include "sc.h"
 
 #define USE_MAGIC  1
+#define SCXMALLOC_FAILURE_IS_FATAL  1
 
 #ifdef USE_MAGIC
 #define MAGIC   (double)1234567890.12344
@@ -20,23 +21,27 @@
 #define MAGIC_SIZE  0
 #endif
 
-void *scxmalloc(size_t n) {
-    void *ptr;
+SCXMEM void *scxmalloc(size_t n) {
+    void *ptr = malloc(n + MAGIC_SIZE);
 
-    if ((ptr = malloc(n + MAGIC_SIZE)) == NULL)
+    if (ptr == NULL) {
+#ifdef SCXMALLOC_FAILURE_IS_FATAL
         fatal("scxmalloc: no memory");
-
-#ifdef USE_MAGIC
-    *((double *)ptr) = MAGIC;  /* magic number */
-    ptr = (unsigned char *)ptr + MAGIC_SIZE;
 #endif
+    } else {
+#ifdef USE_MAGIC
+        *((double *)ptr) = MAGIC;  /* magic number */
+        ptr = (unsigned char *)ptr + MAGIC_SIZE;
+#endif
+    }
     return ptr;
 }
 
 /* we make sure realloc will do a malloc if needed */
-void *scxrealloc(void *ptr, size_t n) {
+SCXMEM void *scxrealloc(SCXMEM void *ptr, size_t n) {
     if (ptr == NULL)
         return scxmalloc(n);
+
     if (n == 0) {
         scxfree(ptr);
         return NULL;
@@ -46,22 +51,27 @@ void *scxrealloc(void *ptr, size_t n) {
     if (*((double *)ptr) != MAGIC)
         fatal("scxrealloc: storage not scxmalloc'ed");
 #endif
-    if ((ptr = realloc(ptr, n + MAGIC_SIZE)) == NULL)
+    ptr = realloc(ptr, n + MAGIC_SIZE);
+    if (ptr == NULL) {
+#ifdef SCXMALLOC_FAILURE_IS_FATAL
         fatal("scxmalloc: no memory");
-#ifdef USE_MAGIC
-    *((double *)ptr) = MAGIC;  /* magic number */
-    ptr = (unsigned char *)ptr + MAGIC_SIZE;
 #endif
+    } else {
+#ifdef USE_MAGIC
+        *((double *)ptr) = MAGIC;  /* magic number */
+        ptr = (unsigned char *)ptr + MAGIC_SIZE;
+#endif
+    }
     return ptr;
 }
 
-char *scxdup(const char *s) {
+SCXMEM char *scxdup(const char *s) {
     size_t size = strlen(s) + 1;
-    char *p = scxmalloc(size);
+    SCXMEM char *p = scxmalloc(size);
     return p ? memcpy(p, s, size) : p;
 }
 
-void scxfree(void *p) {
+void scxfree(SCXMEM void *p) {
     if (p != NULL) {
 #ifdef USE_MAGIC
         p = (unsigned char*)p - MAGIC_SIZE;

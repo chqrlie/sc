@@ -124,9 +124,6 @@ struct range_s {
  *        Either (but not both at the same time) can be set from an expression.
  */
 
-#define VALID_CELL(p, r, c) ((p = *ATBL(tbl, r, c)) && \
-                             ((p->flags & IS_VALID) || p->label))
-
 typedef struct enode enode_t;
 
 /* info for each cell, only alloc'd when something is stored in a cell */
@@ -547,6 +544,11 @@ static inline rangeref_t rangeref_empty(void) {
 
 rangeref_t *range_normalize(rangeref_t *rr);
 
+/* check if the cell at r,c has a value */
+/* p must be defined as struct ent *p; */
+#define VALID_CELL(p, r, c) ((p = *ATBL(tbl, r, c)) && \
+                             ((p->flags & IS_VALID) || p->label))
+
 /* styles */
 extern SCXMEM struct colorpair *cpairs[CPAIRS + 1];
 extern int are_colors(void);
@@ -623,6 +625,8 @@ extern void add_frange(int flags, rangeref_t orr, rangeref_t irr,
 extern void del_frange(struct frange *r);
 extern void add_nrange(SCXMEM string_t *name, rangeref_t rr, int is_range);
 extern void add_plugin(SCXMEM string_t *ext, SCXMEM string_t *plugin, char type);
+extern void backpage(int arg);
+extern void backcell(int arg);
 extern void backcol(int arg);
 extern void backrow(int arg);
 extern void checkbounds(int *rowp, int *colp);
@@ -687,6 +691,8 @@ extern void fix_ranges(int row1, int col1, int row2, int col2,
                        int delta1, int delta2, struct frange *fr);
 extern int flush_saved(int idx);  /* free delbuf[idx] */
 extern void format_cells(rangeref_t rr, SCXMEM string_t *s);
+extern void forwpage(int arg);
+extern void forwcell(int arg);
 extern void forwcol(int arg);
 extern void forwrow(int arg);
 extern void getexp(rangeref_t rr, int fd);

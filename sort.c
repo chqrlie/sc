@@ -52,9 +52,10 @@ void sortrange(rangeref_t rr, SCXMEM string_t *criteria) {
     } else {
         for (howmany = 0, cp = s2c(criteria); *cp; howmany++) {
             if (howmany > 1) {
-                sort = scxrealloc(sort, (howmany + 1) * (sizeof(struct sortcrit)));
-                if (!sort)
-                    goto fail;  // XXX: memory leak
+                void *new_sort = scxrealloc(sort, (howmany + 1) * (sizeof(struct sortcrit)));
+                if (!new_sort)
+                    goto fail;
+                sort = new_sort;
             }
             switch (*cp++) {
             case '+':

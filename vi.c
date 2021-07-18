@@ -32,7 +32,7 @@ static int back_word(int arg, int big_word);
 static void back_space(void);
 static void change_case(int arg);
 static void col_0(void);
-static void cr_line(void);
+static void cr_line(int action);
 static void del_in_line(int arg, int back_null);
 static void del_to_end(void);
 static void ins_string(const char *s);
@@ -43,6 +43,7 @@ static void dotab(void);
 static void dotcmd(void);
 static void doshell(void);
 static int find_char(int arg, int n);
+static void find_char2(int dir);
 static void forw_hist(void);
 static int forw_line(int arg, int stop_null);
 static int forw_word(int arg, int end_word, int big_word, int stop_null);
@@ -160,6 +161,11 @@ int set_line(const char *fmt, ...) {
     return linelim = linelen = len;
 }
 
+static void init_line(void) {
+    line[0] = '\0';
+    linelim = linelen = 0;
+}
+
 void vi_interaction(void) {
     int inloop = 1;
     int c, ch2;
@@ -171,7 +177,6 @@ void vi_interaction(void) {
     int tempx, tempy;       /* Temp versions of curx, cury */
     char *ext;
     struct ent *p;
-    int ps;
     buf_t buf;
 
     modflg = 0;
@@ -237,16 +242,10 @@ void vi_interaction(void) {
                     clearok(stdscr, 1);
                     break;
                 case ctl('b'):
-                    if (emacs_bindings) {
+                    if (emacs_bindings)
                         backcol(uarg);
-                        break;
-                    }
-                    ps = pagesize ? pagesize : (LINES - RESROW - framerows) / 2;
-                    backrow(uarg * ps);
-                    // XXX: hidden row issue
-                    strow = strow - uarg * ps;
-                    if (strow < 0) strow = 0;
-                    FullUpdate++;
+                    else
+                        backpage(uarg);
                     break;
                 case ctl('c'):
                     running = 0;
@@ -327,15 +326,10 @@ void vi_interaction(void) {
                     break;
 
                 case ctl('f'):
-                    if (emacs_bindings) {
+                    if (emacs_bindings)
                         forwcol(uarg);
-                        break;
-                    }
-                    ps = pagesize ? pagesize : (LINES - RESROW - framerows) / 2;
-                    forwrow(uarg * ps);
-                    // XXX: hidden row issue
-                    strow = strow + (uarg * ps);
-                    FullUpdate++;
+                    else
+                        forwpage(uarg);
                     break;
 
                 case ctl('g'):
@@ -377,13 +371,14 @@ void vi_interaction(void) {
                     break;
 
                 case ctl('n'):
-                    c = craction;
                     if (numeric_field) {
+                        // XXX: should avoid global variable hacking
+                        c = craction;
                         craction = 0;
                         write_line(ctl('m'));
+                        craction = c;
                         numeric_field = 0;
                     }
-                    craction = c;
                     if (linelim < 0) {
                         forwrow(uarg);
                         break;
@@ -392,13 +387,14 @@ void vi_interaction(void) {
                     break;
 
                 case ctl('p'):
-                    c = craction;
                     if (numeric_field) {
+                        // XXX: should avoid global variable hacking
+                        c = craction;
                         craction = 0;
                         write_line(ctl('m'));
+                        craction = c;
                         numeric_field = 0;
                     }
-                    craction = c;
                     if (linelim < 0) {
                         backrow(uarg);
                         break;
@@ -595,13 +591,8 @@ void vi_interaction(void) {
                     if (linelim >= 0)
                         write_line(ctl('v'));
                     else
-                    if (emacs_bindings) {
-                        ps = pagesize ? pagesize : (LINES - RESROW - framerows) / 2;
-                        forwrow(uarg * ps);
-                        strow = strow + uarg * ps;
-                        FullUpdate++;
-                        break;
-                    }
+                    if (emacs_bindings)
+                        forwpage(uarg);
                     break;
 
                 case ctl('w'):  /* insert variable expression */
@@ -712,35 +703,40 @@ void vi_interaction(void) {
             if (c >= KEY_F0 && c <= KEY_F(FKEYS-1)) {
                 /* a function key was pressed */
                 if (!sempty(fkey[c - KEY_F0])) {
-                    char *tpp;
+                    int i;
 
-                    insert_mode();
                     strlcpy(line, s2c(fkey[c - KEY_F0]), sizeof line);
-                    linelim = 0;
-                    for (tpp = line; *tpp != '\0'; tpp++) {
-                        if (*tpp == '\\' && tpp[1] == '"') {
-                            strsplice(line, sizeof line, tpp - line, 1, NULL, 0);
+                    for (i = 0; line[i]; i++) {
+                        // XXX: string should have been unescaped already
+                        if (line[i] == '\\' && line[i+1] == '"') {
+                            strsplice(line, sizeof line, i, 1, NULL, 0);
                         } else
-                        if (*tpp == '$' && tpp[1] == '$') {
+                        if (line[i] == '$' && line[i+1] == '$') {
+                            // XXX: could use v_name()
                             char mycell[16];
                             size_t len;
                             len = snprintf(mycell, sizeof(mycell), "%s%d", coltoa(curcol), currow);
-                            strsplice(line, sizeof line, tpp - line, 2, mycell, len);
-                            tpp += len - 1;
+                            strsplice(line, sizeof line, i, 2, mycell, len);
+                            i += len - 1;
                         }
                     }
-                    linelen = strlen(line);
+                    linelen = i;
+                    linelim = 0;
+                    insert_mode();
                     write_line(ctl('m'));
                 }
             } else {
                 /* switch on a normal command character */
                 switch (c) {
                 case '/':
-                    lotus_menu();
+                    if (linelim >= 0)
+                        write_line(c);
+                    else
+                        lotus_menu();
                     break;
                 case ':':
                     if (linelim >= 0)
-                        write_line(':');
+                        write_line(c);
                     break;      /* Be nice to vi users */
 
                 case '@':
@@ -1076,44 +1072,10 @@ void vi_interaction(void) {
                     gotobottom();
                     break;
                 case 'w':
-                    while (uarg --> 0) {
-                        do {
-                            if (curcol < maxcols - 1)
-                                curcol++;
-                            else {
-                                if (currow < maxrows - 1) {
-                                    while (++currow < maxrows - 1 && row_hidden[currow])
-                                        continue;
-                                    curcol = 0;
-                                } else {
-                                    error("At end of table");
-                                    break;
-                                }
-                            }
-                        } while (col_hidden[curcol] || !VALID_CELL(p, currow, curcol));
-                    }
-                    rowsinrange = 1;
-                    colsinrange = fwidth[curcol];
+                    forwcell(uarg);
                     break;
                 case 'b':
-                    while (uarg --> 0) {
-                        do {
-                            if (curcol)
-                                curcol--;
-                            else {
-                                if (currow) {
-                                    while (--currow && row_hidden[currow])
-                                        continue;
-                                    curcol = maxcols - 1;
-                                } else {
-                                    error("At start of table");
-                                    break;
-                                }
-                            }
-                        } while (col_hidden[curcol] || !VALID_CELL(p, currow, curcol));
-                    }
-                    rowsinrange = 1;
-                    colsinrange = fwidth[curcol];
+                    backcell(uarg);
                     break;
                 case '^':
                     gototop();
@@ -1363,21 +1325,14 @@ void vi_interaction(void) {
                 case KEY_NPAGE:                 /* next page */
 #endif
                 case 'J':
-                    ps = pagesize ? pagesize : (LINES - RESROW - framerows) / 2;
-                    forwrow(uarg * ps);
-                    strow = strow + uarg * ps;
-                    FullUpdate++;
+                    forwpage(uarg);
                     break;
 #ifdef KEY_PPAGE
                 case KEY_PPAGE:                 /* previous page */
 #endif
                 case KEY_ALT('v'):
                 case 'K':
-                    ps = pagesize ? pagesize : (LINES - RESROW - framerows) / 2;
-                    backrow(uarg * ps);
-                    strow = strow - uarg * ps;
-                    if (strow < 0) strow = 0;
-                    FullUpdate++;
+                    backpage(uarg);
                     break;
 #ifdef KEY_HOME
                 case KEY_HOME:
@@ -1491,17 +1446,17 @@ void vi_interaction(void) {
                     case ctl('m'):
                         strow = currow;
                         FullUpdate++;
-                        clearok(stdscr,1);
+                        clearok(stdscr, 1);
                         break;
                     case '.':
                         strow = -1;
                         FullUpdate++;
-                        clearok(stdscr,1);
+                        clearok(stdscr, 1);
                         break;
                     case '|':
                         stcol = -1;
                         FullUpdate++;
-                        clearok(stdscr,1);
+                        clearok(stdscr, 1);
                         break;
                     case 'c':
                         /* Force centering of current cell (or range, if
@@ -1511,7 +1466,7 @@ void vi_interaction(void) {
                         strow = -1;
                         stcol = -1;
                         FullUpdate++;
-                        clearok(stdscr,1);
+                        clearok(stdscr, 1);
                         break;
                     default:
                         break;
@@ -1686,11 +1641,25 @@ static void dotick(int tick) {
     FullUpdate++;
 }
 
+static int prev_line_char(int n) {
+    return (linelim >= n) ? line[linelim - n] : 0;
+}
+
+static void check_navigate(void) {
+    int c;
+    if (linelim == linelen && ((c = prev_line_char(1)) == '+' || c == '-')) {
+        toggle_navigate_mode();
+    } else {
+        cr_line(0);
+    }
+}
+
+/* edit the line buffer vi-style */
 static void write_line(int c) {
     struct frange *fr;
     struct crange *cr;
     struct ent *p;
-    int ps;
+    int c1;
 
     CLEAR_LINE;  // XXX: possibly redundant
     if (c != ctl('i'))
@@ -1701,10 +1670,10 @@ static void write_line(int c) {
         case KEY_BACKSPACE:
         case ctl('h'):  linelim = back_line(uarg);                      break;
         case ctl('i'):  dotab();                                        break;
-        case ctl('m'):  if (search_ind != ' ')
-                            search_hist();
+        case ctl('m'):  if (search_ind == ' ')
+                            cr_line(craction);
                         else
-                            cr_line();
+                            search_hist();
                         break;
         case 'v':
         case ctl('v'):  toggle_navigate_mode();                         break;
@@ -1716,26 +1685,8 @@ static void write_line(int c) {
         case '$':       last_col();                                     break;
         case '.':       dotcmd();                                       break;
         case '!':       doshell();                                      break;
-        case ';':       if (findfunc)
-                            ungetch(findchar);
-                        else
-                            break;
-                        findchar = 0;
-                        if (findfunc == 'f')
-                            linelim = find_char(uarg, finddir);
-                        else
-                            linelim = to_char(uarg, finddir);
-                                                                       break;
-        case ',':       if (findfunc)
-                            ungetch(findchar);
-                        else
-                            break;
-                        findchar = 0;
-                        if (findfunc == 'f')
-                            linelim = find_char(uarg, -finddir);
-                        else
-                            linelim = to_char(uarg, -finddir);
-                                                                        break;
+        case ';':       find_char2(finddir);                            break;
+        case ',':       find_char2(-finddir);                           break;
         case '~':       u_save(c); change_case(uarg);                   break;
         case '%':       match_paren();                                  break;
 #ifdef KEY_FIND
@@ -1797,19 +1748,18 @@ static void write_line(int c) {
         case 'x':       u_save(c); del_in_line(uarg, 1);                break;
         case 'y':       yank_cmd(0, 0);                                 break;
 #ifdef NCURSES_MOUSE_VERSION
-        case KEY_MOUSE:
-            if (getmouse(&mevent) != OK || mevent.y)
-                break;
-            if (mevent.bstate & BUTTON1_CLICKED)
-                mouse_set_pos(0);
-            else if (mevent.bstate & BUTTON1_PRESSED)
-                mouse_set_pos(1);
-            else if (mevent.bstate & BUTTON1_RELEASED)
-                mouse_set_pos(2);
-            break;
+        case KEY_MOUSE: if (getmouse(&mevent) != OK || mevent.y)
+                            break;
+                        if (mevent.bstate & BUTTON1_CLICKED)
+                            mouse_set_pos(0);
+                        else if (mevent.bstate & BUTTON1_PRESSED)
+                            mouse_set_pos(1);
+                        else if (mevent.bstate & BUTTON1_RELEASED)
+                            mouse_set_pos(2);
+                        break;
 #endif
         default:
-            break;
+                        break;
         }
     } else if (mode == INSERT_MODE) {
         if (c == ctl('m'))
@@ -1818,325 +1768,225 @@ static void write_line(int c) {
             savedot(c);
         switch (c) {
         case KEY_BACKSPACE:
-        case ctl('h'):        back_space();                           break;
-        case ctl('i'):        dotab();                                break;
-        case ctl('m'):        cr_line();                              break;
-        case ctl('v'):        toggle_navigate_mode();                 break;
+        case ctl('h'):      back_space();                           break;
+        case ctl('i'):      dotab();                                break;
+        case ctl('m'):      cr_line(craction);                      break;
+        case ctl('v'):      toggle_navigate_mode();                 break;
         case KEY_LEFT:
-        case ctl('b'):        if (numeric_field) {
-                                    if (linelim > 0 &&
-                                            linelim == linelen &&
-                                            (line[linelim - 1] == '+' ||
-                                             line[linelim - 1] == '-')) {
-                                        toggle_navigate_mode();
-                                        backcol(1);
-                                    } else {
-                                        c = craction;
-                                        craction = 0;
-                                        cr_line();
-                                        craction = c;
-                                        backcol(1);
-                                    }
-                                } else {
-                                    linelim = back_line(uarg);
-                                    istart = linelim;
-                                }   break;
+        case ctl('b'):      if (numeric_field) {
+                                check_navigate();
+                                backcol(1);
+                            } else {
+                                istart = linelim = back_line(uarg);
+                            }   break;
         case KEY_RIGHT:
-        case ctl('f'):          if (numeric_field) {
-                                    if (linelim > 0 &&
-                                            linelim == linelen &&
-                                            (line[linelim - 1] == '+' ||
-                                             line[linelim - 1] == '-')) {
-                                        toggle_navigate_mode();
-                                        forwcol(1);
-                                    } else {
-                                        c = craction;
-                                        craction = 0;
-                                        cr_line();
-                                        craction = c;
-                                        forwcol(1);
-                                    }
-                                } else {
-                                    linelim = forw_line(uarg, 1);
-                                    istart = linelim;
-                                }   break;
+        case ctl('f'):      if (numeric_field) {
+                                check_navigate();
+                                forwcol(1);
+                            } else {
+                                istart = linelim = forw_line(uarg, 1);
+                            }   break;
         case KEY_DOWN:
-        case ctl('n'):          if (numeric_field) {
-                                    if (linelim > 0 &&
-                                            linelim == linelen &&
-                                            (line[linelim - 1] == '+' ||
-                                             line[linelim - 1] == '-')) {
-                                        toggle_navigate_mode();
-                                        forwrow(1);
-                                    } else {
-                                        c = craction;
-                                        craction = 0;
-                                        cr_line();
-                                        craction = c;
-                                        forwrow(1);
-                                    }
-                                } else {
-                                    forw_hist();
-                                    istart = linelim;
-                                }   break;
+        case ctl('n'):      if (numeric_field) {
+                                check_navigate();
+                                forwrow(1);
+                            } else {
+                                forw_hist();
+                                istart = linelim;
+                            }   break;
         case KEY_UP:
-        case ctl('p'):          if (numeric_field) {
-                                    if (linelim > 0 &&
-                                            linelim == linelen &&
-                                            (line[linelim - 1] == '+' ||
-                                             line[linelim - 1] == '-')) {
-                                        toggle_navigate_mode();
-                                        backrow(1);
-                                    } else {
-                                        c = craction;
-                                        craction = 0;
-                                        cr_line();
-                                        craction = c;
-                                        backrow(1);
-                                    }
-                                } else {
-                                    back_hist();
-                                    istart = linelim;
-                                }   break;
+        case ctl('p'):      if (numeric_field) {
+                                check_navigate();
+                                backrow(1);
+                            } else {
+                                back_hist();
+                                istart = linelim;
+                            }   break;
         case KEY_HOME:
-        case ctl('a'):          col_0();                                break;
+        case ctl('a'):      col_0();                                break;
         case KEY_END:
-        case ctl('e'):          last_col();                             break;
-        case ESC:               ins_in_line(0);
-                                edit_mode();                            break;
+        case ctl('e'):      last_col();                             break;
+        case ESC:           ins_in_line(0);
+                            edit_mode();                            break;
         /* '\035' is ^], which expands abbreviations without inserting another
          * character in the line
          */
-        case '\035':            if (linelim > 0) doabbrev();            break;
+        case '\035':        if (linelim > 0) doabbrev();            break;
 #ifdef NCURSES_MOUSE_VERSION
-        case KEY_MOUSE:
-            if (getmouse(&mevent) != OK || mevent.y)
-                break;
-            if (mevent.bstate & BUTTON1_CLICKED)
-                mouse_set_pos(0);
-            else if (mevent.bstate & BUTTON1_PRESSED)
-                mouse_set_pos(1);
-            else if (mevent.bstate & BUTTON1_RELEASED)
-                mouse_set_pos(2);
-            break;
+        case KEY_MOUSE:     if (getmouse(&mevent) != OK || mevent.y)
+                                break;
+                            if (mevent.bstate & BUTTON1_CLICKED)
+                                mouse_set_pos(0);
+                            else if (mevent.bstate & BUTTON1_PRESSED)
+                                mouse_set_pos(1);
+                            else if (mevent.bstate & BUTTON1_RELEASED)
+                                mouse_set_pos(2);
+                            break;
 #endif
-        default:                ins_in_line(c);                         break;
+        default:            ins_in_line(c);                         break;
         }
     } else if (mode == SEARCH_MODE) {
         switch (c) {
         case KEY_BACKSPACE:
-        case ctl('h'):          back_space();                           break;
-        case ctl('m'):          search_hist();                          break;
-        case ESC:               ins_in_line(0);
-                                edit_mode();                            break;
+        case ctl('h'):      back_space();                           break;
+        case ctl('m'):      search_hist();                          break;
+        case ESC:           ins_in_line(0);
+                            edit_mode();                            break;
         /* '\035' is ^], which expands abbreviations without inserting another
          * character in the line
          */
-        case '\035':            if (linelim > 0) doabbrev();            break;
-        default:                ins_in_line(c);                         break;
+        case '\035':        if (linelim > 0) doabbrev();            break;
+        default:            ins_in_line(c);                         break;
         }
     } else if (mode == REP_MODE) {
         savedot(c);
         switch (c) {
         case KEY_BACKSPACE:
-        case ctl('h'):          if (linelim >= 0 && linelim > undo_len) {
-                                    back_space();
-                                } else {
-                                    linelim = back_line(1);
-                                    line[linelim] = undo_line[linelim];
-                                }                                       break;
-        case ctl('m'):          cr_line();                              break;
-        case ESC:               edit_mode();                            break;
-        default:                replace_in_line(c);                     break;
+        case ctl('h'):      if (linelim >= 0 && linelim > undo_len) {
+                                back_space();
+                            } else {
+                                linelim = back_line(1);
+                                line[linelim] = undo_line[linelim];
+                            }                                       break;
+        case ctl('m'):      cr_line(craction);                      break;
+        case ESC:           edit_mode();                            break;
+        default:            replace_in_line(c);                     break;
         }
     } else if (mode == NAVIGATE_MODE) {
         switch (c) {
         case '.':
         case ':':
-        case ctl('i'):          if (!showrange) {
-                                    toggle_navigate_mode();
-                                    startshow();
-                                } else if (linelim == linelen &&
-                                           ((linelim > 0 && (line[linelim - 1] == '+' || line[linelim - 1] == '-')) ||
-                                            (linelim > 1 && (line[linelim - 1] == ' ' && line[linelim - 2] == '='))))
-                                {
-                                    ins_string("@sum(");
-                                    showdr();
-                                    ins_in_line(')');
-                                } else {
-                                    showdr();
-                                    ins_in_line(' ');
-                                }                                       break;
-        case ' ':               if (showrange) {
-                                    showdr();
-                                    ins_in_line(' ');
-                                    toggle_navigate_mode();
-                                } else {
-                                    forwcol(uarg);
-                                }                                       break;
+        case ctl('i'):      if (!showrange) {
+                                toggle_navigate_mode();
+                                startshow();
+                            } else
+                            if (linelim == linelen
+                            &&  ((c1 = prev_line_char(1)) == '+' || c1 == '-' ||
+                                 (c1 == ' ' && prev_line_char(2) == '=')))
+                            {
+                                ins_string("@sum(");
+                                showdr();
+                                ins_in_line(')');
+                            } else {
+                                showdr();
+                                ins_in_line(' ');
+                            }                                       break;
+        case ' ':           if (showrange) {
+                                showdr();
+                                ins_in_line(' ');
+                                toggle_navigate_mode();
+                            } else {
+                                forwcol(uarg);
+                            }                                       break;
         case '+':
-        case '-':               if (!showrange) {
-                                    ins_string(v_name(currow, curcol));
-                                    ins_in_line(c);
-                                } else if (linelim == linelen &&
-                                           ((linelim > 0 && (line[linelim - 1] == '+' || line[linelim - 1] == '-')) ||
-                                            (linelim > 1 && (line[linelim - 1] == ' ' && line[linelim - 2] == '='))))
-                                {
-                                    ins_string("@sum(");
-                                    showdr();
-                                    ins_in_line(')');
-                                    ins_in_line(c);
-                                    toggle_navigate_mode();
-                                } else {
-                                    showdr();
-                                    ins_in_line(')');
-                                    ins_in_line(c);
-                                }                                       break;
-        case ctl('m'):          if (!showrange) {
-                                    ins_string(v_name(currow, curcol));
-                                    toggle_navigate_mode();
-                                } else {
-                                    toggle_navigate_mode();
-                                    cr_line();
-                                }                                       break;
-        case 'v':               {   /* insert variable value */
-                                    char temp[100];
+        case '-':           if (!showrange) {
+                                ins_string(v_name(currow, curcol));
+                                ins_in_line(c);
+                            } else
+                            if (linelim == linelen
+                            &&  ((c1 = prev_line_char(1)) == '+' || c1 == '-' ||
+                                 (c1 == ' ' && prev_line_char(2) == '=')))
+                            {
+                                ins_string("@sum(");
+                                showdr();
+                                ins_in_line(')');
+                                ins_in_line(c);
+                                toggle_navigate_mode();
+                            } else {
+                                showdr();
+                                ins_in_line(')');
+                                ins_in_line(c);
+                            }                                       break;
+        case ctl('m'):      if (!showrange) {
+                                ins_string(v_name(currow, curcol));
+                                toggle_navigate_mode();
+                            } else {
+                                toggle_navigate_mode();
+                                cr_line(craction);
+                            }                                       break;
+        case 'v':           {   /* insert variable value */
+                                char temp[100];
 
-                                    p = *ATBL(tbl, currow, curcol);
-                                    if (p && (p->flags & IS_VALID)) {
-                                        snprintf(temp, sizeof temp, "%.*f",
-                                                 precision[curcol], p->v);
-                                        ins_string(temp);
-                                        toggle_navigate_mode();
-                                    }
-                                }                                       break;
-        case 'c':               if ((cr = find_crange(currow, curcol))) {
-                                    ins_string(r_name(cr->r_left->row,
-                                                      cr->r_left->col,
-                                                      cr->r_right->row,
-                                                      cr->r_right->col));
+                                p = *ATBL(tbl, currow, curcol);
+                                if (p && (p->flags & IS_VALID)) {
+                                    snprintf(temp, sizeof temp, "%.*f",
+                                             precision[curcol], p->v);
+                                    ins_string(temp);
                                     toggle_navigate_mode();
-                                    ins_in_line(' ');
-                                    showrange = 0;
-                                }                                       break;
-        case 'f':               if ((fr = get_current_frange())) {
-                                    ins_string(r_name(fr->or_left->row,
-                                                      fr->or_left->col,
-                                                      fr->or_right->row,
-                                                      fr->or_right->col));
-                                    toggle_navigate_mode();
-                                    ins_in_line(' ');
-                                    showrange = 0;
-                                }                                       break;
-        case 'r':               if ((fr = get_current_frange())) {
-                                    ins_string(r_name(fr->ir_left->row,
-                                                      fr->ir_left->col,
-                                                      fr->ir_right->row,
-                                                      fr->ir_right->col));
-                                    toggle_navigate_mode();
-                                    ins_in_line(' ');
-                                    showrange = 0;
-                                }                                       break;
+                                }
+                            }                                       break;
+        case 'c':           if ((cr = find_crange(currow, curcol))) {
+                                ins_string(r_name(cr->r_left->row,
+                                                  cr->r_left->col,
+                                                  cr->r_right->row,
+                                                  cr->r_right->col));
+                                toggle_navigate_mode();
+                                ins_in_line(' ');
+                                showrange = 0;
+                            }                                       break;
+        case 'f':           if ((fr = get_current_frange())) {
+                                ins_string(r_name(fr->or_left->row,
+                                                  fr->or_left->col,
+                                                  fr->or_right->row,
+                                                  fr->or_right->col));
+                                toggle_navigate_mode();
+                                ins_in_line(' ');
+                                showrange = 0;
+                            }                                       break;
+        case 'r':           if ((fr = get_current_frange())) {
+                                ins_string(r_name(fr->ir_left->row,
+                                                  fr->ir_left->col,
+                                                  fr->ir_right->row,
+                                                  fr->ir_right->col));
+                                toggle_navigate_mode();
+                                ins_in_line(' ');
+                                showrange = 0;
+                            }                                       break;
         case KEY_LEFT:
-        case 'h':               backcol(uarg);                          break;
+        case 'h':           backcol(uarg);                          break;
         case KEY_RIGHT:
-        case 'l':               forwcol(uarg);                          break;
+        case 'l':           forwcol(uarg);                          break;
         case KEY_DOWN:
         case ctl('n'):
-        case 'j':               forwrow(uarg);                          break;
+        case 'j':           forwrow(uarg);                          break;
         case KEY_UP:
         case ctl('p'):
-        case 'k':               backrow(uarg);                          break;
+        case 'k':           backrow(uarg);                          break;
         case 'q':
         case ctl('g'):
         case ctl('v'):
-        case ESC:               toggle_navigate_mode();
-                                showrange = 0;                          break;
-        case 'H':               backcol(curcol - stcol + 2);
-                                                                        break;
-        case KEY_NPAGE:         /* next page */
+        case ESC:           toggle_navigate_mode();
+                            showrange = 0;                          break;
+        case 'H':           backcol(curcol - stcol + 2);
+                                                                    break;
+        case KEY_NPAGE:     /* next page */
         case ctl('f'):
-        case 'J':               ps = pagesize ? pagesize : (LINES - RESROW - framerows) / 2;
-                                forwrow(uarg * ps);
-                                strow = strow + (uarg * ps);
-                                FullUpdate++;
-                                                                        break;
-        case KEY_PPAGE:         /* previous page */
+        case 'J':           forwpage(uarg);                         break;
+        case KEY_PPAGE:     /* previous page */
         case ctl('b'):
-        case 'K':               ps = pagesize ? pagesize : (LINES - RESROW - framerows) / 2;
-                                backrow(uarg * ps);
-                                strow = strow - (uarg * ps);
-                                if (strow < 0) strow = 0;
-                                FullUpdate++;
-                                                                        break;
-        case 'L':               forwcol(lcols - (curcol - stcol) + 1);  break;
+        case 'K':           backpage(uarg);                         break;
+        case 'L':           forwcol(lcols - (curcol - stcol) + 1);  break;
         case ctl('a'):
-        case KEY_HOME:          gohome();                               break;
-        case '0':               leftlimit();                            break;
-        case '$':               rightlimit();                           break;
-        case '^':               gototop();                              break;
-        case '#':               gotobottom();                           break;
-        case 'o':               if (showrange) {
-                                    int r = currow;
-                                    int cc = curcol;
-                                    currow = showsr;
-                                    showsr = r;
-                                    curcol = showsc;
-                                    showsc = cc;
-                                    rowsinrange = 1;
-                                    colsinrange = fwidth[curcol];
-                                }                                       break;
-        case 'm':               markcell();                             break;
-        case '`': case '\'':    dotick(c);                              break;
-        case '*':               if (nmgetch(0) == '*') gotonote();       break;
-        case 'g':               dogoto();                               break;
-        case 'n':               go_last();                              break;
-
-        case 'w':               while (--uarg >= 0) {
-                                    do {
-                                        if (curcol < maxcols - 1)
-                                            curcol++;
-                                        else {
-                                            if (currow < maxrows - 1) {
-                                                while (++currow < maxrows - 1 && row_hidden[currow])
-                                                    continue;
-                                                curcol = 0;
-                                            } else {
-                                                // XXX: current cell was updated
-                                                error("At end of table");
-                                                break;
-                                            }
-                                        }
-                                    } while (col_hidden[curcol] || !VALID_CELL(p, currow, curcol));
-                                }
+        case KEY_HOME:      gohome();                               break;
+        case '0':           leftlimit();                            break;
+        case '$':           rightlimit();                           break;
+        case '^':           gototop();                              break;
+        case '#':           gotobottom();                           break;
+        case 'o':           if (showrange) {
+                                SWAPINT(currow, showsr);
+                                SWAPINT(curcol, showsc);
                                 rowsinrange = 1;
                                 colsinrange = fwidth[curcol];
-                                break;
-
-        case 'b':               while (--uarg >= 0) {
-                                    do {
-                                        if (curcol)
-                                            curcol--;
-                                        else {
-                                            if (currow) {
-                                                while (--currow && row_hidden[currow])
-                                                    continue;
-                                                curcol = maxcols - 1;
-                                            } else {
-                                                // XXX: current cell was updated
-                                                error("At start of table");
-                                                break;
-                                            }
-                                        }
-                                    } while (col_hidden[curcol] || !VALID_CELL(p, currow, curcol));
-                                }
-                                rowsinrange = 1;
-                                colsinrange = fwidth[curcol];
-                                break;
-
-        case 'C':               if (braille)
-                                    braillealt ^= 1;
-                                break;
+                            }                                       break;
+        case 'm':           markcell();                             break;
+        case '`':
+        case '\'':          dotick(c);                              break;
+        case '*':           if (nmgetch(0) == '*') gotonote();      break;
+        case 'g':           dogoto();                               break;
+        case 'n':           go_last();                              break;
+        case 'w':           forwcell(uarg);                         break;
+        case 'b':           backcell(uarg);                         break;
+        case 'C':           if (braille) braillealt ^= 1;           break;
         }
     }
 }
@@ -2172,8 +2022,7 @@ static void search_mode(char sind) {
          */
         back_hist();
         forw_hist();
-        line[0] = '\0';
-        linelim = linelen = 0;
+        init_line();
         mode_ind = 'i';
         search_ind = sind;
         search_dir = sind == '/' ? 1 : 0;
@@ -2225,8 +2074,8 @@ static void dotab(void) {
     static struct nrange *nextmatch;
     int len;
 
-    if ((linelim > 0 && isalnumchar_(line[linelim-1])) ||
-            (completethis && line[linelim-1] == ' ')) {
+    if (linelim > 0 && (isalnumchar_(line[linelim-1]) ||
+                        (completethis && line[linelim-1] == ' '))) {
         if (!completethis) {
             for (completethis = line + linelim - 1;
                  isalnumchar_(*completethis);
@@ -2362,7 +2211,7 @@ static void u_save(int c) {
 /* Restores the current line saved by u_save() */
 /* swap line and undo_line, linelim and undo_lim */
 static void restore_it(void) {
-    int i, lim, len;
+    int i, len;
 
     len = linelen;
     if (len < undo_len)
@@ -2372,12 +2221,8 @@ static void restore_it(void) {
         line[i] = undo_line[i];
         undo_line[i] = c;
     }
-    lim = linelim;
-    linelim = undo_lim;
-    undo_lim = lim;
-    len = linelen;
-    linelen = undo_len;
-    undo_len = len;
+    SWAPINT(linelim, undo_lim);
+    SWAPINT(linelen, undo_len);
 }
 
 /* This command stops the editing process. */
@@ -2543,8 +2388,7 @@ static void ins_in_line(int c) {
 
     if (c < 256) {
         if (linelim < 0 && c > 0) {
-            *line = '\0';
-            linelim = linelen = 0;
+            init_line();
         }
         if (!inabbr && linelim > 0 && !isalnumchar_(c)) {
             inabbr++;
@@ -2569,18 +2413,18 @@ static void ins_string(const char *s) {
 }
 
 static void doabbrev(void) {
-    int len, pos;
+    int len, pos, lim = linelim;
     struct abbrev *a;
     struct abbrev *prev;
 
-    if (istart < 0 || linelim < 2)
+    if (istart < 0 || lim < 2)
         return;
 
-    if (!isalnumchar_(line[linelim - 1]) ||
-        !(mode == INSERT_MODE || mode == SEARCH_MODE) || istart >= linelim)
+    if (!isalnumchar_(line[lim - 1]) ||
+        !(mode == INSERT_MODE || mode == SEARCH_MODE) || istart >= lim)
         return;
 
-    pos = linelim - 2;
+    pos = lim - 2;
     if (isalnumchar_(line[pos])) {
         for (; pos >= istart; pos--) {
             if (!isalnumchar_(line[pos]))
@@ -2606,7 +2450,7 @@ static void doabbrev(void) {
         pos++;
     }
 
-    len = linelim - pos;
+    len = lim - pos;
     if (len && (a = find_abbr(line + pos, len, &prev)) != NULL) {
         if (len > 1 || pos == 0 || line[pos-1] == ' ') {
             linelim = pos;
@@ -2617,18 +2461,14 @@ static void doabbrev(void) {
 }
 
 static void append_line(void) {
-    int i;
-
-    i = linelim;
-    if (i >= 0 && line[i])
+    if (linelim >= 0 && linelim < linelen)
         linelim++;
     insert_mode();
 }
 
 static void change_case(int a) {
     if (linelim < 0) {
-        linelim = linelen = 0;
-        *line = '\0';
+        init_line();
     }
     // XXX: bogus! should stop at end of string
     if (a > linelen - linelim)
@@ -2646,8 +2486,7 @@ static void rep_char(void) {
     int c;
 
     if (linelim < 0) {
-        linelim = linelen = 0;
-        *line = '\0';
+        init_line();
     }
     c = vigetch();
     savedot(c);
@@ -2661,8 +2500,7 @@ static void rep_char(void) {
 static void replace_in_line(int c) {
     if (c < 256) {
         if (linelim < 0) {
-            linelim = linelen = 0;
-            *line = '\0';
+            init_line();
         }
         if (line[linelim] == '\0')
             line[++linelen] = '\0';
@@ -2761,16 +2599,15 @@ static void del_to_end(void) {
     linelim = back_line(1);
 }
 
-static void cr_line(void) {
+static void cr_line(int action) {
     struct frange *fr;
 
     ins_in_line(0);
     insert_mode();
     numeric_field = 0;
-    if (linelim == -1) {        /* '\n' alone will put you into insert mode */
-        *line = '\0';           /* unless numeric and craction are both set */
-        linelim = linelen = 0;
-        if (numeric && craction)
+    if (linelim == -1) {    /* '\n' alone will put you into insert mode */
+        init_line();        /* unless numeric and action are both set */
+        if (numeric && action)
             cellassign = 1;
         else
             return;
@@ -2782,7 +2619,7 @@ static void cr_line(void) {
     linelim = -1;
     if (cellassign) {
         cellassign = 0;
-        switch (craction) {
+        switch (action) {
         case CRROWS:
             if ((rowlimit >= 0) && (currow >= rowlimit)) {
                 forwcol(1);
@@ -3009,8 +2846,7 @@ static void search_hist(void) {
 #endif
 
     if (linelim < 1) {
-        linelim = linelen = 0;
-        line[0] = '\0';
+        init_line();
         edit_mode();
         return;
     }
@@ -3151,7 +2987,7 @@ static void readhistfile(FILE *fp) {
         linelen = len;
         save_hist();
     }
-    line[linelen = 0] = '\0';
+    init_line();
     linelim = -1;
 }
 
@@ -3252,6 +3088,17 @@ static int find_char(int a, int n) {
     }
     findfunc = 'f';
     return i;
+}
+
+static void find_char2(int dir) {
+    if (findchar) {
+        ungetch(findchar);
+        findchar = 0;
+        if (findfunc == 'f')
+            linelim = find_char(uarg, dir);
+        else
+            linelim = to_char(uarg, dir);
+    }
 }
 
 // XXX: should not modify linelim?
@@ -3497,7 +3344,7 @@ int query(char *dest, int destsize, const char *s, const char *data) {
         case ctl('m'):
             break;
         case ctl('g'):
-            line[linelen = 0] = '\0';
+            init_line();
             linelim = -1;
             break;
         case ctl('l'):
@@ -3513,7 +3360,7 @@ int query(char *dest, int destsize, const char *s, const char *data) {
     }
     lim = linelim;
     strlcpy(dest, line, destsize);
-    line[linelen = 0] = '\0';
+    init_line();
     linelim = -1;
     update(0);
     return lim;
@@ -3827,8 +3674,7 @@ static void formatcol(int arg) {
 static int vi_select_range(const char *cmd, const char *arg) {
     int c;
 
-    line[0] = '\0';
-    linelim = linelen = 0;
+    init_line();
     if (mode_ind != 'v')
         write_line(ctl('v'));
 

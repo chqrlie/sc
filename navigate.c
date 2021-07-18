@@ -400,6 +400,7 @@ void doend(int rowinc, int colinc) {
         break;
     }
     if (!VALID_CELL(p, currow, curcol)) {
+        // XXX: this is bogus if already on maxcol or maxrow
         currow -= rowinc;
         curcol -= colinc;
     }
@@ -407,9 +408,51 @@ void doend(int rowinc, int colinc) {
     colsinrange = fwidth[curcol];
 }
 
+/* moves currow down one page */
+void forwpage(int arg) {
+    int ps = pagesize ? pagesize : (LINES - RESROW - framerows) / 2;
+    forwrow(arg * ps);
+    // XXX: hidden row issue
+    strow = strow + arg * ps;
+    FullUpdate++;
+}
+
+/* moves currow up one page */
+void backpage(int arg) {
+    int ps = pagesize ? pagesize : (LINES - RESROW - framerows) / 2;
+    backrow(arg * ps);
+    // XXX: hidden row issue
+    strow = strow - arg * ps;
+    if (strow < 0) strow = 0;
+    FullUpdate++;
+}
+
+/* moves curcol forward to the next cell, wrapping at maxcol */
+void forwcell(int arg) {
+    struct ent *p;
+    while (arg --> 0) {
+        do {
+            if (curcol < maxcols - 1) {
+                curcol++;
+            } else
+            if (currow < maxrows - 1) {
+                curcol = 0;
+                while (++currow < maxrows - 1 && row_hidden[currow])
+                    continue;
+            } else {
+                error("At end of table");
+                arg = 0;
+                break;
+            }
+        } while (col_hidden[curcol] || !VALID_CELL(p, currow, curcol));
+    }
+    rowsinrange = 1;
+    colsinrange = fwidth[curcol];
+}
+
 /* moves curcol forward one displayed column */
 void forwcol(int arg) {
-    while (arg-- > 0) {
+    while (arg --> 0) {
         if (curcol < maxcols - 1)
             curcol++;
         else
@@ -419,6 +462,29 @@ void forwcol(int arg) {
             curcol++;
         while (col_hidden[curcol] && (curcol < maxcols - 1))
             curcol++;
+    }
+    rowsinrange = 1;
+    colsinrange = fwidth[curcol];
+}
+
+/* moves curcol backward to the previous cell, wrapping at 0 */
+void backcell(int arg) {
+    struct ent *p;
+    while (arg --> 0) {
+        do {
+            if (curcol) {
+                curcol--;
+            } else
+            if (currow) {
+                curcol = maxcols - 1;
+                while (--currow && row_hidden[currow])
+                    continue;
+            } else {
+                error("At start of table");
+                arg = 0;
+                break;
+            }
+        } while (col_hidden[curcol] || !VALID_CELL(p, currow, curcol));
     }
     rowsinrange = 1;
     colsinrange = fwidth[curcol];
