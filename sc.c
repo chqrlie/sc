@@ -137,6 +137,8 @@ int main(int argc, char **argv) {
     int qopt = 0;
     int Mopt = 0;
 
+    histfile = new_string("~/.sc_history");
+
 #ifdef USELOCALE
     setlocale(LC_ALL, "");
 #endif

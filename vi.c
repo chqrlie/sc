@@ -91,7 +91,7 @@ static void list_all(void);
 char line[FBUFLEN];
 int linelim = -1;  /* position in line for writing and parsing */
 static int linelen = 0;
-char histfile[PATHLEN] = "~/.sc_history";
+SCXMEM string_t *histfile;
 
 static int uarg = 1;        /* universal numeric prefix argument */
 
@@ -2971,7 +2971,7 @@ static void search_again(sc_bool_t reverse) {
 }
 
 static void readhistfile(FILE *fp) {
-    if (!*histfile)
+    if (!fp)
         return;
     while (fgets(line, FBUFLEN, fp)) {
         int len = strlen(line);
@@ -2987,11 +2987,15 @@ static void readhistfile(FILE *fp) {
 
 // XXX: move out of vi.c
 void write_hist(void) {
+    char path[FBUFLEN];
     int i;
     FILE *fp, *tmpfp = NULL;
 
-    if (!*histfile)
+    if (sempty(histfile))
         return;
+
+    /* merge the history file with the new elements from the current session */
+    /* should just append the new commands? */
     if (histsessionnew < HISTLEN) {
         /* write the new history for this session to a tmp file */
         tmpfp = tmpfile();
@@ -3015,30 +3019,31 @@ void write_hist(void) {
     }
 
     /* now write to whole lot out to the proper save file */
-    if (findhome(histfile, sizeof histfile) && (fp = fopen(histfile, "w")) != NULL) {
+    pstrcpy(path, sizeof path, s2c(histfile));
+    if (findhome(path, sizeof path) && (fp = fopen(path, "w")) != NULL) {
         for (i = 1; i <= endhist; i++) {
             lasthist = lasthist % endhist + 1;
             if (history[lasthist])
                 fprintf(fp, "%s\n", s2c(history[lasthist]));
         }
-
         if (fclose(fp) == EOF) {
-            error("fclose(%s): %s", histfile, strerror(errno));
+            error("fclose(%s): %s", path, strerror(errno));
         }
     }
 }
 
 void read_hist(void) {
+    char path[FBUFLEN];
     FILE *fp;
 
-    if (!*histfile)
+    if (sempty(histfile))
         return;
 
-    if (findhome(histfile, sizeof histfile) && (fp = fopen(histfile, "r")) != NULL) {
+    pstrcpy(path, sizeof path, s2c(histfile));
+    if (findhome(path, sizeof path) && (fp = fopen(path, "r")) != NULL) {
         readhistfile(fp);
-
         if (fclose(fp) == EOF) {
-            error("fclose(%s): %s", histfile, strerror(errno));
+            error("fclose(%s): %s", path, strerror(errno));
         }
     }
 

@@ -366,7 +366,7 @@ command:  S_LET var_or_range '=' e      { let($2.left, $4); }
         | S_MDIR strarg                 { set_mdir($2); }
         | S_AUTORUN strarg              { set_autorun($2); }
         | S_FKEY NUMBER '=' strarg      { set_fkey($2, $4); }
-        | S_HISTFILE strarg             { set_histfile($2); }
+        | S_HISTFILE strarg             { set_string(&histfile, $2); }
         | S_SCEXT strarg                { set_string(&scext, $2); }
         | S_ASCEXT strarg               { set_string(&ascext, $2); }
         | S_TBL0EXT strarg              { set_string(&tbl0ext, $2); }

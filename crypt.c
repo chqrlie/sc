@@ -15,7 +15,8 @@ int Crypt = 0;
 #define MAXKEYWORDSIZE 30
 char KeyWord[MAXKEYWORDSIZE] = { "" };
 
-void creadfile(const char *save, int eraseflg) {
+int creadfile(const char *fname, int eraseflg) {
+    char save[FBUFLEN];
     char buf[FBUFLEN];
     FILE *f;
     int pipefd[2];
@@ -23,19 +24,21 @@ void creadfile(const char *save, int eraseflg) {
     int pid;
     char *p;
 
-    if (eraseflg && strcmp(save, curfile) && modcheck(" first"))
-        return;
+    pstrcpy(save, sizeof save, fname);
 
-    if ((fildes = open(findhome(save), O_RDONLY, 0)) < 0) {
+    if (eraseflg && strcmp(fname, curfile) && modcheck(" first"))
+        return 0;
+
+    if ((fildes = open(findhome(save, sizeof save), O_RDONLY, 0)) < 0) {
         error("Cannot read file \"%s\"", save);
-        return;
+        return 0;
     }
 
     if (eraseflg) erasedb();
 
     if (pipe(pipefd) < 0) {
         error("Cannot make pipe to child");
-        return;
+        return 0;
     }
 
     deraw(1);
@@ -60,7 +63,7 @@ void creadfile(const char *save, int eraseflg) {
             kill(pid, 9);
             error("Cannot fdopen file \"%s\"", save);
             close(pipefd[0]);
-            return;
+            return 0;
         }
     }
 
@@ -89,18 +92,18 @@ void creadfile(const char *save, int eraseflg) {
         pstrcpy(curfile, sizeof curfile, save);
         modflg = 0;
     }
+    return 1;
 }
 
 int cwritefile(char *fname, rangeref_t rr, int dcp_flags) {
+    char path[PATHLEN];
     FILE *f;
     int pipefd[2];
     int fildes;
     int pid;
-    char save[PATHLEN];
     char *fn;
-    char *busave;
 
-    if (*fname == '\0') fname = &curfile[0];
+    if (*fname == '\0') fname = curfile;
 
     fn = fname;
     while (*fn && (*fn == ' ')) /* Skip leading blanks */
@@ -111,14 +114,14 @@ int cwritefile(char *fname, rangeref_t rr, int dcp_flags) {
         return -1;
     }
 
-    pstrcpy(save, sizeof save, fname);
+    pstrcpy(path, sizeof path, fname);
+    findhome(path, sizeof path);
 
-    busave = findhome(save);
-    if (dobackups && !backup_file(busave) &&
+    if (dobackups && !backup_file(path) &&
             (yn_ask("Could not create backup copy, Save anyway?: (y,n)") != 1))
         return 0;
-    if ((fildes = open(busave, O_TRUNC|O_WRONLY|O_CREAT, 0600)) < 0) {
-        error("Cannot create file \"%s\"", save);
+    if ((fildes = open(path, O_TRUNC|O_WRONLY|O_CREAT, 0600)) < 0) {
+        error("Cannot create file \"%s\"", path);
         return -1;
     }
 
@@ -150,7 +153,7 @@ int cwritefile(char *fname, rangeref_t rr, int dcp_flags) {
         f = fdopen(pipefd[1], "w");
         if (f == 0) {
             kill(pid, -9);
-            error("Cannot fdopen file \"%s\"", save);
+            error("Cannot fdopen file \"%s\"", path);
             close(pipefd[1]);
             return -1;
         }
@@ -164,7 +167,7 @@ int cwritefile(char *fname, rangeref_t rr, int dcp_flags) {
     close(pipefd[1]);
     while (pid != wait(&fildes))
         continue;
-    pstrcpy(curfile, sizeof curfile, save);
+    pstrcpy(curfile, sizeof curfile, path);
 
     modflg = 0;
     error("File \"%s\" written (encrypted).", curfile);

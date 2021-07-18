@@ -1850,11 +1850,6 @@ static int any_locked_cells(int r1, int c1, int r2, int c2) {
     return 0;
 }
 
-void set_histfile(SCXMEM string_t *str) {
-    pstrcpy(histfile, sizeof histfile, s2str(str));
-    free_string(str);
-}
-
 void set_mdir(SCXMEM string_t *str) {
     set_string(&mdir, str);
     modflg++;

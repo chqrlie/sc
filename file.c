@@ -204,11 +204,13 @@ void closefile(FILE *f, int pid, int rfd) {
 #include <pwd.h>
 #endif
 char *findhome(char *path, size_t pathsiz) {
+    // XXX: should get rid of static variable HomeDir
     static const char *HomeDir = NULL;
 
     if (*path == '~') {
-        char *pathptr;
+        // XXX: should use strsplice()
         char tmppath[PATHLEN];
+        char *pathptr;
 
         if (HomeDir == NULL) {
             HomeDir = getenv("HOME");

@@ -474,7 +474,6 @@ extern int usecurses;
 extern int brokenpipe;          /* Set to true if SIGPIPE is received */
 extern char dpoint;     /* country-dependent decimal point from locale */
 extern char thsep;      /* country-dependent thousands separator from locale */
-extern char histfile[PATHLEN];
 extern int lcols;
 extern int lastendrow;          /* Last bottom row of screen */
 extern struct frange *lastfr;   /* Last framed range we were in */
@@ -485,6 +484,7 @@ extern char mode_ind;           /* Mode indicator */
 extern int seenerr;
 extern int emacs_bindings;      /* use emacs-like bindings */
 extern sc_bool_t sc_decimal;    /* Set if there was a decimal point in the number */
+extern SCXMEM string_t *histfile;
 extern SCXMEM string_t *scext;
 extern SCXMEM string_t *ascext;
 extern SCXMEM string_t *tbl0ext;
@@ -579,7 +579,7 @@ extern double eval(enode_t *e);
 extern int are_frames(void);
 extern int are_nranges(void);
 extern int atocol(const char *s, int *lenp);
-extern int creadfile(const char *save, int eraseflg);
+extern int creadfile(const char *fname, int eraseflg);
 extern int cwritefile(const char *fname, rangeref_t rr, int dcp_flags);
 extern int engformat(char *buf, size_t size, int fmt, int lprecision, double val, int *alignp);
 extern int etype(enode_t *e);
@@ -669,7 +669,6 @@ extern int duprow(cellref_t cr);
 extern void cmd_query(SCXMEM string_t *s, SCXMEM string_t *data, int fd);
 extern void cmd_status(int fd);
 extern int cmd_plugin(SCXMEM string_t *str);
-extern void set_histfile(SCXMEM string_t *str);
 extern void set_mdir(SCXMEM string_t *str);
 extern void set_autorun(SCXMEM string_t *str);
 extern void set_fkey(int n, SCXMEM string_t *str);
