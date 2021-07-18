@@ -151,6 +151,26 @@ static void deldata_store(int idx1, int idx2, int flags) {
     }
 }
 
+void free_ent_list(void) {
+    struct ent *p, *next;
+    int i, j;
+
+    for (i = 0; i < DELBUFSIZE; i++) {
+        for (j = i + 1; j < DELBUFSIZE; j++) {
+            if (delbuf[j] == delbuf[i])
+                delbuf[j] = NULL;
+            if (delbuffmt[j] == delbuffmt[i])
+                delbuffmt[j] = NULL;
+        }
+        flush_saved(i);
+    }
+    for (p = freeents; p; p = next) {
+        next = p->next;
+        scxfree(p);
+    }
+    freeents = NULL;
+}
+
 /* free deleted cells */
 int flush_saved(int idx) {
     struct ent *p, *q;
@@ -1739,7 +1759,7 @@ void copyent(struct ent *n, struct ent *p, int dr, int dc,
 }
 
 /* erase the database (tbl, etc.) */
-void erasedb(void) {
+void erasedb(int load_scrc) {
     int r, c, fd;
     char *home;
 
@@ -1747,9 +1767,11 @@ void erasedb(void) {
         fwidth[c] = DEFWIDTH;
         precision[c] = DEFPREC;
         realfmt[c] = DEFREFMT;
+        col_hidden[c] = 0;
     }
 
     for (r = 0; r <= maxrow; r++) {
+        row_hidden[r] = 0;
         for (c = 0; c <= maxcol; c++) {
             struct ent **pp = ATBL(tbl, r, c);
             if (*pp) {
@@ -1800,27 +1822,28 @@ void erasedb(void) {
     for (c = 0; c < FKEYS; c++)
         set_string(&fkey[c], NULL);
 
-    // XXX: this should be in a different function
-    /*
-     * Load $HOME/.scrc if present.
-     */
-    if ((home = getenv("HOME"))) {
-        snprintf(curfile, sizeof curfile, "%s/.scrc", home);
-        if ((fd = open(curfile, O_RDONLY)) >= 0) {
+    if (load_scrc) {
+        // XXX: this should be in a different function
+        /*
+         * Load $HOME/.scrc if present.
+         */
+        if ((home = getenv("HOME"))) {
+            snprintf(curfile, sizeof curfile, "%s/.scrc", home);
+            if ((fd = open(curfile, O_RDONLY)) >= 0) {
+                close(fd);
+                readfile(curfile, 0);
+            }
+        }
+
+        /*
+         * Load ./.scrc if present and $HOME/.scrc contained `set scrc'.
+         */
+        if (scrc && strcmp(home, getcwd(curfile, PATHLEN))
+        &&  (fd = open(".scrc", O_RDONLY)) >= 0) {
             close(fd);
-            readfile(curfile, 0);
+            readfile(".scrc", 0);
         }
     }
-
-    /*
-     * Load ./.scrc if present and $HOME/.scrc contained `set scrc'.
-     */
-    if (scrc && strcmp(home, getcwd(curfile, PATHLEN)) &&
-            (fd = open(".scrc", O_RDONLY)) >= 0) {
-        close(fd);
-        readfile(".scrc", 0);
-    }
-
     *curfile = '\0';
     FullUpdate++;
 }

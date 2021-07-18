@@ -2,7 +2,6 @@
 
 [ ] make curfile a string_t
 [ ] handle memory allocation failure everywhere
-[ ] track memory allocation, check for full release upon exit
 [ ] generalize aggregate functions for multiple arguments
 [ ] introduce new functions for conditional aggregation
 [ ] fix operator precedence issue in `<=`, `>=`, `!=` and `<>`
@@ -72,3 +71,4 @@
 [X] use pstrcpy and pstrcat, truncating and returning new length
 [X] make histfile a string_t
 [N] change scxrealloc to update the pointer in place?
+[X] track memory allocation, check for full release upon exit

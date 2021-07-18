@@ -10,7 +10,7 @@
 
 #include "sc.h"
 
-struct colorpair *cpairs[1 + CPAIRS];
+struct SCXMEM colorpair *cpairs[1 + CPAIRS];
 
 static SCXMEM struct crange *color_base;
 static struct crange *color_tail;
@@ -64,6 +64,14 @@ int init_style(int n, int fg, int bg, enode_t *expr) {
     if (color && has_colors())
         init_pair(n, fg, bg);
     return 0;
+}
+
+void free_styles(void) {
+    int i;
+    for (i = 0; i <= CPAIRS; i++) {
+        scxfree(cpairs[i]);
+        cpairs[i] = NULL;
+    }
 }
 
 void initcolor(int colornum) {

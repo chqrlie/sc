@@ -34,7 +34,7 @@ int creadfile(const char *fname, int eraseflg) {
         return 0;
     }
 
-    if (eraseflg) erasedb();
+    if (eraseflg) erasedb(TRUE);
 
     if (pipe(pipefd) < 0) {
         error("Cannot make pipe to child");

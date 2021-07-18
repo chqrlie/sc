@@ -567,6 +567,7 @@ extern void sc_setcolor(int set);
 #define STYLE_RANGE     5
 extern int init_style(int n, int fg, int bg, enode_t *expr);
 extern void select_style(int style, int rev);
+extern void free_styles(void);
 
 extern FILE *openfile(char *fname, size_t fnamesiz, int *rpid, int *rfd);
 extern char *findhome(char *fname, size_t fnamesiz);
@@ -675,8 +676,9 @@ extern void cmd_run(SCXMEM string_t *str);
 extern int edits(buf_t buf, int row, int col, struct ent *p, int dcp_flags);
 extern int editv(buf_t buf, int row, int col, struct ent *p, int dcp_flags);
 extern void efree(SCXMEM enode_t *e);
+extern void free_enode_list(void);
 extern void erase_area(int idx, int sr, int sc, int er, int ec, int ignorelock);
-extern void erasedb(void);
+extern void erasedb(int load_scrc);
 extern void eraser(rangeref_t rr);
 extern void fgetnum(rangeref_t rr, int fd);
 extern void fillr(rangeref_t rr, double start, double inc, int bycols);
@@ -686,6 +688,7 @@ extern void fix_frames(int row1, int col1, int row2, int col2,
                        int delta1, int delta2, struct frange *fr);
 extern void fix_ranges(int row1, int col1, int row2, int col2,
                        int delta1, int delta2, struct frange *fr);
+extern void free_ent_list(void);
 extern int flush_saved(int idx);  /* free delbuf[idx] */
 extern void format_cells(rangeref_t rr, SCXMEM string_t *s);
 extern void forwpage(int arg);
@@ -717,6 +720,7 @@ extern void num_search(double n, rangeref_t rr, int errsearch);
 extern void printfile(SCXMEM string_t *fname, rangeref_t rr);
 extern void pullcells(int to_insert, cellref_t cr);
 extern int query(char *dest, int destsize, const char *s, const char *data);
+extern void free_hist(void);
 extern void read_hist(void);
 extern void remember(int save);
 extern void resetkbd(void);

@@ -1779,6 +1779,14 @@ void efree(SCXMEM enode_t *e) {
     }
 }
 
+void free_enode_list(void) {
+    enode_t *e, *next;
+    for (e = free_enodes, free_enodes = NULL; e; e = next) {
+        next = e->e.o.left;
+        scxfree(e);
+    }
+}
+
 /*---- expression decompiler ----*/
 
 typedef struct decomp_t decomp_t;

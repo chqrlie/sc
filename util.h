@@ -39,6 +39,7 @@ extern SCXMEM void *scxmalloc(size_t n);
 extern SCXMEM void *scxrealloc(SCXMEM void *ptr, size_t n);
 extern SCXMEM char *scxdup(const char *s);
 extern void scxfree(SCXMEM void *p);
+extern void scxmemdump(void);
 
 /*---------------- string utilities ----------------*/
 

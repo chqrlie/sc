@@ -136,6 +136,7 @@ int main(int argc, char **argv) {
     int popt = 0;
     int qopt = 0;
     int Mopt = 0;
+    int Dopt = 0;
 
     histfile = new_string("~/.sc_history");
 
@@ -152,11 +153,9 @@ int main(int argc, char **argv) {
     }
 #endif
 
-    while ((c = getopt(argc, argv, "axmoncrCReP:W:vqMh?")) != EOF) {
+    while ((c = getopt(argc, argv, "axmoncrCDReP:W:vqMh?")) != EOF) {
         switch (c) {
-        case 'a':
-            skipautorun = 1;
-            break;
+        case 'a':   skipautorun = 1;                break;
         case 'x':
 #ifdef NOCRYPT
             fprintf(stderr, "Crypt not available\n");
@@ -165,47 +164,22 @@ int main(int argc, char **argv) {
             Crypt = 1;
 #endif
             break;
-        case 'm':
-            mopt = 1;
-            break;
-        case 'o':
-            oopt = 1;
-            break;
-        case 'n':
-            nopt = 1;
-            break;
-        case 'c':
-            copt = 1;
-            break;
-        case 'r':
-            ropt = 1;
-            break;
-        case 'C':
-            Copt = 1;
-            craction = CRCOLS;
-            break;
-        case 'R':
-            Ropt = 1;
-            craction = CRROWS;
-            break;
-        case 'e':
-            rndtoeven = 1;
-            eopt = 1;
-            break;
+        case 'm':   mopt = 1;                       break;
+        case 'o':   oopt = 1;                       break;
+        case 'n':   nopt = 1;                       break;
+        case 'c':   copt = 1;                       break;
+        case 'r':   ropt = 1;                       break;
+        case 'C':   Copt = 1; craction = CRCOLS;    break;
+        case 'R':   Ropt = 1; craction = CRROWS;    break;
+        case 'e':   eopt = 1; rndtoeven = 1;        break;
         case 'P':
-        case 'W':
-            popt = 1;
-            break;
-        case 'v':
-            break;
-        case 'q':
-            qopt = 1;
-            break;
-        case 'M':
-            Mopt = 1;
-            break;
+        case 'W':   popt = 1;                       break;
+        case 'v':                                   break;
+        case 'q':   qopt = 1;                       break;
+        case 'M':   Mopt = 1;                       break;
+        case 'D':   Dopt = 1;                       break;
         default:
-            printf("usage: sc [-acemnoqrvxCMR] [-P RANGE/ADDRESS] [-W RANGE]\n"
+            printf("usage: sc [-acemnoqrvxCDMR] [-P RANGE/ADDRESS] [-W RANGE]\n"
                    "options:\n"
                    "  -a   Do not run the autorun macro, if present in the file.\n"
                    "  -c   Set recalculation in column order.\n"
@@ -218,6 +192,7 @@ int main(int argc, char **argv) {
                    "  -v   Output expression values when piping data out via -P option.\n"
                    "  -x   Use crypt to encrypt and decrypt data files.\n"
                    "  -C   Set automatic newline action to increment the column.\n"
+                   "  -D   Enable debug output.\n"
                    "  -M   Process mouse events.\n"
                    "  -R   Set automatic newline action to increment the row.\n"
                    "  -P   Pipe a range to standard output.\n"
@@ -267,7 +242,7 @@ int main(int argc, char **argv) {
         EvalAll();
         optind++;
     } else {
-        erasedb();
+        erasedb(TRUE);
     }
 
     while (optind < argc) {
@@ -314,7 +289,7 @@ int main(int argc, char **argv) {
         /* reparse command line arguments */
         optind = 1;
         stopdisp();
-        while ((c = getopt(argc, argv, "axmoncrCReP:W:vqM")) != EOF) {
+        while ((c = getopt(argc, argv, "axmoncrCDReP:W:vqM")) != EOF) {
             switch (c) {
             case 'v':
                 Vopt = 1;
@@ -345,6 +320,34 @@ int main(int argc, char **argv) {
     vi_interaction();
     stopdisp();
     write_hist();
+
+    if (Dopt) {
+        /* free all memory and check for remaining blocks */
+        erasedb(FALSE);
+        free_hist();
+        for (c = 0; c < maxrows; c++) {
+            scxfree(tbl[c]);
+        }
+        scxfree(tbl);
+        scxfree(fwidth);
+        scxfree(precision);
+        scxfree(realfmt);
+        scxfree(col_hidden);
+        scxfree(row_hidden);
+        free_ent_list();
+        free_enode_list();
+        free_styles();
+        free_string(scext);
+        free_string(ascext);
+        free_string(tbl0ext);
+        free_string(tblext);
+        free_string(latexext);
+        free_string(slatexext);
+        free_string(texext);
+        free_string(histfile);
+        scxmemdump();
+    }
+
     return EXIT_SUCCESS;
 }
 

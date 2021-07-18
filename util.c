@@ -11,14 +11,49 @@
 
 #include "sc.h"
 
-#define USE_MAGIC  1
+#define SCXMALLOC_USE_MAGIC  1
+#define SCXMALLOC_TRACK_BLOCKS  1
 #define SCXMALLOC_FAILURE_IS_FATAL  1
 
-#ifdef USE_MAGIC
-#define MAGIC   (double)1234567890.12344
-#define MAGIC_SIZE  sizeof(double)
+#ifdef SCXMALLOC_TRACK_BLOCKS
+static struct dlink {
+# ifdef SCXMALLOC_USE_MAGIC
+    double magic;
+# endif
+    size_t size;
+    struct dlink *prev, *next;
+} mem_head = {
+# ifdef SCXMALLOC_USE_MAGIC
+    0.0,
+# endif
+    0, &mem_head, &mem_head
+};
+
+static void link_block(struct dlink *p, size_t size) {
+    p->size = size;
+    p->prev = mem_head.prev;
+    p->next = &mem_head;
+    p->prev->next = p->next->prev = p;
+}
+
+static void unlink_block(struct dlink *p) {
+    p->prev->next = p->next;
+    p->next->prev = p->prev;
+}
 #else
-#define MAGIC_SIZE  0
+# define link_block(p,s)  (void)(p,s)
+# define unlink_block(p)  (void)(p)
+#endif
+
+#ifdef SCXMALLOC_USE_MAGIC
+# define MAGIC   (double)1234567890.12344
+# ifdef SCXMALLOC_TRACK_BLOCKS
+#  define MAGIC_SIZE  sizeof(struct dlink)
+# else
+#  define MAGIC_SIZE  sizeof(double)
+# endif
+#else
+# define MAGIC_SIZE  0
 #endif
 
 SCXMEM void *scxmalloc(size_t n) {
@@ -29,10 +64,11 @@ SCXMEM void *scxmalloc(size_t n) {
         fatal("scxmalloc: no memory");
 #endif
     } else {
-#ifdef USE_MAGIC
+        link_block(ptr, n);
+#ifdef SCXMALLOC_USE_MAGIC
         *((double *)ptr) = MAGIC;  /* magic number */
-        ptr = (unsigned char *)ptr + MAGIC_SIZE;
 #endif
+        ptr = (unsigned char *)ptr + MAGIC_SIZE;
     }
     return ptr;
 }
@@ -46,8 +82,9 @@ SCXMEM void *scxrealloc(SCXMEM void *ptr, size_t n) {
         scxfree(ptr);
         return NULL;
     }
-#ifdef USE_MAGIC
     ptr = (unsigned char *)ptr - MAGIC_SIZE;
+    unlink_block(ptr);
+#ifdef SCXMALLOC_USE_MAGIC
     if (*((double *)ptr) != MAGIC)
         fatal("scxrealloc: storage not scxmalloc'ed");
 #endif
@@ -57,10 +94,11 @@ SCXMEM void *scxrealloc(SCXMEM void *ptr, size_t n) {
         fatal("scxmalloc: no memory");
 #endif
     } else {
-#ifdef USE_MAGIC
+        link_block(ptr, n);
+#ifdef SCXMALLOC_USE_MAGIC
         *((double *)ptr) = MAGIC;  /* magic number */
-        ptr = (unsigned char *)ptr + MAGIC_SIZE;
 #endif
+        ptr = (unsigned char *)ptr + MAGIC_SIZE;
     }
     return ptr;
 }
@@ -73,13 +111,61 @@ SCXMEM char *scxdup(const char *s) {
 
 void scxfree(SCXMEM void *p) {
     if (p != NULL) {
-#ifdef USE_MAGIC
         p = (unsigned char*)p - MAGIC_SIZE;
+        unlink_block(p);
+#ifdef SCXMALLOC_USE_MAGIC
         if (*((double *)p) != MAGIC)
             fatal("scxfree: storage not malloc'ed");
 #endif
         free(p);
     }
+}
+
+void scxmemdump(void) {
+#ifdef SCXMALLOC_TRACK_BLOCKS
+    struct dlink *b = mem_head.next;
+    const unsigned char *p;
+    size_t i;
+    int dup;
+    if (b != &mem_head) {
+        fprintf(stderr, "Memory blocks: {\n");
+        while (b != &mem_head) {
+            fprintf(stderr, "  %p: %zu bytes {", (void*)b, b->size);
+            for (dup = -1, i = 0, p = (unsigned char *)(b + 1); i < b->size; i++) {
+                int c = p[i];
+                if (dup > 0 && p[i] == p[i - 1]) {
+                    dup++;
+                    continue;
+                }
+                if (dup > 1) {
+                    fprintf(stderr, "*%d", dup);
+                    dup = 1;
+                }
+                if (c >= 0x20 && c < 0x7F) {
+                    if (dup) fprintf(stderr, " \"");
+                    if (c == '\"' || c == '\\')
+                        fputc('\\', stderr);
+                    fputc(c, stderr);
+                    dup = 0;
+                } else {
+                    if (!dup) fprintf(stderr, "\"");
+                    fprintf(stderr, " %02X", c);
+                    dup = 1;
+                }
+            }
+            if (dup > 1) {
+                fprintf(stderr, "*%d", dup);
+                dup = 0;
+            } else
+            if (!dup) {
+                fprintf(stderr, "\"");
+            }
+            fprintf(stderr, " }\n");
+            b = b->next;
+        }
+        fprintf(stderr, "}\n");
+    }
+#endif
 }
 
 /*---------------- refcounted strings ----------------*/

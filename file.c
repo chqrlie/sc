@@ -665,7 +665,7 @@ int readfile(const char *fname, int eraseflg) {
             } else
                 fprintf(stderr, "Reading file \"%s\"\n", save);
         }
-        erasedb();
+        erasedb(TRUE);
     }
 
     remember(0);

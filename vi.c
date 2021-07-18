@@ -2767,6 +2767,23 @@ static void list_all(void) {
 
 /* History functions */
 
+void free_hist(void) {
+    int i;
+    for (i = 0; i <= HISTLEN; i++) {
+        free_string(history[i]);
+        history[i] = NULL;
+    }
+#if defined REGCOMP
+#elif defined RE_COMP
+#elif defined REGCMP
+    free(last_search);
+    last_search = NULL;
+#else
+    free_string(last_search);
+    last_search = NULL;
+#endif
+}
+
 static void save_hist(void) {
     if (!lasthist || strcmp(s2str(history[lasthist]), line)) {
         if (lasthist < 0)
