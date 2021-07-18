@@ -28,7 +28,7 @@ void printfile(SCXMEM string_t *str, rangeref_t rr) {
     if (fname) {
         /* printfile will be the [path/]file ---> [path/]file.out */
         if (*fname == '\0') {
-            strlcpy(path, curfile, sizeof path);
+            pstrcpy(path, sizeof path, curfile);
             ext = get_extension(path);
 
             /* keep the extension unless .sc or scext */
@@ -39,7 +39,7 @@ void printfile(SCXMEM string_t *str, rangeref_t rr) {
                      ascext ? s2c(ascext) : "asc");
         } else {
             /* strarg in gram.y, always size of \0 terminated string. */
-            strlcpy(path, fname, sizeof path);
+            pstrcpy(path, sizeof path, fname);
         }
         if (!strcmp(path, curfile)
         &&  !yn_ask("Confirm that you want to destroy the data base: (y,n)")) {
@@ -90,8 +90,8 @@ void printfile(SCXMEM string_t *str, rangeref_t rr) {
 
                 if (p->cellerror) {
                     // XXX: append a space for cell alignment
-                    len = strlcpy(field, (p->cellerror == CELLERROR ?
-                                          "ERROR " : "INVALID "), sizeof field);
+                    len = pstrcpy(field, sizeof field,
+                                  (p->cellerror == CELLERROR) ? "ERROR " : "INVALID ");
                     align |= ALIGN_CLIP;
                 } else {
                     if (p->format) {
@@ -227,7 +227,7 @@ void tblprintfile(SCXMEM string_t *str, rangeref_t rr) {
 
     /* tblprintfile will be the [path/]file ---> [path/]file.out */
     if (*fname == '\0') {
-        strlcpy(path, curfile, sizeof path);
+        pstrcpy(path, sizeof path, curfile);
         ext = get_extension(path);
 
         /* keep the extension unless .sc or scext */
@@ -255,7 +255,7 @@ void tblprintfile(SCXMEM string_t *str, rangeref_t rr) {
                      texext ? s2c(texext) : "tex");
         }
     } else {
-        strlcpy(path, fname, sizeof path);
+        pstrcpy(path, sizeof path, fname);
     }
     if (!strcmp(path, curfile)
     &&  !yn_ask("Confirm that you want to destroy the data base: (y,n)")) {
@@ -355,8 +355,8 @@ void tblprintfile(SCXMEM string_t *str, rangeref_t rr) {
                     /* convert cell contents, do not test width, do not align with spaces */
                     // XXX: should implement alignment in output format
                     if (p->cellerror) {
-                        strlcpy(field, (p->cellerror == CELLERROR ?
-                                        "ERROR" : "INVALID"), sizeof field);
+                        pstrcpy(field, sizeof field,
+                                (p->cellerror == CELLERROR) ? "ERROR" : "INVALID");
                         align |= ALIGN_CLIP;
                     } else {
                         if (p->format) {

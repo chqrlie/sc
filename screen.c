@@ -1581,13 +1581,13 @@ void initkbd(void) {
 
     ktmp = tgetstr("ks", &p);
     if (ktmp) {
-        strlcpy(ks_buf, ktmp, sizeof ks_buf);
+        pstrcpy(ks_buf, sizeof ks_buf, ktmp);
         ks = ks_buf;
         tputs(ks, 1, charout);
     }
     ktmp = tgetstr("ke", &p);
     if (ktmp) {
-        strlcpy(ke_buf, ktmp, sizeof ke_buf);
+        pstrcpy(ke_buf, sizeof ke_buf, ktmp);
         ke = ke_buf;
     }
 

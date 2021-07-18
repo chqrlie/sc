@@ -154,47 +154,45 @@ SCXMEM string_t *sub_string(SCXMEM string_t *s, int v1, int v2) {
 
 /*---------------- string utilities ----------------*/
 
-#ifndef HAVE_STRLCPY
-size_t strlcpy(char *dst, const char *src, size_t dstsize) {
-    size_t srclen;
-    /* Not conform to strlcpy, but avoids to access illegal memory in case
-     * of unterminated strings */
-    for (srclen = 0; srclen < dstsize && src[srclen]; srclen++)
-        continue;
-    if (dstsize > srclen)
-        dstsize = srclen;
-    else if (dstsize)
-        dstsize--;
-    else
-        return srclen;
+/* truncating version of strcpy, returns truncated length */
+size_t pstrcpy(char *dst, size_t dstsize, const char *src) {
+    size_t i = 0;
     /* assumes non-overlapping buffers */
-    memcpy(dst, src, dstsize);
-    dst[dstsize] = '\0';
-    return srclen;
+    if (dstsize--) {
+        while (i < dstsize && (dst[i] = src[i]) != '\0')
+            i++;
+        dst[i] = '\0';
+    }
+    return i;
 }
-#endif
 
-#ifndef HAVE_STRLCAT
-size_t strlcat(char *dst, const char *src, size_t dstsize) {
-    size_t ld, ls;
-    for (ld = 0; ld < dstsize && dst[ld]; ld++)
-        continue;
-    dst += ld;
-    dstsize -= ld;
-    for (ls = 0; ls < dstsize && src[ls]; ls++)
-        continue;
-    if (dstsize > ls)
-        dstsize = ls;
-    else if (dstsize)
-        dstsize--;
-    else
-        return ld + ls;
+/* truncating version of memcpy, returns truncated length */
+size_t pstrncpy(char *dst, size_t dstsize, const char *src, size_t len) {
+    size_t i = 0;
     /* assumes non-overlapping buffers */
-    memcpy(dst, src, dstsize);
-    dst[dstsize] = '\0';
-    return ld + ls;
+    if (dstsize--) {
+        while (i < dstsize && len --> 0 && (dst[i] = src[i]) != '\0')
+            i++;
+        dst[i] = '\0';
+    }
+    return i;
 }
-#endif
+
+/* truncating version of strcat, returns truncated length */
+size_t pstrcat(char *dst, size_t dstsize, const char *src) {
+    size_t i = 0, j = 0;
+    /* assumes non-overlapping buffers */
+    if (dstsize--) {
+        while (i < dstsize && dst[i] != '\0')
+            i++;
+        while (i < dstsize && (dst[i] = src[j]) != '\0') {
+            i++;
+            j++;
+        }
+        dst[i] = '\0';
+    }
+    return i;
+}
 
 size_t strsplice(char *dst, size_t size, size_t from, size_t len1,
                  const char *src, size_t len2)

@@ -254,7 +254,7 @@ int main(int argc, char **argv) {
     if (optind < argc && !strcmp(argv[optind], "--"))
         optind++;
     if (optind < argc && argv[optind][0] != '|' && strcmp(argv[optind], "-"))
-        strlcpy(curfile, argv[optind], sizeof curfile);
+        pstrcpy(curfile, sizeof curfile, argv[optind]);
 
     if (usecurses && has_colors())
         initcolor(0);

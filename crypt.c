@@ -39,7 +39,7 @@ void creadfile(const char *save, int eraseflg) {
     }
 
     deraw(1);
-    strlcpy(KeyWord, getpass("Enter key:"), sizeof KeyWord);
+    pstrcpy(KeyWord, sizeof KeyWord, getpass("Enter key:"));
     goraw();
 
     if ((pid = fork()) == 0) {   /* if child              */
@@ -86,7 +86,7 @@ void creadfile(const char *save, int eraseflg) {
     while (pid != wait(&fildes))
         continue;
     if (eraseflg) {
-        strlcpy(curfile, save, sizeof curfile);
+        pstrcpy(curfile, sizeof curfile, save);
         modflg = 0;
     }
 }
@@ -111,7 +111,7 @@ int cwritefile(char *fname, rangeref_t rr, int dcp_flags) {
         return -1;
     }
 
-    strlcpy(save, fname, sizeof save);
+    pstrcpy(save, sizeof save, fname);
 
     busave = findhome(save);
     if (dobackups && !backup_file(busave) &&
@@ -129,7 +129,7 @@ int cwritefile(char *fname, rangeref_t rr, int dcp_flags) {
 
     if (KeyWord[0] == '\0') {
         deraw(1);
-        strlcpy(KeyWord, getpass("Enter key:"), sizeof KeyWord);
+        pstrcpy(KeyWord, sizeof KeyWord, getpass("Enter key:"));
         goraw();
     }
 
@@ -164,7 +164,7 @@ int cwritefile(char *fname, rangeref_t rr, int dcp_flags) {
     close(pipefd[1]);
     while (pid != wait(&fildes))
         continue;
-    strlcpy(curfile, save, sizeof curfile);
+    pstrcpy(curfile, sizeof curfile, save);
 
     modflg = 0;
     error("File \"%s\" written (encrypted).", curfile);

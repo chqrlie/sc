@@ -13,7 +13,7 @@
 
 void getnum(rangeref_t rr, int fd) {
     char buf[32];
-    int r, c;
+    int r, c, len;
 
     for (r = rr.left.row; r <= rr.right.row; r++) {
         for (c = rr.left.col; c <= rr.right.col; c++) {
@@ -26,8 +26,8 @@ void getnum(rangeref_t rr, int fd) {
                 else if (p->flags & IS_VALID)
                     snprintf(buf, sizeof buf - 1, "%.15g", p->v);
             }
-            strlcat(buf, (c < rr.right.col) ? "\t" : "\n", sizeof buf);
-            write(fd, buf, strlen(buf));
+            len = pstrcat(buf, sizeof buf, (c < rr.right.col) ? "\t" : "\n");
+            write(fd, buf, len);
             if (brokenpipe)
                 return;
         }
@@ -36,7 +36,7 @@ void getnum(rangeref_t rr, int fd) {
 
 void fgetnum(rangeref_t rr, int fd) {
     char field[FBUFLEN+1];
-    int row, col;
+    int row, col, len;
 
     for (row = rr.left.row; row <= rr.right.row; row++) {
         for (col = rr.left.col; col <= rr.right.col; col++) {
@@ -58,8 +58,8 @@ void fgetnum(rangeref_t rr, int fd) {
                     }
                 }
             }
-            strlcat(field, (col < rr.right.col) ? "\t" : "\n", sizeof field);
-            write(fd, field, strlen(field));
+            len = pstrcat(field, sizeof field, (col < rr.right.col) ? "\t" : "\n");
+            write(fd, field, len);
             if (brokenpipe)
                 return;
         }
@@ -68,7 +68,7 @@ void fgetnum(rangeref_t rr, int fd) {
 
 void getstring(rangeref_t rr, int fd) {
     char buf[FBUFLEN];  /* for very long labels */
-    int r, c;
+    int r, c, len;
 
     for (r = rr.left.row; r <= rr.right.row; r++) {
         for (c = rr.left.col; c <= rr.right.col; c++) {
@@ -76,8 +76,8 @@ void getstring(rangeref_t rr, int fd) {
             *buf = '\0';
             if (p && p->label)
                 snprintf(buf, sizeof buf - 1, "%s", s2c(p->label));
-            strlcat(buf, (c < rr.right.col) ? "\t" : "\n", sizeof buf);
-            write(fd, buf, strlen(buf));
+            len = pstrcat(buf, sizeof buf, (c < rr.right.col) ? "\t" : "\n");
+            write(fd, buf, len);
             if (brokenpipe)
                 return;
         }
@@ -115,7 +115,7 @@ void getformat(int col, int fd) {
 
 void getfmt(rangeref_t rr, int fd) {
     char buf[FBUFLEN];  /* for very long format strings */
-    int r, c;
+    int r, c, len;
 
     for (r = rr.left.row; r <= rr.right.row; r++) {
         for (c = rr.left.col; c <= rr.right.col; c++) {
@@ -123,8 +123,8 @@ void getfmt(rangeref_t rr, int fd) {
             *buf = '\0';
             if (p && p->format)
                 snprintf(buf, sizeof buf - 1, "%s", s2c(p->format));
-            strlcat(buf, (c < rr.right.col) ? "\t" : "\n", sizeof buf);
-            write(fd, buf, strlen(buf));
+            len = pstrcat(buf, sizeof buf, (c < rr.right.col) ? "\t" : "\n");
+            write(fd, buf, len);
             if (brokenpipe)
                 return;
         }
@@ -134,6 +134,7 @@ void getfmt(rangeref_t rr, int fd) {
 void getframe(int fd) {
     char buf[100];
     struct frange *fr;
+    int len;
 
     *buf = '\0';
     if ((fr = get_current_frange())) {
@@ -143,13 +144,14 @@ void getframe(int fd) {
                  r_name(fr->ir_left->row, fr->ir_left->col,
                         fr->ir_right->row, fr->ir_right->col));
     }
-    strlcat(buf, "\n", sizeof buf);
-    write(fd, buf, strlen(buf));
+    len = pstrcat(buf, sizeof buf, "\n");
+    write(fd, buf, len);
 }
 
 void getrange(SCXMEM string_t *name, int fd) {
     char buf[100];
     struct nrange *r;
+    int len;
 
     *buf = '\0';
     if (name && !find_nrange_name(s2c(name), slen(name), &r)) {
@@ -159,7 +161,7 @@ void getrange(SCXMEM string_t *name, int fd) {
                 r->r_left.vf & FIX_ROW ? "$" : "",
                 r->r_left.vp->row);
         if (r->r_is_range) {
-            int len = strlen(buf);
+            len = strlen(buf);
             snprintf(buf + len, sizeof(buf) - 1 - len, ":%s%s%s%d",
                      r->r_right.vf & FIX_COL ? "$" : "",
                      coltoa(r->r_right.vp->col),
@@ -167,14 +169,15 @@ void getrange(SCXMEM string_t *name, int fd) {
                      r->r_right.vp->row);
         }
     }
-    strlcat(buf, "\n", sizeof buf);
-    write(fd, buf, strlen(buf));
+    len = pstrcat(buf, sizeof buf, "\n");
+    write(fd, buf, len);
     free_string(name);
 }
 
 void cmd_eval(SCXMEM enode_t *e, SCXMEM string_t *fmt, int row, int col, int fd) {
     char buf[FBUFLEN];
     int align = ALIGN_DEFAULT;
+    int len;
     double v;
 
     gmyrow = row;
@@ -187,8 +190,8 @@ void cmd_eval(SCXMEM enode_t *e, SCXMEM string_t *fmt, int row, int col, int fd)
     } else {
         snprintf(buf, sizeof buf - 1, "%.15g", v);
     }
-    strlcat(buf, "\n", sizeof buf);
-    write(fd, buf, strlen(buf));
+    len = pstrcat(buf, sizeof buf, "\n");
+    write(fd, buf, len);
     free_string(fmt);
     efree(e);
 }

@@ -1851,7 +1851,7 @@ static int any_locked_cells(int r1, int c1, int r2, int c2) {
 }
 
 void set_histfile(SCXMEM string_t *str) {
-    strlcpy(histfile, s2str(str), sizeof histfile);
+    pstrcpy(histfile, sizeof histfile, s2str(str));
     free_string(str);
 }
 

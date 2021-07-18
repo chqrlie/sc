@@ -1,6 +1,7 @@
 #!/bin/sh
 
 # Copyright (c) 2016-2018, Carsten Kunze <carsten.kunze@arcor.de>
+# updated by Charlie Gordon: July, 2021
 #
 # Permission to use, copy, modify, and/or distribute this software for any
 # purpose with or without fee is hereby granted, provided that the above
@@ -248,59 +249,6 @@ EOT
 		true
 	fi
 	test_result || FLOAT_STORE=
-}
-check_strlcpy () {
-	check_for "strlcpy(3)"
-
-	cat <<EOT >$TMPC
-#include <string.h>
-int
-main(int argc, char **argv) {
-	char a[10];
-	(void)argc;
-	strlcpy(a, *argv, sizeof a);
-	return 0;
-}
-EOT
-	compile
-	if test_result; then
-		DEFS="$DEFS -DHAVE_STRLCPY"
-	else
-		H=compat.h
-		grep -q '<sys/types\.h>' $H 2>/dev/null || cat <<EOT >>$H
-#include <sys/types.h>
-EOT
-		cat <<EOT >>$H
-size_t strlcpy(char *, const char *, size_t);
-EOT
-	fi
-}
-check_strlcat () {
-	check_for "strlcat(3)"
-
-	cat <<EOT >$TMPC
-#include <string.h>
-int
-main(int argc, char **argv) {
-	char a[10];
-	(void)argc;
-	*a = 0;
-	strlcat(a, *argv, sizeof a);
-	return 0;
-}
-EOT
-	compile
-	if test_result; then
-		DEFS="$DEFS -DHAVE_STRLCAT"
-	else
-		H=compat.h
-		grep -q '<sys/types\.h>' $H 2>/dev/null || cat <<EOT >>$H
-#include <sys/types.h>
-EOT
-		cat <<EOT >>$H
-size_t strlcat(char *, const char *, size_t);
-EOT
-	fi
 }
 check_fixterm () {
 	check_for 'fixterm(3)'
@@ -710,8 +658,6 @@ gen_mk
 check_make
 #check_Sanitizer
 check_float_store
-check_strlcpy
-check_strlcat
 check_lib_curses
 check_curses_wch
 check_curses_keyname

@@ -1,6 +1,6 @@
 # TODO
 
-[ ] use pstrcpy and pstrcat, truncating and returning new length
+[ ] make histfile, curfile a string_t
 [ ] change scxrealloc to update the pointer in place?
 [ ] handle memory allocation failure everywhere
 [ ] track memory allocation, check for full release upon exit
@@ -70,3 +70,4 @@
 [X] remove currow/curcol side effects in yankrows() and yankcols()
 [X] remove cellassign side effect
 [X] use sc_string_t: shared allocated strings with a reference count,
+[X] use pstrcpy and pstrcat, truncating and returning new length

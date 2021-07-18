@@ -245,7 +245,7 @@ int yylex(void) {
             } else
             if (plugin_exists(p0, p - p0, path, PATHLEN)) {
                 // XXX: really catenate the rest of the input line?
-                strlcat(path, p, PATHLEN);
+                pstrcat(path, PATHLEN, p);
                 yylval.sval = new_string(path);
                 ret = PLUGIN;
                 break;

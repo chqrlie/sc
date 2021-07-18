@@ -42,14 +42,11 @@ extern void scxfree(SCXMEM void *p);
 
 /*---------------- string utilities ----------------*/
 
-#if 0   // declared in compat.h
-#ifndef HAVE_STRLCPY
-extern size_t strlcpy(char *dst, const char *src, size_t dstsize);
-#endif
-#ifndef HAVE_STRLCAT
-extern size_t strlcat(char *dst, const char *src, size_t dstsize);
-#endif
-#endif
+/* truncating version of strcpy, returns truncated length */
+extern size_t pstrcpy(char *dst, size_t dstsize, const char *src);
+extern size_t pstrncpy(char *dst, size_t dstsize, const char *src, size_t len);
+/* truncating version of strcat, returns truncated length */
+extern size_t pstrcat(char *dst, size_t dstsize, const char *src);
 extern size_t strsplice(char *dst, size_t size, size_t from, size_t len1,
                         const char *src, size_t len2);
 extern char *get_basename(const char *filename);

@@ -217,7 +217,7 @@ char *findhome(char *path, size_t pathsiz) {
         }
         pathptr = path + 1;
         if ((*pathptr == '/') || (*pathptr == '\0'))
-            strlcpy(tmppath, HomeDir, sizeof tmppath);
+            pstrcpy(tmppath, sizeof tmppath, HomeDir);
 #ifndef VMS
         else {
             struct passwd *pwent;
@@ -232,11 +232,11 @@ char *findhome(char *path, size_t pathsiz) {
                 error("Cannot find user %s", name);
                 return NULL;
             }
-            strlcpy(tmppath, pwent->pw_dir, sizeof tmppath);
+            pstrcpy(tmppath, sizeof tmppath, pwent->pw_dir);
         }
 #endif
-        strlcat(tmppath, pathptr, sizeof tmppath);
-        strlcpy(path, tmppath, pathsiz);
+        pstrcat(tmppath, sizeof tmppath, pathptr);
+        pstrcpy(path, pathsiz, tmppath);
     }
     return path;
 }
@@ -362,8 +362,8 @@ void add_plugin(SCXMEM string_t *ext, SCXMEM string_t *plugin, char type) {
         fp = fp->next;
     }
     // XXX: should use string_t
-    strlcpy(fp->plugin, s2c(plugin), PATHLEN);
-    strlcpy(fp->ext, s2c(ext), PATHLEN);
+    pstrcpy(fp->plugin, PATHLEN, s2c(plugin));
+    pstrcpy(fp->ext, PATHLEN, s2c(ext));
     free_string(ext);
     free_string(plugin);
     fp->type = type;
@@ -536,11 +536,11 @@ int writefile(const char *fname, rangeref_t rr, int dcp_flags) {
     if (scext != NULL) {
         if (!strcmp(ext, ".sc") || !strcmp(ext, s2c(scext)))
             *ext = '\0';
-        strlcat(tfname, ".", sizeof tfname);
-        strlcat(tfname, s2c(scext), sizeof tfname);
+        pstrcat(tfname, sizeof tfname, ".");
+        pstrcat(tfname, sizeof tfname, s2c(scext));
     }
 
-    strlcpy(save, tfname, sizeof save);
+    pstrcpy(save, sizeof save, tfname);
     for (tpp = save; *tpp != '\0'; tpp++) {
         if (*tpp == '"') {
             strsplice(save, sizeof save, tpp - save, 0, "\\", 1);
@@ -561,7 +561,7 @@ int writefile(const char *fname, rangeref_t rr, int dcp_flags) {
     closefile(f, pid, 0);
 
     if (!pid) {
-        strlcpy(curfile, save, sizeof curfile);
+        pstrcpy(curfile, sizeof curfile, save);
         modflg = 0;
         FullUpdate++;
         if (usecurses) {
@@ -587,12 +587,12 @@ int readfile(const char *fname, int eraseflg) {
     autolabel = 0;                      /* reading a file */
 
     if (*fname == '*' && !sempty(mdir)) {
-        strlcpy(save, s2c(mdir), sizeof save);
-        strlcat(save, fname, sizeof save);
+        pstrcpy(save, sizeof save, s2c(mdir));
+        pstrcat(save, sizeof save, fname);
     } else {
         if (*fname == '\0')
             fname = curfile;
-        strlcpy(save, fname, sizeof save);
+        pstrcpy(save, sizeof save, fname);
     }
 
 #ifndef NOPLUGINS
@@ -619,7 +619,7 @@ int readfile(const char *fname, int eraseflg) {
                 }
                 p--;
             }
-            strlcpy(curfile, p, sizeof curfile);
+            pstrcpy(curfile, sizeof curfile, p);
         }
     }
 #endif
@@ -697,7 +697,7 @@ int readfile(const char *fname, int eraseflg) {
         goraw();
     }
     if (eraseflg) {
-        strlcpy(curfile, save, sizeof curfile);
+        pstrcpy(curfile, sizeof curfile, save);
         modflg = 0;
         if (!sempty(autorun) && !skipautorun) readfile(s2c(autorun), 0);
         skipautorun = 0;

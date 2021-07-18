@@ -705,7 +705,7 @@ void vi_interaction(void) {
                 if (!sempty(fkey[c - KEY_F0])) {
                     int i;
 
-                    strlcpy(line, s2c(fkey[c - KEY_F0]), sizeof line);
+                    pstrcpy(line, sizeof line, s2c(fkey[c - KEY_F0]));
                     for (i = 0; line[i]; i++) {
                         // XXX: string should have been unescaped already
                         if (line[i] == '\\' && line[i+1] == '"') {
@@ -2196,9 +2196,7 @@ static int vigetch(void) {
 
 /* saves the current line for possible use by an undo cmd */
 static void u_save(int c) {
-    strlcpy(undo_line, line, sizeof undo_line);
-
-    undo_len = linelen;
+    undo_len = pstrcpy(undo_line, sizeof undo_line, line);
     undo_lim = linelim;
 
     /* reset dot command if not processing it. */
@@ -2229,7 +2227,7 @@ static void restore_it(void) {
 static void stop_edit(void) {
     if (search_ind != ' ') {
         search_ind = ' ';
-        linelen = strlcpy(line, s2str(history[0]), sizeof line);
+        linelen = pstrcpy(line, sizeof line, s2str(history[0]));
         // XXX: update linelim?
         write_line('G');
     } else {
@@ -2365,21 +2363,17 @@ static int back_word(int a, int big_word) {
  * line terminator.  Otherwise, don't.
  */
 static void del_in_line(int a, int back_null) {
-    int len, i;
+    int i, lim = linelim, len = linelen;
 
-    if (linelim >= 0) {
-        len = linelen;
-        if (a > len - linelim)
-            a = len - linelim;
-        if (linelim == len && linelim > 0)
-            linelim--;
-        strlcpy(putbuf, line + linelim, a);
-        putbuf[a] = '\0';
-        for (i = linelim; i <= len - a; i++)
+    if (lim >= 0) {
+        if (a > len - lim)
+            a = len - lim;
+        pstrncpy(putbuf, sizeof putbuf, line + lim, a);
+        for (i = lim; i <= len - a; i++)
             line[i] = line[i+a];
         linelen -= a;
     }
-    if (back_null && linelim > 0 && line[linelim] == '\0')
+    if (back_null && lim > 0 && line[lim] == '\0')
         --linelim;
 }
 
@@ -2594,7 +2588,7 @@ static void yank_chars(int first, int last, int delete) {
 static void del_to_end(void) {
     if (linelim < 0)
         return;
-    strlcpy(putbuf, line + linelim, sizeof putbuf);
+    pstrcpy(putbuf, sizeof putbuf, line + linelim);
     line[linelen = linelim] = '\0';
     linelim = back_line(1);
 }
@@ -2714,9 +2708,9 @@ static void doshell(void) {
     if (len && cmd[len - 1] == '\n')
         cmd[--len] = '\0';        /* clobber \n */
     if (strcmp(cmd, "!") == 0)           /* repeat? */
-        strlcpy(cmd, lastcmd, sizeof cmd);
+        pstrcpy(cmd, sizeof cmd, lastcmd);
     else
-        strlcpy(lastcmd, cmd, sizeof lastcmd);
+        pstrcpy(lastcmd, sizeof lastcmd, cmd);
 
     if (modflg) {
         puts("[No write since last change]");
@@ -2805,7 +2799,7 @@ static void forw_hist(void) {
         histp = histp % endhist + 1;
 
     if (lasthist >= 0) {
-        linelen = strlcpy(line, s2str(history[histp]), sizeof line);
+        linelen = pstrcpy(line, sizeof line, s2str(history[histp]));
         last_col();
     }
     if (histp) {
@@ -2827,7 +2821,7 @@ static void back_hist(void) {
         histp--;
 
     if (lasthist >= 0) {
-        linelen = strlcpy(line, s2str(history[histp]), sizeof line);
+        linelen = pstrcpy(line, sizeof line, s2str(history[histp]));
         last_col();
     }
     if (histp) {
@@ -2876,7 +2870,7 @@ static void search_hist(void) {
 #else
     set_string(&last_search, new_string(line));
 #endif
-    linelen = strlcpy(line, s2str(history[0]), sizeof line);
+    linelen = pstrcpy(line, sizeof line, s2str(history[0]));
     //last_col();
     search_again(FALSE);
     if (mode != EDIT_MODE) edit_mode();
@@ -2913,14 +2907,14 @@ static void search_again(sc_bool_t reverse) {
             if (!(search_dir ^ reverse) && histp != lasthist)
                 if (histp <= 0) {
                     histp = ((lasthist + 1) % endhist);
-                    strlcpy(line, s2str(history[histp]), sizeof line);
+                    linelen = pstrcpy(line, sizeof line, s2str(history[histp]));
                 } else
                     forw_hist();
             else if ((search_dir ^ reverse) && histp != ((lasthist + 1) % endhist))
                 back_hist();
             else {
                 histp = 0;
-                strlcpy(line, s2str(history[0]), sizeof line);
+                linelen = pstrcpy(line, sizeof line, s2str(history[0]));
                 last_col();
             }
         } else
@@ -2936,7 +2930,7 @@ static void search_again(sc_bool_t reverse) {
                 back_hist();
             else {
                 histp = ((lasthist + 1) % endhist);
-                strlcpy(line, s2str(history[histp]), sizeof line);
+                linelen = pstrcpy(line, sizeof line, s2str(history[histp]));
             }
         }
         found_it = 0;
@@ -3315,7 +3309,7 @@ static void dogoto(void) {
         parse_line(buf);
     }
     if (save_line) {
-        linelen = strlcpy(line, s2c(save_line), sizeof line);
+        linelen = pstrcpy(line, sizeof line, s2c(save_line));
         linelim = save_lim;
         free_string(save_line);
     }
@@ -3331,10 +3325,10 @@ static void dogoto(void) {
 }
 
 int query(char *dest, int destsize, const char *s, const char *data) {
-    int c, lim;
+    int c, len;
 
     insert_mode();
-    linelim = linelen = strlcpy(line, data ? data : "", sizeof line);
+    linelim = linelen = pstrcpy(line, sizeof line, data ? data : "");
     if (s != NULL)
         error("%s", s);
 
@@ -3358,12 +3352,11 @@ int query(char *dest, int destsize, const char *s, const char *data) {
         }
         break;
     }
-    lim = linelim;
-    strlcpy(dest, line, destsize);
+    len = pstrcpy(dest, destsize, line);
     init_line();
     linelim = -1;
     update(0);
-    return lim;
+    return len;
 }
 
 #ifdef NCURSES_MOUSE_VERSION
@@ -3699,8 +3692,7 @@ static int vi_select_range(const char *cmd, const char *arg) {
             if (showrange)
                 write_line('.');
             if (arg) {
-                strlcat(line, arg, sizeof line);
-                linelim = linelen = strlen(line);
+                linelim = linelen = pstrcat(line, sizeof line, arg);
             }
             break;
         case ESC:
@@ -3755,8 +3747,7 @@ void sc_cmd_put(const char *arg, int vopt) {
     }
     if (linelim > 0) {
         if (vopt) {
-            strlcat(line, " *", sizeof line);
-            linelen = strlen(line);
+            linelen = pstrcat(line, sizeof line, " *");
         }
         parse_line(line);
     }
