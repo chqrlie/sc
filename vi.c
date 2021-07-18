@@ -42,8 +42,8 @@ static void dogoto(void);
 static void dotab(void);
 static void dotcmd(void);
 static void doshell(void);
-static int find_char(int arg, int n);
-static void find_char2(int dir);
+static int find_char(int start, int arg, int dir);
+static void find_char2(int arg, int dir);
 static void forw_hist(void);
 static int forw_line(int arg, int stop_null);
 static int forw_word(int arg, int end_word, int big_word, int stop_null);
@@ -60,7 +60,7 @@ static void search_again(sc_bool_t reverse);
 static void search_hist(void);
 static void search_mode(char sind);
 static void stop_edit(void);
-static int to_char(int arg, int n);
+static int to_char(int start, int arg, int dir);
 static void u_save(int c);
 static void yank_cmd(int delete, int change);
 static void yank_chars(int first, int last, int delete);
@@ -256,18 +256,22 @@ void vi_interaction(void) {
                     if (linelim < 0 || mode_ind == 'v') {
                         switch (c = nmgetch(1)) {
                         case KEY_UP:
-                        case ctl('p'): case 'k':    doend(-1, 0);   break;
+                        case ctl('p'):
+                        case 'k':       doend(-1, 0);  break;
 
                         case KEY_DOWN:
-                        case ctl('n'): case 'j':    doend( 1, 0);   break;
+                        case ctl('n'):
+                        case 'j':       doend(1, 0);   break;
 
                         case KEY_LEFT:
                         case KEY_BACKSPACE:
-                        case ctl('h'): case 'h':    doend( 0,-1);   break;
+                        case ctl('h'):
+                        case 'h':       doend(0, -1);  break;
 
                         case KEY_RIGHT:
                         case ' ':
-                        case ctl('i'): case 'l':    doend( 0, 1);   break;
+                        case ctl('i'):
+                        case 'l':       doend(0, 1);   break;
 
                         case ctl('e'):
                         case ctl('y'):
@@ -350,19 +354,17 @@ void vi_interaction(void) {
                 case KEY_BACKSPACE:
                 case DEL:
                 case ctl('h'):
-                    if (linelim < 0) {  /* not editing line */
+                    if (linelim < 0)  /* not editing */
                         backcol(uarg);   /* treat like ^B    */
-                        break;
-                    }
-                    write_line(ctl('h'));
+                    else
+                        write_line(ctl('h'));
                     break;
 
                 case ctl('i'):          /* tab */
-                    if (linelim < 0) {  /* not editing line */
+                    if (linelim < 0)  /* not editing */
                         forwcol(uarg);
-                        break;
-                    }
-                    write_line(ctl('i'));
+                    else
+                        write_line(ctl('i'));
                     break;
 
                 case ctl('m'):
@@ -379,11 +381,10 @@ void vi_interaction(void) {
                         craction = c;
                         numeric_field = 0;
                     }
-                    if (linelim < 0) {
+                    if (linelim < 0)
                         forwrow(uarg);
-                        break;
-                    }
-                    write_line(ctl('n'));
+                    else
+                        write_line(ctl('n'));
                     break;
 
                 case ctl('p'):
@@ -395,16 +396,15 @@ void vi_interaction(void) {
                         craction = c;
                         numeric_field = 0;
                     }
-                    if (linelim < 0) {
+                    if (linelim < 0)
                         backrow(uarg);
-                        break;
-                    }
-                    write_line(ctl('p'));
+                    else
+                        write_line(ctl('p'));
                     break;
 
                 case ctl('q'):
                     if (emacs_bindings) {
-                        // XXX: quoted insert: just a test for function keys
+                        // XXX: just a test for function keys
                         error("Quote: ");
                         for (;;) {
                             c = nmgetch(1);
@@ -1685,8 +1685,8 @@ static void write_line(int c) {
         case '$':       last_col();                                     break;
         case '.':       dotcmd();                                       break;
         case '!':       doshell();                                      break;
-        case ';':       find_char2(finddir);                            break;
-        case ',':       find_char2(-finddir);                           break;
+        case ';':       find_char2(uarg, finddir);                      break;
+        case ',':       find_char2(uarg, -finddir);                     break;
         case '~':       u_save(c); change_case(uarg);                   break;
         case '%':       match_paren();                                  break;
 #ifdef KEY_FIND
@@ -1697,34 +1697,26 @@ static void write_line(int c) {
         case KEY_HOME:
         case ctl('a'):
         case '0':       col_0();                                        break;
-        case 'A':       u_save(c); last_col(); append_line();           break;
-        case 'B':       linelim = back_word(uarg, 1);                   break;
-        case 'C':       u_save(c); del_to_end(); append_line();         break;
-        case 'D':       u_save(c); del_to_end();                        break;
-        case 'E':       linelim = forw_word(uarg, 1, 1, 0);             break;
-        case 'F':       linelim = find_char(uarg, -1);                  break;
         case 'G':       if (histp > 0) histp = lasthist; forw_hist();   break;
-        case 'I':       u_save(c); col_0(); insert_mode();              break;
-        case 'N':       search_again(TRUE);                             break;
-        case 'P':       u_save(c);
-                        ins_string(putbuf);
-                        linelim = back_line(1);                         break;
         case 'R':       u_save(c); replace_mode();                      break;
-        case 'T':       linelim = to_char(uarg, -1);                    break;
-        case 'W':       linelim = forw_word(uarg, 0, 1, 0);             break;
-        case 'X':       u_save(c); back_space();                        break;
-        case 'Y':       yank_chars(linelim, linelen, 0);                break;
         case 'a':       u_save(c); append_line();                       break;
+        case 'A':       u_save(c); last_col(); append_line();           break;
         case 'b':       linelim = back_word(uarg, 0);                   break;
+        case 'B':       linelim = back_word(uarg, 1);                   break;
         case 'c':       u_save(c); yank_cmd(1, 1); insert_mode();       break;
+        case 'C':       u_save(c); del_to_end(); append_line();         break;
         case 'd':       u_save(c); yank_cmd(1, 0);                      break;
+        case 'D':       u_save(c); del_to_end();                        break;
         case 'e':       linelim = forw_word(uarg, 1, 0, 0);             break;
-        case 'f':       linelim = find_char(uarg, 1);                   break;
+        case 'E':       linelim = forw_word(uarg, 1, 1, 0);             break;
+        case 'f':       linelim = find_char(linelim, uarg, 1);          break;
+        case 'F':       linelim = find_char(linelim, uarg, -1);         break;
         case KEY_LEFT:
         case ctl('b'):
         case 'h':       linelim = back_line(uarg);                      break;
         case KEY_IC:
         case 'i':       u_save(c); insert_mode();                       break;
+        case 'I':       u_save(c); col_0(); insert_mode();              break;
         case KEY_DOWN:
         case 'j':       forw_hist();                                    break;
         case KEY_UP:
@@ -1734,19 +1726,27 @@ static void write_line(int c) {
         case ' ':
         case 'l':       linelim = forw_line(uarg, 0);                   break;
         case 'n':       search_again(FALSE);                            break;
+        case 'N':       search_again(TRUE);                             break;
         case 'p':       u_save(c);
                         linelim = forw_line(1, 1);
+                        ins_string(putbuf);
+                        linelim = back_line(1);                         break;
+        case 'P':       u_save(c);
                         ins_string(putbuf);
                         linelim = back_line(1);                         break;
         case 'q':       stop_edit();                                    break;
         case 'r':       u_save(c); rep_char();                          break;
         case 's':       u_save(c); del_in_line(uarg, 0); insert_mode(); break;
-        case 't':       linelim = to_char(uarg, 1);                     break;
+        case 't':       linelim = to_char(linelim, uarg, 1);            break;
+        case 'T':       linelim = to_char(linelim, uarg, -1);           break;
         case 'u':       restore_it();                                   break;
         case 'w':       linelim = forw_word(uarg, 0, 0, 0);             break;
+        case 'W':       linelim = forw_word(uarg, 0, 1, 0);             break;
         case KEY_DC:
         case 'x':       u_save(c); del_in_line(uarg, 1);                break;
+        case 'X':       u_save(c); back_space();                        break;
         case 'y':       yank_cmd(0, 0);                                 break;
+        case 'Y':       yank_chars(linelim, linelen, 0);                break;
 #ifdef NCURSES_MOUSE_VERSION
         case KEY_MOUSE: if (getmouse(&mevent) != OK || mevent.y)
                             break;
@@ -1811,7 +1811,7 @@ static void write_line(int c) {
         /* '\035' is ^], which expands abbreviations without inserting another
          * character in the line
          */
-        case '\035':        if (linelim > 0) doabbrev();            break;
+        case '\035':        ins_in_line(0);                         break;
 #ifdef NCURSES_MOUSE_VERSION
         case KEY_MOUSE:     if (getmouse(&mevent) != OK || mevent.y)
                                 break;
@@ -1835,7 +1835,7 @@ static void write_line(int c) {
         /* '\035' is ^], which expands abbreviations without inserting another
          * character in the line
          */
-        case '\035':        if (linelim > 0) doabbrev();            break;
+        case '\035':        ins_in_line(0);                         break;
         default:            ins_in_line(c);                         break;
         }
     } else if (mode == REP_MODE) {
@@ -2069,28 +2069,28 @@ static void toggle_navigate_mode(void) {
 }
 
 static void dotab(void) {
+    // XXX: using static variables for this is bogus as named range may be deleted
     static struct nrange *firstmatch;
     static struct nrange *lastmatch;
     static struct nrange *nextmatch;
-    int len;
+    int i, len;
 
     if (linelim > 0 && (isalnumchar_(line[linelim-1]) ||
                         (completethis && line[linelim-1] == ' '))) {
         if (!completethis) {
-            for (completethis = line + linelim - 1;
-                 isalnumchar_(*completethis);
-                 completethis--)
+            for (i = linelim - 1; i > 0 && isalnumchar_(line[i-1]); i--)
                 continue;
-            completethis++;
-            len = line + linelim - completethis;
+            completethis = line + i;
+            len = linelim - i;
             if (!find_nrange_name(completethis, -len, &lastmatch)) {
                 firstmatch = lastmatch;
                 while (firstmatch->r_next &&
                        !strncmp(completethis, s2c(firstmatch->r_next->r_name), len))
                     firstmatch = firstmatch->r_next;
                 nextmatch = firstmatch;
-            } else
+            } else {
                 nextmatch = NULL;
+            }
         }
         if (nextmatch) {
             len = line + linelim - completethis;
@@ -2098,7 +2098,7 @@ static void dotab(void) {
             linelim -= len;
             linelen -= len;
             ins_string(s2c(nextmatch->r_name));
-            if (completethis[-1] == ' ' && line[linelim] != ' ')
+            if (completethis > line && completethis[-1] == ' ' && line[linelim] != ' ')
                 ins_in_line(' ');
             if (nextmatch == lastmatch)
                 nextmatch = firstmatch;
@@ -2286,7 +2286,7 @@ static int forw_word(int a, int end_word, int big_word, int stop_null) {
         }
 
         if (big_word) {
-            while ((c = line[cpos]) && c != ' ')
+            while ((c = line[cpos]) != '\0' && c != ' ')
                 cpos++;
         } else
         if (iswordchar(line[cpos])) {
@@ -2339,7 +2339,7 @@ static int back_word(int a, int big_word) {
 
         /* Skip across the word - goes 1 too far */
         if (big_word)
-            while (cpos > 0 && (c = line[cpos]) && c != ' ')
+            while (cpos > 0 && (c = line[cpos]) != '\0' && c != ' ')
                 --cpos;
         else if (iswordchar(line[cpos])) {
             while (cpos > 0 && iswordchar(line[cpos]))
@@ -2350,7 +2350,7 @@ static int back_word(int a, int big_word) {
         }
 
         /* We are done - fix up the one too far */
-        if (cpos > 0 && line[cpos] && line[cpos+1])
+        if (cpos > 0 && line[cpos] != '\0' && line[cpos+1] != '\0')
             cpos++;
     }
 
@@ -2485,8 +2485,11 @@ static void rep_char(void) {
     c = vigetch();
     savedot(c);
     if (c < 256 && c != ESC && c != ctl('g')) {
-        if (line[linelim] == '\0')
+        if (linelim == linelen) {
+            if (linelen == (int)(sizeof(line) - 1))
+                return;
             line[++linelen] = '\0';
+        }
         line[linelim] = c;
     }
 }
@@ -2496,8 +2499,11 @@ static void replace_in_line(int c) {
         if (linelim < 0) {
             init_line();
         }
-        if (line[linelim] == '\0')
+        if (linelim == linelen) {
+            if (linelen == (int)(sizeof(line) - 1))
+                return;
             line[++linelen] = '\0';
+        }
         line[linelim++] = c;
     }
 }
@@ -2506,14 +2512,8 @@ static void back_space(void) {
     if (linelim == 0)
         return;
 
-    if (line[linelim] == '\0') {
-        linelim = back_line(1);
-        del_in_line(1, 1);
-        linelim = linelen;
-    } else {
-        linelim = back_line(1);
-        del_in_line(1, 1);
-    }
+    linelim = back_line(1);
+    del_in_line(1, 0);
     if (linelim < istart)
         istart = linelim;
 }
@@ -2523,7 +2523,7 @@ static void back_space(void) {
  */
 
 static int get_motion(int change) {
-    int c;
+    int c, lim;
     int arg2 = 0;
 
     c = vigetch();
@@ -2550,12 +2550,12 @@ static int get_motion(int change) {
     case 'd':   return !change ? -1 : linelim;
     case 'e':   return forw_word(uarg, 1, 0, 1) + 1;
     case 'E':   return forw_word(uarg, 1, 1, 1) + 1;
-    case 'f':   return ((c = find_char(uarg, 1)) == linelim) ? c : c + 1;
-    case 'F':   return find_char(uarg, -1);
+    case 'f':   return ((lim = find_char(linelim, uarg, 1)) == linelim) ? lim : lim + 1;
+    case 'F':   return find_char(linelim, uarg, -1);
     case 'h':   return back_line(uarg);
     case 'l':   return forw_line(uarg, 1);
-    case 't':   return ((c = to_char(uarg, 1)) == linelim) ? c : c + 1;
-    case 'T':   return to_char(uarg, -1);
+    case 't':   return ((lim = to_char(linelim, uarg, 1)) == linelim) ? lim : lim + 1;
+    case 'T':   return to_char(linelim, uarg, -1);
     case 'w':   return forw_word(uarg, change, 0, 1) + change;
     case 'W':   return forw_word(uarg, change, 1, 1) + change;
     default:    return linelim;
@@ -3061,13 +3061,12 @@ static void last_col(void) {
         --linelim;
 }
 
-static int find_char(int a, int n) {
-    int i;
-
+static int find_char(int start, int arg, int dir) {
+    int lim = start;
     if (findchar)
-        finddir = n;
+        finddir = dir;
     findchar = vigetch();
-    if (doti > 0)
+    if (doti > 0) {
         switch (dotb[doti - 1]) {
         case 'f': case 'F': case 't': case 'T':
             savedot(findchar);
@@ -3075,45 +3074,40 @@ static int find_char(int a, int n) {
         default:
             break;
         }
-    i = linelim;
-    while (a--) {
-        i += n;
-        while (i >= 0 && line[i] && line[i] != findchar)
-            i += n;
-        if (i < 0 || !line[i]) {
-            i = linelim;
+    }
+    while (arg --> 0) {
+        lim += dir;
+        while (lim >= 0 && line[lim] != '\0' && line[lim] != findchar)
+            lim += dir;
+        if (lim < 0 || line[lim] == '\0') {
+            lim = start;
             break;
         }
     }
     findfunc = 'f';
-    return i;
+    return lim;
 }
 
-static void find_char2(int dir) {
+static void find_char2(int arg, int dir) {
     if (findchar) {
         ungetch(findchar);
         findchar = 0;
         if (findfunc == 'f')
-            linelim = find_char(uarg, dir);
+            linelim = find_char(linelim, arg, dir);
         else
-            linelim = to_char(uarg, dir);
+            linelim = to_char(linelim, arg, dir);
     }
 }
 
-// XXX: should not modify linelim?
-static int to_char(int a, int n) {
-    int i;
-    int tmp = linelim;
-
-    if (linelim + n >= 0 && linelim + n < linelen)
-        linelim += n;
-    i = find_char(a, n);
-    if (i != linelim)
-        i -= n;
-    linelim = tmp;
+static int to_char(int start, int arg, int dir) {
+    int lim = start + dir;
+    if (lim >= 0 && lim < linelen)
+        start = lim;
+    lim = find_char(start, arg, dir);
+    if (lim != start)
+        lim -= dir;
     findfunc = 't';
-
-    return i;
+    return lim;
 }
 
 static void match_paren(void) {
@@ -3121,7 +3115,7 @@ static void match_paren(void) {
     int tmp = linelim;
 
     if (line[linelim] == '(') {
-        while (nest && ++linelim >= 0 && line[linelim]) {
+        while (nest && ++linelim >= 0 && line[linelim] != '\0') {
             if (line[linelim] == '(')
                 nest++;
             else if (line[linelim] == ')')
@@ -3131,7 +3125,7 @@ static void match_paren(void) {
             linelim = tmp;
     }
     else if (line[linelim] == ')') {
-        while (nest && --linelim >= 0 && line[linelim]) {
+        while (nest && --linelim >= 0 && line[linelim] != '\0') {
             if (line[linelim] == ')')
                 nest++;
             else if (line[linelim] == '(')

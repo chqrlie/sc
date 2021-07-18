@@ -109,7 +109,7 @@ int parse_line(const char *buf) {
 }
 
 void yyerror(const char *err) {
-    parse_error(err, src_line, src_pos);
+    parse_error(err, src_line, src_pos - src_line);
 }
 
 static int parse_cellref(const char *p, cellref_t *cp, int *lenp) {

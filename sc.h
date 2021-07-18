@@ -753,7 +753,7 @@ extern void write_hist(void);
 extern void write_nranges(FILE *f);
 extern void yank_area(rangeref_t rr);
 extern int parse_line(const char *buf);
-extern void parse_error(const char *err, const char *line, const char *pos);
+extern void parse_error(const char *err, const char *src, int pos);
 extern void yyerror(const char *err);
 extern int yylex(void);
 extern int backup_file(const char *path);
