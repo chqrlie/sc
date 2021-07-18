@@ -650,11 +650,9 @@ extern void copyent(struct ent *n, struct ent *p,
 #define DCP_NO_NAME    1
 #define DCP_NO_LOCALE  2
 #define DCP_NO_EXPR    4
-extern int decompile(char *dest, size_t size, enode_t *e,
-                     int dr, int dc, int dcp_flags);
+extern int decompile(char *dest, size_t size, enode_t *e, int dr, int dc, int dcp_flags);
 // XXX: should pass a context with a cell reference
-extern void decompile_expr(buf_t buf, enode_t *e,
-                           int dr, int dc, int flags);
+extern int decompile_expr(buf_t buf, enode_t *e, int dr, int dc, int flags);
 extern void del_nrange(rangeref_t rr);
 extern void del_abbr(SCXMEM string_t *abbrev);
 extern void deraw(int ClearLastLine);
@@ -674,8 +672,8 @@ extern void set_autorun(SCXMEM string_t *str);
 extern void set_fkey(int n, SCXMEM string_t *str);
 extern void cmd_recalc(void);
 extern void cmd_run(SCXMEM string_t *str);
-extern void edits(buf_t buf, int row, int col, struct ent *p, int dcp_flags);
-extern void editv(buf_t buf, int row, int col, struct ent *p, int dcp_flags);
+extern int edits(buf_t buf, int row, int col, struct ent *p, int dcp_flags);
+extern int editv(buf_t buf, int row, int col, struct ent *p, int dcp_flags);
 extern void efree(SCXMEM enode_t *e);
 extern void erase_area(int idx, int sr, int sc, int er, int ec, int ignorelock);
 extern void erasedb(void);

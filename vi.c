@@ -597,10 +597,12 @@ void vi_interaction(void) {
 
                 case ctl('w'):  /* insert variable expression */
                     if (linelim >= 0) {
+                        buf_init2(buf, line, sizeof line, linelen);
                         p = lookat(currow, curcol);
                         /* decompile expression into line array */
+                        // XXX: insert expression instead of appending?
                         // XXX: should pass currow, curcol as the cell reference
-                        linelim = linelen = decompile(line, sizeof line, p->expr, 0, 0, DCP_DEFAULT);
+                        linelim = linelen = decompile_expr(buf, p->expr, 0, 0, DCP_DEFAULT);
                     }
                     break;
 
@@ -681,8 +683,7 @@ void vi_interaction(void) {
                         /* copy cell contents into line array */
                         buf_init(buf, line, sizeof line);
                         // XXX: there should be no value yet
-                        editv(buf, currow, curcol, p, DCP_DEFAULT);
-                        linelim = linelen = buf->len;
+                        linelim = linelen = editv(buf, currow, curcol, p, DCP_DEFAULT);
                         cellassign = 1;
                         insert_mode();
                         write_line(ctl('v'));
@@ -764,8 +765,7 @@ void vi_interaction(void) {
                         /* copy cell contents into line array */
                         buf_init(buf, line, sizeof line);
                         // XXX: the conversion should be localized
-                        editv(buf, currow, curcol, p, DCP_DEFAULT);
-                        linelim = linelen = buf->len;
+                        linelim = linelen = editv(buf, currow, curcol, p, DCP_DEFAULT);
                         setmark('0');
                         numeric_field = 1;
                         cellassign = 1;
@@ -1127,8 +1127,7 @@ void vi_interaction(void) {
                         /* copy cell contents into line array */
                         buf_init(buf, line, sizeof line);
                         // XXX: the conversion should be localized
-                        editv(buf, currow, curcol, p, DCP_DEFAULT);
-                        linelim = linelen = buf->len;
+                        linelim = linelen = editv(buf, currow, curcol, p, DCP_DEFAULT);
                         setmark('0');
                         cellassign = 1;
 
@@ -1143,8 +1142,7 @@ void vi_interaction(void) {
                         p = lookat(currow, curcol);
                         /* copy cell contents into line array */
                         buf_init(buf, line, sizeof line);
-                        edits(buf, currow, curcol, p, DCP_DEFAULT);
-                        linelim = linelen = buf->len;
+                        linelim = linelen = edits(buf, currow, curcol, p, DCP_DEFAULT);
                         setmark('0');
                         cellassign = 1;
                         edit_mode();
@@ -1184,8 +1182,8 @@ void vi_interaction(void) {
                     if (cpairs[c] && cpairs[c]->expr) {
                         /* copy color expression into line array */
                         // XXX: should pass -1, -1 as the cell reference?
-                        // XXX: should append expression source
-                        linelim = linelen = decompile(line, sizeof line, cpairs[c]->expr, 0, 0, DCP_DEFAULT);
+                        buf_init2(buf, line, sizeof line, linelen);
+                        linelim = linelen = decompile_expr(buf, cpairs[c]->expr, 0, 0, DCP_DEFAULT);
                         edit_mode();
                     } else {
                         insert_mode();
@@ -3806,7 +3804,7 @@ int modcheck(const char *endstr) {
     return 0;
 }
 
-void editv(buf_t buf, int row, int col, struct ent *p, int dcp_flags) {
+int editv(buf_t buf, int row, int col, struct ent *p, int dcp_flags) {
     buf_setf(buf, "let %s = ", v_name(row, col));
     if (p && (p->flags & IS_VALID)) {
         if ((dcp_flags & DCP_NO_EXPR) || (p->flags & IS_STREXPR) || p->expr == NULL) {
@@ -3817,9 +3815,10 @@ void editv(buf_t buf, int row, int col, struct ent *p, int dcp_flags) {
             decompile_expr(buf, p->expr, row - p->row, col - p->col, dcp_flags);
         }
     }
+    return buf->len;
 }
 
-void edits(buf_t buf, int row, int col, struct ent *p, int dcp_flags) {
+int edits(buf_t buf, int row, int col, struct ent *p, int dcp_flags) {
     int align = p ? (p->flags & ALIGN_MASK) : ALIGN_DEFAULT;
     const char *command;
 
@@ -3839,4 +3838,5 @@ void edits(buf_t buf, int row, int col, struct ent *p, int dcp_flags) {
         /* output a single `"` for the user to start entering the string */
         buf_putc(buf, '"');
     }
+    return buf->len;
 }

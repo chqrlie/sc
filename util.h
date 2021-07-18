@@ -110,6 +110,13 @@ static inline void buf_init(buf_t buf, char *p, size_t size) {
     buf->flags = 0;
 }
 
+static inline void buf_init2(buf_t buf, char *p, size_t size, size_t len) {
+    buf->buf = p;
+    buf->size = size;
+    buf->len = len;
+    buf->flags = 0;
+}
+
 /* clear the contents of a buffer */
 static inline void buf_reset(buf_t buf) {
     buf->buf[buf->len = 0] = '\0';

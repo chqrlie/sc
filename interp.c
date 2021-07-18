@@ -2063,18 +2063,18 @@ static void decompile_node(decomp_t *dcp, enode_t *e, int priority) {
     }
 }
 
-// XXX: should get a context with a cell reference
-void decompile_expr(buf_t buf, enode_t *e, int dr, int dc, int flags) {
+/* decompile an expression with an optional cell offset and options */
+int decompile_expr(buf_t buf, enode_t *e, int dr, int dc, int flags) {
     decomp_t ctx = { buf, dr, dc, flags };
     decompile_node(&ctx, e, 0);
+    return buf->len;
 }
 
-// XXX: should get a context with a cell reference
+/* decompile an expression with an optional cell offset and options */
 int decompile(char *dest, size_t size, enode_t *e, int dr, int dc, int flags) {
     buf_t buf;
     buf_init(buf, dest, size);
-    decompile_expr(buf, e, dr, dc, flags);
-    return buf->len;
+    return decompile_expr(buf, e, dr, dc, flags);
 }
 
 int etype(enode_t *e) {
