@@ -61,9 +61,6 @@ static int RealEvalAll(void);
 static int constant_expr(enode_t *e, int full);
 static void RealEvalOne(struct ent *p, int i, int j, int *chgct);
 
-static double finfunc(int fun, double v1, double v2, double v3);
-static SCXMEM string_t *dostindex(int minr, int minc, int maxr, int maxc, enode_t *val);
-static double doindex(int minr, int minc, int maxr, int maxc, enode_t *val);
 static double docount(int, int, int, int, enode_t *);
 static double dosum(int, int, int, int, enode_t *);
 static double doprod(int, int, int, int, enode_t *);
@@ -101,63 +98,60 @@ static sigret_t eval_fpe(int);
 #define dtr(x) ((x) * (M_PI / (double)180.0))
 #define rtd(x) ((x) * (180.0 / (double)M_PI))
 
-static double finfunc(int fun, double v1, double v2, double v3) {
-    double answer, p;
-
-    p = fn2_eval(pow, 1 + v2, v3);
-
-    switch (fun) {
-    case PV:
-        if (v2) {
-            answer = v1 * (1 - 1 / p) / v2;
-        } else {
-            cellerror = CELLERROR;
-            answer = 0.0;
-        }
-        break;
-    case FV:
-        if (v2) {
-            answer = v1 * (p - 1) / v2;
-        } else {
-            cellerror = CELLERROR;
-            answer = 0.0;
-        }
-        break;
-    case PMT:
-        /* CHECK IF ~= 1 - 1/1 */
-        if (p && p != 1.0) {
-            answer = v1 * v2 / (1 - 1 / p);
-        } else {
-            cellerror = CELLERROR;
-            answer = 0.0;
-        }
-        break;
-    default:
-        error("Unknown function in finfunc");
-        cellerror = CELLERROR;
-        answer = 0.0;
-        break;
+static double fin_pv(double v1, double v2, double v3) {
+    if (v2) {
+        double p;
+        errno = 0;
+        p = pow(1 + v2, v3);
+        if (!errno)
+            return v1 * (1 - 1 / p) / v2;
     }
-    return answer;
+    cellerror = CELLERROR;
+    return 0.0;
+}
+
+static double fin_fv(double v1, double v2, double v3) {
+    if (v2) {
+        double p;
+        errno = 0;
+        p = pow(1 + v2, v3);
+        if (!errno)
+            return v1 * (p - 1) / v2;
+    }
+    cellerror = CELLERROR;
+    return 0.0;
+}
+
+static double fin_pmt(double v1, double v2, double v3) {
+    double p;
+    errno = 0;
+    p = pow(1 + v2, v3);
+    /* CHECK IF ~= 1 - 1/1 */
+    if (!errno && p && p != 1.0) {
+        return v1 * v2 / (1 - 1 / p);
+    }
+    cellerror = CELLERROR;
+    return 0.0;
 }
 
 static SCXMEM string_t *dostindex(int minr, int minc, int maxr, int maxc, enode_t *val) {
     int r, c;
-    struct ent *p;
 
-    if (minr == maxr) {                 /* look along the row */
+    if (val->op == ',') {               /* index by both row and column */
+        r = minr + (int)eval(val->e.o.left) - 1;
+        c = minc + (int)eval(val->e.o.right) - 1;
+    } else if (minr == maxr) {          /* look along the row */
         r = minr;
         c = minc + (int)eval(val) - 1;
     } else if (minc == maxc) {          /* look down the column */
         r = minr + (int)eval(val) - 1;
         c = minc;
     } else {
-        r = minr + (int)eval(val->e.o.left) - 1;
-        c = minc + (int)eval(val->e.o.right) - 1;
+        error("Improper indexing operation");
+        return NULL;
     }
-    p = NULL;
-    if (c <= maxc && c >=minc && r <= maxr && r >=minr) {
-        p = *ATBL(tbl, r, c);
+    if (c >= minc && c <= maxc && r >= minr && r <= maxr) {
+        struct ent *p = *ATBL(tbl, r, c);
         if (p && p->label) {
             if (p->cellerror)
                 cellerror = CELLINVALID;
@@ -169,7 +163,6 @@ static SCXMEM string_t *dostindex(int minr, int minc, int maxr, int maxc, enode_
 
 static double doindex(int minr, int minc, int maxr, int maxc, enode_t *val) {
     int r, c;
-    struct ent *p;
 
     if (val->op == ',') {               /* index by both row and column */
         r = minr + (int)eval(val->e.o.left) - 1;
@@ -184,14 +177,15 @@ static double doindex(int minr, int minc, int maxr, int maxc, enode_t *val) {
         error("Improper indexing operation");
         return 0.0;
     }
-
-    if (c <= maxc && c >= minc && r <= maxr && r >= minr &&
-            (p = *ATBL(tbl, r, c)) && (p->flags & IS_VALID)) {
-        if (p->cellerror)
-            cellerror = CELLINVALID;
-        return p->v;
-    } else
-        return 0.0;
+    if (c >= minc && c <= maxc && r >= minr && r <= maxr) {
+        struct ent *p = *ATBL(tbl, r, c);
+        if (p && (p->flags & IS_VALID)) {
+            if (p->cellerror)
+                cellerror = CELLINVALID;
+            return p->v;
+        }
+    }
+    return 0.0;
 }
 
 static double dolookup(enode_t * val, int minr, int minc, int maxr, int maxc, int offset, int vflag) {
@@ -210,9 +204,9 @@ static double dolookup(enode_t * val, int minr, int minc, int maxr, int maxc, in
                 if (p->v <= v) {
                     fndr = incc ? (minr + offset) : r;
                     fndc = incr ? (minc + offset) : c;
-                    if (ISVALID(fndr, fndc))
+                    if (ISVALID(fndr, fndc)) {
                         p = *ATBL(tbl, fndr, fndc);
-                    else {
+                    } else {
                         error(" range specified to @[hv]lookup");
                         cellerror = CELLERROR;
                     }
@@ -228,12 +222,14 @@ static double dolookup(enode_t * val, int minr, int minc, int maxr, int maxc, in
         }
     } else {
         SCXMEM string_t *s;
+        const char *str;
 
         cellerror = CELLOK;
         s = seval(val);
+        str = s2str(s);
         for (r = minr, c = minc; r <= maxr && c <= maxc; r += incr, c += incc) {
             if ((p = *ATBL(tbl, r, c)) && p->label) {
-                if (strcmp(s2c(p->label), s2str(s)) == 0) {
+                if (strcmp(s2c(p->label), str) == 0) {
                     fndr = incc ? (minr + offset) : r;
                     fndc = incr ? (minc + offset) : c;
                     if (ISVALID(fndr, fndc)) {
@@ -257,6 +253,18 @@ static double dolookup(enode_t * val, int minr, int minc, int maxr, int maxc, in
 
 /*---------------- aggregate functions ----------------*/
 
+static double eval_offset(int roffset, int coffset, enode_t *e) {
+    int save_rowoffset = rowoffset;
+    int save_coloffset = coloffset;
+    double v;
+    rowoffset = roffset;
+    coloffset = coffset;
+    v = eval(e);
+    rowoffset = save_rowoffset;
+    coloffset = save_coloffset;
+    return v;
+}
+
 static double docount(int minr, int minc, int maxr, int maxc, enode_t *e) {
     int r, c;
     int count;
@@ -266,12 +274,8 @@ static double docount(int minr, int minc, int maxr, int maxc, enode_t *e) {
     count = 0;
     for (r = minr; r <= maxr; r++) {
         for (c = minc; c <= maxc; c++) {
-            if (e) {
-                rowoffset = r - minr;
-                coloffset = c - minc;
-                if (!eval(e))
-                    continue;
-            }
+            if (e && !eval_offset(r - minr, c - minc, e))
+                continue;
             if ((p = *ATBL(tbl, r, c)) && (p->flags & IS_VALID)) {
                 if (p->cellerror)
                     cellerr = CELLINVALID;
@@ -280,7 +284,6 @@ static double docount(int minr, int minc, int maxr, int maxc, enode_t *e) {
         }
     }
     cellerror = cellerr;
-    rowoffset = coloffset = 0;
     return (double)count;
 }
 
@@ -293,12 +296,8 @@ static double dosum(int minr, int minc, int maxr, int maxc, enode_t *e) {
     v = 0.0;
     for (r = minr; r <= maxr; r++) {
         for (c = minc; c <= maxc; c++) {
-            if (e) {
-                rowoffset = r - minr;
-                coloffset = c - minc;
-                if (!eval(e))
-                    continue;
-            }
+            if (e && !eval_offset(r - minr, c - minc, e))
+                continue;
             if ((p = *ATBL(tbl, r, c)) && (p->flags & IS_VALID)) {
                 if (p->cellerror)
                     cellerr = CELLINVALID;
@@ -307,7 +306,6 @@ static double dosum(int minr, int minc, int maxr, int maxc, enode_t *e) {
         }
     }
     cellerror = cellerr;
-    rowoffset = coloffset = 0;
     return v;
 }
 
@@ -320,12 +318,8 @@ static double doprod(int minr, int minc, int maxr, int maxc, enode_t *e) {
     v = 1.0;
     for (r = minr; r <= maxr; r++) {
         for (c = minc; c <= maxc; c++) {
-            if (e) {
-                rowoffset = r - minr;
-                coloffset = c - minc;
-                if (!eval(e))
-                    continue;
-            }
+            if (e && !eval_offset(r - minr, c - minc, e))
+                continue;
             if ((p = *ATBL(tbl, r, c)) && (p->flags & IS_VALID)) {
                 if (p->cellerror)
                     cellerr = CELLINVALID;
@@ -334,7 +328,6 @@ static double doprod(int minr, int minc, int maxr, int maxc, enode_t *e) {
         }
     }
     cellerror = cellerr;
-    rowoffset = coloffset = 0;
     return v;
 }
 
@@ -349,12 +342,8 @@ static double doavg(int minr, int minc, int maxr, int maxc, enode_t *e) {
     count = 0;
     for (r = minr; r <= maxr; r++) {
         for (c = minc; c <= maxc; c++) {
-            if (e) {
-                rowoffset = r - minr;
-                coloffset = c - minc;
-                if (!eval(e))
-                    continue;
-            }
+            if (e && !eval_offset(r - minr, c - minc, e))
+                continue;
             if ((p = *ATBL(tbl, r, c)) && (p->flags & IS_VALID)) {
                 if (p->cellerror)
                     cellerr = CELLINVALID;
@@ -364,7 +353,6 @@ static double doavg(int minr, int minc, int maxr, int maxc, enode_t *e) {
         }
     }
     cellerror = cellerr;
-    rowoffset = coloffset = 0;
 
     if (count == 0)
         return 0.0;
@@ -384,12 +372,8 @@ static double dostddev(int minr, int minc, int maxr, int maxc, enode_t *e) {
     count = 0;
     for (r = minr; r <= maxr; r++) {
         for (c = minc; c <= maxc; c++) {
-            if (e) {
-                rowoffset = r - minr;
-                coloffset = c - minc;
-                if (!eval(e))
-                    continue;
-            }
+            if (e && !eval_offset(r - minr, c - minc, e))
+                continue;
             if ((p = *ATBL(tbl, r, c)) && (p->flags & IS_VALID)) {
                 if (p->cellerror)
                     cellerr = CELLINVALID;
@@ -401,7 +385,6 @@ static double dostddev(int minr, int minc, int maxr, int maxc, enode_t *e) {
         }
     }
     cellerror = cellerr;
-    rowoffset = coloffset = 0;
 
     if (count <= 1)
         return 0.0;
@@ -420,12 +403,8 @@ static double domax(int minr, int minc, int maxr, int maxc, enode_t *e) {
     count = 0;
     for (r = minr; r <= maxr; r++) {
         for (c = minc; c <= maxc; c++) {
-            if (e) {
-                rowoffset = r - minr;
-                coloffset = c - minc;
-                if (!eval(e))
-                    continue;
-            }
+            if (e && !eval_offset(r - minr, c - minc, e))
+                continue;
             if ((p = *ATBL(tbl, r, c)) && (p->flags & IS_VALID)) {
                 if (p->cellerror)
                     cellerr = CELLINVALID;
@@ -438,7 +417,6 @@ static double domax(int minr, int minc, int maxr, int maxc, enode_t *e) {
         }
     }
     cellerror = cellerr;
-    rowoffset = coloffset = 0;
     return v;
 }
 
@@ -453,12 +431,8 @@ static double domin(int minr, int minc, int maxr, int maxc, enode_t *e) {
     count = 0;
     for (r = minr; r <= maxr; r++) {
         for (c = minc; c <= maxc; c++) {
-            if (e) {
-                rowoffset = r - minr;
-                coloffset = c - minc;
-                if (!eval(e))
-                    continue;
-            }
+            if (e && !eval_offset(r - minr, c - minc, e))
+                continue;
             if ((p = *ATBL(tbl, r, c)) && (p->flags & IS_VALID)) {
                 if (p->cellerror)
                     cellerr = CELLINVALID;
@@ -471,7 +445,6 @@ static double domin(int minr, int minc, int maxr, int maxc, enode_t *e) {
         }
     }
     cellerror = cellerr;
-    rowoffset = coloffset = 0;
     return v;
 }
 
@@ -722,21 +695,13 @@ double eval(enode_t *e) {
     case '?':       return eval(e->e.o.left) ? eval(e->e.o.right->e.o.left)
                                              : eval(e->e.o.right->e.o.right);
     case 'm':       return -eval(e->e.o.left);
-    case 'f':       {
-                        int rtmp = rowoffset;
-                        int ctmp = coloffset;
-                        double ret;
-                        rowoffset = coloffset = 0;
-                        ret = eval(e->e.o.left);
-                        rowoffset = rtmp;
-                        coloffset = ctmp;
-                        return ret;
-                    }
+    case 'f':       return eval_offset(0, 0, e->e.o.left);
     case 'F':       return eval(e->e.o.left);
     case '!':       return eval(e->e.o.left) == 0.0;
     case ';':       return ((int)eval(e->e.o.left) & 7) +
                             (((int)eval(e->e.o.right) & 7) << 3);
     case O_CONST:   if (!isfinite(e->e.k)) {
+                        // XXX: should test this at node contruction time
                         e->op = ERR_;
                         e->e.k = 0.0;
                         cellerror = CELLERROR;
@@ -749,6 +714,8 @@ double eval(enode_t *e) {
                                 vp->row : vp->row + rowoffset;
                             int col = (e->e.v.vf & FIX_COL) ?
                                 vp->col : vp->col + coloffset;
+                            // XXX: this is bogus: if the cell is outside the
+                            //      active range, it should be null or 0.0
                             checkbounds(&row, &col);
                             vp = *ATBL(tbl, row, col);
                         }
@@ -857,9 +824,13 @@ double eval(enode_t *e) {
                 return temp / scale;
             }
         }
-    case FV:
-    case PV:
-    case PMT:       return finfunc(e->op, eval(e->e.o.left),
+    case FV:        return fin_fv(eval(e->e.o.left),
+                                  eval(e->e.o.right->e.o.left),
+                                  eval(e->e.o.right->e.o.right));
+    case PV:        return fin_pv(eval(e->e.o.left),
+                                  eval(e->e.o.right->e.o.left),
+                                  eval(e->e.o.right->e.o.right));
+    case PMT:       return fin_pmt(eval(e->e.o.left),
                                    eval(e->e.o.right->e.o.left),
                                    eval(e->e.o.right->e.o.right));
     case HOUR:
@@ -1129,6 +1100,18 @@ static SCXMEM string_t *docapital(SCXMEM string_t *s) {
     return s2;
 }
 
+static SCXMEM string_t *seval_offset(int roffset, int coffset, enode_t *e) {
+    int save_rowoffset = rowoffset;
+    int save_coloffset = coloffset;
+    SCXMEM string_t *res;
+    rowoffset = roffset;
+    coloffset = coffset;
+    res = seval(e);
+    rowoffset = save_rowoffset;
+    coloffset = save_coloffset;
+    return res;
+}
+
 SCXMEM string_t *seval(enode_t *se) {
     if (se == NULL) return NULL;
     switch (se->op) {
@@ -1149,16 +1132,7 @@ SCXMEM string_t *seval(enode_t *se) {
                         return dup_string(vp->label);
                     }
     case '#':       return cat_strings(seval(se->e.o.left), seval(se->e.o.right));
-    case 'f':       {
-                        int rtmp = rowoffset;
-                        int ctmp = coloffset;
-                        SCXMEM string_t *ret;
-                        rowoffset = coloffset = 0;
-                        ret = seval(se->e.o.left);
-                        rowoffset = rtmp;
-                        coloffset = ctmp;
-                        return ret;
-                    }
+    case 'f':       return seval_offset(0, 0, se->e.o.left);
     case 'F':       return seval(se->e.o.left);
     case IF:
     case '?':       return eval(se->e.o.left) ? seval(se->e.o.right->e.o.left)
