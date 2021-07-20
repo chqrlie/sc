@@ -8,6 +8,9 @@ abbrev "xxx this is an error"
 format E 14 2 0
 format F 13 0 0
 format G 13 2 0
+format I 12 0 0
+format J 12 0 0
+format K 12 0 0
 define "page1" A0:H23
 define "page2" A24:H43
 define "page3" A44:H63
@@ -39,15 +42,43 @@ leftstring L5 = "abcdefghij"
 leftstring M5 = "abcdefghij"
 leftstring N5 = "abcdefghij"
 leftstring A8 = "Cells are named by their column and row number.  For example,"
+rightstring H8 = "Date"
+let I8 = @now
+let J8 = @dts(1970,1,1)+@tts(12,34,56)
+let K8 = @dts(1960,1,1)+@tts(0,0,0)
 leftstring A9 = "Cell A6"
 leftstring B9 = "Cell B6"
 leftstring C9 = "Cell C6"
+rightstring H9 = "Day"
+let I9 = @year(I$8)
+let J9 = @year(J$8)
+let K9 = @year(K$8)
 leftstring A10 = "Cell A7"
+rightstring H10 = "Month"
+let I10 = @month(I$8)
+let J10 = @month(J$8)
+let K10 = @month(K$8)
 leftstring A11 = "Cell A8"
 leftstring C11 = "Cell C8"
+rightstring H11 = "Year"
+let I11 = @day(I$8)
+let J11 = @day(J$8)
+let K11 = @day(K$8)
 leftstring A12 = "Cells range from A0 to ZZ(some number depending on free memory)."
+rightstring H12 = "Hour"
+let I12 = @hour(I$8)
+let J12 = @hour(J$8)
+let K12 = @hour(K$8)
 leftstring A13 = "Cells can also be named by the user.  See 'range names' in the manual."
+rightstring H13 = "Minute"
+let I13 = @minute(I$8)
+let J13 = @minute(J$8)
+let K13 = @minute(K$8)
 leftstring A14 = "You can move the cursor a couple of different ways:"
+rightstring H14 = "Second"
+let I14 = @second(I$8)
+let J14 = @second(J$8)
+let K14 = @second(K$8)
 leftstring B15 = "^n, j and the <DOWN> arrow key go down"
 leftstring B16 = "^p, k and the <UP> arrow key go up"
 leftstring B17 = "^b, h and the <LEFT> arrow key go left"
@@ -141,4 +172,4 @@ leftstring A89 = "The basic commands.  Much more detail is available"
 leftstring A90 = "in the man page."
 leftstring A92 = "To quit this program, type 'q'."
 leftstring D94 = "GOOD LUCK!"
-goto H28 A0
+goto H8 A0

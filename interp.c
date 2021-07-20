@@ -49,47 +49,17 @@ static int rowoffset = 0, coloffset = 0;   /* row & col offsets for range functi
 int propagation = 10;   /* max number of times to try calculation */
 static int repct = 1;   /* Make repct a global variable so that the
                            function @numiter can access it */
+static int cellerror = CELLOK;     /* is there an error in this cell */
 
 /* a linked list of free [struct enodes]'s, uses .e.o.left as the pointer */
 static enode_t *free_enodes = NULL;
 
-static double dolookup(enode_t *val, int minr, int minc, int maxr,
-                       int maxc, int offr, int offc);
-static double fn1_eval(double (*fn)(double), double arg);
-static double fn2_eval(double (*fn)(double, double), double arg1, double arg2);
 static int RealEvalAll(void);
-static int constant_expr(enode_t *e, int full);
 static void RealEvalOne(struct ent *p, int i, int j, int *chgct);
-
-static double docount(int, int, int, int, enode_t *);
-static double dosum(int, int, int, int, enode_t *);
-static double doprod(int, int, int, int, enode_t *);
-static double doavg(int, int, int, int, enode_t *);
-static double dostddev(int, int, int, int, enode_t *);
-static double domax(int, int, int, int, enode_t *);
-static double domin(int, int, int, int, enode_t *);
-static double dodts(int, int, int);
-static double dotts(int, int, int);
-static double dotime(int, double);
-static double doston(SCXMEM string_t *);
-static double doeqs(SCXMEM string_t *s1, SCXMEM string_t *s2);
-static struct ent *getent(SCXMEM string_t *colstr, double row);
-static double donval(SCXMEM string_t *colstr, double row);
-static double dolmax(enode_t *);
-static double dolmin(enode_t *);
-static SCXMEM string_t *dodate(time_t, SCXMEM string_t *);
-static SCXMEM string_t *dofmt(SCXMEM string_t *fmtstr, double v);
-static SCXMEM string_t *doext(enode_t *);
-static SCXMEM string_t *dosval(SCXMEM string_t *colstr, double row);
-static SCXMEM string_t *docapital(SCXMEM string_t *s);
-static SCXMEM string_t *docase(int acase, SCXMEM string_t *s);  // UPPER or LOWER
 
 #ifdef RINT
 double rint(double d);
 #endif
-static double rand_between(double aa, double bb);
-
-static int cellerror = CELLOK;     /* is there an error in this cell */
 static sigret_t eval_fpe(int);
 
 #ifndef M_PI
@@ -97,6 +67,8 @@ static sigret_t eval_fpe(int);
 #endif
 #define dtr(x) ((x) * (M_PI / (double)180.0))
 #define rtd(x) ((x) * (180.0 / (double)M_PI))
+
+/*---------------- financial functions ----------------*/
 
 static double fin_pv(double v1, double v2, double v3) {
     if (v2) {
@@ -133,6 +105,8 @@ static double fin_pmt(double v1, double v2, double v3) {
     cellerror = CELLERROR;
     return 0.0;
 }
+
+/*---------------- range lookup functions ----------------*/
 
 static SCXMEM string_t *dostindex(int minr, int minc, int maxr, int maxc, enode_t *val) {
     int r, c;
@@ -450,22 +424,15 @@ static double domin(int minr, int minc, int maxr, int maxc, enode_t *e) {
 
 /*---------------- date and time functions ----------------*/
 
-static double dodts(int e1, int e2, int e3) {
-    int mdays[12] = { 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
-    int yr, mo, day;
+// XXX: should accept 6 or 7 arguments
+// XXX: should use integral part for day and fraction for time.
+//      which may be incorrect for DST time adjustments.
+static double dodts(int yr, int mo, int day) {
     time_t secs;
     struct tm t;
 
-    if (e2 > 12 || e3 > 31) {
-        mo  = e1;
-        day = e2;
-        yr  = e3;
-    } else {
-        yr  = e1;
-        mo  = e2;
-        day = e3;
-    }
-    mdays[1] = 28 + (yr % 4 == 0) - (yr % 100 == 0) + (yr % 400 == 0);
+    if (yr >= 0 && yr < 100)
+        yr += yr >= 50 ? 1900 : 2000;
 
     t.tm_hour = t.tm_min = t.tm_sec = 0;
     t.tm_mon = mo - 1;
@@ -473,22 +440,23 @@ static double dodts(int e1, int e2, int e3) {
     t.tm_year = yr - 1900;
     t.tm_isdst = -1;
 
-    if (mo < 1 || mo > 12 || day < 1 || day > mdays[mo - 1] || (secs = mktime(&t)) == -1) {
+    // XXX: should implement proleptic Gregorian calendar ourselves
+    /* mktime() handles out of range values for tm_mon and tm_mday
+     * as a number of months and/or days beyond the date determined
+     * from the other fields.
+     * Dates before 1901/12/31 seem to fail on OS/X.
+     */
+    if (mo < 1 || day < 1 || (secs = mktime(&t)) == -1) {
         error("@dts: invalid argument or date out of range");
         cellerror = CELLERROR;
         return 0.0;
     }
-
     return (double)secs;
 }
 
-static double dotts(int hr, int min, int sec) {
-    if (hr < 0 || hr > 23 || min < 0 || min > 59 || sec < 0 || sec > 59) {
-        error("@tts: Invalid argument");
-        cellerror = CELLERROR;
-        return 0.0;
-    }
-    return (double)(sec + min * 60 + hr * 3600);
+static double dotts(double hr, double min, double sec) {
+    int seconds = ((int)floor(sec) + (int)floor(min) * 60 + (int)floor(hr) * 3600) % 86400;
+    return (double)(seconds < 0 ? 86400 + seconds : seconds);
 }
 
 static double donow(void) {
@@ -499,39 +467,50 @@ static double donow(void) {
 static double dotime(int which, double when) {
     static time_t t_cache;
     static struct tm tm_cache;
-    time_t tloc;
-
-    tloc = (time_t)when;
+    struct tm *tp = &tm_cache;
+    time_t tloc = (time_t)when;
 
     // XXX: this primitive cacheing system fails
     //      as soon as there are more than 1 time value
     //      and it will fail if the current TZ changes
     if (!t_cache || tloc != t_cache) {
-        struct tm *tp = localtime(&tloc);
-        tm_cache = *tp;
-        t_cache = tloc;
+        tp = localtime(&tloc);
+        if (tp) {
+            t_cache = tloc;
+            tm_cache = *tp;
+        }
     }
 
-    switch (which) {
-    case HOUR:          return (double)tm_cache.tm_hour;
-    case MINUTE:        return (double)tm_cache.tm_min;
-    case SECOND:        return (double)tm_cache.tm_sec;
-    case MONTH:         return (double)tm_cache.tm_mon + 1;
-    case DAY:           return (double)tm_cache.tm_mday;
-    case YEAR:          return (double)tm_cache.tm_year + 1900;
+    if (tp) {
+        switch (which) {
+        case HOUR:          return (double)tm_cache.tm_hour;
+        case MINUTE:        return (double)tm_cache.tm_min;
+        case SECOND:        return (double)tm_cache.tm_sec;
+        case MONTH:         return (double)tm_cache.tm_mon + 1;
+        case DAY:           return (double)tm_cache.tm_mday;
+        case YEAR:          return (double)tm_cache.tm_year + 1900;
+        }
     }
-    /* Safety net */
     cellerror = CELLERROR;
     return 0.0;
 }
 
 static double doston(SCXMEM string_t *s) {
     double v;
+    char *end;
 
     if (!s)
         return 0.0;
 
-    v = strtod(s2c(s), NULL);
+    // XXX: is an empty string an error?
+    // XXX: is a blank string an error?
+    v = strtod(s2c(s), &end);
+    if (*end) {
+        // XXX: is this an error?
+    }
+    if (!isfinite(v)) {
+        // XXX: is this an error?
+    }
     free_string(s);
     return v;
 }
@@ -542,9 +521,7 @@ static double doeqs(SCXMEM string_t *s1, SCXMEM string_t *s2) {
     if (!s1 && !s2)
         return 1.0;
 
-    if (!s1 || !s2)
-        v = 0.0;
-    else if (strcmp(s2c(s1), s2c(s2)) == 0)
+    if (s1 && s2 && strcmp(s2c(s1), s2c(s2)) == 0)
         v = 1.0;
     else
         v = 0.0;
@@ -562,9 +539,9 @@ static double doeqs(SCXMEM string_t *s1, SCXMEM string_t *s2) {
  */
 
 static struct ent *getent(SCXMEM string_t *colstr, double rowdoub) {
-    int collen;             /* length of string */
-    int row, col;           /* integer values   */
-    struct ent *p = NULL;   /* selected entry   */
+    int collen;             /* length of column name */
+    int row, col;           /* integer values */
+    struct ent *p = NULL;   /* selected entry */
 
     if (!colstr) {
         cellerror = CELLERROR;
@@ -590,9 +567,9 @@ static struct ent *getent(SCXMEM string_t *colstr, double rowdoub) {
  */
 
 static double donval(SCXMEM string_t *colstr, double rowdoub) {
-    struct ent *ep = getent(colstr, rowdoub);
+    struct ent *p = getent(colstr, rowdoub);
 
-    return (ep && (ep->flags & IS_VALID)) ? ep->v : 0.0;
+    return (p && (p->flags & IS_VALID)) ? p->v : 0.0;
 }
 
 /*
@@ -600,9 +577,8 @@ static double donval(SCXMEM string_t *colstr, double rowdoub) {
  *      The left pointer is a chain of ELIST nodes, the right pointer
  *      is a value.
  */
-// XXX: should swap left and right
-// XXX: should handle vars and ranges in list
 static double dolmax(enode_t *ep) {
+    // XXX: should handle vars and ranges in list
     int count = 0;
     double maxval = 0.0;
     enode_t *p;
@@ -618,9 +594,8 @@ static double dolmax(enode_t *ep) {
     return maxval;
 }
 
-// XXX: should swap left and right
-// XXX: should handle vars and ranges in list
 static double dolmin(enode_t *ep) {
+    // XXX: should handle vars and ranges in list
     int count = 0;
     double minval = 0.0;
     enode_t *p;
@@ -636,6 +611,80 @@ static double dolmin(enode_t *ep) {
     return minval;
 }
 
+static sigret_t eval_fpe(int i) { /* Trap for FPE errors in eval */
+    (void)i;
+#if defined(i386) && !defined(M_XENIX)
+    asm("       fnclex");
+    asm("       fwait");
+#else
+#ifdef IEEE_MATH
+    fpsetsticky((fp_except)0);    /* Clear exception */
+#endif /* IEEE_MATH */
+#ifdef PC
+    _fpreset();
+#endif
+#endif
+    /* re-establish signal handler for next time */
+    signal(SIGFPE, eval_fpe);
+    longjmp(fpe_save, 1);
+}
+
+static double fn1_eval(double (*fn)(double), double a) {
+    double res;
+    errno = 0;
+    res = (*fn)(a);
+    if (errno)
+        cellerror = CELLERROR;
+    return res;
+}
+
+static double fn2_eval(double (*fn)(double, double), double arg1, double arg2) {
+    double res;
+    errno = 0;
+    res = (*fn)(arg1, arg2);
+    if (errno)
+        cellerror = CELLERROR;
+    return res;
+}
+
+static double rand_between(double aa, double bb) {
+    long int a = (long int)aa;
+    long int b = (long int)bb;
+    if (a > b) {
+        long int c = a;
+        a = b;
+        b = c;
+    }
+    if (a == b) {
+        return a;
+    } else {
+        /* return an integer */
+        return a + rand() * (b - a + 1) / ((long int)RAND_MAX + 1);
+    }
+}
+
+#ifdef RINT
+/*      round-to-even, also known as ``banker's rounding''.
+        With round-to-even, a number exactly halfway between two values is
+        rounded to whichever is even; e.g. rnd(0.5)=0, rnd(1.5)=2,
+        rnd(2.5)=2, rnd(3.5)=4.  This is the default rounding mode for
+        IEEE floating point, for good reason: it has better numeric
+        properties.  For example, if X+Y is an integer,
+        then X+Y = rnd(X)+rnd(Y) with round-to-even,
+        but not always with sc's rounding (which is
+        round-to-positive-infinity).  I ran into this problem when trying to
+        split interest in an account to two people fairly.
+*/
+
+double rint(double d) {
+    /* as sent */
+    double fl = floor(d), fr = d - fl;
+    return fr < 0.5 || fr == 0.5 && fl == floor(fl / 2) * 2 ? fl : ceil(d);
+}
+#endif
+
+/*---------------- numeric evaluator ----------------*/
+
 double eval(enode_t *e) {
     if (e == NULL) {
         cellerror = CELLINVALID;
@@ -643,11 +692,7 @@ double eval(enode_t *e) {
     }
     switch (e->op) {
     case '+':       return eval(e->e.o.left) + eval(e->e.o.right);
-    case '-':       {
-                        double l = eval(e->e.o.left);
-                        double r = eval(e->e.o.right);
-                        return l - r;
-                    }
+    case '-':       return eval(e->e.o.left) - eval(e->e.o.right);
     case '*':       return eval(e->e.o.left) * eval(e->e.o.right);
     case '/':       {
                         double num = eval(e->e.o.left);
@@ -677,16 +722,8 @@ double eval(enode_t *e) {
     case '^':       return fn2_eval(pow, eval(e->e.o.left), eval(e->e.o.right));
     case '<':       return eval(e->e.o.left) < eval(e->e.o.right);
     case OP_LE:     return eval(e->e.o.left) <= eval(e->e.o.right);
-    case '=':       {
-                        double l = eval(e->e.o.left);
-                        double r = eval(e->e.o.right);
-                        return l == r;
-                    }
-    case OP_NE:     {
-                        double l = eval(e->e.o.left);
-                        double r = eval(e->e.o.right);
-                        return l != r;
-                    }
+    case '=':       return eval(e->e.o.left) == eval(e->e.o.right);
+    case OP_NE:     return eval(e->e.o.left) != eval(e->e.o.right);
     case '>':       return eval(e->e.o.left) >  eval(e->e.o.right);
     case OP_GE:     return eval(e->e.o.left) >= eval(e->e.o.right);
     case '&':       return eval(e->e.o.left) && eval(e->e.o.right);
@@ -714,8 +751,8 @@ double eval(enode_t *e) {
                                 vp->row : vp->row + rowoffset;
                             int col = (e->e.v.vf & FIX_COL) ?
                                 vp->col : vp->col + coloffset;
-                            // XXX: this is bogus: if the cell is outside the
-                            //      active range, it should be null or 0.0
+                            // XXX: this is bogus: out of bounds cells should
+                            //      evaluate to 0.0 or a cellerror
                             checkbounds(&row, &col);
                             vp = *ATBL(tbl, row, col);
                         }
@@ -794,7 +831,7 @@ double eval(enode_t *e) {
     case DTR:       return dtr(eval(e->e.o.left));
     case RTD:       return rtd(eval(e->e.o.left));
     case RAND:      return (double)rand() / ((double)RAND_MAX + 1);
-    case RANDBETWEEN: return (double)rand_between(eval(e->e.o.left), eval(e->e.o.right));
+    case RANDBETWEEN: return rand_between(eval(e->e.o.left), eval(e->e.o.right));
     case RND:
         if (rndtoeven) {
             return rint(eval(e->e.o.left));
@@ -843,9 +880,9 @@ double eval(enode_t *e) {
     case DTS:       return dodts((int)eval(e->e.o.left),
                                  (int)eval(e->e.o.right->e.o.left),
                                  (int)eval(e->e.o.right->e.o.right));
-    case TTS:       return dotts((int)eval(e->e.o.left),
-                                 (int)eval(e->e.o.right->e.o.left),
-                                 (int)eval(e->e.o.right->e.o.right));
+    case TTS:       return dotts(eval(e->e.o.left),
+                                 eval(e->e.o.right->e.o.left),
+                                 eval(e->e.o.right->e.o.right));
     case STON:      return doston(seval(e->e.o.left));
     case EQS:       return doeqs(seval(e->e.o.right), seval(e->e.o.left));
     case LMAX:      return dolmax(e);
@@ -875,41 +912,7 @@ double eval(enode_t *e) {
     return 0.0;
 }
 
-static sigret_t eval_fpe(int i) { /* Trap for FPE errors in eval */
-    (void)i;
-#if defined(i386) && !defined(M_XENIX)
-    asm("       fnclex");
-    asm("       fwait");
-#else
-#ifdef IEEE_MATH
-    fpsetsticky((fp_except)0);    /* Clear exception */
-#endif /* IEEE_MATH */
-#ifdef PC
-    _fpreset();
-#endif
-#endif
-    /* re-establish signal handler for next time */
-    signal(SIGFPE, eval_fpe);
-    longjmp(fpe_save, 1);
-}
-
-static double fn1_eval(double (*fn)(double), double a) {
-    double res;
-    errno = 0;
-    res = (*fn)(a);
-    if (errno)
-        cellerror = CELLERROR;
-    return res;
-}
-
-static double fn2_eval(double (*fn)(double, double), double arg1, double arg2) {
-    double res;
-    errno = 0;
-    res = (*fn)(arg1, arg2);
-    if (errno)
-        cellerror = CELLERROR;
-    return res;
-}
+/*---------------- string functions ----------------*/
 
 /*
  * Rules for string functions:
@@ -1010,7 +1013,6 @@ static SCXMEM string_t *doext(enode_t *se) {
 
 #endif  /* NOEXTFUNCS */
 
-
 /*
  * Given a string representing a column name and a value which is a column
  * number, return the selected cell's string value, if any.  Even if none,
@@ -1100,6 +1102,8 @@ static SCXMEM string_t *docapital(SCXMEM string_t *s) {
     return s2;
 }
 
+/*---------------- string evaluator ----------------*/
+
 static SCXMEM string_t *seval_offset(int roffset, int coffset, enode_t *e) {
     int save_rowoffset = rowoffset;
     int save_coloffset = coloffset;
@@ -1124,6 +1128,8 @@ SCXMEM string_t *seval(enode_t *se) {
                                 vp->row : vp->row + rowoffset;
                             col = se->e.v.vf & FIX_COL ?
                                 vp->col : vp->col + coloffset;
+                            // XXX: this is bogus: out of bounds cells should
+                            //      evaluate to NULL or a cellerror
                             checkbounds(&row, &col);
                             vp = *ATBL(tbl, row, col);
                         }
@@ -1137,8 +1143,7 @@ SCXMEM string_t *seval(enode_t *se) {
     case IF:
     case '?':       return eval(se->e.o.left) ? seval(se->e.o.right->e.o.left)
                                               : seval(se->e.o.right->e.o.right);
-    case DATE:      return dodate((time_t)(eval(se->e.o.left)),
-                                  seval(se->e.o.right));
+    case DATE:      return dodate((time_t)(eval(se->e.o.left)), seval(se->e.o.right));
     case FMT:       return dofmt(seval(se->e.o.left), eval(se->e.o.right));
     case UPPER:     return docase(UPPER, seval(se->e.o.left));
     case LOWER:     return docase(LOWER, seval(se->e.o.left));
@@ -1154,9 +1159,8 @@ SCXMEM string_t *seval(enode_t *se) {
                     }
     case EXT:       return doext(se);
     case SVAL:      return dosval(seval(se->e.o.left), eval(se->e.o.right));
-
-                    /* Substring: Note that v1 and v2 are one-based and v2 is included */
-    case SUBSTR:    return sub_string(seval(se->e.o.left),
+    case SUBSTR:    /* Substring: Note that v1 and v2 are one-based and v2 is included */
+                    return sub_string(seval(se->e.o.left),
                                       (int)eval(se->e.o.right->e.o.left) - 1,
                                       (int)eval(se->e.o.right->e.o.right));
     case COLTOA:    return new_string(coltoa((int)eval(se->e.o.left)));
@@ -1165,8 +1169,7 @@ SCXMEM string_t *seval(enode_t *se) {
                         const char *s = n ? curfile : get_basename(curfile);
                         return new_string(s);
                     }
-    default:
-                    error("Illegal string expression");
+    default:        error("Illegal string expression");
                     exprerr = 1;
                     return NULL;
     }
@@ -2095,40 +2098,6 @@ int etype(enode_t *e) {
     default:
         return NUM;
     }
-}
-
-#ifdef RINT
-/*      round-to-even, also known as ``banker's rounding''.
-        With round-to-even, a number exactly halfway between two values is
-        rounded to whichever is even; e.g. rnd(0.5)=0, rnd(1.5)=2,
-        rnd(2.5)=2, rnd(3.5)=4.  This is the default rounding mode for
-        IEEE floating point, for good reason: it has better numeric
-        properties.  For example, if X+Y is an integer,
-        then X+Y = rnd(X)+rnd(Y) with round-to-even,
-        but not always with sc's rounding (which is
-        round-to-positive-infinity).  I ran into this problem when trying to
-        split interest in an account to two people fairly.
-*/
-
-double rint(double d) {
-    /* as sent */
-    double fl = floor(d), fr = d - fl;
-    return fr < 0.5 || fr == 0.5 && fl == floor(fl / 2) * 2 ? fl : ceil(d);
-}
-#endif
-
-static double rand_between(double aa, double bb) {
-    long int a = (long int)aa;
-    long int b = (long int)bb;
-    if (a > b) {
-        long int c = a;
-        a = b;
-        b = c;
-    }
-    if (a == b)
-        return a;
-    else
-        return a + (long int)rand() * (double)(b - a + 1) / ((double)RAND_MAX + 1);
 }
 
 void cmd_recalc(void) {

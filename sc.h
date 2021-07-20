@@ -500,7 +500,7 @@ static inline cellref_t cellref(int row, int col) {
 }
 
 static inline cellref_t cellref1(int row, int col, int vf) {
-    cellref_t cell = { row, col, vf, 0 };
+    cellref_t cell = { row, col, 0, vf };
     return cell;
 }
 
@@ -510,7 +510,7 @@ static inline rangeref_t rangeref(int r1, int c1, int r2, int c2) {
 }
 
 static inline rangeref_t rangeref1(int r1, int c1, int vf1, int r2, int c2, int vf2) {
-    rangeref_t range = { { r1, c1, vf1, 0 }, { r2, c2, vf2, 0 } };
+    rangeref_t range = { { r1, c1, 0, vf1 }, { r2, c2, 0, vf2 } };
     return range;
 }
 
