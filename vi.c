@@ -1086,6 +1086,12 @@ void vi_interaction(void) {
                 case '?':
                     help(HELP_INTRO);
                     break;
+                case KEY_ALT('?'):
+                    error("count=%zu  requested=%zu  allocated=%zu  overhead=%zu",
+                          scxmem_count, scxmem_requested, scxmem_allocated, scxmem_overhead);
+                    //error("maxrow=%d  maxcol=%d  maxrows=%d  maxcols=%d  rescol=%d",
+                    //      maxrow, maxcol, maxrows, maxcols, rescol);
+                    break;
                 case '\\':
                     if (!locked_cell(currow, curcol)) {
                         set_line("label %s = \"", v_name(currow, curcol));

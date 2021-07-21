@@ -1,5 +1,8 @@
 # TODO
 
+[ ] simplify colsinrange/rowsinrange stuff
+[ ] update() should not have a side effect on currow/curcol
+[ ] update() should not have a side effect on the database
 [ ] make curfile a string_t
 [ ] handle memory allocation failure everywhere
 [ ] generalize aggregate functions for multiple arguments

@@ -75,6 +75,7 @@ void moveto(rangeref_t rr, cellref_t st) {
     if (!loading && rr.left.row != -1 && (rr.left.row != currow || rr.left.col != curcol))
         remember(0);
 
+    lookat(rr.left.row, rr.left.col);
     currow = rr.left.row;
     curcol = rr.left.col;
     g_free();
@@ -427,7 +428,7 @@ void backpage(int arg) {
     FullUpdate++;
 }
 
-/* moves curcol forward to the next cell, wrapping at maxcol */
+/* moves curcol forward to the next cell, wrapping at maxcols - 1 */
 void forwcell(int arg) {
     struct ent *p;
     while (arg --> 0) {
@@ -516,7 +517,7 @@ void forwrow(int arg) {
             break;
         else
             currow++;
-        while (row_hidden[currow] && (currow < maxrows-1))
+        while (row_hidden[currow] && (currow < maxrows - 1))
             currow++;
     }
     rowsinrange = 1;

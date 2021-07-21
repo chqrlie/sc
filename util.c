@@ -11,6 +11,11 @@
 
 #include "sc.h"
 
+size_t scxmem_count;        /* number of active memory blocks */
+size_t scxmem_requested;    /* total amount of memory requested */
+size_t scxmem_allocated;    /* total amount of memory allocated */
+size_t scxmem_overhead;     /* amount of overhead from scxmem features */
+
 #define SCXMALLOC_USE_MAGIC  1
 #define SCXMALLOC_TRACK_BLOCKS  1
 #define SCXMALLOC_FAILURE_IS_FATAL  1
@@ -30,6 +35,10 @@ static struct dlink {
 };
 
 static void link_block(struct dlink *p, size_t size) {
+    scxmem_count++;
+    scxmem_requested += size;
+    scxmem_allocated += (size + sizeof(size_t) - 1) & ~(sizeof(size_t) - 1);
+    scxmem_overhead += sizeof(struct dlink);
     p->size = size;
     p->prev = mem_head.prev;
     p->next = &mem_head;
@@ -37,6 +46,10 @@ static void link_block(struct dlink *p, size_t size) {
 }
 
 static void unlink_block(struct dlink *p) {
+    scxmem_count--;
+    scxmem_requested -= p->size;
+    scxmem_allocated -= (p->size + sizeof(size_t) - 1) & ~(sizeof(size_t) - 1);
+    scxmem_overhead -= sizeof(struct dlink);
     p->prev->next = p->next;
     p->next->prev = p->prev;
 }

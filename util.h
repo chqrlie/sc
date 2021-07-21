@@ -35,6 +35,8 @@
 
 #define SCXMEM  /* flag allocated pointers with this */
 
+extern size_t scxmem_count, scxmem_requested, scxmem_allocated, scxmem_overhead;
+
 extern SCXMEM void *scxmalloc(size_t n);
 extern SCXMEM void *scxrealloc(SCXMEM void *ptr, size_t n);
 extern SCXMEM char *scxdup(const char *s);

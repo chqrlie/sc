@@ -116,10 +116,10 @@ int growtbl(int mode, int toprow, int topcol) {
         GROWALLOC(realfmt, newcols, int, nowider);
         GROWALLOC(col_hidden, newcols, unsigned char, nowider);
         for (col = curcols; col < newcols; col++) {
-            col_hidden[col] = 0;
             fwidth[col] = DEFWIDTH;
             precision[col] = DEFPREC;
             realfmt[col] = DEFREFMT;
+            col_hidden[col] = 0;
         }
 
         /* [re]alloc the space for each row */
@@ -151,7 +151,7 @@ int growtbl(int mode, int toprow, int topcol) {
     maxrows = newrows;
     maxcols = newcols;
 
-    for (rescol = 4; newrows > 1000; rescol++) {
+    for (rescol = 4; newrows >= 1000; rescol++) {
         newrows /= 10;
     }
     return TRUE;

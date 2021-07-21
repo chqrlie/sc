@@ -104,12 +104,13 @@ void update(int anychanged) {          /* did any cell really change in value? *
      */
     if (!usecurses) return;
 
+    // XXX: this code is a mess. Should at least document if not simplify
     getmaxyx(stdscr, lines, cols);
     fr = lastfr;
     if (!(fr && fr->or_left->row <= currow &&   /* If we've left the        */
-            fr->or_left->col <= curcol &&       /* previous framed range... */
-            fr->or_right->row >= currow &&
-            fr->or_right->col >= curcol)) {
+          fr->or_left->col <= curcol &&       /* previous framed range... */
+          fr->or_right->row >= currow &&
+          fr->or_right->col >= curcol)) {
         fr = get_current_frange();
         if (fr != lastfr)
             FullUpdate++;
@@ -121,12 +122,14 @@ void update(int anychanged) {          /* did any cell really change in value? *
         frightcols = fr->or_right->col - fr->ir_right->col;
         framerows = RESROW + ftoprows + fbottomrows;
         framecols = rescol;
-        for (r = fr->or_left->row - 1, i = ftoprows; i; i--)
+        for (r = fr->or_left->row - 1, i = ftoprows; i; i--) {
             if (row_hidden[r+i])
                 framerows--;
-        for (r = fr->or_right->row - 1, i = fbottomrows; i; i--)
+        }
+        for (r = fr->or_right->row - 1, i = fbottomrows; i; i--) {
             if (row_hidden[r-i])
                 framerows--;
+        }
         for (r = fr->or_left->col - 1, i = fleftcols; i; i--) {
             if (col_hidden[r+i])
                 continue;
@@ -214,6 +217,7 @@ void update(int anychanged) {          /* did any cell really change in value? *
      * needed.  If strow and stcol are negative, centering is forced.
      */
     if ((curcol != sc_lastcol) || FullUpdate) {
+        // XXX: update should not have a side effect on currow/curcol
         while (col_hidden[curcol])   /* You can't hide the last row or col */
             curcol++;
         if (fwidth[curcol] > cols - rescol - 2) {
@@ -303,8 +307,8 @@ void update(int anychanged) {          /* did any cell really change in value? *
             } else if (stcol >= 0 && stcol + lcols == curcol) {
                 stcol++;
             } else if (stcol >= 0 && fr && curcol >= fr->or_left->col &&
-                    curcol <= fr->ir_left->col && stcol < curcol &&
-                    curcol <= stcol + lcols + fr->ir_left->col -
+                       curcol <= fr->ir_left->col && stcol < curcol &&
+                       curcol <= stcol + lcols + fr->ir_left->col -
                             fr->or_left->col) {
                 while ((stcol + lcols < fr->ir_left->col && !frTooLarge) ||
                         (colsinrange != fwidth[curcol] && stcol != curcol &&
@@ -316,15 +320,14 @@ void update(int anychanged) {          /* did any cell really change in value? *
                  * If we've just jumped to a range using the goto command,
                  * center the range instead.
                  */
-                colsinrange = (colsinrange > cols - rescol -
-                        flcols - frcols - 2 ?
-                        cols - rescol - flcols - frcols - 2 : colsinrange);
-                col = (cols - rescol - flcols - frcols - colsinrange)/2;
+                colsinrange = (colsinrange > cols - rescol - flcols - frcols - 2 ?
+                               cols - rescol - flcols - frcols - 2 : colsinrange);
+                col = (cols - rescol - flcols - frcols - colsinrange) / 2;
                 stcol = curcol;
                 for (i = curcol - 1;
-                        i >= (fr ? fr->or_left->col + fleftcols : 0) &&
-                        (col - fwidth[i] > 0 || col_hidden[i]);
-                        i--) {
+                     i >= (fr ? fr->or_left->col + fleftcols : 0) &&
+                         (col - fwidth[i] > 0 || col_hidden[i]);
+                     i--) {
                     stcol--;
                     if (col_hidden[i])
                         continue;
@@ -361,8 +364,7 @@ void update(int anychanged) {          /* did any cell really change in value? *
             }
         }
     }
-    if (fleftcols && stcol >= fr->or_left->col &&
-            stcol < fr->or_left->col + fleftcols) {
+    if (fleftcols && stcol >= fr->or_left->col && stcol < fr->or_left->col + fleftcols) {
         lcols += (fr->or_left->col - stcol);
         stcol = fr->or_left->col + fleftcols;
         if (curcol < stcol)
@@ -371,6 +373,7 @@ void update(int anychanged) {          /* did any cell really change in value? *
 
     /* Now - same process on the rows as the columns */
     if ((currow != sc_lastrow) || FullUpdate) {
+        // XXX: update should not have a side effect on currow/curcol
         while (row_hidden[currow])   /* You can't hide the last row or col */
             currow++;
         if (strow >= 0 && strow <= currow) {
@@ -397,8 +400,7 @@ void update(int anychanged) {          /* did any cell really change in value? *
                 else
                     row += ftrows;
             }
-            for (; (row < lines || row_hidden[i] || i < currow) && i < maxrows;
-                    i++) {
+            for (; (row < lines || row_hidden[i] || i < currow) && i < maxrows; i++) {
                 rows++;
                 if (fr && i == fr->ir_right->row + 1) {
                     row -= fbrows;
@@ -422,7 +424,7 @@ void update(int anychanged) {          /* did any cell really change in value? *
                 row++;
             }
             if (!frTooLarge && fr && currow <= strow + rows &&
-                    fr->ir_left->row >= strow + rows) {
+                fr->ir_left->row >= strow + rows) {
                 while (strow + rows < fr->ir_left->row) {
                     while (row_hidden[++strow])
                         continue;
@@ -431,23 +433,23 @@ void update(int anychanged) {          /* did any cell really change in value? *
                 strow = -1;
         }
 
+        // XXX: this code is bogus
         while (strow < 0 || currow < strow || strow + rows - 1 < currow ||
-                strow + rows < currow + rowsinrange) {
+               strow + rows < currow + rowsinrange) {
 
             FullUpdate++;
 
-                /* How about up one? */
+            /* How about up one? */
             if (strow - 1 == currow) {
                 strow--;
                 /* Down one? */
             } else if (strow >= 0 && strow + rows == currow) {
                 strow++;
             } else if (strow >= 0 && fr && currow >= fr->or_left->row &&
-                    currow <= fr->ir_left->row && strow < currow &&
-                    currow <= strow + rows + fr->ir_left->row -
-                            fr->or_left->row) {
+                       currow <= fr->ir_left->row && strow < currow &&
+                       currow <= strow + rows + fr->ir_left->row - fr->or_left->row) {
                 while ((strow + rows < fr->ir_left->row && !frTooLarge) ||
-                        (rowsinrange > 1 && strow != currow &&
+                       (rowsinrange > 1 && strow != currow &&
                         strow + rows - 1 < gs.g_rr.right.row)) {
                     if (row_hidden[++strow]) rows--;
                 }
@@ -457,12 +459,12 @@ void update(int anychanged) {          /* did any cell really change in value? *
                  * center the range instead.
                  */
                 rowsinrange = (rowsinrange > lines - RESROW - ftrows - fbrows ?
-                        lines - RESROW - ftrows - fbrows : rowsinrange);
+                               lines - RESROW - ftrows - fbrows : rowsinrange);
                 row = (lines - RESROW - ftrows - fbrows - rowsinrange) / 2;
                 strow = currow;
                 for (i = currow - 1;
-                        i >= (fr ? fr->or_left->row + ftoprows : 0) &&
-                        (row > 0 || row_hidden[i]); i--) {
+                     i >= (fr ? fr->or_left->row + ftoprows : 0) &&
+                         (row > 0 || row_hidden[i]); i--) {
                     strow--;
                     if (row_hidden[i])
                         continue;
@@ -484,8 +486,7 @@ void update(int anychanged) {          /* did any cell really change in value? *
                 else
                     row += ftrows;
             }
-            for (; (row < lines || row_hidden[i] || i < currow) && i < maxrows;
-                    i++) {
+            for (; (row < lines || row_hidden[i] || i < currow) && i < maxrows; i++) {
                 rows++;
                 if (fr && i == fr->ir_right->row + 1) {
                     row -= fbrows;
@@ -493,13 +494,11 @@ void update(int anychanged) {          /* did any cell really change in value? *
                 }
                 if (row_hidden[i])
                     continue;
-
                 row++;
             }
         }
     }
-    if (ftoprows && strow >= fr->or_left->row &&
-            strow < fr->or_left->row + ftoprows) {
+    if (ftoprows && strow >= fr->or_left->row && strow < fr->or_left->row + ftoprows) {
         rows += (fr->or_left->row - strow);
         strow = fr->or_left->row + ftoprows;
         if (currow < strow)
@@ -543,8 +542,9 @@ void update(int anychanged) {          /* did any cell really change in value? *
             row = strow;
             lastmy += ftrows;
         }
-    } else
+    } else {
         row = strow;
+    }
     for (; row < currow; row++) {
         if (!row_hidden[row])
             lastmy++;
@@ -557,8 +557,9 @@ void update(int anychanged) {          /* did any cell really change in value? *
             col = stcol;
             lastmx += flcols;
         }
-    } else
+    } else {
         col = stcol;
+    }
     for (; col < curcol; col++) {
         if (!col_hidden[col])
             lastmx += fwidth[col];

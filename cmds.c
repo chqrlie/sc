@@ -1843,6 +1843,26 @@ void erasedb(int load_scrc) {
             close(fd);
             readfile(".scrc", 0);
         }
+    } else {
+        /* free all sheet data */
+        for (r = 0; r < maxrows; r++) {
+            scxfree(tbl[r]);
+        }
+        scxfree(tbl);
+        scxfree(fwidth);
+        scxfree(precision);
+        scxfree(realfmt);
+        scxfree(col_hidden);
+        scxfree(row_hidden);
+        tbl = NULL;
+        fwidth = NULL;
+        precision = NULL;
+        realfmt = NULL;
+        col_hidden = NULL;
+        row_hidden = NULL;
+        maxrows = maxcols = 0;
+        maxrow = maxcol = -1;
+        currow = curcol = strow = stcol = 0;
     }
     *curfile = '\0';
     FullUpdate++;

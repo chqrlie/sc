@@ -324,19 +324,11 @@ int main(int argc, char **argv) {
     if (Dopt) {
         /* free all memory and check for remaining blocks */
         erasedb(FALSE);
-        free_hist();
-        for (c = 0; c < maxrows; c++) {
-            scxfree(tbl[c]);
-        }
-        scxfree(tbl);
-        scxfree(fwidth);
-        scxfree(precision);
-        scxfree(realfmt);
-        scxfree(col_hidden);
-        scxfree(row_hidden);
         free_ent_list();
         free_enode_list();
         free_styles();
+        free_hist();
+        free_string(histfile);
         free_string(scext);
         free_string(ascext);
         free_string(tbl0ext);
@@ -344,7 +336,6 @@ int main(int argc, char **argv) {
         free_string(latexext);
         free_string(slatexext);
         free_string(texext);
-        free_string(histfile);
         scxmemdump();
     }
 
