@@ -1218,9 +1218,6 @@ void deletecols(int c1, int c2) {
             }
         }
     }
-    rowsinrange = 1;
-    colsinrange = fwidth[c1];
-
     FullUpdate++;
     modflg++;
     curcol = save < c1 ? save : (save <= c2) ? c1 : save - ncols;
@@ -1261,10 +1258,6 @@ void cmd_format(int c1, int c2, int w, int p, int r) {
         precision[i] = p;
         realfmt[i] = r;
     }
-
-    rowsinrange = 1;
-    colsinrange = fwidth[curcol];
-
     FullUpdate++;
     modflg++;
 }

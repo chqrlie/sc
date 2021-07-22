@@ -761,6 +761,8 @@ extern int yylex(void);
 extern int backup_file(const char *path);
 extern void sc_set_locale(int set);
 extern int set_line(const char *fmt, ...) sc__attr_printf(1,2);
+extern int rows_height(int r, int n);
+extern int cols_width(int c, int n);
 
 static inline struct frange *get_current_frange(void) {
     return find_frange(currow, curcol);

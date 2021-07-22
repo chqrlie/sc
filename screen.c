@@ -77,6 +77,26 @@ void select_style(int n, int rev) {
     }
 }
 
+int rows_height(int r, int n) {
+    int height = 0;
+    while (n --> 0 && r < maxrows) {
+        if (!row_hidden[r])
+            height += 1;
+        r++;
+    }
+    return height;
+}
+
+int cols_width(int c, int n) {
+    int width = 0;
+    while (n --> 0 && c < maxcols) {
+        if (!col_hidden[c])
+            width += fwidth[c];
+        c++;
+    }
+    return width;
+}
+
 /*
  * update() does general screen update
  *
@@ -96,6 +116,7 @@ void update(int anychanged) {          /* did any cell really change in value? *
     struct crange *cr;
     int ftoprows, fbottomrows, fleftcols, frightcols;
     int ftrows, fbrows, flcols, frcols;
+    //int width, height, target_width, target_height;
     sc_bool_t message;
 
     /*
@@ -115,37 +136,28 @@ void update(int anychanged) {          /* did any cell really change in value? *
         if (fr != lastfr)
             FullUpdate++;
     }
+    ftoprows = fbottomrows = fleftcols = frightcols = 0;
+    ftrows = fbrows = flcols = frcols = 0;
+    framerows = framecols = 0;
     if (fr) {
         ftoprows = fr->ir_left->row - fr->or_left->row;
+        ftrows = rows_height(fr->or_left->row, ftoprows);
         fbottomrows = fr->or_right->row - fr->ir_right->row;
+        fbrows = rows_height(fr->ir_right->row + 1, fbottomrows);
         fleftcols = fr->ir_left->col - fr->or_left->col;
+        flcols = cols_width(fr->or_left->col, fleftcols);
         frightcols = fr->or_right->col - fr->ir_right->col;
-        framerows = RESROW + ftoprows + fbottomrows;
-        framecols = rescol;
-        for (r = fr->or_left->row - 1, i = ftoprows; i; i--) {
-            if (row_hidden[r+i])
-                framerows--;
-        }
-        for (r = fr->or_right->row - 1, i = fbottomrows; i; i--) {
-            if (row_hidden[r-i])
-                framerows--;
-        }
-        for (r = fr->or_left->col - 1, i = fleftcols; i; i--) {
-            if (col_hidden[r+i])
-                continue;
-            framecols += fwidth[r+i];
-        }
-        for (r = fr->or_right->col - 1, i = frightcols; i; i--) {
-            if (col_hidden[r-i])
-                continue;
-            framecols += fwidth[r-i];
-        }
+        frcols = cols_width(fr->ir_right->col + 1, frightcols);
+        framerows = RESROW + ftrows + fbrows;
+        framecols = rescol + flcols + frcols;
         if (framerows >= lines || framecols >= cols) {
             frTooLarge = TRUE;
             if (FullUpdate) {
                 error("Frame too large for screen size - ignoring");
             }
             ftoprows = fbottomrows = fleftcols = frightcols = 0;
+            ftrows = fbrows = flcols = frcols = 0;
+            framerows = framecols = 0;
             strow -= lastftoprows;
             stcol -= lastfleftcols;
         } else {
@@ -179,37 +191,14 @@ void update(int anychanged) {          /* did any cell really change in value? *
             else
                 frightcols = fr->or_right->col - curcol;
         }
-    } else {
-        ftoprows = fbottomrows = fleftcols = frightcols = 0;
-        framerows = framecols = 0;
+        fbrows = rows_height(fr->ir_right->row + 1, fbottomrows);
+        frcols = cols_width(fr->ir_right->col + 1, frightcols);
     }
     if (fr != lastfr && !gs.stflag && lastfr) {
         if (strow >= lastfr->ir_left->row)
             strow -= lastftoprows;
         if (stcol >= lastfr->ir_left->col)
             stcol -= lastfleftcols;
-    }
-
-    ftrows = ftoprows;
-    fbrows = fbottomrows;
-    flcols = frcols = 0;
-    if (fr) {
-        for (r = fr->or_left->row - 1, i = ftrows; i; i--)
-            if (row_hidden[r+i])
-                ftrows--;
-        for (r = fr->or_right->row + 1, i = fbrows; i; i--)
-            if (row_hidden[r-i])
-                fbrows--;
-        for (r = fr->or_left->col - 1, i = fleftcols; i; i--) {
-            if (col_hidden[r+i])
-                continue;
-            flcols += fwidth[r+i];
-        }
-        for (r = fr->or_right->col + 1, i = frightcols; i; i--) {
-            if (col_hidden[r-i])
-                continue;
-            frcols += fwidth[r-i];
-        }
     }
 
     /*
@@ -433,6 +422,9 @@ void update(int anychanged) {          /* did any cell really change in value? *
                 strow = -1;
         }
 
+        if (!rowsinrange) rowsinrange = 1;
+        if (!colsinrange) colsinrange = fwidth[curcol];
+
         // XXX: this code is bogus
         while (strow < 0 || currow < strow || strow + rows - 1 < currow ||
                strow + rows < currow + rowsinrange) {
@@ -498,6 +490,8 @@ void update(int anychanged) {          /* did any cell really change in value? *
             }
         }
     }
+    rowsinrange = colsinrange = 0;
+
     if (ftoprows && strow >= fr->or_left->row && strow < fr->or_left->row + ftoprows) {
         rows += (fr->or_left->row - strow);
         strow = fr->or_left->row + ftoprows;
@@ -535,35 +529,23 @@ void update(int anychanged) {          /* did any cell really change in value? *
 
     /* where is the the cursor now? */
     lastmy = RESROW;
-    if (fr && strow >= fr->or_left->row) {
-        if (strow < fr->ir_left->row)
+    row = strow;
+    if (fr && row >= fr->or_left->row) {
+        if (row < fr->ir_left->row)
             row = fr->or_left->row;
-        else {
-            row = strow;
+        else
             lastmy += ftrows;
-        }
-    } else {
-        row = strow;
     }
-    for (; row < currow; row++) {
-        if (!row_hidden[row])
-            lastmy++;
-    }
+    lastmy += rows_height(row, currow - row);
     lastmx = rescol;
-    if (fr && stcol >= fr->or_left->col) {
-        if (stcol < fr->ir_left->col)
+    col = stcol;
+    if (fr && col >= fr->or_left->col) {
+        if (col < fr->ir_left->col)
             col = fr->or_left->col;
-        else {
-            col = stcol;
+        else
             lastmx += flcols;
-        }
-    } else {
-        col = stcol;
     }
-    for (; col < curcol; col++) {
-        if (!col_hidden[col])
-            lastmx += fwidth[col];
-    }
+    lastmx += cols_width(col, curcol - col);
     select_style(STYLE_CELL, 0);
 
     if (FullUpdate || standlast) {
@@ -1371,10 +1353,9 @@ void showstring(const char *string,         /* to display */
             c + fieldlen + fwidth[nextcol] >= COLS - 1 - frcols &&
             nextcol < fr->or_right->col - frightcols + 1)
         nextcol = fr->or_right->col - frightcols + 1;
-    while ((slen > fieldlen) && (nextcol <= mxcol) &&
-            !((nc = lookat(row, nextcol))->flags & IS_VALID) && !nc->label &&
-            (cslop || find_crange(row, nextcol) == cr)) {
 
+    while (slen > fieldlen && nextcol <= mxcol && !VALID_CELL(nc, row, nextcol)
+       &&  (cslop || find_crange(row, nextcol) == cr)) {
         if (!col_hidden[nextcol])
             fieldlen += fwidth[nextcol];
         nextcol++;

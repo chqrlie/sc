@@ -103,8 +103,8 @@ int dobackups;         /* Copy current database file to backup file      */
                        /* before overwriting                             */
 int rowlimit = -1;
 int collimit = -1;
-int rowsinrange = 1;
-int colsinrange = DEFWIDTH;
+int rowsinrange;
+int colsinrange;
 int emacs_bindings = 1;      /* use emacs-like bindings */
 
 #ifdef VMS

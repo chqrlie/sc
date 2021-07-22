@@ -618,8 +618,6 @@ void vi_interaction(void) {
                         remember(0);
                         currow = 0;
                         curcol = 0;
-                        rowsinrange = 1;
-                        colsinrange = fwidth[curcol];
                         remember(1);
                         FullUpdate++;
                     }
@@ -1535,10 +1533,11 @@ static void scroll_down(void) {
 }
 
 static void scroll_up(int x) {
-    if (strow)
+    if (strow) {
         strow--;
-    while (strow && row_hidden[strow])
-        strow--;
+        while (strow && row_hidden[strow])
+            strow--;
+    }
     forwrow(x);
     if (currow >= lastendrow)
         backrow(1);
@@ -1631,8 +1630,6 @@ static void dotick(int tick) {
     }
     currow = savedcr[c].row;
     curcol = savedcr[c].col;
-    rowsinrange = 1;
-    colsinrange = fwidth[curcol];
     if (tick == '\'') {
         strow = savedst[c].row;
         stcol = savedst[c].col;
@@ -1979,8 +1976,6 @@ static void write_line(int c) {
         case 'o':           if (showrange) {
                                 SWAPINT(currow, showsr);
                                 SWAPINT(curcol, showsc);
-                                rowsinrange = 1;
-                                colsinrange = fwidth[curcol];
                             }                                       break;
         case 'm':           markcell();                             break;
         case '`':
@@ -3199,8 +3194,6 @@ static void gohome(void) {
         currow = 0;
         curcol = 0;
     }
-    rowsinrange = 1;
-    colsinrange = fwidth[curcol];
     remember(1);
     FullUpdate++;
 }
@@ -3220,8 +3213,6 @@ static void leftlimit(void) {
             curcol = 0;
     } else
         curcol = 0;
-    rowsinrange = 1;
-    colsinrange = fwidth[curcol];
     remember(1);
 }
 
@@ -3252,8 +3243,6 @@ static void rightlimit(void) {
         if ((fr = get_current_frange()))
             curcol = fr->or_right->col;
     }
-    rowsinrange = 1;
-    colsinrange = fwidth[curcol];
     remember(1);
 }
 
@@ -3272,8 +3261,6 @@ static void gototop(void) {
             currow = 0;
     } else
         currow = 0;
-    rowsinrange = 1;
-    colsinrange = fwidth[curcol];
     remember(1);
 }
 
@@ -3304,8 +3291,6 @@ static void gotobottom(void) {
         if ((fr = get_current_frange()))
             currow = fr->or_right->row;
     }
-    rowsinrange = 1;
-    colsinrange = fwidth[curcol];
     remember(1);
 }
 
@@ -3385,13 +3370,13 @@ static int mouse_sel_cell(int mmode) { /* 0: set, 1: save, 2: cmp and set */
     static int x1, y1;
     if ((y = mevent.y - RESROW) < 0 || (x = mevent.x - rescol) < 0)
         return 1;
-    for (ty = strow, i = y; ; ty++) {
+    for (ty = strow, i = y;; ty++) {
         if (row_hidden[ty])
             continue;
         if (--i < 0)
             break;
     }
-    for (tx = stcol, i = x; ; tx++) {
+    for (tx = stcol, i = x;; tx++) {
         if (col_hidden[tx])
             continue;
         if ((i -= fwidth[tx]) < 0)
@@ -3585,8 +3570,6 @@ static void formatcol(int arg) {
                     if (fwidth[i] < 1)
                         fwidth[i] = 1;
                 }
-                rowsinrange = 1;
-                colsinrange = fwidth[curcol];
                 modflg++;
                 break;
             case KEY_RIGHT:
@@ -3597,8 +3580,6 @@ static void formatcol(int arg) {
                     if (fwidth[i] > COLS - rescol - 2)
                         fwidth[i] = COLS - rescol - 2;
                 }
-                rowsinrange = 1;
-                colsinrange = fwidth[curcol];
                 modflg++;
                 break;
             case KEY_DOWN:

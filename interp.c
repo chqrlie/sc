@@ -1444,67 +1444,52 @@ enode_t *copye(enode_t *e, int Rdelta, int Cdelta,
         return NULL;
 
     if (e->type == OP_TYPE_RANGE) {
-        int newrow, newcol;
+        int newrow, newcol, row, col, vf;
 
         ret->type = OP_TYPE_RANGE;
 
-        newrow = (e->e.r.left.vf & FIX_ROW ||
-                  e->e.r.left.vp->row < r1 || e->e.r.left.vp->row > r2 ||
-                  e->e.r.left.vp->col < c1 || e->e.r.left.vp->col > c2 ?
-                  e->e.r.left.vp->row :
-                  transpose ? r1 + Rdelta + e->e.r.left.vp->col - c1 :
-                  e->e.r.left.vp->row + Rdelta);
-        newcol = (e->e.r.left.vf & FIX_COL ||
-                  e->e.r.left.vp->row < r1 || e->e.r.left.vp->row > r2 ||
-                  e->e.r.left.vp->col < c1 || e->e.r.left.vp->col > c2 ?
-                  e->e.r.left.vp->col :
-                  transpose ? c1 + Cdelta + e->e.r.left.vp->row - r1 :
-                  e->e.r.left.vp->col + Cdelta);
+        vf = e->e.r.left.vf;
+        row = e->e.r.left.vp->row;
+        col = e->e.r.left.vp->col;
+        newrow = ((vf & FIX_ROW) || row < r1 || row > r2 || col < c1 || col > c2 ?
+              row : transpose ? r1 + Rdelta + col - c1 : row + Rdelta);
+        newcol = ((vf & FIX_COL) || row < r1 || row > r2 || col < c1 || col > c2 ?
+              col : transpose ? c1 + Cdelta + row - r1 : col + Cdelta);
+        ret->e.r.left.vf = vf;
         ret->e.r.left.vp = lookat(newrow, newcol);
-        ret->e.r.left.vf = e->e.r.left.vf;
-        newrow = (e->e.r.right.vf & FIX_ROW ||
-                  e->e.r.right.vp->row < r1 || e->e.r.right.vp->row > r2 ||
-                  e->e.r.right.vp->col < c1 || e->e.r.right.vp->col > c2 ?
-                  e->e.r.right.vp->row :
-                  transpose ? r1 + Rdelta + e->e.r.right.vp->col - c1 :
-                  e->e.r.right.vp->row + Rdelta);
-        newcol = (e->e.r.right.vf & FIX_COL ||
-                  e->e.r.right.vp->row < r1 || e->e.r.right.vp->row > r2 ||
-                  e->e.r.right.vp->col < c1 || e->e.r.right.vp->col > c2 ?
-                  e->e.r.right.vp->col :
-                  transpose ? c1 + Cdelta + e->e.r.right.vp->row - r1 :
-                  e->e.r.right.vp->col + Cdelta);
+        vf = e->e.r.right.vf;
+        row = e->e.r.right.vp->row;
+        col = e->e.r.right.vp->col;
+        newrow = ((vf & FIX_ROW) || row < r1 || row > r2 || col < c1 || col > c2 ?
+              row : transpose ? r1 + Rdelta + col - c1 : row + Rdelta);
+        newcol = ((vf & FIX_COL) || row < r1 || row > r2 || col < c1 || col > c2 ?
+              col : transpose ? c1 + Cdelta + row - r1 : col + Cdelta);
+        ret->e.r.right.vf = vf;
         ret->e.r.right.vp = lookat(newrow, newcol);
-        ret->e.r.right.vf = e->e.r.right.vf;
     } else
     if (e->type == OP_TYPE_VAR) {
-        int newrow, newcol;
+        int newrow, newcol, row, col, vf;
+
         ret->type = OP_TYPE_VAR;
+
+        vf = e->e.v.vf;
+        row = e->e.v.vp->row;
+        col = e->e.v.vp->col;
         if (range
-        &&  e->e.v.vp->row >= range->e.r.left.vp->row
-        &&  e->e.v.vp->row <= range->e.r.right.vp->row
-        &&  e->e.v.vp->col >= range->e.r.left.vp->col
-        &&  e->e.v.vp->col <= range->e.r.right.vp->col) {
-            newrow = (range->e.r.left.vf & FIX_ROW ?
-                      e->e.v.vp->row : e->e.v.vp->row + Rdelta);
-            newcol = (range->e.r.left.vf & FIX_COL ?
-                      e->e.v.vp->col : e->e.v.vp->col + Cdelta);
+        &&  row >= range->e.r.left.vp->row
+        &&  row <= range->e.r.right.vp->row
+        &&  col >= range->e.r.left.vp->col
+        &&  col <= range->e.r.right.vp->col) {
+            newrow = ((range->e.r.left.vf & FIX_ROW) ? row : row + Rdelta);
+            newcol = ((range->e.r.left.vf & FIX_COL) ? col : col + Cdelta);
         } else {
-            newrow = (e->e.v.vf & FIX_ROW ||
-                      e->e.v.vp->row < r1 || e->e.v.vp->row > r2 ||
-                      e->e.v.vp->col < c1 || e->e.v.vp->col > c2 ?
-                      e->e.v.vp->row :
-                      transpose ? r1 + Rdelta + e->e.v.vp->col - c1 :
-                      e->e.v.vp->row + Rdelta);
-            newcol = (e->e.v.vf & FIX_COL ||
-                      e->e.v.vp->row < r1 || e->e.v.vp->row > r2 ||
-                      e->e.v.vp->col < c1 || e->e.v.vp->col > c2 ?
-                      e->e.v.vp->col :
-                      transpose ? c1 + Cdelta + e->e.v.vp->row - r1 :
-                      e->e.v.vp->col + Cdelta);
+            newrow = ((vf & FIX_ROW) || row < r1 || row > r2 || col < c1 || col > c2 ?
+                      row : transpose ? r1 + Rdelta + col - c1 : row + Rdelta);
+            newcol = ((vf & FIX_COL) || row < r1 || row > r2 || col < c1 || col > c2 ?
+                      col : transpose ? c1 + Cdelta + row - r1 : col + Cdelta);
         }
         ret->e.v.vp = lookat(newrow, newcol);
-        ret->e.v.vf = e->e.v.vf;
+        ret->e.v.vf = vf;
     } else
     if (e->type == OP_TYPE_VAR) {
         ret->type = OP_TYPE_DOUBLE;

@@ -1,9 +1,13 @@
 # TODO
 
-[ ] simplify colsinrange/rowsinrange stuff
+[ ] pattern directed input in vi.c
+[ ] sparse matrix database
+[ ] remove yacc based parser
+[ ] stack based dynamic type interpreter
+[ ] remove cell pointers
+[ ] rewrite update()
 [ ] update() should not have a side effect on currow/curcol
 [ ] update() should not have a side effect on the database
-[ ] make curfile a string_t
 [ ] handle memory allocation failure everywhere
 [ ] generalize aggregate functions for multiple arguments
 [ ] introduce new functions for conditional aggregation
@@ -75,3 +79,5 @@
 [X] make histfile a string_t
 [N] change scxrealloc to update the pointer in place?
 [X] track memory allocation, check for full release upon exit
+[X] simplify colsinrange/rowsinrange stuff
+[N] make curfile a string_t

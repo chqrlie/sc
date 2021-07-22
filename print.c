@@ -147,8 +147,8 @@ void printfile(SCXMEM string_t *str, rangeref_t rr) {
                 /* Figure out if the label slops over to a blank field. */
                 while (slen > fieldlen && nextcol <= rr.right.col) {
                     if (!col_hidden[nextcol]) {
-                        struct ent *nc = lookat(row, nextcol);
-                        if ((nc->flags & IS_VALID) || nc->label)
+                        struct ent *nc = lookat_nc(row, nextcol);
+                        if (nc && ((nc->flags & IS_VALID) || nc->label))
                             break;
                         fieldlen += fwidth[nextcol];
                     }

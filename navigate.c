@@ -70,8 +70,6 @@ void go_last(void) {
  * screen if possible.
  */
 void moveto(rangeref_t rr, cellref_t st) {
-    int i;
-
     if (!loading && rr.left.row != -1 && (rr.left.row != currow || rr.left.col != curcol))
         remember(0);
 
@@ -89,16 +87,9 @@ void moveto(rangeref_t rr, cellref_t st) {
     } else {
         gs.stflag = 0;
     }
-    for (rowsinrange = 0, i = rr.left.row; i <= rr.right.row; i++) {
-        if (row_hidden[i])
-            continue;
-        rowsinrange++;
-    }
-    for (colsinrange = 0, i = rr.left.col; i <= rr.right.col; i++) {
-        if (col_hidden[i])
-            continue;
-        colsinrange += fwidth[i];
-    }
+    rowsinrange = rows_height(rr.left.row, rr.right.row - rr.left.row + 1);
+    colsinrange = cols_width(rr.left.col, rr.right.col - rr.left.col + 1);
+
     FullUpdate++;
     if (loading) {
         update(1);
@@ -171,8 +162,6 @@ void num_search(double n, rangeref_t rr, int errsearch) {
 
     currow = r;
     curcol = c;
-    rowsinrange = 1;
-    colsinrange = fwidth[curcol];
     if (loading) {
         update(1);
         changed = 0;
@@ -317,8 +306,6 @@ void str_search(SCXMEM string_t *str, rangeref_t rr, int num) {
     if (found) {
         currow = row;
         curcol = col;
-        rowsinrange = 1;
-        colsinrange = fwidth[col];
         if (loading) {
             update(1);
             changed = 0;
@@ -371,8 +358,6 @@ void doend(int rowinc, int colinc) {
             }
             break;
         }
-        rowsinrange = 1;
-        colsinrange = fwidth[curcol];
         if (!loading)
             remember(1);
         return;
@@ -405,8 +390,6 @@ void doend(int rowinc, int colinc) {
         currow -= rowinc;
         curcol -= colinc;
     }
-    rowsinrange = 1;
-    colsinrange = fwidth[curcol];
 }
 
 /* moves currow down one page */
@@ -447,8 +430,6 @@ void forwcell(int arg) {
             }
         } while (col_hidden[curcol] || !VALID_CELL(p, currow, curcol));
     }
-    rowsinrange = 1;
-    colsinrange = fwidth[curcol];
 }
 
 /* moves curcol forward one displayed column */
@@ -464,8 +445,6 @@ void forwcol(int arg) {
         while (col_hidden[curcol] && (curcol < maxcols - 1))
             curcol++;
     }
-    rowsinrange = 1;
-    colsinrange = fwidth[curcol];
 }
 
 /* moves curcol backward to the previous cell, wrapping at 0 */
@@ -487,57 +466,47 @@ void backcell(int arg) {
             }
         } while (col_hidden[curcol] || !VALID_CELL(p, currow, curcol));
     }
-    rowsinrange = 1;
-    colsinrange = fwidth[curcol];
 }
 
 /* moves curcol back one displayed column */
 void backcol(int arg) {
-    while (--arg >= 0) {
-        if (curcol)
-            curcol--;
-        else {
+    while (arg --> 0) {
+        if (!curcol) {
             error("At column A");
             break;
         }
-        while (col_hidden[curcol] && curcol)
+        curcol--;
+        while (curcol && col_hidden[curcol])
             curcol--;
     }
-    rowsinrange = 1;
-    colsinrange = fwidth[curcol];
 }
 
 /* moves currow forward one displayed row */
 void forwrow(int arg) {
-    while (arg-- > 0) {
+    while (arg --> 0) {
         if (currow < maxrows - 1)
             currow++;
         else
-        if (!growtbl(GROWROW, arg, 0))  /* get as much as needed */
+        if (!growtbl(GROWROW, maxrows + arg, 0))  /* get as much as needed */
             break;
         else
             currow++;
         while (row_hidden[currow] && (currow < maxrows - 1))
             currow++;
     }
-    rowsinrange = 1;
-    colsinrange = fwidth[curcol];
 }
 
 /* moves currow backward one displayed row */
 void backrow(int arg) {
-    while (arg-- > 0) {
-        if (currow)
-            currow--;
-        else {
+    while (arg --> 0) {
+        if (!currow) {
             error("At row zero");
             break;
         }
-        while (row_hidden[currow] && currow)
+        currow--;
+        while (currow && row_hidden[currow])
             currow--;
     }
-    rowsinrange = 1;
-    colsinrange = fwidth[curcol];
 }
 
 void gotonote(void) {
