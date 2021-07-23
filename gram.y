@@ -203,8 +203,8 @@ static SCXMEM string_t *get_strarg(cellref_t cr) {
 %token S_PLUGOUT
 
 /* goto keywords */
-%token G_ERROR
-%token G_INVALID
+%token GO_ERROR
+%token GO_INVALID
 
 /* function names */
 %token F_FIXED
@@ -420,15 +420,15 @@ command:  S_LET var_or_range '=' e      { let($2.left, $4); }
         | S_UNLOCK var_or_range         { unlock_cells($2); }
         | S_GOTO var_or_range var_or_range { moveto($2, $3.left); }
         | S_GOTO var_or_range           { moveto($2, cellref(-1, -1)); }
-        | S_GOTO num range              { num_search($2, $3, 0); }
-        | S_GOTO num                    { num_search($2, rangeref_total(), 0); }
+        | S_GOTO num range              { num_search(G_NUM, $3, $2); }
+        | S_GOTO num                    { num_search(G_NUM, rangeref_total(), $2); }
         | S_GOTO errlist                { /* code is executed in errlist rules */ }
-        | S_GOTO STRING range           { str_search($2, $3, 0); }
-        | S_GOTO '#' STRING range       { str_search($3, $4, 1); }
-        | S_GOTO '%' STRING range       { str_search($3, $4, 2); }
-        | S_GOTO STRING                 { str_search($2, rangeref_total(), 0); }
-        | S_GOTO '#' STRING             { str_search($3, rangeref_total(), 1); }
-        | S_GOTO '%' STRING             { str_search($3, rangeref_total(), 2); }
+        | S_GOTO STRING range           { str_search(G_STR, $3, $2); }
+        | S_GOTO '#' STRING range       { str_search(G_NSTR, $4, $3); }
+        | S_GOTO '%' STRING range       { str_search(G_XSTR, $4, $3); }
+        | S_GOTO STRING                 { str_search(G_STR, rangeref_total(), $2); }
+        | S_GOTO '#' STRING             { str_search(G_NSTR, rangeref_total(), $3); }
+        | S_GOTO '%' STRING             { str_search(G_XSTR, rangeref_total(), $3); }
         | S_GOTO                        { go_last(); }
         | S_GOTO WORD                   { /* don't repeat last goto on "unintelligible word" */ }
         | S_DEFINE strarg               { add_nrange($2, rangeref_current(), -1); }
@@ -838,8 +838,8 @@ setitem : K_AUTO                    { setautocalc(1); }
         ;
 
 /* types of errors, to 'goto' */
-errlist:  G_ERROR range             { num_search(0.0, $2, CELLERROR); }
-        | G_ERROR                   { num_search(0.0, rangeref_total(), CELLERROR); }
-        | G_INVALID range           { num_search(0.0, $2, CELLINVALID); }
-        | G_INVALID                 { num_search(0.0, rangeref_total(), CELLINVALID); }
+errlist:  GO_ERROR range            { num_search(G_ERROR, $2, 0.0); }
+        | GO_ERROR                  { num_search(G_ERROR, rangeref_total(), 0.0); }
+        | GO_INVALID range          { num_search(G_INVALID, $2, 0.0); }
+        | GO_INVALID                { num_search(G_INVALID, rangeref_total(), 0.0); }
         ;

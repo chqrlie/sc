@@ -282,6 +282,9 @@ void update(int anychanged) {          /* did any cell really change in value? *
                 stcol = -1;
         }
 
+        if (!rowsinrange) rowsinrange = 1;
+        if (!colsinrange) colsinrange = fwidth[curcol];
+
         // XXX: should compute goto target area and shift screen?
         while (stcol < 0 || curcol < stcol || stcol + lcols - 1 < curcol ||
                 (colsinrange != fwidth[curcol] && stcol != curcol &&
@@ -421,9 +424,6 @@ void update(int anychanged) {          /* did any cell really change in value? *
             } else if (c && currow > lastendrow)
                 strow = -1;
         }
-
-        if (!rowsinrange) rowsinrange = 1;
-        if (!colsinrange) colsinrange = fwidth[curcol];
 
         // XXX: this code is bogus
         while (strow < 0 || currow < strow || strow + rows - 1 < currow ||

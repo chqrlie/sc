@@ -394,7 +394,7 @@ tokens.h: gram.y Makefile
 	@echo '    { 0, 0 }' >> $@
 	@echo '};' >> $@
 	@echo 'static struct key gotores[] = { // goto targets' >> $@
-	sed -e '/%token.*G_/!d' -e '/%token.*G_\(.*\)/s//	{ "\1", G_\1 },/' < gram.y >> $@
+	sed -e '/%token.*GO_/!d' -e '/%token.*GO_\(.*\)/s//	{ "\1", GO_\1 },/' < gram.y >> $@
 	@echo '    { 0, 0 }' >> $@
 	@echo '};' >> $@
 	@echo 'static struct key funcres[] = { // function names' >> $@

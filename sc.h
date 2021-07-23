@@ -213,8 +213,17 @@ struct go_save {
     rangeref_t g_rr;
     cellref_t st;
     int stflag;
-    int errsearch;
 };
+
+/* g_type can be: */
+#define G_NONE    0     /* Starting value - must be 0 */
+#define G_CELL    1
+#define G_NUM     2
+#define G_ERROR   3
+#define G_INVALID 4
+#define G_STR     5
+#define G_NSTR    6
+#define G_XSTR    7
 
 /* op values */
 #define O_VAR 'v'
@@ -716,7 +725,7 @@ extern void lock_cells(rangeref_t rr);
 extern void move_area(int dr, int dc, rangeref_t rr);
 extern void mover(cellref_t cr, rangeref_t rr);
 extern void moveto(rangeref_t rr, cellref_t st);
-extern void num_search(double n, rangeref_t rr, int errsearch);
+extern int num_search(int g_type, rangeref_t rr, double n);
 extern void printfile(SCXMEM string_t *fname, rangeref_t rr);
 extern void pullcells(int to_insert, cellref_t cr);
 extern int query(char *dest, int destsize, const char *s, const char *data);
@@ -735,7 +744,7 @@ extern void slet(cellref_t cr, SCXMEM enode_t *se, int align);
 extern void sortrange(rangeref_t rr, SCXMEM string_t *criteria);
 extern void startdisp(void);
 extern void stopdisp(void);
-extern void str_search(SCXMEM string_t *s, rangeref_t rr, int num);
+extern int str_search(int g_type, rangeref_t rr, SCXMEM string_t *str);
 extern void sync_cranges(void);
 extern void sync_franges(void);
 extern void sync_nranges(void);

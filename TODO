@@ -1,5 +1,6 @@
 # TODO
 
+[ ] make cell notes separate structures
 [ ] pattern directed input in vi.c
 [ ] sparse matrix database
 [ ] remove yacc based parser

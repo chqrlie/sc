@@ -15,52 +15,31 @@
 /* Use this structure to save the last 'g' command */
 struct go_save gs;
 
-/* g_type can be: */
-#define G_NONE 0        /* Starting value - must be 0 */
-#define G_NUM 1
-#define G_STR 2
-#define G_NSTR 3
-#define G_XSTR 4
-#define G_CELL 5
-
 /* Goto subroutines */
 
 static void g_free(void) {
-    switch (gs.g_type) {
-    case G_STR:
-    case G_NSTR: set_string(&gs.g_s, NULL); break;
-    default: break;
-    }
     gs.g_type = G_NONE;
-    gs.errsearch = 0;
+    set_string(&gs.g_s, NULL);
 }
 
 /* repeat the last goto command */
 void go_last(void) {
-    int num = 0;
-
     switch (gs.g_type) {
-    case G_NONE:
-        error("Nothing to repeat");
-        break;
-    case G_NUM:
-        num_search(gs.g_n, gs.g_rr, gs.errsearch);
-        break;
     case G_CELL:
         moveto(gs.g_rr, gs.st);
         break;
-    case G_XSTR:
-        num++;
-        FALLTHROUGH;
-    case G_NSTR:
-        num++;
-        FALLTHROUGH;
-    case G_STR:
-        str_search(dup_string(gs.g_s), gs.g_rr, num);
+    case G_NUM:
+    case G_ERROR:
+    case G_INVALID:
+        num_search(gs.g_type, gs.g_rr, gs.g_n);
         break;
-
+    case G_STR:
+    case G_NSTR:
+    case G_XSTR:
+        str_search(gs.g_type, gs.g_rr, dup_string(gs.g_s));
+        break;
     default:
-        error("go_last: internal error");
+        error("Nothing to repeat");
         break;
     }
 }
@@ -92,6 +71,7 @@ void moveto(rangeref_t rr, cellref_t st) {
 
     FullUpdate++;
     if (loading) {
+        // XXX: shy update the screen now?
         update(1);
         changed = 0;
     } else {
@@ -100,21 +80,29 @@ void moveto(rangeref_t rr, cellref_t st) {
 }
 
 /*
- * 'goto' either a given number,'error', or 'invalid' starting at currow,curcol
+ * 'goto' either a given number, 'error', or 'invalid' starting at currow/curcol
  */
-void num_search(double n, rangeref_t rr, int errsearch) {
+//int do_search(int g_type, rangeref_t rr, ... {double n or SCXMEM char *str})
+
+int num_search(int g_type, rangeref_t rr, double n) {
     struct ent *p;
     int firstrow, firstcol, lastrow, lastcol;
-    int r, c, endr, endc;
+    int row, col, endr, endc;
+    int found = 0;
+    int errsearch = 0;
 
     if (!loading)
         remember(0);
 
+    if (g_type == G_ERROR)
+        errsearch = CELLERROR;
+    if (g_type == G_INVALID)
+        errsearch = CELLINVALID;
+
     g_free();
-    gs.g_type = G_NUM;
-    gs.g_n = n;
+    gs.g_type = g_type;
     gs.g_rr = rr;
-    gs.errsearch = errsearch;
+    gs.g_n = n;
 
     firstrow = rr.left.row;
     firstcol = rr.left.col;
@@ -129,54 +117,58 @@ void num_search(double n, rangeref_t rr, int errsearch) {
         endr = lastrow;
         endc = lastcol;
     }
-    r = endr;
-    c = endc;
-    while (1) {
-        if (c < lastcol) {
-            c++;
+    row = endr;
+    col = endc;
+    for (;;) {
+        if (col < lastcol) {
+            col++;
         } else {
-            if (r < lastrow) {
-                while (++r < lastrow && row_hidden[r])
+            col = firstcol;
+            if (row < lastrow) {
+                while (++row < lastrow && row_hidden[row])
                     continue;
-                c = firstcol;
             } else {
-                r = firstrow;
-                c = firstcol;
+                row = firstrow;
             }
         }
-        p = *ATBL(tbl, r, c);
-        if (!col_hidden[c] && p && (p->flags & IS_VALID) &&
-                (errsearch || (p->v == n)) && (!errsearch ||
-                (p->cellerror == errsearch)))   /* CELLERROR vs CELLINVALID */
+        if (!col_hidden[col] && (p = *ATBL(tbl, row, col))) {
+            if ((p->flags & IS_VALID) &&
+                ((!errsearch && (p->v == n)) ||
+                 (errsearch && (p->cellerror == errsearch)))) {   /* CELLERROR vs CELLINVALID */
+                found = 1;
+                break;
+            }
+        }
+        if (row == endr && col == endc)
             break;
-        if (r == endr && c == endc) {
-            if (errsearch) {
-                error("no %s cell found", errsearch == CELLERROR ? "ERROR" :
-                      "INVALID");
-            } else {
-                error("Number not found");
-            }
-            return;
-        }
     }
 
-    currow = r;
-    curcol = c;
-    if (loading) {
-        update(1);
-        changed = 0;
+    if (found) {
+        currow = row;
+        curcol = col;
+        if (loading) {
+            update(1);
+            changed = 0;
+        } else {
+            remember(1);
+        }
     } else {
-        remember(1);
+        if (errsearch) {
+            error("no %s cell found", errsearch == CELLERROR ? "ERROR" : "INVALID");
+        } else {
+            error("Number not found");
+        }
     }
+    return found;
 }
 
 /* 'goto' a cell containing a matching string */
-void str_search(SCXMEM string_t *str, rangeref_t rr, int num) {
+int str_search(int g_type, rangeref_t rr, SCXMEM string_t *str) {
     char field[FBUFLEN];
     struct ent *p;
-    int found = 0;
     int firstrow, firstcol, lastrow, lastcol;
     int row, col, endr, endc;
+    int found = 0;
     const char *s;
 #if defined REGCOMP
     regex_t preg;
@@ -189,7 +181,7 @@ void str_search(SCXMEM string_t *str, rangeref_t rr, int num) {
 #endif
 
     if (!str)
-        return;
+        return -1;
 
     s = s2c(str);
 
@@ -199,20 +191,20 @@ void str_search(SCXMEM string_t *str, rangeref_t rr, int num) {
         regerror(errcode, &preg, buf, sizeof(buf));
         error("%s", buf);
         free_string(str);
-        return;
+        return -1;
     }
 #elif defined RE_COMP
     if ((tmp = re_comp(s)) != NULL) {
         error("%s", tmp);
         free_string(str);
-        return;
+        return -1;
     }
 #elif defined REGCMP
     if ((tmp = regcmp(s, NULL)) == NULL) {
         cellerror = CELLERROR;
         error("Invalid search string");
         free_string(str);
-        return;
+        return -1;
     }
 #else
     /* otherwise nothing to do, will just use strcmp() */
@@ -221,13 +213,15 @@ void str_search(SCXMEM string_t *str, rangeref_t rr, int num) {
         remember(0);
 
     g_free();
-    gs.g_type = G_STR + num;
-    set_string(&gs.g_s, str);
+    gs.g_type = g_type;
     gs.g_rr = rr;
+    set_string(&gs.g_s, str);
+
     firstrow = rr.left.row;
     firstcol = rr.left.col;
     lastrow = rr.right.row;
     lastcol = rr.right.col;
+
     if (currow >= firstrow && currow <= lastrow &&
             curcol >= firstcol && curcol <= lastcol) {
         endr = currow;
@@ -238,6 +232,7 @@ void str_search(SCXMEM string_t *str, rangeref_t rr, int num) {
     }
     row = endr;
     col = endc;
+    // XXX: incorrect if firstrow or lastrow is hidden
     for (;;) {
         if (col < lastcol) {
             col++;
@@ -275,7 +270,7 @@ void str_search(SCXMEM string_t *str, rangeref_t rr, int num) {
                         *field = '\0';
                 }
             }
-            if (gs.g_type == G_STR) {
+            if (gs.g_type == G_STR && p->label) {
                 s1 = s2c(p->label);
             }
             if (s1 && *s1
@@ -315,6 +310,7 @@ void str_search(SCXMEM string_t *str, rangeref_t rr, int num) {
     } else {
         error("String not found");
     }
+    return found;
 }
 
 void doend(int rowinc, int colinc) {
