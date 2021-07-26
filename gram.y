@@ -422,7 +422,10 @@ command:  S_LET var_or_range '=' e      { let($2.left, $4); }
         | S_GOTO var_or_range           { moveto($2, cellref(-1, -1)); }
         | S_GOTO num range              { num_search(G_NUM, $3, $2); }
         | S_GOTO num                    { num_search(G_NUM, rangeref_total(), $2); }
-        | S_GOTO errlist                { /* code is executed in errlist rules */ }
+        | S_GOTO GO_ERROR range         { num_search(G_ERROR, $3, 0.0); }
+        | S_GOTO GO_ERROR               { num_search(G_ERROR, rangeref_total(), 0.0); }
+        | S_GOTO GO_INVALID range       { num_search(G_INVALID, $3, 0.0); }
+        | S_GOTO GO_INVALID             { num_search(G_INVALID, rangeref_total(), 0.0); }
         | S_GOTO STRING range           { str_search(G_STR, $3, $2); }
         | S_GOTO '#' STRING range       { str_search(G_NSTR, $4, $3); }
         | S_GOTO '%' STRING range       { str_search(G_XSTR, $4, $3); }
@@ -835,11 +838,4 @@ setitem : K_AUTO                    { setautocalc(1); }
         | not K_LOCALE              { sc_set_locale(0); }
         | K_EMACS                   { emacs_bindings = 1; }
         | not K_EMACS               { emacs_bindings = 0; }
-        ;
-
-/* types of errors, to 'goto' */
-errlist:  GO_ERROR range            { num_search(G_ERROR, $2, 0.0); }
-        | GO_ERROR                  { num_search(G_ERROR, rangeref_total(), 0.0); }
-        | GO_INVALID range          { num_search(G_INVALID, $2, 0.0); }
-        | GO_INVALID                { num_search(G_INVALID, rangeref_total(), 0.0); }
         ;

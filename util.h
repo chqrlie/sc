@@ -31,6 +31,8 @@
 /* macro to swap int variables: fails for expressions */
 #define SWAPINT(x, y) do { int x##__##y = x; x = y; y = x##__##y; } while (0)
 
+#define countof(a)  (sizeof(a) / sizeof(*(a)))
+
 /*---------------- Memory allocation ----------------*/
 
 #define SCXMEM  /* flag allocated pointers with this */

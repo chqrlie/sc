@@ -1,5 +1,6 @@
 # TODO
 
+[ ] STOP THIS NUMERIC/STRING confusing bullshit!
 [ ] make cell notes separate structures
 [ ] pattern directed input in vi.c
 [ ] sparse matrix database

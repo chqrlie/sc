@@ -138,8 +138,40 @@ static int parse_cellref(const char *p, cellref_t *cp, int *lenp) {
     return 1;
 }
 
-static int lookup_name(struct key *tblp, const char *p, int len) {
-    for (; tblp->key; tblp++) {
+#if 1
+static int compare_name(const char *p, int len, const char *str) {
+    while (len --> 0) {
+        int cmp = toupperchar(*p++) - *str++;
+        if (cmp != 0)
+            return cmp;
+    }
+    return (*str == '\0') ? 0 : -1;
+}
+
+/* Use binary sort, assuming keywords are all uppercase and sorted */
+static int lookup_name(const struct key *tblp, size_t count, const char *p, int len) {
+    if (len --> 0) {
+        size_t a = 0, b = count;
+        char c = toupperchar(*p++);
+        int cmp;
+        while (a < b) {
+            size_t n = (a + b) >> 1;
+            const struct key *tp = tblp + n;
+            if (!(cmp = c - tp->key[0]) && !(cmp = compare_name(p, len, tp->key + 1)))
+                return tp->val;
+            if (cmp < 0) {
+                b = n;
+            } else {
+                a = n + 1;
+            }
+        }
+    }
+    return -1;
+}
+#else
+static int lookup_name(const struct key *tblp, size_t count, const char *p, int len) {
+    // XXX: should use binary search
+    for (; count --> 0; tblp++) {
         // XXX: ugly hard coded case mapped comparison
         // XXX: the length test is bogus, accesses beyond the end of the string
         if (((tblp->key[0] ^ p[0]) & 0x5F) == 0 && tblp->key[len] == '\0') {
@@ -155,6 +187,7 @@ static int lookup_name(struct key *tblp, const char *p, int len) {
     }
     return -1;
 }
+#endif
 
 int yylex(void) {
     char path[PATHLEN];
@@ -190,7 +223,7 @@ int yylex(void) {
 
             if (p0 == src_line) {
                 /* look up command name */
-                if ((ret = lookup_name(cmdres, p0, p - p0)) >= 0) {
+                if ((ret = lookup_name(cmdres, countof(cmdres), p0, p - p0)) >= 0) {
                     yylval.ival = ret;
                     /* set context for specific keywords */
                     /* accept column names for some commands */
@@ -202,7 +235,7 @@ int yylex(void) {
             }
             if (isfunc) {
                 isfunc = 0;
-                if ((yylval.ival = lookup_name(funcres, p0, p - p0)) >= 0) {
+                if ((yylval.ival = lookup_name(funcres, countof(funcres), p0, p - p0)) >= 0) {
                     ret = yylval.ival;
                     break;
                 }
@@ -219,14 +252,14 @@ int yylex(void) {
                 break;
             }
             if (isgoto) {
-                if ((yylval.ival = lookup_name(gotores, p0, p - p0)) >= 0) {
+                if ((yylval.ival = lookup_name(gotores, countof(gotores), p0, p - p0)) >= 0) {
                     isgoto = 0;
                     ret = yylval.ival;
                     break;
                 }
             }
             if (issetting) {
-                if ((yylval.ival = lookup_name(settingres, p0, p - p0)) >= 0) {
+                if ((yylval.ival = lookup_name(settingres, countof(settingres), p0, p - p0)) >= 0) {
                     ret = yylval.ival;
                     break;
                 }

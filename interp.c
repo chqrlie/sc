@@ -737,13 +737,7 @@ double eval(enode_t *e) {
     case '!':       return eval(e->e.o.left) == 0.0;
     case ';':       return ((int)eval(e->e.o.left) & 7) +
                             (((int)eval(e->e.o.right) & 7) << 3);
-    case O_CONST:   if (!isfinite(e->e.k)) {
-                        // XXX: should test this at node contruction time
-                        e->op = ERR_;
-                        e->e.k = 0.0;
-                        cellerror = CELLERROR;
-                    }
-                    return e->e.k;
+    case O_CONST:   return e->e.k;
     case O_VAR:     {
                         struct ent *vp = e->e.v.vp;
                         if (vp && (rowoffset || coloffset)) {
@@ -1418,6 +1412,8 @@ SCXMEM enode_t *new_const(double v) {
     if ((p = new_node(O_CONST, NULL, NULL))) {
         p->type = OP_TYPE_DOUBLE;
         p->e.k = v;
+        if (!isfinite(v))
+            p->op = ERR_;
     }
     return p;
 }
@@ -1910,7 +1906,6 @@ static void decompile_node(decomp_t *dcp, enode_t *e, int priority) {
     if (e) {
         int mypriority;
         switch (e->op) {
-        default: mypriority = 99; break;
         case ';': mypriority = 1; break;
         case '?': mypriority = 2; break;
         case ':': mypriority = 3; break;
@@ -1926,6 +1921,7 @@ static void decompile_node(decomp_t *dcp, enode_t *e, int priority) {
         case '/':
         case '%': mypriority = 10; break;
         case '^': mypriority = 12; break;
+        default: mypriority = 99; break;
         }
         if (mypriority < priority) buf_putc(dcp->buf, '(');
 
