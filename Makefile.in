@@ -453,7 +453,7 @@ $O/vmtbl.o: vmtbl.c $(DEPENDS)
 # other stuff
 
 clean:
-	rm -rf .obj *.o *res.h $(YTAB).h $(YTAB).c y.output tags debug core
+	rm -rf .obj *.o *res.h *.dSYM $(YTAB).h $(YTAB).c y.output tags debug core
 
 distclean: clean
 	rm -f $(name) p$(name) $(name)qref x$(name) Makefile config.log

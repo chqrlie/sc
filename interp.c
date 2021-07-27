@@ -578,7 +578,7 @@ static double donval(SCXMEM string_t *colstr, double rowdoub) {
  *      is a value.
  */
 static double dolmax(enode_t *ep) {
-    // XXX: should handle vars and ranges in list
+    // XXX: should handle ranges in list
     int count = 0;
     double maxval = 0.0;
     enode_t *p;
@@ -595,7 +595,7 @@ static double dolmax(enode_t *ep) {
 }
 
 static double dolmin(enode_t *ep) {
-    // XXX: should handle vars and ranges in list
+    // XXX: should handle ranges in list
     int count = 0;
     double minval = 0.0;
     enode_t *p;
@@ -683,6 +683,29 @@ double rint(double d) {
 }
 #endif
 
+static double dornd(double d) {
+    if (rndtoeven) {
+        return rint(d);
+    } else {
+        return (d - floor(d) < 0.5 ? floor(d) : ceil(d));
+    }
+}
+
+static double doround(double a, double b) {
+    int prec = (int)b;
+    double scale = 1.0;
+
+    while (prec > 0) {
+        scale *= 10.0;
+        prec--;
+    }
+    while (prec < 0) {
+        scale /= 10.0;
+        prec++;
+    }
+    return dornd(a * scale) / scale;
+}
+
 /*---------------- numeric evaluator ----------------*/
 
 double eval(enode_t *e) {
@@ -735,8 +758,8 @@ double eval(enode_t *e) {
     case 'f':       return eval_offset(0, 0, e->e.o.left);
     case 'F':       return eval(e->e.o.left);
     case '!':       return eval(e->e.o.left) == 0.0;
-    case ';':       return ((int)eval(e->e.o.left) & 7) +
-                            (((int)eval(e->e.o.right) & 7) << 3);
+    case ';':       return (((int)eval(e->e.o.left) & 7) +
+                            (((int)eval(e->e.o.right) & 7) << 3));
     case O_CONST:   return e->e.k;
     case O_VAR:     {
                         struct ent *vp = e->e.v.vp;
@@ -765,45 +788,39 @@ double eval(enode_t *e) {
     case STDDEV:
     case MAX:
     case MIN:
+    case ROWS_:
+    case COLS_:
     case INDEX:
     case LOOKUP:
     case HLOOKUP:
     case VLOOKUP: {
-            int minr = e->e.o.left->e.r.left.vp->row;
-            int minc = e->e.o.left->e.r.left.vp->col;
-            int maxr = e->e.o.left->e.r.right.vp->row;
-            int maxc = e->e.o.left->e.r.right.vp->col;
+            // XXX: this 2 argument API is not general enough
+            enode_t *left = e->e.o.left;
+            enode_t *right = e->e.o.right;
+            int minr = left->e.r.left.vp->row;
+            int minc = left->e.r.left.vp->col;
+            int maxr = left->e.r.right.vp->row;
+            int maxc = left->e.r.right.vp->col;
             if (minr > maxr) SWAPINT(minr, maxr);
             if (minc > maxc) SWAPINT(minc, maxc);
             switch (e->op) {
-            case SUM:
-                return dosum(minr, minc, maxr, maxc, e->e.o.right);
-            case PROD:
-                return doprod(minr, minc, maxr, maxc, e->e.o.right);
-            case AVG:
-                return doavg(minr, minc, maxr, maxc, e->e.o.right);
-            case COUNT:
-                return docount(minr, minc, maxr, maxc, e->e.o.right);
-            case STDDEV:
-                return dostddev(minr, minc, maxr, maxc, e->e.o.right);
-            case MAX:
-                return domax(minr, minc, maxr, maxc, e->e.o.right);
-            case MIN:
-                return domin(minr, minc, maxr, maxc, e->e.o.right);
-            case LOOKUP:
-                return dolookup(e->e.o.right, minr, minc, maxr, maxc, 1, minc == maxc);
-            case HLOOKUP:
-                return dolookup(e->e.o.right->e.o.left, minr, minc, maxr, maxc,
-                                (int)eval(e->e.o.right->e.o.right), 0);
-            case VLOOKUP:
-                return dolookup(e->e.o.right->e.o.left, minr, minc, maxr, maxc,
-                                (int)eval(e->e.o.right->e.o.right), 1);
-            case INDEX:
-                return doindex(minr, minc, maxr, maxc, e->e.o.right);
+            case SUM:   return dosum(minr, minc, maxr, maxc, right);
+            case PROD:  return doprod(minr, minc, maxr, maxc, right);
+            case AVG:   return doavg(minr, minc, maxr, maxc, right);
+            case COUNT: return docount(minr, minc, maxr, maxc, right);
+            case STDDEV: return dostddev(minr, minc, maxr, maxc, right);
+            case MAX:   return domax(minr, minc, maxr, maxc, right);
+            case MIN:   return domin(minr, minc, maxr, maxc, right);
+            case ROWS_: return maxr - minr + 1;
+            case COLS_: return maxc - minc + 1;
+            case LOOKUP: return dolookup(right, minr, minc, maxr, maxc, 1, minc == maxc);
+            case HLOOKUP: return dolookup(right->e.o.left, minr, minc, maxr, maxc,
+                                          (int)eval(right->e.o.right), 0);
+            case VLOOKUP: return dolookup(right->e.o.left, minr, minc, maxr, maxc,
+                                          (int)eval(right->e.o.right), 1);
+            case INDEX: return doindex(minr, minc, maxr, maxc, right);
             }
         }
-    case 'R':       return abs(e->e.r.right.vp->row - e->e.r.left.vp->row) + 1;
-    case 'C':       return abs(e->e.r.right.vp->col - e->e.r.left.vp->col) + 1;
 
     case ABS:       return fn1_eval( fabs, eval(e->e.o.left));
     case ACOS:      return fn1_eval( acos, eval(e->e.o.left));
@@ -826,35 +843,9 @@ double eval(enode_t *e) {
     case RTD:       return rtd(eval(e->e.o.left));
     case RAND:      return (double)rand() / ((double)RAND_MAX + 1);
     case RANDBETWEEN: return rand_between(eval(e->e.o.left), eval(e->e.o.right));
-    case RND:
-        if (rndtoeven) {
-            return rint(eval(e->e.o.left));
-        } else {
-            double temp = eval(e->e.o.left);
-            return (temp - floor(temp) < 0.5 ? floor(temp) : ceil(temp));
-        }
-    case ROUND:
-        {   int prec = (int)eval(e->e.o.right);
-            double scale = 1;
-            if (0 < prec)
-                do scale *= 10; while (0 < --prec);
-            else if (prec < 0)
-                do scale /= 10; while (++prec < 0);
+    case RND:       return dornd(eval(e->e.o.left));
+    case ROUND:     return doround(eval(e->e.o.left), eval(e->e.o.right));
 
-            if (rndtoeven)
-                return rint(eval(e->e.o.left) * scale) / scale;
-            else {
-                double temp = eval(e->e.o.left);
-                temp *= scale;
-                /* xxx */
-                /*
-                temp = (temp > 0.0 ? floor(temp + 0.5) : ceil(temp - 0.5));
-                */
-                temp = ((temp - floor(temp)) < 0.5 ?
-                        floor(temp) : ceil(temp));
-                return temp / scale;
-            }
-        }
     case FV:        return fin_fv(eval(e->e.o.left),
                                   eval(e->e.o.right->e.o.left),
                                   eval(e->e.o.right->e.o.right));
@@ -1373,37 +1364,17 @@ SCXMEM enode_t *new_var(int op, cellref_t cr) {
     return p;
 }
 
-static SCXMEM enode_t *new_range(int op, rangeref_t rr, SCXMEM enode_t *a1) {
+SCXMEM enode_t *new_range(rangeref_t rr) {
     SCXMEM enode_t *p;
 
-    if ((p = new_node(op, NULL, NULL))) {
+    if ((p = new_node(RANGEARG, NULL, NULL))) {
         p->type = OP_TYPE_RANGE;
         p->e.r.left.vf = rr.left.vf;
         p->e.r.left.vp = lookat(rr.left.row, rr.left.col);
         p->e.r.right.vf = rr.right.vf;
         p->e.r.right.vp = lookat(rr.right.row, rr.right.col);
-
-        if (op != 'R' && op != 'C')
-            p = new_node(op, p, a1);
-    } else {
-        efree(a1);
     }
     return p;
-}
-
-SCXMEM enode_t *new_range0(int op, rangeref_t rr) {
-    return new_range(op, rr, NULL);
-}
-
-SCXMEM enode_t *new_range1(int op, rangeref_t rr, SCXMEM enode_t *a1) {
-    if (!a1) return NULL;
-    return new_range(op, rr, a1);
-}
-
-SCXMEM enode_t *new_range2(int op, rangeref_t rr, SCXMEM enode_t *a1,
-                           SCXMEM enode_t *a2)
-{
-    return new_range(op, rr, new_op2(',', a1, a2));
 }
 
 SCXMEM enode_t *new_const(double v) {
@@ -1860,13 +1831,6 @@ static void three_arg(decomp_t *dcp, const char *s, enode_t *e) {
     buf_putc(dcp->buf, ')');
 }
 
-static void range_arg(decomp_t *dcp, const char *s, enode_t *e) {
-    buf_puts(dcp->buf, s);
-    buf_putc(dcp->buf, '(');
-    out_range(dcp, e);
-    buf_putc(dcp->buf, ')');
-}
-
 static void two_arg_index(decomp_t *dcp, const char *s, enode_t *e) {
     buf_puts(dcp->buf, s);
     buf_putc(dcp->buf, '(');
@@ -1941,8 +1905,8 @@ static void decompile_node(decomp_t *dcp, enode_t *e, int priority) {
         case STDDEV:    index_arg(dcp, "@stddev", e); break;
         case MAX:       index_arg(dcp, "@max", e); break;
         case MIN:       index_arg(dcp, "@min", e); break;
-        case 'R':       range_arg(dcp, "@rows", e); break;
-        case 'C':       range_arg(dcp, "@cols", e); break;
+        case ROWS_:     index_arg(dcp, "@rows", e); break;
+        case COLS_:     index_arg(dcp, "@cols", e); break;
 
         case ABS:       one_arg(dcp, "@abs", e); break;
         case ACOS:      one_arg(dcp, "@acos", e); break;

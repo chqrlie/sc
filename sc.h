@@ -274,7 +274,7 @@ struct go_save {
 #define STON      (OP_BASE + 35)
 #define EQS       (OP_BASE + 36)
 #define EXT       (OP_BASE + 37)
-#define ELIST     (OP_BASE + 38)    /* List of expressions */
+//#define ELIST     (OP_BASE + 38)    /* List of expressions */
 #define LMAX      (OP_BASE + 39)
 #define LMIN      (OP_BASE + 40)
 #define NVAL      (OP_BASE + 41)
@@ -315,6 +315,9 @@ struct go_save {
 #define WHITE     (OP_BASE + 76)
 #define RAND      (OP_BASE + 77)
 #define RANDBETWEEN  (OP_BASE + 78)
+#define RANGEARG  (OP_BASE + 79)
+#define ROWS_     (OP_BASE + 80)
+#define COLS_     (OP_BASE + 81)
 
 /* flag values (9 bits) */
 #define IS_VALID        0001  /* has a valid number value */
@@ -613,10 +616,7 @@ extern SCXMEM enode_t *new_op2(int op, SCXMEM enode_t *a1, SCXMEM enode_t *a2);
 extern SCXMEM enode_t *new_op3(int op, SCXMEM enode_t *a1,
                                SCXMEM enode_t *a2, SCXMEM enode_t *a3);
 extern SCXMEM enode_t *new_const(double a1);
-extern SCXMEM enode_t *new_range0(int op, rangeref_t rr);
-extern SCXMEM enode_t *new_range1(int op, rangeref_t rr, SCXMEM enode_t *a1);
-extern SCXMEM enode_t *new_range2(int op, rangeref_t rr, SCXMEM enode_t *a1,
-                                  SCXMEM enode_t *a2);
+extern SCXMEM enode_t *new_range(rangeref_t rr);
 extern SCXMEM enode_t *new_str(SCXMEM string_t *s);
 extern SCXMEM enode_t *new_var(int op, cellref_t cr);
 /* a linked list of free [struct ent]'s, uses .next as the pointer */
