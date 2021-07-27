@@ -84,7 +84,7 @@ static SCXMEM string_t *get_strarg(cellref_t cr) {
 %type <rval> range
 %type <rval> var_or_range
 %type <sval> strarg
-%type <enode> e term expr_list
+%type <enode> e term expr_list vrnode rnode
 %type <ival> noval
 %token <sval> STRING
 %token <ival> NUMBER
@@ -612,27 +612,33 @@ noval:                                  { $$ = DCP_DEFAULT; }
         | '*'                           { $$ = DCP_NO_EXPR; }
         ;
 
-term:     var                           { $$ = new_var(O_VAR, $1); }
+vrnode:   var_or_range                  { $$ = new_range($1); }
+        ;
+
+rnode:    range                         { $$ = new_range($1); }
+        ;
+
+term:     var                           { $$ = new_var($1); }
         | F_FIXED term                  { $$ = new_op1('f', $2); }
         | '(' F_FIXED ')' term          { $$ = new_op1('F', $4); }
-        | F_SUM '(' var_or_range ')'    { $$ = new_op1(SUM, new_range($3)); }
-        | F_SUM '(' range ',' e ')'     { $$ = new_op2(SUM, new_range($3), $5); }
-        | F_PROD '(' var_or_range ')'   { $$ = new_op1(PROD, new_range($3)); }
-        | F_PROD '(' range ',' e ')'    { $$ = new_op2(PROD, new_range($3), $5); }
-        | F_AVG '(' var_or_range ')'    { $$ = new_op1(AVG, new_range($3)); }
-        | F_AVG '(' range ',' e ')'     { $$ = new_op2(AVG, new_range($3), $5); }
-        | F_STDDEV '(' var_or_range ')' { $$ = new_op1(STDDEV, new_range($3)); }
-        | F_STDDEV '(' range ',' e ')'  { $$ = new_op2(STDDEV, new_range($3), $5); }
-        | F_COUNT '(' var_or_range ')'  { $$ = new_op1(COUNT, new_range($3)); }
-        | F_COUNT '(' range ',' e ')'   { $$ = new_op2(COUNT, new_range($3), $5); }
-        | F_MAX '(' var_or_range ')'    { $$ = new_op1(MAX, new_range($3)); }
-        | F_MAX '(' range ',' e ')'     { $$ = new_op2(MAX, new_range($3), $5); }
+        | F_SUM '(' vrnode ')'          { $$ = new_op1(SUM, $3); }
+        | F_SUM '(' rnode ',' e ')'     { $$ = new_op2(SUM, $3, $5); }
+        | F_PROD '(' vrnode ')'         { $$ = new_op1(PROD, $3); }
+        | F_PROD '(' rnode ',' e ')'    { $$ = new_op2(PROD, $3, $5); }
+        | F_AVG '(' vrnode ')'          { $$ = new_op1(AVG, $3); }
+        | F_AVG '(' rnode ',' e ')'     { $$ = new_op2(AVG, $3, $5); }
+        | F_STDDEV '(' vrnode ')'       { $$ = new_op1(STDDEV, $3); }
+        | F_STDDEV '(' rnode ',' e ')'  { $$ = new_op2(STDDEV, $3, $5); }
+        | F_COUNT '(' vrnode ')'        { $$ = new_op1(COUNT, $3); }
+        | F_COUNT '(' rnode ',' e ')'   { $$ = new_op2(COUNT, $3, $5); }
+        | F_MAX '(' vrnode ')'          { $$ = new_op1(MAX, $3); }
+        | F_MAX '(' rnode ',' e ')'     { $$ = new_op2(MAX, $3, $5); }
         | F_MAX '(' e ',' expr_list ')' { $$ = new_op2(LMAX, $3, $5); }
-        | F_MIN '(' var_or_range ')'    { $$ = new_op1(MIN, new_range($3)); }
-        | F_MIN '(' range ',' e ')'     { $$ = new_op2(MIN, new_range($3), $5); }
+        | F_MIN '(' vrnode ')'          { $$ = new_op1(MIN, $3); }
+        | F_MIN '(' rnode ',' e ')'     { $$ = new_op2(MIN, $3, $5); }
         | F_MIN '(' e ',' expr_list ')' { $$ = new_op2(LMIN, $3, $5); }
-        | F_ROWS '(' var_or_range ')'   { $$ = new_op1(ROWS_, new_range($3)); }
-        | F_COLS '(' var_or_range ')'   { $$ = new_op1(COLS_, new_range($3)); }
+        | F_ROWS '(' vrnode ')'         { $$ = new_op1(ROWS_, $3); }
+        | F_COLS '(' vrnode ')'         { $$ = new_op1(COLS_, $3); }
 
         | F_ABS '(' e ')'               { $$ = new_op1(ABS, $3); }
         | F_ACOS '(' e ')'              { $$ = new_op1(ACOS, $3); }
@@ -672,9 +678,6 @@ term:     var                           { $$ = new_var(O_VAR, $1); }
         | F_YEAR '(' e ')'              { $$ = new_op1(YEAR, $3); }
         | F_NOW                         { $$ = new_op0(NOW); }
         | F_DTS '(' e ',' e ',' e ')'   { $$ = new_op3(DTS, $3, $5, $7); }
-                                        // XXX: should return a specific token, same for x/x/x and x:x and x:x:x
-        | NUMBER '.' NUMBER '.' NUMBER  { $$ = new_op3(DTS, new_const((double)$1),
-                                                       new_const((double)$3), new_const((double)$5)); }
         | F_TTS '(' e ',' e ',' e ')'   { $$ = new_op3(TTS, $3, $5, $7); }
         | F_STON '(' e ')'              { $$ = new_op1(STON, $3); }
         | F_EQS '(' e ',' e ')'         { $$ = new_op2(EQS, $3, $5); }
@@ -684,18 +687,18 @@ term:     var                           { $$ = new_var(O_VAR, $1); }
         | F_UPPER '(' e ')'             { $$ = new_op1(UPPER, $3); }
         | F_LOWER '(' e ')'             { $$ = new_op1(LOWER, $3); }
         | F_CAPITAL '(' e ')'           { $$ = new_op1(CAPITAL, $3); }
-        | F_INDEX '(' range ',' e ')'   { $$ = new_op2(INDEX, new_range($3), $5); }
-        | F_INDEX '(' e ',' range ')'   { $$ = new_op2(INDEX, new_range($5), $3); }
-        | F_INDEX '(' range ',' e ',' e ')'  { $$ = new_op3(INDEX, new_range($3), $5, $7); }
-        | F_LOOKUP '(' range ',' e ')'  { $$ = new_op2(LOOKUP, new_range($3), $5); }
-        | F_LOOKUP '(' e ',' range ')'  { $$ = new_op2(LOOKUP, new_range($5), $3); }
-        | F_HLOOKUP '(' range ',' e ',' e ')'  { $$ = new_op3(HLOOKUP, new_range($3), $5, $7); }
-        | F_HLOOKUP '(' e ',' range ',' e ')'  { $$ = new_op3(HLOOKUP, new_range($5), $3, $7); }
-        | F_VLOOKUP '(' range ',' e ',' e ')'  { $$ = new_op3(VLOOKUP, new_range($3), $5, $7); }
-        | F_VLOOKUP '(' e ',' range ',' e ')'  { $$ = new_op3(VLOOKUP, new_range($5), $3, $7); }
-        | F_STINDEX '(' range ',' e ')' { $$ = new_op2(STINDEX, new_range($3), $5); }
-        | F_STINDEX '(' e ',' range ')' { $$ = new_op2(STINDEX, new_range($5), $3); }
-        | F_STINDEX '(' range ',' e ',' e ')'  { $$ = new_op3(STINDEX, new_range($3), $5, $7); }
+        | F_INDEX '(' rnode ',' e ')'   { $$ = new_op2(INDEX, $3, $5); }
+        | F_INDEX '(' e ',' rnode ')'   { $$ = new_op2(INDEX, $5, $3); }
+        | F_INDEX '(' rnode ',' e ',' e ')'  { $$ = new_op3(INDEX, $3, $5, $7); }
+        | F_LOOKUP '(' rnode ',' e ')'  { $$ = new_op2(LOOKUP, $3, $5); }
+        | F_LOOKUP '(' e ',' rnode ')'  { $$ = new_op2(LOOKUP, $5, $3); }
+        | F_HLOOKUP '(' rnode ',' e ',' e ')'  { $$ = new_op3(HLOOKUP, $3, $5, $7); }
+        | F_HLOOKUP '(' e ',' rnode ',' e ')'  { $$ = new_op3(HLOOKUP, $5, $3, $7); }
+        | F_VLOOKUP '(' rnode ',' e ',' e ')'  { $$ = new_op3(VLOOKUP, $3, $5, $7); }
+        | F_VLOOKUP '(' e ',' rnode ',' e ')'  { $$ = new_op3(VLOOKUP, $5, $3, $7); }
+        | F_STINDEX '(' rnode ',' e ')' { $$ = new_op2(STINDEX, $3, $5); }
+        | F_STINDEX '(' e ',' rnode ')' { $$ = new_op2(STINDEX, $5, $3); }
+        | F_STINDEX '(' rnode ',' e ',' e ')'  { $$ = new_op3(STINDEX, $3, $5, $7); }
         | F_EXT '(' e ',' e ')'         { $$ = new_op2(EXT, $3, $5); }
         | F_NVAL '(' e ',' e ')'        { $$ = new_op2(NVAL, $3, $5); }
         | F_SVAL '(' e ',' e ')'        { $$ = new_op2(SVAL, $3, $5); }

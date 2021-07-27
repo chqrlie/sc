@@ -618,7 +618,7 @@ extern SCXMEM enode_t *new_op3(int op, SCXMEM enode_t *a1,
 extern SCXMEM enode_t *new_const(double a1);
 extern SCXMEM enode_t *new_range(rangeref_t rr);
 extern SCXMEM enode_t *new_str(SCXMEM string_t *s);
-extern SCXMEM enode_t *new_var(int op, cellref_t cr);
+extern SCXMEM enode_t *new_var(cellref_t cr);
 /* a linked list of free [struct ent]'s, uses .next as the pointer */
 extern struct ent *lookat(int row, int col);    /* allocates the cell */
 extern struct ent *lookat_nc(int row, int col); /* does not allocate the cell */

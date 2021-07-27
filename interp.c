@@ -1353,10 +1353,10 @@ SCXMEM enode_t *new_op3(int op, SCXMEM enode_t *a1, SCXMEM enode_t *a2,
     return new_node(op, a1, new_node(op == '?' ? ':' : ',', a2, a3));
 }
 
-SCXMEM enode_t *new_var(int op, cellref_t cr) {
+SCXMEM enode_t *new_var(cellref_t cr) {
     SCXMEM enode_t *p;
 
-    if ((p = new_node(op, NULL, NULL))) {
+    if ((p = new_node(O_VAR, NULL, NULL))) {
         p->type = OP_TYPE_VAR;
         p->e.v.vf = cr.vf;
         p->e.v.vp = lookat(cr.row, cr.col);

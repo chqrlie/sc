@@ -89,6 +89,8 @@ leftstring I16 = @date(I8)
 leftstring B17 = "^b, h and the <LEFT> arrow key go left"
 leftstring I17 = @date(I8,"%Y-%m-%d %H:%M:%S")
 leftstring B18 = "^f, l and the <RIGHT> arrow key go right"
+let I18 = 18835.8326388889
+leftstring J18 = @date(I18)
 leftstring B19 = "You can go directly to a cell by typing 'g' and the cell name. "
 leftstring B20 = "'g c6' will take you to cell c6."
 leftstring A21 = "Cells can contain numbers, formulas, or text."
@@ -178,4 +180,4 @@ leftstring A89 = "The basic commands.  Much more detail is available"
 leftstring A90 = "in the man page."
 leftstring A92 = "To quit this program, type 'q'."
 leftstring D94 = "GOOD LUCK!"
-goto I15 A0
+goto I18 A0

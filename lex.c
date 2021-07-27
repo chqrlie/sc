@@ -138,6 +138,74 @@ static int parse_cellref(const char *p, cellref_t *cp, int *lenp) {
     return 1;
 }
 
+static int parse_int(const char *p, const char **endp, int *vp) {
+    if (isdigitchar(*p)) {
+        int val = *p++ - '0';
+        while (isdigitchar(*p)) {
+            val = val * 10 + (*p++ - '0');
+        }
+        *vp = val;
+        *endp = p;
+        return 1;
+    }
+    return 0;
+}
+
+static int parse_float(const char *p, const char **endp, double *vp) {
+    // XXX: should ignore exponent
+    char *end;
+    double val = strtod(p, &end);
+    if (end > p) {
+        *endp = end;
+        *vp = val;
+        return 1;
+    }
+    return 0;
+}
+
+static int parse_time(const char *p, const char **endp, double *vp) {
+    int h, m, s = 0;
+    double ms = 0;
+    if (parse_int(p, &p, &h) && *p == ':' && parse_int(p + 1, &p, &m)) {
+        if (*p == ':' && parse_int(p + 1, &p, &s)) {
+            if (*p == '.')
+                parse_float(p, &p, &ms);
+        }
+        *endp = p;
+        *vp = (ms + s + m * 60 + h * 3600) / 86400.0;
+    }
+    return 0;
+}
+
+static int parse_date(const char *s, const char **endp, double *vp) {
+    static int const days[] = { 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
+    const char *p;
+    int d, m, y;
+    double t = 0;
+    // XXX: should swap d and m if current locale has m/d/y
+    if ((parse_int(s, &p, &d) && *p == '/' && parse_int(p + 1, &p, &m) && *p == '/' && parse_int(p + 1, &p, &y))
+    ||  (parse_int(s, &p, &y) && *p == '.' && parse_int(p + 1, &p, &m) && *p == '.' && parse_int(p + 1, &p, &d)))
+    {
+        if (*p == ' ') {
+            parse_time(p + 1, &p, &t);
+        }
+        if (m > 0 && m <= 12 && d > 0 && d <= days[m - 1] + (!(y % 4) && ((y % 100) || !(y % 400)))) {
+            int mon, year = y - 1968;    /* base 1968 */
+            if ((mon = m + 1) < 4) {
+                year -= 1;
+                mon += 12;
+            }
+            /* compute day number from 1968-3-1 and offset back to 1970-1-1 */
+            /* 794 = 123 + (366 + 365 - 60) */
+            // XXX: should use 1904-1-1 for XL compatibility
+            *vp = t + year * 1461 / 4 + mon * 153 / 5 + d - 794 /* + 24107 */;
+            *endp = p;
+            return 1;
+        }
+    }
+    return 0;
+}
+
 #if 1
 static int compare_name(const char *p, int len, const char *str) {
     while (len --> 0) {
@@ -294,6 +362,14 @@ int yylex(void) {
             int temp;
             const char *nstart = p;
 
+            if (parse_time(p, &p, &yylval.fval)) {
+                ret = FNUMBER;
+                break;
+            }
+            if (parse_date(p, &p, &yylval.fval)) {
+                ret = FNUMBER;
+                break;
+            }
             sig_save = signal(SIGFPE, fpe_trap);
             if (setjmp(fpe_buf)) {
                 signal(SIGFPE, sig_save);
