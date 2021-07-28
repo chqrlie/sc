@@ -231,8 +231,9 @@ struct go_save {
 #define O_ECONST 'E'    /* constant cell w/ an error */
 #define O_SCONST '$'
 
-#define OP_LE 'l'
 #define OP_GE 'g'
+#define OP_LE 'l'
+#define OP_LG 'o'
 #define OP_NE 'n'
 
 #define OP_BASE 128

@@ -746,6 +746,7 @@ double eval(enode_t *e) {
     case '<':       return eval(e->e.o.left) < eval(e->e.o.right);
     case OP_LE:     return eval(e->e.o.left) <= eval(e->e.o.right);
     case '=':       return eval(e->e.o.left) == eval(e->e.o.right);
+    case OP_LG:
     case OP_NE:     return eval(e->e.o.left) != eval(e->e.o.right);
     case '>':       return eval(e->e.o.left) >  eval(e->e.o.right);
     case OP_GE:     return eval(e->e.o.left) >= eval(e->e.o.right);
@@ -1814,9 +1815,10 @@ static void two_arg(decomp_t *dcp, const char *s, enode_t *e) {
     buf_puts(dcp->buf, s);
     buf_putc(dcp->buf, '(');
     decompile_node(dcp, e->e.o.left, 0);
-    // XXX: should test e->e.o.right
-    buf_putc(dcp->buf, ',');
-    decompile_node(dcp, e->e.o.right, 0);
+    if (e->e.o.right) {
+        buf_putc(dcp->buf, ',');
+        decompile_node(dcp, e->e.o.right, 0);
+    }
     buf_putc(dcp->buf, ')');
 }
 
@@ -1866,6 +1868,14 @@ static void list_arg(decomp_t *dcp, const char *s, enode_t *e) {
     buf_putc(dcp->buf, ')');
 }
 
+static void out_infix(decomp_t *dcp, char op1, char op2, enode_t *e, int priority, int mypriority) {
+    // XXX: priority seems bogus
+    decompile_node(dcp, e->e.o.left, mypriority);
+    buf_putc(dcp->buf, op1);
+    if (op2) buf_putc(dcp->buf, op2);
+    decompile_node(dcp, e->e.o.right, mypriority + 1);
+}
+
 static void decompile_node(decomp_t *dcp, enode_t *e, int priority) {
     if (e) {
         int mypriority;
@@ -1875,6 +1885,10 @@ static void decompile_node(decomp_t *dcp, enode_t *e, int priority) {
         case ':': mypriority = 3; break;
         case '|': mypriority = 4; break;
         case '&': mypriority = 5; break;
+        case OP_GE:
+        case OP_LE:
+        case OP_LG:
+        case OP_NE:
         case '<':
         case '=':
         case '>': mypriority = 6; break;
@@ -1936,11 +1950,7 @@ static void decompile_node(decomp_t *dcp, enode_t *e, int priority) {
         case DAY:       one_arg(dcp, "@day", e); break;
         case YEAR:      one_arg(dcp, "@year", e); break;
         case NOW:       buf_puts(dcp->buf, "@now"); break;
-        case DATE:      if (e->e.o.right)
-                            two_arg(dcp, "@date", e);
-                        else
-                            one_arg(dcp, "@date", e);
-                        break;
+        case DATE:      two_arg(dcp, "@date", e); break;
         case FMT:       two_arg(dcp, "@fmt", e); break;
         case UPPER:     one_arg(dcp, "@upper", e); break;
         case LOWER:     one_arg(dcp, "@lower", e); break;
@@ -1981,11 +1991,11 @@ static void decompile_node(decomp_t *dcp, enode_t *e, int priority) {
         case MAGENTA:   buf_puts(dcp->buf, "@magenta"); break;
         case CYAN:      buf_puts(dcp->buf, "@cyan"); break;
         case WHITE:     buf_puts(dcp->buf, "@white"); break;
-        default:        // XXX: priority seems bogus
-                        decompile_node(dcp, e->e.o.left, mypriority);
-                        buf_putc(dcp->buf, e->op);
-                        decompile_node(dcp, e->e.o.right, mypriority + 1);
-                        break;
+        case OP_GE:     out_infix(dcp, '>', '=', e, priority, mypriority); break;
+        case OP_LE:     out_infix(dcp, '<', '=', e, priority, mypriority); break;
+        case OP_LG:     out_infix(dcp, '<', '>', e, priority, mypriority); break;
+        case OP_NE:     out_infix(dcp, '!', '=', e, priority, mypriority); break;
+        default:        out_infix(dcp, e->op, 0, e, priority, mypriority); break;
         }
         if (mypriority < priority) buf_putc(dcp->buf, ')');
     } else {

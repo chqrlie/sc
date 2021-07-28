@@ -746,10 +746,10 @@ e:        e '+' e                   { $$ = new_op2('+', $1, $3); }
         | e '&' e                   { $$ = new_op2('&', $1, $3); }
         | e '|' e                   { $$ = new_op2('|', $1, $3); }
                                     /* should separate tokens to fix potential precedence issues */
-        | e '<' '=' e               { $$ = new_op2(OP_LE, $1, $4); }
-        | e '!' '=' e               { $$ = new_op2(OP_NE, $1, $4); }
-        | e '<' '>' e               { $$ = new_op2(OP_NE, $1, $4); }
         | e '>' '=' e               { $$ = new_op2(OP_GE, $1, $4); }
+        | e '<' '=' e               { $$ = new_op2(OP_LE, $1, $4); }
+        | e '<' '>' e               { $$ = new_op2(OP_LG, $1, $4); }
+        | e '!' '=' e               { $$ = new_op2(OP_NE, $1, $4); }
         | e '#' e                   { $$ = new_op2('#', $1, $3); }
         ;
 

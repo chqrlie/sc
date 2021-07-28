@@ -362,7 +362,7 @@ int yylex(void) {
             int temp;
             const char *nstart = p;
 
-            if (parse_time(p, &p, &yylval.fval)) {
+            if (p == src_line && parse_time(p, &p, &yylval.fval)) {
                 ret = FNUMBER;
                 break;
             }
