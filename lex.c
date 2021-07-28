@@ -470,6 +470,22 @@ int yylex(void) {
             ret = STRING;
         } else {
             yylval.ival = ret = *p++;
+            if (ret == '<' && *p == '=') {
+                ret = T_LE;
+                p++;
+            } else
+            if (ret == '<' && *p == '>') {
+                ret = T_LG;
+                p++;
+            } else
+            if (ret == '!' && *p == '=') {
+                ret = T_NE;
+                p++;
+            } else
+            if (ret == '>' && *p == '=') {
+                ret = T_GE;
+                p++;
+            }
         }
         break;
     }

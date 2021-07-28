@@ -1,6 +1,7 @@
 # TODO
 
 [ ] STOP THIS NUMERIC/STRING confusing bullshit!
+[ ] add ':' range constructor from cell references
 [ ] make cell notes separate structures
 [ ] pattern directed input in vi.c
 [ ] sparse matrix database
@@ -13,7 +14,6 @@
 [ ] handle memory allocation failure everywhere
 [ ] generalize aggregate functions for multiple arguments
 [ ] introduce new functions for conditional aggregation
-[ ] fix operator precedence issue in `<=`, `>=`, `!=` and `<>`
 [ ] define precise semantics for words in lexer (ie: `3rdrow`)
 [ ] write test cases for all commands and corner cases
 [ ] fix modflg, FullUpdate, modified, IS_CHANGED handling
@@ -83,3 +83,4 @@
 [X] track memory allocation, check for full release upon exit
 [X] simplify colsinrange/rowsinrange stuff
 [N] make curfile a string_t
+[X] fix operator precedence issue in `<=`, `>=`, `!=` and `<>`

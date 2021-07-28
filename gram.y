@@ -328,13 +328,14 @@ static SCXMEM string_t *get_strarg(cellref_t cr) {
 %token K_LOCALE
 %token K_EMACS
 
+%token <ival> T_GE T_LE T_LG T_NE
 %token <ival> '+' '-' '*' '/' '%' '^'
 
 %right ';'
 %left '?' ':'
 %left '|'
 %left '&'
-%nonassoc '<' '=' '>' '!'
+%nonassoc '<' '=' '>' '!' T_LE T_GE T_NE T_LG
 %left '+' '-' '#'
 %left '*' '/' '%'
 %left '^'
@@ -746,10 +747,10 @@ e:        e '+' e                   { $$ = new_op2('+', $1, $3); }
         | e '&' e                   { $$ = new_op2('&', $1, $3); }
         | e '|' e                   { $$ = new_op2('|', $1, $3); }
                                     /* should separate tokens to fix potential precedence issues */
-        | e '>' '=' e               { $$ = new_op2(OP_GE, $1, $4); }
-        | e '<' '=' e               { $$ = new_op2(OP_LE, $1, $4); }
-        | e '<' '>' e               { $$ = new_op2(OP_LG, $1, $4); }
-        | e '!' '=' e               { $$ = new_op2(OP_NE, $1, $4); }
+        | e T_GE e                  { $$ = new_op2(OP_GE, $1, $3); }
+        | e T_LE e                  { $$ = new_op2(OP_LE, $1, $3); }
+        | e T_LG e                  { $$ = new_op2(OP_LG, $1, $3); }
+        | e T_NE e                  { $$ = new_op2(OP_NE, $1, $3); }
         | e '#' e                   { $$ = new_op2('#', $1, $3); }
         ;
 
