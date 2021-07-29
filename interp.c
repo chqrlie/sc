@@ -43,6 +43,7 @@ static int cellerror = CELLOK;     /* is there an error in this cell */
 /* a linked list of free [struct enodes]'s, uses .e.o.left as the pointer */
 static enode_t *free_enodes = NULL;
 
+static SCXMEM enode_t *new_node(int op, SCXMEM enode_t *a1, SCXMEM enode_t *a2);
 static double eval(enode_t *e);
 static SCXMEM string_t *seval(enode_t *se);
 static int RealEvalAll(void);
@@ -929,47 +930,49 @@ static SCXMEM string_t *dofmt(SCXMEM string_t *fmtstr, double v) {
 
 /*
  * Given a command name and a value, run the command with the given value and
- * read and return its first output line (only) as an allocated string, always
- * a copy of se->e.o.s, which is set appropriately first unless external
- * functions are disabled, in which case the previous value is used.  The
- * handling of se->e.o.s and freeing of command is tricky.  Returning an
- * allocated string in all cases, even if null, ensures cell expressions are
- * written to files, etc.
+ * read and return its first output line (only) as an allocated string, store
+ * this as a third argument of @ext().
  */
 
-#ifdef NOEXTFUNCS
-
 static SCXMEM string_t *doext(enode_t *se) {
-    SCXMEM string_t *command = seval(se->e.o.left);
-    double value = eval(se->e.o.right);
+    char buff[FBUFLEN];     /* command line/output */
+    SCXMEM string_t *command;
+    enode_t *right = se->e.o.right;
+    enode_t *arg = right;
+    enode_t *def = NULL;
 
+    if (right && right->op == ',') {
+        arg = right->e.o.left;
+        def = right->e.o.right;
+    }
+    *buff = '\0';
+
+#ifdef NOEXTFUNCS
     error("Warning: External functions unavailable");
     cellerror = CELLERROR;      /* not sure if this should be a cellerror */
-    free_string(command);
-    return new_string("");
-}
-
-#else /* NOEXTFUNCS */
-
-static SCXMEM string_t *doext(enode_t *se) {
-    SCXMEM string_t *command = seval(se->e.o.left);
-    double value = eval(se->e.o.right);
-
+#else
     if (!extfunc) {
         error("Warning: external functions disabled; using %s value",
-              sempty(se->e.o.s) ? "null" : "previous");
-        free_string(command);
+              def ? "null" : "previous");
     } else {
+        command = seval(se->e.o.left);
         if (sempty(command)) {
             error("Warning: external function given null command name");
             cellerror = CELLERROR;
             free_string(command);
+            pstrcpy(buff, sizeof buff, "ERROR");
         } else {
-            char buff[FBUFLEN];     /* command line/return, not permanently alloc */
             FILE *pf;
 
-            // XXX: should accept string argument too
-            snprintf(buff, sizeof buff, "%s %.13g", s2c(command), value); /* build cmd line */
+            /* build cmd line, accept STR or NUM argument */
+            if (etype(arg) == STR) {
+                SCXMEM string_t *s = seval(arg);
+                snprintf(buff, sizeof buff, "%s %s", s2c(command), s2str(s));
+                free_string(s);
+            } else {
+                double value = eval(arg);
+                snprintf(buff, sizeof buff, "%s %.13g", s2c(command), value);
+            }
             free_string(command);
 
             error("Running external function...");
@@ -978,26 +981,33 @@ static SCXMEM string_t *doext(enode_t *se) {
             if ((pf = popen(buff, "r")) == NULL) {     /* run it */
                 error("Warning: running \"%s\" failed", buff);
                 cellerror = CELLERROR;
+                pstrcpy(buff, sizeof buff, "ERROR");
             } else {
                 if (fgets(buff, sizeof(buff), pf) == NULL) {  /* one line */
                     // XXX: should use the empty string?
                     error("Warning: external function returned nothing");
+                    *buff = '\0';
                 } else {
                     // XXX: should strip initial and triling spaces
                     size_t len = strlen(buff);
                     if (len && buff[len - 1] == '\n')   /* contains newline */
                         buff[--len] = '\0';             /* end string there */
-                    set_string(&se->e.o.s, new_string(buff));
                     error(" "); /* erase notice */
                 }
                 pclose(pf);
+                if (arg == right) {
+                    def = new_str(new_string(buff));
+                    se->e.o.right = right = new_node(',', arg, def);
+                } else
+                if (def && def->op == O_SCONST)
+                    set_string(&def->e.s, new_string(buff));
             }
         }
     }
-    return se->e.o.s ? dup_string(se->e.o.s) : new_string("");
+#endif  /* NOEXTFUNCS */
+    return def ? seval(def) : new_string(buff);
 }
 
-#endif  /* NOEXTFUNCS */
 
 /*
  * Given a string representing a column name and a value which is a column
@@ -1324,7 +1334,6 @@ static SCXMEM enode_t *new_node(int op, SCXMEM enode_t *a1, SCXMEM enode_t *a2) 
     p->type = OP_TYPE_NODES;
     p->e.o.left = a1;
     p->e.o.right = a2;
-    p->e.o.s = NULL;
     return p;
 }
 
@@ -1493,9 +1502,6 @@ enode_t *copye(enode_t *e, int Rdelta, int Cdelta,
         case 'F':
             if (range)
                 Rdelta = Cdelta = 0;
-            break;
-        case EXT:
-            ret->e.o.s = dup_string(e->e.o.s);
             break;
         }
         if ((e->e.o.left && !(ret->e.o.left = copye(e->e.o.left, Rdelta, Cdelta,
@@ -1703,7 +1709,6 @@ void efree(SCXMEM enode_t *e) {
         if (e->type == OP_TYPE_NODES) {
             efree(e->e.o.left);
             efree(e->e.o.right);
-            free_string(e->e.o.s);  // only EXT nodes?
         } else
         if (e->type == OP_TYPE_STRING) {
             free_string(e->e.s);

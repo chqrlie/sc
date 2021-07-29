@@ -157,7 +157,6 @@ struct enode {
         SCXMEM string_t *s;     /* op is a string constant */
         struct {                /* other cells use to eval()/seval() */
             SCXMEM enode_t *left, *right;
-            SCXMEM string_t *s; /* previous value of @ext function in case */
         } o;                    /*      external functions are turned off */
     } e;
 };

@@ -700,6 +700,7 @@ term:     var                           { $$ = new_var($1); }
         | F_STINDEX '(' rnode ',' e ')' { $$ = new_op2(STINDEX, $3, $5); }
         | F_STINDEX '(' e ',' rnode ')' { $$ = new_op2(STINDEX, $5, $3); }
         | F_STINDEX '(' rnode ',' e ',' e ')'  { $$ = new_op3(STINDEX, $3, $5, $7); }
+        | F_EXT '(' e ',' e ',' e ')'   { $$ = new_op3(EXT, $3, $5, $7); }
         | F_EXT '(' e ',' e ')'         { $$ = new_op2(EXT, $3, $5); }
         | F_NVAL '(' e ',' e ')'        { $$ = new_op2(NVAL, $3, $5); }
         | F_SVAL '(' e ',' e ')'        { $$ = new_op2(SVAL, $3, $5); }
