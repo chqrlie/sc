@@ -180,10 +180,7 @@ void cmd_eval(SCXMEM enode_t *e, SCXMEM string_t *fmt, int row, int col, int fd)
     int len;
     double v;
 
-    gmyrow = row;
-    gmycol = col;
-
-    v = eval(e);
+    v = eval_at(e, row, col);
     if (!sempty(fmt)) {
         /* convert cell contents, do not test width, should not align */
         format(buf, sizeof buf - 1, s2c(fmt), precision[col], v, &align);
@@ -199,10 +196,7 @@ void cmd_eval(SCXMEM enode_t *e, SCXMEM string_t *fmt, int row, int col, int fd)
 void cmd_seval(SCXMEM enode_t *e, int row, int col, int fd) {
     SCXMEM string_t *str;
 
-    gmyrow = row;
-    gmycol = col;
-
-    str = seval(e);
+    str = seval_at(e, row, col);
     if (str)
         write(fd, s2c(str), slen(str));
     write(fd, "\n", 1);

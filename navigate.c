@@ -10,6 +10,17 @@
  *              $Revision: 8.1 $
  */
 
+#if defined REGCOMP
+#include <regex.h>
+#elif defined RE_COMP
+extern char *re_comp(char *s);
+extern char *re_exec(char *s);
+#elif defined REGCMP
+char *regcmp();
+char *regex();
+#else
+#endif
+
 #include "sc.h"
 
 /* Use this structure to save the last 'g' command */

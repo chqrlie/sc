@@ -456,7 +456,6 @@ extern SCXMEM struct ent ***tbl;       /* data table ref. in vmtbl.c and ATBL() 
 extern char curfile[PATHLEN];
 extern int strow, stcol;
 extern int currow, curcol;
-extern int gmyrow, gmycol;      /* globals used for @myrow, @mycol cmds */
 extern int rescol;              /* columns reserved for row numbers */
 extern cellref_t savedcr[37];
 extern cellref_t savedst[37];
@@ -588,8 +587,8 @@ extern char *findplugin(const char *ext, char type);
 extern const char *coltoa(int col);
 extern const char *v_name(int row, int col);
 extern const char *r_name(int r1, int c1, int r2, int c2);
-extern SCXMEM string_t *seval(enode_t *se);
-extern double eval(enode_t *e);
+extern SCXMEM string_t *seval_at(enode_t *se, int row, int col);
+extern double eval_at(enode_t *e, int row, int col);
 extern int are_frames(void);
 extern int are_nranges(void);
 extern int atocol(const char *s, int *lenp);

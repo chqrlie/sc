@@ -1,5 +1,7 @@
 # TODO
 
+[ ] save expression values in .sc files
+[ ] add third argument for @ext default/last answer
 [ ] STOP THIS NUMERIC/STRING confusing bullshit!
 [ ] add ':' range constructor from cell references
 [ ] make cell notes separate structures

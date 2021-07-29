@@ -95,7 +95,7 @@ void change_color(int pair, enode_t *e) {
         return;
     }
 
-    v = (int)eval(e);
+    v = (int)eval_at(e, 0, 0);
     init_style(pair, v & 7, (v >> 3) & 7, e);
     modflg++;
     FullUpdate++;
