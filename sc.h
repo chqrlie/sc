@@ -126,6 +126,32 @@ struct range_s {
 
 typedef struct enode enode_t;
 
+#define SC_EMPTY   0
+#define SC_ERROR   1
+#define SC_NUMBER  1
+#define SC_RANGE   3
+#define SC_STRING  4
+
+typedef struct scvalue scvalue_t;
+struct scvalue {
+    union {
+        double v;
+        SCXMEM string_t *str;
+        rangeref_t rr;
+        int cellerror;
+        int i;
+    } u;
+    int type;
+};
+
+typedef struct eval_context eval_ctx_t;
+struct eval_context {
+    int error;
+    int gmyrow, gmycol;  /* globals used to implement @myrow, @mycol cmds */
+    int rowoffset, coloffset;   /* row & col offsets for range functions */
+    int cellerror;
+};
+
 /* info for each cell, only alloc'd when something is stored in a cell */
 struct ent {
     double v;                   /* v && label are set in EvalAll() */

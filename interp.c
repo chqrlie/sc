@@ -33,8 +33,6 @@ static int exprerr;     /* Set by eval() and seval() if expression errors */
 double prescale = 1.0;  /* Prescale for constants in let() */
 int extfunc = 0;        /* Enable/disable external functions */
 int loading = 0;        /* Set when readfile() is active */
-static int gmyrow, gmycol;  /* globals used to implement @myrow, @mycol cmds */
-static int rowoffset, coloffset;   /* row & col offsets for range functions */
 int propagation = 10;   /* max number of times to try calculation */
 static int repct = 1;   /* Make repct a global variable so that the
                            function @numiter can access it */
@@ -44,8 +42,7 @@ static int cellerror = CELLOK;     /* is there an error in this cell */
 static enode_t *free_enodes = NULL;
 
 static SCXMEM enode_t *new_node(int op, SCXMEM enode_t *a1, SCXMEM enode_t *a2);
-static double eval(enode_t *e);
-static SCXMEM string_t *seval(enode_t *se);
+extern scvalue_t eval_node(eval_ctx_t *cp, enode_t *e, int gv);
 static int RealEvalAll(void);
 static void RealEvalOne(struct ent *p, int i, int j, int *chgct);
 
@@ -60,6 +57,95 @@ static sigret_t eval_fpe(int);
 #define dtr(x) ((x) * (M_PI / (double)180.0))
 #define rtd(x) ((x) * (180.0 / (double)M_PI))
 
+/*---------------- utility functions ----------------*/
+
+static inline void scvalue_free(scvalue_t v) {
+    if (v.type == SC_STRING)
+        free_string(v.u.str);
+}
+
+static inline scvalue_t scvalue_empty(void) {
+    scvalue_t res;
+    res.type = SC_EMPTY;
+    return res;
+}
+
+static inline scvalue_t scvalue_error(eval_ctx_t *cp, int error) {
+    scvalue_t res;
+    res.type = SC_ERROR;
+    res.u.cellerror = cp->cellerror = error;
+    return res;
+}
+
+static inline scvalue_t scvalue_bool(int t) {
+    scvalue_t res;
+    res.type = SC_NUMBER;
+    res.u.v = t;
+    return res;
+}
+
+static inline scvalue_t scvalue_number(double v) {
+    scvalue_t res;
+    res.type = SC_NUMBER;
+    res.u.v = v;
+    return res;
+}
+
+static inline scvalue_t scvalue_string(SCXMEM string_t *str) {
+    scvalue_t res;
+    res.type = SC_STRING;
+    res.u.str = str;
+    return res;
+}
+
+double eval_num(eval_ctx_t *cp, enode_t *e) {
+    scvalue_t res = eval_node(cp, e, 1);
+    if (res.type == SC_NUMBER)
+        return res.u.v;
+    // XXX: should convert string to number
+    scvalue_free(res);
+    cp->error = CELLERROR;
+    return 0;
+}
+
+SCXMEM string_t *eval_str(eval_ctx_t *cp, enode_t *e) {
+    char buf[32];
+    scvalue_t res = eval_node(cp, e, 1);
+    if (res.type == SC_STRING)
+        return res.u.str;
+    if (res.type == SC_NUMBER) {
+        snprintf(buf, sizeof buf, "%.15g", res.u.v);
+        return new_string(buf);
+    }
+    cp->error = CELLERROR;
+    return NULL;
+}
+
+static scvalue_t eval_div(eval_ctx_t *cp, enode_t *a, enode_t *b) {
+    double num = eval_num(cp, a);
+    double denom = eval_num(cp, b);
+    if (cp->cellerror)
+        return scvalue_error(cp, CELLINVALID);
+    else
+    if (denom)
+        return scvalue_number(num / denom);
+    else
+        return scvalue_error(cp, CELLERROR);
+}
+
+static scvalue_t eval_mod(eval_ctx_t *cp, enode_t *a, enode_t *b) {
+    // XXX: this API is incorrect
+    double num = floor(eval_num(cp, a));
+    double denom = floor(eval_num(cp, b));
+    if (cp->cellerror)
+        return scvalue_error(cp, CELLINVALID);
+    else
+    if (denom)
+        return scvalue_number(num - floor(num / denom) * denom);
+    else
+        return scvalue_error(cp, CELLERROR);
+}
+
 /*---------------- financial functions ----------------*/
 
 static double fin_pv(double v1, double v2, double v3) {
@@ -69,8 +155,9 @@ static double fin_pv(double v1, double v2, double v3) {
         p = pow(1 + v2, v3);
         if (!errno)
             return v1 * (1 - 1 / p) / v2;
+    } else {
+        errno = ERANGE;
     }
-    cellerror = CELLERROR;
     return 0.0;
 }
 
@@ -81,8 +168,9 @@ static double fin_fv(double v1, double v2, double v3) {
         p = pow(1 + v2, v3);
         if (!errno)
             return v1 * (p - 1) / v2;
+    } else {
+        errno = ERANGE;
     }
-    cellerror = CELLERROR;
     return 0.0;
 }
 
@@ -93,145 +181,136 @@ static double fin_pmt(double v1, double v2, double v3) {
     /* CHECK IF ~= 1 - 1/1 */
     if (!errno && p && p != 1.0) {
         return v1 * v2 / (1 - 1 / p);
+    } else {
+        errno = ERANGE;
     }
-    cellerror = CELLERROR;
     return 0.0;
 }
 
 /*---------------- range lookup functions ----------------*/
 
-static SCXMEM string_t *dostindex(int minr, int minc, int maxr, int maxc, enode_t *val) {
+static scvalue_t scvalue_getcell(eval_ctx_t *cp, struct ent *p) {
+    if (!p || (p->flags & IS_DELETED)) {
+        return scvalue_error(cp, CELLERROR);
+    }
+    if (p->cellerror)
+        return scvalue_error(cp, CELLINVALID);
+    if (p->flags & IS_VALID)
+        return scvalue_number(p->v);
+    if (p->label)
+        return scvalue_string(dup_string(p->label));
+    return scvalue_empty();
+}
+
+static scvalue_t doindex(eval_ctx_t *cp, int minr, int minc, int maxr, int maxc, enode_t *val) {
     int r, c;
 
     if (val->op == ',') {               /* index by both row and column */
-        r = minr + (int)eval(val->e.o.left) - 1;
-        c = minc + (int)eval(val->e.o.right) - 1;
+        r = minr + (int)eval_num(cp, val->e.o.left) - 1;
+        c = minc + (int)eval_num(cp, val->e.o.right) - 1;
     } else if (minr == maxr) {          /* look along the row */
         r = minr;
-        c = minc + (int)eval(val) - 1;
+        c = minc + (int)eval_num(cp, val) - 1;
     } else if (minc == maxc) {          /* look down the column */
-        r = minr + (int)eval(val) - 1;
+        r = minr + (int)eval_num(cp, val) - 1;
         c = minc;
     } else {
         error("Improper indexing operation");
-        return NULL;
+        return scvalue_empty();
     }
     if (c >= minc && c <= maxc && r >= minr && r <= maxr) {
         struct ent *p = *ATBL(tbl, r, c);
-        if (p && p->label) {
-            if (p->cellerror)
-                cellerror = CELLINVALID;
-            return dup_string(p->label);
-        }
+        return scvalue_getcell(cp, p);
     }
-    return NULL;
+    return scvalue_empty();
 }
 
-static double doindex(int minr, int minc, int maxr, int maxc, enode_t *val) {
-    int r, c;
-
-    if (val->op == ',') {               /* index by both row and column */
-        r = minr + (int)eval(val->e.o.left) - 1;
-        c = minc + (int)eval(val->e.o.right) - 1;
-    } else if (minr == maxr) {          /* look along the row */
-        r = minr;
-        c = minc + (int)eval(val) - 1;
-    } else if (minc == maxc) {          /* look down the column */
-        r = minr + (int)eval(val) - 1;
-        c = minc;
-    } else {
-        error("Improper indexing operation");
-        return 0.0;
-    }
-    if (c >= minc && c <= maxc && r >= minr && r <= maxr) {
-        struct ent *p = *ATBL(tbl, r, c);
-        if (p && (p->flags & IS_VALID)) {
-            if (p->cellerror)
-                cellerror = CELLINVALID;
-            return p->v;
-        }
-    }
-    return 0.0;
-}
-
-static double dolookup(enode_t * val, int minr, int minc, int maxr, int maxc, int offset, int vflag) {
-    double v, ret = 0.0;
+static scvalue_t dolookup(eval_ctx_t *cp, enode_t *val, int minr, int minc, int maxr, int maxc, int offset, int vflag) {
+    scvalue_t a = eval_node(cp, val, 1);
     int r, c;
     struct ent *p = NULL;
+    struct ent *vp = NULL;
     int incr, incc, fndr, fndc;
 
     incr = vflag;
     incc = 1 - vflag;
-    if (etype(val) == NUM) {
-        cellerror = CELLOK;
-        v = eval(val);
+    if (a.type == SC_NUMBER) {
         for (r = minr, c = minc; r <= maxr && c <= maxc; r += incr, c += incc) {
             if ((p = *ATBL(tbl, r, c)) && (p->flags & IS_VALID)) {
-                if (p->v <= v) {
+                if (p->v <= a.u.v) {
                     fndr = incc ? (minr + offset) : r;
                     fndc = incr ? (minc + offset) : c;
                     if (ISVALID(fndr, fndc)) {
-                        p = *ATBL(tbl, fndr, fndc);
+                        vp = *ATBL(tbl, fndr, fndc);
                     } else {
-                        error(" range specified to @[hv]lookup");
-                        cellerror = CELLERROR;
-                    }
-                    // XXX: bufg if !ISVALID(fndr, fndc)
-                    if (p && (p->flags & IS_VALID)) {
-                        if (p->cellerror)
-                            cellerror = CELLINVALID;
-                        ret = p->v;
+                        vp = NULL;
                     }
                 } else
                     break;
             }
         }
-    } else {
-        SCXMEM string_t *s;
-        const char *str;
+    } else
+    if (a.type == SC_STRING) {
+        const char *str = s2str(a.u.str);
 
-        cellerror = CELLOK;
-        s = seval(val);
-        str = s2str(s);
         for (r = minr, c = minc; r <= maxr && c <= maxc; r += incr, c += incc) {
             if ((p = *ATBL(tbl, r, c)) && p->label) {
                 if (strcmp(s2c(p->label), str) == 0) {
                     fndr = incc ? (minr + offset) : r;
                     fndc = incr ? (minc + offset) : c;
                     if (ISVALID(fndr, fndc)) {
-                        p = *ATBL(tbl, fndr, fndc);
-                        if (p->cellerror)
-                            cellerror = CELLINVALID;
+                        vp = *ATBL(tbl, fndr, fndc);
                     } else {
-                        error(" range specified to @[hv]lookup");
-                        cellerror = CELLERROR;
+                        vp = NULL;
                     }
                     break;
                 }
             }
         }
-        if (p && (p->flags & IS_VALID))
-            ret = p->v;
-        free_string(s);
+        free_string(a.u.str);
     }
-    return ret;
+    return scvalue_getcell(cp, vp);
 }
 
 /*---------------- aggregate functions ----------------*/
 
-static double eval_offset(enode_t *e, int roffset, int coffset) {
-    int save_rowoffset = rowoffset;
-    int save_coloffset = coloffset;
-    double v;
-    rowoffset = roffset;
-    coloffset = coffset;
-    v = eval(e);
-    rowoffset = save_rowoffset;
-    coloffset = save_coloffset;
-    return v;
+static int eval_test(eval_ctx_t *cp, enode_t *e) {
+    scvalue_t a = eval_node(cp, e, 1);
+    if (a.type == SC_NUMBER)
+        return a.u.v != 0;
+    if (a.type == SC_STRING) {
+        int res = s2str(a.u.str)[0] != '\0';
+        free_string(a.u.str);
+        return res;
+    }
+    return 0;
 }
 
-static double docount(int minr, int minc, int maxr, int maxc, enode_t *e) {
+static scvalue_t eval_offset(eval_ctx_t *cp, enode_t *e, int roffset, int coffset) {
+    int save_rowoffset = cp->rowoffset;
+    int save_coloffset = cp->coloffset;
+    scvalue_t res;
+    cp->rowoffset = roffset;
+    cp->coloffset = coffset;
+    res = eval_node(cp, e, 1);
+    cp->rowoffset = save_rowoffset;
+    cp->coloffset = save_coloffset;
+    return res;
+}
+
+static int eval_test_offset(eval_ctx_t *cp, enode_t *e, int roffset, int coffset) {
+    int save_rowoffset = cp->rowoffset;
+    int save_coloffset = cp->coloffset;
+    int res;
+    cp->rowoffset = roffset;
+    cp->coloffset = coffset;
+    res = eval_test(cp, e);
+    cp->rowoffset = save_rowoffset;
+    cp->coloffset = save_coloffset;
+    return res;
+}
+
+static scvalue_t docount(eval_ctx_t *cp, int minr, int minc, int maxr, int maxc, enode_t *e) {
     int r, c;
     int count;
     int cellerr = CELLOK;
@@ -240,20 +319,20 @@ static double docount(int minr, int minc, int maxr, int maxc, enode_t *e) {
     count = 0;
     for (r = minr; r <= maxr; r++) {
         for (c = minc; c <= maxc; c++) {
-            if (e && !eval_offset(e, r - minr, c - minc))
+            if (e && !eval_test_offset(cp, e, r - minr, c - minc))
                 continue;
             if ((p = *ATBL(tbl, r, c)) && (p->flags & IS_VALID)) {
-                if (p->cellerror)
+                if (p->cellerror)  // XXX: unclear what to do on invalid cells
                     cellerr = CELLINVALID;
                 count++;
             }
         }
     }
     cellerror = cellerr;
-    return (double)count;
+    return scvalue_number(count);
 }
 
-static double dosum(int minr, int minc, int maxr, int maxc, enode_t *e) {
+static scvalue_t dosum(eval_ctx_t *cp, int minr, int minc, int maxr, int maxc, enode_t *e) {
     double v;
     int r, c;
     int cellerr = CELLOK;
@@ -262,20 +341,20 @@ static double dosum(int minr, int minc, int maxr, int maxc, enode_t *e) {
     v = 0.0;
     for (r = minr; r <= maxr; r++) {
         for (c = minc; c <= maxc; c++) {
-            if (e && !eval_offset(e, r - minr, c - minc))
+            if (e && !eval_test_offset(cp, e, r - minr, c - minc))
                 continue;
             if ((p = *ATBL(tbl, r, c)) && (p->flags & IS_VALID)) {
-                if (p->cellerror)
+                if (p->cellerror)  // XXX: unclear what to do on invalid cells
                     cellerr = CELLINVALID;
                 v += p->v;
             }
         }
     }
     cellerror = cellerr;
-    return v;
+    return scvalue_number(v);
 }
 
-static double doprod(int minr, int minc, int maxr, int maxc, enode_t *e) {
+static scvalue_t doprod(eval_ctx_t *cp, int minr, int minc, int maxr, int maxc, enode_t *e) {
     double v;
     int r, c;
     int cellerr = CELLOK;
@@ -284,20 +363,20 @@ static double doprod(int minr, int minc, int maxr, int maxc, enode_t *e) {
     v = 1.0;
     for (r = minr; r <= maxr; r++) {
         for (c = minc; c <= maxc; c++) {
-            if (e && !eval_offset(e, r - minr, c - minc))
+            if (e && !eval_test_offset(cp, e, r - minr, c - minc))
                 continue;
             if ((p = *ATBL(tbl, r, c)) && (p->flags & IS_VALID)) {
-                if (p->cellerror)
+                if (p->cellerror)  // XXX: unclear what to do on invalid cells
                     cellerr = CELLINVALID;
                 v *= p->v;
             }
         }
     }
     cellerror = cellerr;
-    return v;
+    return scvalue_number(v);
 }
 
-static double doavg(int minr, int minc, int maxr, int maxc, enode_t *e) {
+static scvalue_t doavg(eval_ctx_t *cp, int minr, int minc, int maxr, int maxc, enode_t *e) {
     double v;
     int r, c;
     int count;
@@ -308,10 +387,10 @@ static double doavg(int minr, int minc, int maxr, int maxc, enode_t *e) {
     count = 0;
     for (r = minr; r <= maxr; r++) {
         for (c = minc; c <= maxc; c++) {
-            if (e && !eval_offset(e, r - minr, c - minc))
+            if (e && !eval_test_offset(cp, e, r - minr, c - minc))
                 continue;
             if ((p = *ATBL(tbl, r, c)) && (p->flags & IS_VALID)) {
-                if (p->cellerror)
+                if (p->cellerror)  // XXX: unclear what to do on invalid cells
                     cellerr = CELLINVALID;
                 v += p->v;
                 count++;
@@ -321,27 +400,28 @@ static double doavg(int minr, int minc, int maxr, int maxc, enode_t *e) {
     cellerror = cellerr;
 
     if (count == 0)
-        return 0.0;
+        return scvalue_number(0.0);
     else
-        return v / (double)count;
+        return scvalue_number(v / (double)count);
 }
 
-static double dostddev(int minr, int minc, int maxr, int maxc, enode_t *e) {
-    double lp, rp, v, nd;
+static scvalue_t dostddev(eval_ctx_t *cp, int minr, int minc, int maxr, int maxc, enode_t *e) {
+    double res, lp, rp, v, nd;
     int r, c;
     int count;
     int cellerr = CELLOK;
     struct ent *p;
 
+    res = 0.0;
     lp = 0.0;
     rp = 0.0;
     count = 0;
     for (r = minr; r <= maxr; r++) {
         for (c = minc; c <= maxc; c++) {
-            if (e && !eval_offset(e, r - minr, c - minc))
+            if (e && !eval_test_offset(cp, e, r - minr, c - minc))
                 continue;
             if ((p = *ATBL(tbl, r, c)) && (p->flags & IS_VALID)) {
-                if (p->cellerror)
+                if (p->cellerror)  // XXX: unclear what to do on invalid cells
                     cellerr = CELLINVALID;
                 v = p->v;
                 lp += v * v;
@@ -352,13 +432,14 @@ static double dostddev(int minr, int minc, int maxr, int maxc, enode_t *e) {
     }
     cellerror = cellerr;
 
-    if (count <= 1)
-        return 0.0;
-    nd = (double)count;
-    return sqrt((nd * lp - rp * rp) / (nd * (nd - 1)));
+    if (count > 1) {
+        nd = (double)count;
+        res = sqrt((nd * lp - rp * rp) / (nd * (nd - 1)));
+    }
+    return scvalue_number(res);
 }
 
-static double domax(int minr, int minc, int maxr, int maxc, enode_t *e) {
+static scvalue_t domax(eval_ctx_t *cp, int minr, int minc, int maxr, int maxc, enode_t *e) {
     double v;
     int r, c;
     int count;
@@ -369,10 +450,10 @@ static double domax(int minr, int minc, int maxr, int maxc, enode_t *e) {
     count = 0;
     for (r = minr; r <= maxr; r++) {
         for (c = minc; c <= maxc; c++) {
-            if (e && !eval_offset(e, r - minr, c - minc))
+            if (e && !eval_test_offset(cp, e, r - minr, c - minc))
                 continue;
             if ((p = *ATBL(tbl, r, c)) && (p->flags & IS_VALID)) {
-                if (p->cellerror)
+                if (p->cellerror)  // XXX: unclear what to do on invalid cells
                     cellerr = CELLINVALID;
                 if (!count++) {
                     v = p->v;
@@ -383,10 +464,10 @@ static double domax(int minr, int minc, int maxr, int maxc, enode_t *e) {
         }
     }
     cellerror = cellerr;
-    return v;
+    return scvalue_number(v);
 }
 
-static double domin(int minr, int minc, int maxr, int maxc, enode_t *e) {
+static scvalue_t domin(eval_ctx_t *cp, int minr, int minc, int maxr, int maxc, enode_t *e) {
     double v;
     int r, c;
     int count;
@@ -397,10 +478,10 @@ static double domin(int minr, int minc, int maxr, int maxc, enode_t *e) {
     count = 0;
     for (r = minr; r <= maxr; r++) {
         for (c = minc; c <= maxc; c++) {
-            if (e && !eval_offset(e, r - minr, c - minc))
+            if (e && !eval_test_offset(cp, e, r - minr, c - minc))
                 continue;
             if ((p = *ATBL(tbl, r, c)) && (p->flags & IS_VALID)) {
-                if (p->cellerror)
+                if (p->cellerror)  // XXX: unclear what to do on invalid cells
                     cellerr = CELLINVALID;
                 if (!count++) {
                     v = p->v;
@@ -411,7 +492,7 @@ static double domin(int minr, int minc, int maxr, int maxc, enode_t *e) {
         }
     }
     cellerror = cellerr;
-    return v;
+    return scvalue_number(v);
 }
 
 /*---------------- date and time functions ----------------*/
@@ -419,7 +500,7 @@ static double domin(int minr, int minc, int maxr, int maxc, enode_t *e) {
 // XXX: should accept 6 or 7 arguments
 // XXX: should use integral part for day and fraction for time.
 //      which may be incorrect for DST time adjustments.
-static double dodts(int yr, int mo, int day) {
+static scvalue_t dodts(eval_ctx_t *cp, int yr, int mo, int day) {
     time_t secs;
     struct tm t;
 
@@ -440,27 +521,26 @@ static double dodts(int yr, int mo, int day) {
      */
     if (mo < 1 || day < 1 || (secs = mktime(&t)) == -1) {
         error("@dts: invalid argument or date out of range");
-        cellerror = CELLERROR;
-        return 0.0;
+        return scvalue_error(cp, CELLERROR);
     }
-    return (double)secs;
+    return scvalue_number(secs);
 }
 
 static double dotts(double hr, double min, double sec) {
     int seconds = ((int)floor(sec) + (int)floor(min) * 60 + (int)floor(hr) * 3600) % 86400;
-    return (double)(seconds < 0 ? 86400 + seconds : seconds);
+    return seconds < 0 ? 86400 + seconds : seconds;
 }
 
-static double donow(void) {
+static scvalue_t donow(void) {
     // XXX: should use a more precise time value
-    return (double)time(NULL);
+    return scvalue_number((double)time(NULL));
 }
 
-static double dotime(int which, double when) {
+static scvalue_t dotime(eval_ctx_t *cp, int which, enode_t *e) {
     static time_t t_cache;
     static struct tm tm_cache;
     struct tm *tp = &tm_cache;
-    time_t tloc = (time_t)when;
+    time_t tloc = (time_t)eval_num(cp, e);
 
     // XXX: this primitive cacheing system fails
     //      as soon as there are more than 1 time value
@@ -475,38 +555,40 @@ static double dotime(int which, double when) {
 
     if (tp) {
         switch (which) {
-        case HOUR:          return (double)tm_cache.tm_hour;
-        case MINUTE:        return (double)tm_cache.tm_min;
-        case SECOND:        return (double)tm_cache.tm_sec;
-        case MONTH:         return (double)tm_cache.tm_mon + 1;
-        case DAY:           return (double)tm_cache.tm_mday;
-        case YEAR:          return (double)tm_cache.tm_year + 1900;
+        case HOUR:          return scvalue_number(tm_cache.tm_hour);
+        case MINUTE:        return scvalue_number(tm_cache.tm_min);
+        case SECOND:        return scvalue_number(tm_cache.tm_sec);
+        case MONTH:         return scvalue_number(tm_cache.tm_mon + 1);
+        case DAY:           return scvalue_number(tm_cache.tm_mday);
+        case YEAR:          return scvalue_number(tm_cache.tm_year + 1900);
         }
     }
-    cellerror = CELLERROR;
-    return 0.0;
+    return scvalue_error(cp, CELLERROR);
 }
 
-static double doston(SCXMEM string_t *s) {
-    double v;
+static scvalue_t doston(eval_ctx_t *cp, enode_t *e) {
+    scvalue_t a = eval_node(cp, e, 1);
+    double v = 0;
     char *end;
 
-    if (!s)
-        return 0.0;
-
+    if (a.type == SC_NUMBER)
+        return a;
     // XXX: is an empty string an error?
     // XXX: is a blank string an error?
-    v = strtod(s2c(s), &end);
-    if (*end) {
-        // XXX: is this an error?
+    if (a.type == SC_STRING) {
+        v = strtod(s2str(a.u.str), &end);
+        free_string(a.u.str);
+        if (*end) {
+            // XXX: is this an error?
+        }
+        if (!isfinite(v)) {
+            // XXX: is this an error?
+        }
     }
-    if (!isfinite(v)) {
-        // XXX: is this an error?
-    }
-    free_string(s);
-    return v;
+    return scvalue_number(v);
 }
 
+#if 0
 static double doeqs(SCXMEM string_t *s1, SCXMEM string_t *s2) {
     double v;
 
@@ -523,6 +605,7 @@ static double doeqs(SCXMEM string_t *s1, SCXMEM string_t *s2) {
 
     return v;
 }
+#endif
 
 /*
  * Given a string representing a column name and a value which is a row
@@ -558,10 +641,15 @@ static struct ent *getent(SCXMEM string_t *colstr, double rowdoub) {
  * number, return the selected cell's numeric value, if any.
  */
 
-static double donval(SCXMEM string_t *colstr, double rowdoub) {
+static scvalue_t donval(eval_ctx_t *cp, SCXMEM string_t *colstr, double rowdoub) {
     struct ent *p = getent(colstr, rowdoub);
-
-    return (p && (p->flags & IS_VALID)) ? p->v : 0.0;
+    scvalue_t res = scvalue_getcell(cp, p);
+    if (res.type == SC_NUMBER)
+        return res;
+    // XXX: should convert string to number
+    scvalue_free(res);
+    cp->error = CELLERROR;
+    return scvalue_error(cp, CELLERROR);
 }
 
 /*
@@ -569,38 +657,38 @@ static double donval(SCXMEM string_t *colstr, double rowdoub) {
  *      The left pointer is a chain of ELIST nodes, the right pointer
  *      is a value.
  */
-static double dolmax(enode_t *ep) {
+static scvalue_t dolmax(eval_ctx_t *cp, enode_t *ep) {
     // XXX: should handle ranges in list
     int count = 0;
     double maxval = 0.0;
-    enode_t *p;
+    enode_t *e;
 
     cellerror = CELLOK;
-    for (p = ep; p; p = p->e.o.right) {
-        double v = eval(p->e.o.left);
+    for (e = ep; e; e = e->e.o.right) {
+        double v = eval_num(cp, e->e.o.left);
         if (!count || v > maxval) {
             maxval = v;
             count++;
         }
     }
-    return maxval;
+    return scvalue_number(maxval);
 }
 
-static double dolmin(enode_t *ep) {
+static scvalue_t dolmin(eval_ctx_t *cp, enode_t *ep) {
     // XXX: should handle ranges in list
     int count = 0;
     double minval = 0.0;
-    enode_t *p;
+    enode_t *e;
 
     cellerror = CELLOK;
-    for (p = ep; p; p = p->e.o.right) {
-        double v = eval(p->e.o.left);
+    for (e = ep; e; e = e->e.o.right) {
+        double v = eval_num(cp, e->e.o.left);
         if (!count || v < minval) {
             minval = v;
             count++;
         }
     }
-    return minval;
+    return scvalue_number(minval);
 }
 
 static sigret_t eval_fpe(int i) { /* Trap for FPE errors in eval */
@@ -621,22 +709,35 @@ static sigret_t eval_fpe(int i) { /* Trap for FPE errors in eval */
     longjmp(fpe_save, 1);
 }
 
-static double fn1_eval(double (*fn)(double), double a) {
+static scvalue_t fn1_eval(eval_ctx_t *cp, double (*fn)(double), enode_t *a) {
     double res;
     errno = 0;
-    res = (*fn)(a);
+    res = (*fn)(eval_num(cp, a));
     if (errno)
-        cellerror = CELLERROR;
-    return res;
+        return scvalue_error(cp, CELLERROR);
+    return scvalue_number(res);
 }
 
-static double fn2_eval(double (*fn)(double, double), double arg1, double arg2) {
+static scvalue_t fn2_eval(eval_ctx_t *cp, double (*fn)(double, double),
+                          enode_t *arg1, enode_t *arg2)
+{
     double res;
     errno = 0;
-    res = (*fn)(arg1, arg2);
+    res = (*fn)(eval_num(cp, arg1), eval_num(cp, arg2));
     if (errno)
-        cellerror = CELLERROR;
-    return res;
+        return scvalue_error(cp, CELLERROR);
+    return scvalue_number(res);
+}
+
+static scvalue_t fn3_eval(eval_ctx_t *cp, double (*fn)(double, double, double),
+                          enode_t *arg1, enode_t *arg2, enode_t *arg3)
+{
+    double res;
+    errno = 0;
+    res = (*fn)(eval_num(cp, arg1), eval_num(cp, arg2), eval_num(cp, arg3));
+    if (errno)
+        return scvalue_error(cp, CELLERROR);
+    return scvalue_number(res);
 }
 
 static double rand_between(double aa, double bb) {
@@ -698,204 +799,6 @@ static double doround(double a, double b) {
     return dornd(a * scale) / scale;
 }
 
-/*---------------- numeric evaluator ----------------*/
-
-static double eval(enode_t *e) {
-    if (e == NULL) {
-        cellerror = CELLINVALID;
-        return 0.0;
-    }
-    switch (e->op) {
-    case '+':       return eval(e->e.o.left) + eval(e->e.o.right);
-    case '-':       return eval(e->e.o.left) - eval(e->e.o.right);
-    case '*':       return eval(e->e.o.left) * eval(e->e.o.right);
-    case '/':       {
-                        double num = eval(e->e.o.left);
-                        double denom = eval(e->e.o.right);
-                        if (cellerror) {
-                            cellerror = CELLINVALID;
-                            return 0.0;
-                        } else
-                        if (denom) {
-                            return num / denom;
-                        } else {
-                            cellerror = CELLERROR;
-                            return 0.0;
-                        }
-                    }
-    case '%':       {
-                        // XXX: this API is incorrect
-                        double num = floor(eval(e->e.o.left));
-                        double denom = floor(eval(e->e.o.right));
-                        if (denom) {
-                            return (num - floor(num / denom) * denom);
-                        } else {
-                            cellerror = CELLERROR;
-                            return 0.0;
-                        }
-                    }
-    case '^':       return fn2_eval(pow, eval(e->e.o.left), eval(e->e.o.right));
-    case '<':       return eval(e->e.o.left) < eval(e->e.o.right);
-    case OP_LE:     return eval(e->e.o.left) <= eval(e->e.o.right);
-    case '=':       return eval(e->e.o.left) == eval(e->e.o.right);
-    case OP_LG:
-    case OP_NE:     return eval(e->e.o.left) != eval(e->e.o.right);
-    case '>':       return eval(e->e.o.left) >  eval(e->e.o.right);
-    case OP_GE:     return eval(e->e.o.left) >= eval(e->e.o.right);
-    case '&':       return eval(e->e.o.left) && eval(e->e.o.right);
-    case '|':       return eval(e->e.o.left) || eval(e->e.o.right);
-    case IF:
-    case '?':       return eval(e->e.o.left) ? eval(e->e.o.right->e.o.left)
-                                             : eval(e->e.o.right->e.o.right);
-    case 'm':       return -eval(e->e.o.left);
-    case 'f':       return eval_offset(e->e.o.left, 0, 0);
-    case 'F':       return eval(e->e.o.left);
-    case '!':       return eval(e->e.o.left) == 0.0;
-    case ';':       return (((int)eval(e->e.o.left) & 7) +
-                            (((int)eval(e->e.o.right) & 7) << 3));
-    case O_CONST:   return e->e.k;
-    case O_VAR:     {
-                        struct ent *vp = e->e.v.vp;
-                        if (vp && (rowoffset || coloffset)) {
-                            int row = (e->e.v.vf & FIX_ROW) ?
-                                vp->row : vp->row + rowoffset;
-                            int col = (e->e.v.vf & FIX_COL) ?
-                                vp->col : vp->col + coloffset;
-                            // XXX: this is bogus: out of bounds cells should
-                            //      evaluate to 0.0 or a cellerror
-                            checkbounds(&row, &col);
-                            vp = *ATBL(tbl, row, col);
-                        }
-                        if (!vp || (vp->flags & IS_DELETED)) {
-                            cellerror = CELLERROR;
-                            return 0.0;
-                        }
-                        if (vp->cellerror)
-                            cellerror = CELLINVALID;
-                        return vp->v;
-                    }
-    case SUM:
-    case PROD:
-    case AVG:
-    case COUNT:
-    case STDDEV:
-    case MAX:
-    case MIN:
-    case ROWS_:
-    case COLS_:
-    case INDEX:
-    case LOOKUP:
-    case HLOOKUP:
-    case VLOOKUP: {
-            // XXX: this 2 argument API is not general enough
-            enode_t *left = e->e.o.left;
-            enode_t *right = e->e.o.right;
-            int minr = left->e.r.left.vp->row;
-            int minc = left->e.r.left.vp->col;
-            int maxr = left->e.r.right.vp->row;
-            int maxc = left->e.r.right.vp->col;
-            if (minr > maxr) SWAPINT(minr, maxr);
-            if (minc > maxc) SWAPINT(minc, maxc);
-            switch (e->op) {
-            case SUM:   return dosum(minr, minc, maxr, maxc, right);
-            case PROD:  return doprod(minr, minc, maxr, maxc, right);
-            case AVG:   return doavg(minr, minc, maxr, maxc, right);
-            case COUNT: return docount(minr, minc, maxr, maxc, right);
-            case STDDEV: return dostddev(minr, minc, maxr, maxc, right);
-            case MAX:   return domax(minr, minc, maxr, maxc, right);
-            case MIN:   return domin(minr, minc, maxr, maxc, right);
-            case ROWS_: return maxr - minr + 1;
-            case COLS_: return maxc - minc + 1;
-            case LOOKUP: return dolookup(right, minr, minc, maxr, maxc, 1, minc == maxc);
-            case HLOOKUP: return dolookup(right->e.o.left, minr, minc, maxr, maxc,
-                                          (int)eval(right->e.o.right), 0);
-            case VLOOKUP: return dolookup(right->e.o.left, minr, minc, maxr, maxc,
-                                          (int)eval(right->e.o.right), 1);
-            case INDEX: return doindex(minr, minc, maxr, maxc, right);
-            }
-        }
-
-    case ABS:       return fn1_eval( fabs, eval(e->e.o.left));
-    case ACOS:      return fn1_eval( acos, eval(e->e.o.left));
-    case ASIN:      return fn1_eval( asin, eval(e->e.o.left));
-    case ATAN:      return fn1_eval( atan, eval(e->e.o.left));
-    case ATAN2:     return fn2_eval( atan2, eval(e->e.o.left), eval(e->e.o.right));
-    case CEIL:      return fn1_eval( ceil, eval(e->e.o.left));
-    case COS:       return fn1_eval( cos, eval(e->e.o.left));
-    case EXP:       return fn1_eval( exp, eval(e->e.o.left));
-    case FABS:      return fn1_eval( fabs, eval(e->e.o.left));
-    case FLOOR:     return fn1_eval( floor, eval(e->e.o.left));
-    case HYPOT:     return fn2_eval( hypot, eval(e->e.o.left), eval(e->e.o.right));
-    case LOG:       return fn1_eval( log, eval(e->e.o.left));
-    case LOG10:     return fn1_eval( log10, eval(e->e.o.left));
-    case POW:       return fn2_eval( pow, eval(e->e.o.left), eval(e->e.o.right));
-    case SIN:       return fn1_eval( sin, eval(e->e.o.left));
-    case SQRT:      return fn1_eval( sqrt, eval(e->e.o.left));
-    case TAN:       return fn1_eval( tan, eval(e->e.o.left));
-    case DTR:       return dtr(eval(e->e.o.left));
-    case RTD:       return rtd(eval(e->e.o.left));
-    case RAND:      return (double)rand() / ((double)RAND_MAX + 1);
-    case RANDBETWEEN: return rand_between(eval(e->e.o.left), eval(e->e.o.right));
-    case RND:       return dornd(eval(e->e.o.left));
-    case ROUND:     return doround(eval(e->e.o.left), eval(e->e.o.right));
-
-    case FV:        return fin_fv(eval(e->e.o.left),
-                                  eval(e->e.o.right->e.o.left),
-                                  eval(e->e.o.right->e.o.right));
-    case PV:        return fin_pv(eval(e->e.o.left),
-                                  eval(e->e.o.right->e.o.left),
-                                  eval(e->e.o.right->e.o.right));
-    case PMT:       return fin_pmt(eval(e->e.o.left),
-                                   eval(e->e.o.right->e.o.left),
-                                   eval(e->e.o.right->e.o.right));
-    case HOUR:
-    case MINUTE:
-    case SECOND:
-    case MONTH:
-    case DAY:
-    case YEAR:      return dotime(e->op, eval(e->e.o.left));
-    case NOW:       return donow();
-    case DTS:       return dodts((int)eval(e->e.o.left),
-                                 (int)eval(e->e.o.right->e.o.left),
-                                 (int)eval(e->e.o.right->e.o.right));
-    case TTS:       return dotts(eval(e->e.o.left),
-                                 eval(e->e.o.right->e.o.left),
-                                 eval(e->e.o.right->e.o.right));
-    case STON:      return doston(seval(e->e.o.left));
-    case EQS:       return doeqs(seval(e->e.o.right), seval(e->e.o.left));
-    case LMAX:      return dolmax(e);
-    case LMIN:      return dolmin(e);
-    case NVAL:      return donval(seval(e->e.o.left), eval(e->e.o.right));
-    case MYROW:     return (double)(gmyrow + rowoffset);
-    case MYCOL:     return (double)(gmycol + coloffset);
-    case LASTROW:   return (double)maxrow;
-    case LASTCOL:   return (double)maxcol;
-    case NUMITER:   return (double)repct;
-    case ERR_:      cellerror = CELLERROR;
-                    return 0.0;
-    case PI_:       return (double)M_PI;
-    case BLACK:     return (double)COLOR_BLACK;
-    case RED:       return (double)COLOR_RED;
-    case GREEN:     return (double)COLOR_GREEN;
-    case YELLOW:    return (double)COLOR_YELLOW;
-    case BLUE:      return (double)COLOR_BLUE;
-    case MAGENTA:   return (double)COLOR_MAGENTA;
-    case CYAN:      return (double)COLOR_CYAN;
-    case WHITE:     return (double)COLOR_WHITE;
-    default:        error("Illegal numeric expression");
-                    exprerr = 1;
-                    break;
-    }
-    cellerror = CELLERROR;
-    return 0.0;
-}
-
-double eval_at(enode_t *e, int row, int col) {
-    gmyrow = row;
-    gmycol = col;
-    return eval(e);
-}
-
 /*---------------- string functions ----------------*/
 
 /*
@@ -934,12 +837,13 @@ static SCXMEM string_t *dofmt(SCXMEM string_t *fmtstr, double v) {
  * this as a third argument of @ext().
  */
 
-static SCXMEM string_t *doext(enode_t *se) {
+static scvalue_t doext(eval_ctx_t *cp, enode_t *se) {
     char buff[FBUFLEN];     /* command line/output */
     SCXMEM string_t *command;
     enode_t *right = se->e.o.right;
     enode_t *arg = right;
     enode_t *def = NULL;
+    int cellerr = 0;
 
     if (right && right->op == ',') {
         arg = right->e.o.left;
@@ -949,30 +853,24 @@ static SCXMEM string_t *doext(enode_t *se) {
 
 #ifdef NOEXTFUNCS
     error("Warning: External functions unavailable");
-    cellerror = CELLERROR;      /* not sure if this should be a cellerror */
+    //cellerr = CELLERROR;      /* not sure if this should be a cellerror */
 #else
     if (!extfunc) {
         error("Warning: external functions disabled; using %s value",
               def ? "null" : "previous");
     } else {
-        command = seval(se->e.o.left);
+        command = eval_str(cp, se->e.o.left);
         if (sempty(command)) {
             error("Warning: external function given null command name");
-            cellerror = CELLERROR;
+            cellerr = CELLERROR;
             free_string(command);
-            pstrcpy(buff, sizeof buff, "ERROR");
         } else {
             FILE *pf;
+            SCXMEM string_t *s = eval_str(cp, arg);
 
-            /* build cmd line, accept STR or NUM argument */
-            if (etype(arg) == STR) {
-                SCXMEM string_t *s = seval(arg);
-                snprintf(buff, sizeof buff, "%s %s", s2c(command), s2str(s));
-                free_string(s);
-            } else {
-                double value = eval(arg);
-                snprintf(buff, sizeof buff, "%s %.13g", s2c(command), value);
-            }
+            /* build cmd line */
+            snprintf(buff, sizeof buff, "%s %s", s2c(command), s2str(s));
+            free_string(s);
             free_string(command);
 
             error("Running external function...");
@@ -980,8 +878,7 @@ static SCXMEM string_t *doext(enode_t *se) {
 
             if ((pf = popen(buff, "r")) == NULL) {     /* run it */
                 error("Warning: running \"%s\" failed", buff);
-                cellerror = CELLERROR;
-                pstrcpy(buff, sizeof buff, "ERROR");
+                cellerr = CELLERROR;
             } else {
                 if (fgets(buff, sizeof(buff), pf) == NULL) {  /* one line */
                     // XXX: should use the empty string?
@@ -1005,7 +902,12 @@ static SCXMEM string_t *doext(enode_t *se) {
         }
     }
 #endif  /* NOEXTFUNCS */
-    return def ? seval(def) : new_string(buff);
+    if (def)
+        return eval_node(cp, def, 1);
+    if (cellerr)
+        return scvalue_error(cp, cellerr);
+    else
+        return scvalue_string(new_string(buff));
 }
 
 
@@ -1016,14 +918,18 @@ static SCXMEM string_t *doext(enode_t *se) {
  * the expression is saved in a file, etc.
  */
 
-static SCXMEM string_t *dosval(SCXMEM string_t *colstr, double rowdoub) {
+static scvalue_t dosval(eval_ctx_t *cp, SCXMEM string_t *colstr, double rowdoub) {
+    char buf[32];
     struct ent *p = getent(colstr, rowdoub);
-    if (p && p->label) {
-        return dup_string(p->label);
-    } else {
-        // XXX: should convert numeric value
-        return new_string("");
+    scvalue_t res = scvalue_getcell(cp, p);
+    if (res.type == SC_STRING)
+        return res;
+    if (res.type == SC_NUMBER) {
+        snprintf(buf, sizeof buf, "%.15g", res.u.v);
+        return scvalue_string(new_string(buf));
     }
+    cp->error = CELLERROR;
+    return scvalue_error(cp, CELLERROR);
 }
 
 /*
@@ -1098,84 +1004,244 @@ static SCXMEM string_t *docapital(SCXMEM string_t *s) {
     return s2;
 }
 
-/*---------------- string evaluator ----------------*/
-
-static SCXMEM string_t *seval_offset(enode_t *e, int roffset, int coffset) {
-    int save_rowoffset = rowoffset;
-    int save_coloffset = coloffset;
-    SCXMEM string_t *res;
-    rowoffset = roffset;
-    coloffset = coffset;
-    res = seval(e);
-    rowoffset = save_rowoffset;
-    coloffset = save_coloffset;
-    return res;
+static scvalue_t dofilename(eval_ctx_t *cp, enode_t *e) {
+    int n = eval_test(cp, e);
+    const char *s = n ? curfile : get_basename(curfile);
+    return scvalue_string(new_string(s));
 }
 
-static SCXMEM string_t *seval(enode_t *se) {
-    if (se == NULL) return NULL;
-    switch (se->op) {
-    case O_SCONST:  return dup_string(se->e.s);
+static scvalue_t eval_or(eval_ctx_t *cp, enode_t *e) {
+    scvalue_t a = eval_node(cp, e->e.o.left, 1);
+    if (a.type == SC_NUMBER) {
+        if (a.u.v != 0)
+            return a;
+    } else
+    if (a.type == SC_STRING) {
+        if (s2str(a.u.str)[0] != '\0')
+            return a;
+        free_string(a.u.str);
+    }
+    return eval_node(cp, e->e.o.right, 1);
+}
+
+static scvalue_t eval_cmp(eval_ctx_t *cp, enode_t *e) {
+    scvalue_t a = eval_node(cp, e->e.o.left, 1);
+    scvalue_t b = eval_node(cp, e->e.o.right, 1);
+    int cmp = 0;
+    if (a.type == SC_NUMBER && b.type == SC_NUMBER) {
+        cmp = (a.u.v > a.u.v) - (a.u.v < a.u.v);
+    } else
+    if (a.type == SC_STRING && b.type == SC_STRING) {
+        cmp = strcmp(s2str(a.u.str), s2str(b.u.str));
+        free_string(a.u.str);
+        free_string(b.u.str);
+    } else {
+        cmp = -1;
+        scvalue_free(a);
+        scvalue_free(b);
+    }
+    switch (e->op) {
+    case '<':   return scvalue_bool(cmp <  0);
+    case OP_LE: return scvalue_bool(cmp <= 0);
+    case EQS:
+    case '=':   return scvalue_bool(cmp == 0);
+    case OP_LG:
+    case OP_NE: return scvalue_bool(cmp != 0);
+    case '>':   return scvalue_bool(cmp >  0);
+    case OP_GE: return scvalue_bool(cmp >= 0);
+    }
+    return scvalue_bool(0);
+}
+
+/*---------------- dynamic evaluator ----------------*/
+
+scvalue_t eval_node(eval_ctx_t *cp, enode_t *e, int gv) {
+    if (e == NULL)
+        return scvalue_error(cp, CELLINVALID);
+
+    switch (e->op) {
+    case '+':       return scvalue_number(eval_num(cp, e->e.o.left) + eval_num(cp, e->e.o.right));
+    case '-':       return scvalue_number(eval_num(cp, e->e.o.left) - eval_num(cp, e->e.o.right));
+    case '*':       return scvalue_number(eval_num(cp, e->e.o.left) * eval_num(cp, e->e.o.right));
+    case '/':       return eval_div(cp, e->e.o.left, e->e.o.right);
+    case '%':       return eval_mod(cp, e->e.o.left, e->e.o.right);
+    case '<':
+    case OP_LE:
+    case '=':
+    case OP_LG:
+    case OP_NE:
+    case '>':
+    case OP_GE:     return eval_cmp(cp, e);
+                    // XXX: should have @and(list) and @or(list)
+    case '&':       return eval_test(cp, e->e.o.left) ? eval_node(cp, e->e.o.right, 1) : scvalue_bool(0);
+    case '|':       return eval_or(cp, e);
+    case IF:
+    case '?':       return eval_node(cp, eval_test(cp, e->e.o.left) ?
+                                     e->e.o.right->e.o.left : e->e.o.right->e.o.right, gv);
+    case 'm':       return scvalue_number(-eval_num(cp, e->e.o.left));
+    case 'f':       return eval_offset(cp, e->e.o.left, 0, 0);
+    case 'F':       return eval_node(cp, e->e.o.left, gv);
+    case '!':       return scvalue_bool(!eval_test(cp, e->e.o.left));
+    case ';':       return scvalue_number(((int)eval_num(cp, e->e.o.left) & 7) +
+                                          (((int)eval_num(cp, e->e.o.right) & 7) << 3));
+    case O_CONST:   return scvalue_number(e->e.k);
     case O_VAR:     {
-                        struct ent *vp = se->e.v.vp;
-                        int row, col;
-                        if (vp && (rowoffset || coloffset)) {
-                            row = se->e.v.vf & FIX_ROW ?
-                                vp->row : vp->row + rowoffset;
-                            col = se->e.v.vf & FIX_COL ?
-                                vp->col : vp->col + coloffset;
+                        struct ent *vp = e->e.v.vp;
+                        if (vp && (cp->rowoffset || cp->coloffset)) {
+                            int row = (e->e.v.vf & FIX_ROW) ?
+                                vp->row : vp->row + cp->rowoffset;
+                            int col = (e->e.v.vf & FIX_COL) ?
+                                vp->col : vp->col + cp->coloffset;
                             // XXX: this is bogus: out of bounds cells should
-                            //      evaluate to NULL or a cellerror
+                            //      evaluate to 0.0 or a cellerror
                             checkbounds(&row, &col);
                             vp = *ATBL(tbl, row, col);
                         }
-                        if (!vp || !vp->label)
-                            return NULL;
-                        return dup_string(vp->label);
+                        return scvalue_getcell(cp, vp);
                     }
-    case '#':       return cat_strings(seval(se->e.o.left), seval(se->e.o.right));
-    case 'f':       return seval_offset(se->e.o.left, 0, 0);
-    case 'F':       return seval(se->e.o.left);
-    case IF:
-    case '?':       return eval(se->e.o.left) ? seval(se->e.o.right->e.o.left)
-                                              : seval(se->e.o.right->e.o.right);
-    case DATE:      return dodate((time_t)(eval(se->e.o.left)), seval(se->e.o.right));
-    case FMT:       return dofmt(seval(se->e.o.left), eval(se->e.o.right));
-    case UPPER:     return docase(UPPER, seval(se->e.o.left));
-    case LOWER:     return docase(LOWER, seval(se->e.o.left));
-    case CAPITAL:   return docapital(seval(se->e.o.left));
-    case STINDEX:   {
-                        int minr = se->e.o.left->e.r.left.vp->row;
-                        int minc = se->e.o.left->e.r.left.vp->col;
-                        int maxr = se->e.o.left->e.r.right.vp->row;
-                        int maxc = se->e.o.left->e.r.right.vp->col;
-                        if (minr > maxr) SWAPINT(minr, maxr);
-                        if (minc > maxc) SWAPINT(minc, maxc);
-                        return dostindex(minr, minc, maxr, maxc, se->e.o.right);
-                    }
-    case EXT:       return doext(se);
-    case SVAL:      return dosval(seval(se->e.o.left), eval(se->e.o.right));
+    case SUM:
+    case PROD:
+    case AVG:
+    case COUNT:
+    case STDDEV:
+    case MAX:
+    case MIN:
+    case ROWS_:
+    case COLS_:
+    case STINDEX:
+    case INDEX:
+    case LOOKUP:
+    case HLOOKUP:
+    case VLOOKUP: {
+            // XXX: this 2 argument API is not general enough
+            enode_t *left = e->e.o.left;
+            enode_t *right = e->e.o.right;
+            int minr = left->e.r.left.vp->row;
+            int minc = left->e.r.left.vp->col;
+            int maxr = left->e.r.right.vp->row;
+            int maxc = left->e.r.right.vp->col;
+            if (minr > maxr) SWAPINT(minr, maxr);
+            if (minc > maxc) SWAPINT(minc, maxc);
+            switch (e->op) {
+            case SUM:   return dosum(cp, minr, minc, maxr, maxc, right);
+            case PROD:  return doprod(cp, minr, minc, maxr, maxc, right);
+            case AVG:   return doavg(cp, minr, minc, maxr, maxc, right);
+            case COUNT: return docount(cp, minr, minc, maxr, maxc, right);
+            case STDDEV: return dostddev(cp, minr, minc, maxr, maxc, right);
+            case MAX:   return domax(cp, minr, minc, maxr, maxc, right);
+            case MIN:   return domin(cp, minr, minc, maxr, maxc, right);
+            case ROWS_: return scvalue_number(maxr - minr + 1);
+            case COLS_: return scvalue_number(maxc - minc + 1);
+            case LOOKUP: return dolookup(cp, right, minr, minc, maxr, maxc, 1, minc == maxc);
+            case HLOOKUP: return dolookup(cp, right->e.o.left, minr, minc, maxr, maxc,
+                                          (int)eval_num(cp, right->e.o.right), 0);
+            case VLOOKUP: return dolookup(cp, right->e.o.left, minr, minc, maxr, maxc,
+                                          (int)eval_num(cp, right->e.o.right), 1);
+            case STINDEX:
+            case INDEX: return doindex(cp, minr, minc, maxr, maxc, right);
+            }
+        }
+
+    case ABS:       return fn1_eval(cp, fabs, e->e.o.left);
+    case ACOS:      return fn1_eval(cp, acos, e->e.o.left);
+    case ASIN:      return fn1_eval(cp, asin, e->e.o.left);
+    case ATAN:      return fn1_eval(cp, atan, e->e.o.left);
+    case ATAN2:     return fn2_eval(cp, atan2, e->e.o.left, e->e.o.right);
+    case CEIL:      return fn1_eval(cp, ceil, e->e.o.left);
+    case COS:       return fn1_eval(cp, cos, e->e.o.left);
+    case EXP:       return fn1_eval(cp, exp, e->e.o.left);
+    case FABS:      return fn1_eval(cp, fabs, e->e.o.left);
+    case FLOOR:     return fn1_eval(cp, floor, e->e.o.left);
+    case HYPOT:     return fn2_eval(cp, hypot, e->e.o.left, e->e.o.right);
+    case LOG:       return fn1_eval(cp, log, e->e.o.left);
+    case LOG10:     return fn1_eval(cp, log10, e->e.o.left);
+    case '^':
+    case POW:       return fn2_eval(cp, pow, e->e.o.left, e->e.o.right);
+    case SIN:       return fn1_eval(cp, sin, e->e.o.left);
+    case SQRT:      return fn1_eval(cp, sqrt, e->e.o.left);
+    case TAN:       return fn1_eval(cp, tan, e->e.o.left);
+    case DTR:       return scvalue_number(dtr(eval_num(cp, e->e.o.left)));
+    case RTD:       return scvalue_number(rtd(eval_num(cp, e->e.o.left)));
+    case RAND:      return scvalue_number((double)rand() / ((double)RAND_MAX + 1));
+    case RANDBETWEEN: return fn2_eval(cp, rand_between, e->e.o.left, e->e.o.right);
+    case RND:       return fn1_eval(cp, dornd, e->e.o.left);
+    case ROUND:     return fn2_eval(cp, doround, e->e.o.left, e->e.o.right);
+    case FV:        return fn3_eval(cp, fin_fv, e->e.o.left,
+                                    e->e.o.right->e.o.left,
+                                    e->e.o.right->e.o.right);
+    case PV:        return fn3_eval(cp, fin_pv, e->e.o.left,
+                                    e->e.o.right->e.o.left,
+                                    e->e.o.right->e.o.right);
+    case PMT:       return fn3_eval(cp, fin_pmt, e->e.o.left,
+                                    e->e.o.right->e.o.left,
+                                    e->e.o.right->e.o.right);
+    case HOUR:
+    case MINUTE:
+    case SECOND:
+    case MONTH:
+    case DAY:
+    case YEAR:      return dotime(cp, e->op, e->e.o.left);
+    case NOW:       return donow();
+    case DTS:       return dodts(cp, (int)eval_num(cp, e->e.o.left),
+                                 (int)eval_num(cp, e->e.o.right->e.o.left),
+                                 (int)eval_num(cp, e->e.o.right->e.o.right));
+    case TTS:       return fn3_eval(cp, dotts, e->e.o.left,
+                                    e->e.o.right->e.o.left,
+                                    e->e.o.right->e.o.right);
+    case STON:      return doston(cp, e->e.o.left);
+    case EQS:       return eval_cmp(cp, e);
+    case LMAX:      return dolmax(cp, e);
+    case LMIN:      return dolmin(cp, e);
+    case NVAL:      return donval(cp, eval_str(cp, e->e.o.left), eval_num(cp, e->e.o.right));
+    case MYROW:     return scvalue_number(cp->gmyrow + cp->rowoffset);
+    case MYCOL:     return scvalue_number(cp->gmycol + cp->coloffset);
+    case LASTROW:   return scvalue_number(maxrow);
+    case LASTCOL:   return scvalue_number(maxcol);
+    case NUMITER:   return scvalue_number(repct);
+    case ERR_:      return scvalue_error(cp, CELLERROR);
+    case PI_:       return scvalue_number(M_PI);
+    case BLACK:     return scvalue_number(COLOR_BLACK);
+    case RED:       return scvalue_number(COLOR_RED);
+    case GREEN:     return scvalue_number(COLOR_GREEN);
+    case YELLOW:    return scvalue_number(COLOR_YELLOW);
+    case BLUE:      return scvalue_number(COLOR_BLUE);
+    case MAGENTA:   return scvalue_number(COLOR_MAGENTA);
+    case CYAN:      return scvalue_number(COLOR_CYAN);
+    case WHITE:     return scvalue_number(COLOR_WHITE);
+    case O_SCONST:  return scvalue_string(dup_string(e->e.s));
+    case '#':       return scvalue_string(cat_strings(eval_str(cp, e->e.o.left), eval_str(cp, e->e.o.right)));
+    case DATE:      return scvalue_string(dodate((time_t)eval_num(cp, e->e.o.left), eval_str(cp, e->e.o.right)));
+    case FMT:       return scvalue_string(dofmt(eval_str(cp, e->e.o.left), eval_num(cp, e->e.o.right)));
+    case UPPER:     return scvalue_string(docase(UPPER, eval_str(cp, e->e.o.left)));
+    case LOWER:     return scvalue_string(docase(LOWER, eval_str(cp, e->e.o.left)));
+    case CAPITAL:   return scvalue_string(docapital(eval_str(cp, e->e.o.left)));
+    case EXT:       return doext(cp, e);
+    case SVAL:      return dosval(cp, eval_str(cp, e->e.o.left), eval_num(cp, e->e.o.right));
     case SUBSTR:    /* Substring: Note that v1 and v2 are one-based and v2 is included */
-                    return sub_string(seval(se->e.o.left),
-                                      (int)eval(se->e.o.right->e.o.left) - 1,
-                                      (int)eval(se->e.o.right->e.o.right));
-    case COLTOA:    return new_string(coltoa((int)eval(se->e.o.left)));
-    case FILENAME:  {
-                        int n = (int)eval(se->e.o.left);
-                        const char *s = n ? curfile : get_basename(curfile);
-                        return new_string(s);
-                    }
-    default:        error("Illegal string expression");
+                    return scvalue_string(sub_string(eval_str(cp, e->e.o.left),
+                                                     (int)eval_num(cp, e->e.o.right->e.o.left) - 1,
+                                                     (int)eval_num(cp, e->e.o.right->e.o.right)));
+    case COLTOA:    return scvalue_string(new_string(coltoa((int)eval_num(cp, e->e.o.left))));
+    case FILENAME:  return dofilename(cp, e->e.o.left);
+    default:        error("Illegal expression");
                     exprerr = 1;
-                    return NULL;
+                    return scvalue_error(cp, CELLERROR);
     }
 }
 
-SCXMEM string_t *seval_at(enode_t *se, int row, int col) {
-    gmyrow = row;
-    gmycol = col;
-    return seval(se);
+/*---------------- typed evaluators ----------------*/
+
+double eval_at(enode_t *e, int row, int col) {
+    eval_ctx_t cp[1] = {{ 0, row, col, 0, 0, 0 }};
+    return eval_num(cp, e);
 }
+
+SCXMEM string_t *seval_at(enode_t *e, int row, int col) {
+    eval_ctx_t cp[1] = {{ 0, row, col, 0, 0, 0 }};
+    return eval_str(cp, e);
+}
+
+/*---------------- spreadsheet recalc ----------------*/
 
 /*
  * The graph formed by cell expressions which use other cells's values is not
@@ -1210,7 +1276,7 @@ void EvalAll(void) {
         for (pair = 1; pair <= CPAIRS; pair++) {
             cellerror = CELLOK;
             if (cpairs[pair] && cpairs[pair]->expr) {
-                v = (int)eval(cpairs[pair]->expr);
+                v = (int)eval_at(cpairs[pair]->expr, 0, 0);
                 // XXX: should ignore value if cellerror
                 init_style(pair, v & 7, (v >> 3) & 7, cpairs[pair]->expr);
             }
