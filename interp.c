@@ -98,7 +98,7 @@ static inline scvalue_t scvalue_string(SCXMEM string_t *str) {
     return res;
 }
 
-double eval_num(eval_ctx_t *cp, enode_t *e) {
+static double eval_num(eval_ctx_t *cp, enode_t *e) {
     scvalue_t res = eval_node(cp, e, 1);
     if (res.type == SC_NUMBER)
         return res.u.v;
@@ -108,7 +108,7 @@ double eval_num(eval_ctx_t *cp, enode_t *e) {
     return 0;
 }
 
-SCXMEM string_t *eval_str(eval_ctx_t *cp, enode_t *e) {
+static SCXMEM string_t *eval_str(eval_ctx_t *cp, enode_t *e) {
     char buf[32];
     scvalue_t res = eval_node(cp, e, 1);
     if (res.type == SC_STRING)
