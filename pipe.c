@@ -180,7 +180,8 @@ void cmd_eval(SCXMEM enode_t *e, SCXMEM string_t *fmt, int row, int col, int fd)
     int len;
     double v;
 
-    v = eval_at(e, row, col);
+    // XXX: should output parseable value: number or string
+    v = neval_at(e, row, col);
     if (!sempty(fmt)) {
         /* convert cell contents, do not test width, should not align */
         format(buf, sizeof buf - 1, s2c(fmt), precision[col], v, &align);

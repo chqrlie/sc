@@ -198,10 +198,10 @@ void clearent(struct ent *v) {
     if (v) {
         v->v = 0.0;
         set_string(&v->label, NULL);
+        set_string(&v->format, NULL);
         efree(v->expr);
         v->expr = NULL;
-        set_string(&v->format, NULL);
-        v->cellerror = 0;
+        v->cellerror = CELLOK;
         v->flags = IS_CHANGED | IS_CLEARED;
         v->nrr = rangeref_empty();
         // XXX: should clear other fields?
@@ -809,7 +809,6 @@ void valueize_area(rangeref_t rr) {
                 }
                 efree(p->expr);
                 p->expr = NULL;
-                p->flags &= ~IS_STREXPR;
             }
         }
     }
@@ -1728,10 +1727,6 @@ void copyent(struct ent *n, struct ent *p, int dr, int dc,
         if (special != 'm' || p->expr) {
             n->expr = copye(p->expr, dr, dc, r1, c1, r2, c2,
                             special == 't', NULL);
-            if (p->flags & IS_STREXPR)
-                n->flags |= IS_STREXPR;
-            else
-                n->flags &= ~IS_STREXPR;
         }
         if (p->label) {
             set_string(&n->label, dup_string(p->label));

@@ -16,10 +16,8 @@ define "page2" A24:H43
 define "page3" A44:H63
 define "page4" A64:H83
 define "page5" A84:H103
-label A0 = "a"
-let A0 = 2
-label B0 = "b"
-let B0 = 1
+label A0 = 2
+label B0 = 1
 let C0 = A0+B0
 fmt C0 "0.& \euro;-0.& \euro;--;@"
 label D0 = A0#B0

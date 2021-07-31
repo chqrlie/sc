@@ -729,10 +729,9 @@ void update(int anychanged) {          /* did any cell really change in value? *
                 if ((showrange && !showneed && !showexpr
                         && (row >= minsr) && (row <= maxsr)
                         && (col >= minsc) && (col <= maxsc))
-                    || (showneed && p && (p->flags & IS_VALID) &&
-                        ((p->flags & IS_STREXPR) || !p->expr))
-                    || (showexpr && p && p->expr)
-                || (shownote && p && (p->flags & HAS_NOTE)))
+                ||  (showneed && p && !p->expr && ((p->flags & IS_VALID) || p->label))
+                ||  (showexpr && p && p->expr)
+                ||  (shownote && p && (p->flags & HAS_NOTE)))
                 {
                     move(r, c);
                     //standout();
@@ -762,10 +761,6 @@ void update(int anychanged) {          /* did any cell really change in value? *
                         p->flags &= ~IS_CHANGED;
                     }
 
-                    /*
-                     * Show expression; takes priority over other displays:
-                     */
-
                     if (p->cellerror) {
                         // XXX: right alignment is ignored
                         if (colorerr)
@@ -773,128 +768,122 @@ void update(int anychanged) {          /* did any cell really change in value? *
                         printw("%*.*s", fieldlen, fieldlen,
                                p->cellerror == CELLERROR ? "ERROR" : "INVALID");
                     } else
-                    if (showexpr && p->expr) {
+                    if (p->expr && showexpr) {
+                        /* Show expression; takes priority over other displays */
                         decompile(field, sizeof field, p->expr, 0, 0, DCP_DEFAULT);
                         showstring(field, ALIGN_LEFT, /* hasvalue = */ 0,
                                    row, col, &nextcol, mxcol, &fieldlen, r, c,
                                    fr, frightcols, flcols, frcols);
-                    } else {
-                        /*
-                         * Show cell's numeric value:
-                         */
+                    } else
+                    if (p->flags & IS_VALID) {
+                        /* Show cell's numeric value: */
+                        int note = (p->flags & HAS_NOTE) != 0;
+                        int align = p->flags & ALIGN_MASK;
 
-                        if (p->flags & IS_VALID) {
-                            int note = (p->flags & HAS_NOTE) != 0;
-                            int align = p->flags & ALIGN_MASK;
+                        if (colorneg && p->v < 0) {
+                            if (cr)
+                                select_style(((cr->r_color) % CPAIRS) + 1, 0);
+                            else
+                                select_style(STYLE_NEG, 0);
+                        }
+                        /* convert cell contents, do not test width, should not align */
+                        *field = '\0';
+                        if (p->format) {
+                            len = format(field, sizeof field, s2c(p->format), precision[col], p->v, &align);
+                        } else {
+                            len = engformat(field, sizeof field, realfmt[col], precision[col], p->v, &align);
+                        }
+                        if (align & ALIGN_CLIP) {
+                            align &= ~ALIGN_CLIP;
+                            if (len < 0)
+                                field[len = 0] = '\0';
+                            // XXX: handle ALIGN_CENTER?
+                            if (len > fieldlen)
+                                field[len = fieldlen] = '\0';
+                        }
+                        if (len < 0 || len > fieldlen) {
+                            /* fill column with stars, set the color of
+                               the first one according to note presence */
+                            if (note) {
+#ifndef NO_ATTR_GET
+                                attr_t attr;
+                                short curcolor = 0;
+                                if (color && has_colors()) {
+                                    /* silence warning */
+                                    attr_t *attrp = &attr;
+                                    short *curcolorp = &curcolor;
+                                    attr_get(attrp, curcolorp, NULL);
+                                    select_style(STYLE_NOTE, 0);
+                                }
+#endif
+                                addch('*');
+#ifndef NO_ATTR_GET
+                                select_style(curcolor, 0);
+#endif
+                            }
+                            for (i = note; i < fieldlen; i++) {
+                                addch('*');
+                            }
+                        } else {
+                            int lpad = 0;
+                            int rpad = 0;
 
-                            if (colorneg && p->v < 0) {
-                                if (cr)
-                                    select_style(((cr->r_color) % CPAIRS) + 1, 0);
+                            if (align == ALIGN_LEFT) {
+                                rpad = fieldlen - len;
+                            } else
+                            if (align == ALIGN_CENTER) {
+                                lpad = (fieldlen - len) / 2;
+                                rpad = fieldlen - len - lpad;
+                            } else {
+                                lpad = fieldlen - len;
+                            }
+                            if (note) {
+                                if (lpad)
+                                    lpad--;
                                 else
-                                    select_style(STYLE_NEG, 0);
+                                if (rpad)
+                                    rpad--;
+                                else
+                                    note = 0;
                             }
-                            /* convert cell contents, do not test width, should not align */
-                            *field = '\0';
-                            if (p->format) {
-                                len = format(field, sizeof field, s2c(p->format), precision[col], p->v, &align);
-                            } else {
-                                len = engformat(field, sizeof field, realfmt[col], precision[col], p->v, &align);
+                            for (i = 0; i < lpad; i++)
+                                addch(' ');
+                            if (note) {
+#ifndef NO_ATTR_GET
+                                attr_t attr;
+                                short curcolor = 0;
+                                if (color && has_colors()) {
+                                    /* silence warning */
+                                    attr_t *attrp = &attr;
+                                    short *curcolorp = &curcolor;
+                                    attr_get(attrp, curcolorp, NULL);
+                                    select_style(STYLE_NOTE, 0);
+                                }
+#endif
+                                addch('*');
+#ifndef NO_ATTR_GET
+                                select_style(curcolor, 0);
+#endif
                             }
-                            if (align & ALIGN_CLIP) {
-                                align &= ~ALIGN_CLIP;
-                                if (len < 0)
-                                    field[len = 0] = '\0';
-                                // XXX: handle ALIGN_CENTER?
-                                if (len > fieldlen)
-                                    field[len = fieldlen] = '\0';
-                            }
-                            if (len < 0 || len > fieldlen) {
-                                /* fill column with stars, set the color of
-                                   the first one according to note presence */
-                                if (note) {
-#ifndef NO_ATTR_GET
-                                    attr_t attr;
-                                    short curcolor = 0;
-                                    if (color && has_colors()) {
-                                        /* silence warning */
-                                        attr_t *attrp = &attr;
-                                        short *curcolorp = &curcolor;
-                                        attr_get(attrp, curcolorp, NULL);
-                                        select_style(STYLE_NOTE, 0);
-                                    }
-#endif
-                                    addch('*');
-#ifndef NO_ATTR_GET
-                                    select_style(curcolor, 0);
-#endif
-                                }
-                                for (i = note; i < fieldlen; i++) {
-                                    addch('*');
-                                }
-                            } else {
-                                int lpad = 0;
-                                int rpad = 0;
-
-                                if (align == ALIGN_LEFT) {
-                                    rpad = fieldlen - len;
-                                } else
-                                if (align == ALIGN_CENTER) {
-                                    lpad = (fieldlen - len) / 2;
-                                    rpad = fieldlen - len - lpad;
-                                } else {
-                                    lpad = fieldlen - len;
-                                }
-                                if (note) {
-                                    if (lpad)
-                                        lpad--;
-                                    else
-                                    if (rpad)
-                                        rpad--;
-                                    else
-                                        note = 0;
-                                }
-                                for (i = 0; i < lpad; i++)
-                                    addch(' ');
-                                if (note) {
-#ifndef NO_ATTR_GET
-                                    attr_t attr;
-                                    short curcolor = 0;
-                                    if (color && has_colors()) {
-                                        /* silence warning */
-                                        attr_t *attrp = &attr;
-                                        short *curcolorp = &curcolor;
-                                        attr_get(attrp, curcolorp, NULL);
-                                        select_style(STYLE_NOTE, 0);
-                                    }
-#endif
-                                    addch('*');
-#ifndef NO_ATTR_GET
-                                    select_style(curcolor, 0);
-#endif
-                                }
-                                addstr(field);
-                                for (i = 0; i < rpad; i++)
-                                    addch(' ');
-                            }
+                            addstr(field);
+                            for (i = 0; i < rpad; i++)
+                                addch(' ');
                         }
-
-                        /*
-                         * Show cell's label string:
-                         */
-
-                        if (p->label) {
-                            showstring(s2c(p->label),
-                                       p->flags & ALIGN_MASK,
-                                       p->flags & IS_VALID,
-                                       row, col, &nextcol, mxcol, &fieldlen,
-                                       r, c, fr, frightcols, flcols, frcols);
-                        } else      /* repaint a blank cell: XXX: too complicated */
-                        if ((((do_stand || !FullUpdate) && (p->flags & IS_CHANGED)) ||
-                             (cr && cr->r_color != 1)) && !(p->flags & IS_VALID))
-                        {
-                            printw("%*s", fieldlen, "");
-                        }
-                    } /* else */
+                    } else
+                    if (p->label) {
+                        /* Show cell's label string: */
+                        // XXX: should handle notes too */
+                        showstring(s2c(p->label),
+                                   p->flags & ALIGN_MASK,
+                                   p->flags & IS_VALID,
+                                   row, col, &nextcol, mxcol, &fieldlen,
+                                   r, c, fr, frightcols, flcols, frcols);
+                    } else      /* repaint a blank cell: XXX: too complicated */
+                    if ((((do_stand || !FullUpdate) && (p->flags & IS_CHANGED)) ||
+                         (cr && cr->r_color != 1)) && !(p->flags & IS_VALID))
+                    {
+                        printw("%*s", fieldlen, "");
+                    }
                 } else
                 if (!p && cr && cr->r_color != 1) {
                     move(r, c);
@@ -954,14 +943,9 @@ void update(int anychanged) {          /* did any cell really change in value? *
         if (showtop) {                  /* show top line */
             printw("%s%d: ", coltoa(curcol), currow);
 
-            if ((p = *ATBL(tbl, currow, curcol)) && (p->flags & HAS_NOTE)) {
-                /* Show the cell note range */
-                // XXX: should show the note instead?
-                printw("{*%s} ", r_name(p->nrr.left.row, p->nrr.left.col,
-                                        p->nrr.right.row, p->nrr.right.col));
-            }
+            p = *ATBL(tbl, currow, curcol);
 
-            /* show the current cell's format */
+            /* show the current cell format */
             if (p && p->format) {
                 printw("(%s) ", s2c(p->format));
             } else {
@@ -969,50 +953,38 @@ void update(int anychanged) {          /* did any cell really change in value? *
                                       realfmt[curcol]);
             }
             if (p) {
-                *field = '\0';
-                if (p->expr) {
-                    /* has expr of some type */
-                    // XXX: should pass currow, curcol as the cell reference
-                    decompile(field, sizeof field, p->expr, 0, 0, DCP_DEFAULT);
+                /* display cell notes */
+                if (p->flags & HAS_NOTE) {
+                    /* Show the cell note range */
+                    // XXX: should show the note instead?
+                    printw("{*%s} ", r_name(p->nrr.left.row, p->nrr.left.col,
+                                            p->nrr.right.row, p->nrr.right.col));
                 }
-
-                /*
-                 * Display string part of cell:
-                 */
-
+                /* display cell alignment */
                 switch (p->flags & ALIGN_MASK) {
-                default: if (!p->label) break;
-                    FALLTHROUGH;
                 case ALIGN_LEFT:    addch('<'); break;
                 case ALIGN_CENTER:  addch('|'); break;
                 case ALIGN_RIGHT:   addch('>'); break;
                 }
-                if (p->expr && (p->flags & IS_STREXPR)) {
-                    addch('{');
+                if (p->expr) {
+                    // XXX: should pass currow, curcol as the cell reference
+                    decompile(field, sizeof field, p->expr, 0, 0, DCP_DEFAULT);
+                    addch('[');
                     addstr(field);
-                    addch('}');
+                    addch(']');
                     addch(' ');
-                } else
+                }
                 if (p->label) {
-                    /* has constant label only */
+                    /* value is a string */
                     addch('\"');
                     addstr(s2c(p->label));  // XXX: should encode string?
                     addch('\"');
                     addch(' ');
-                }
-
-                /*
-                 * Display value part of cell:
-                 */
-
+                } else
                 if (p->flags & IS_VALID) {
-                    /* has value or num expr */
-                    if (!p->expr || (p->flags & IS_STREXPR))
-                        snprintf(field, sizeof field, "%.15g", p->v);
-
-                    addch('[');
+                    /* value is a number */
+                    snprintf(field, sizeof field, "%.15g", p->v);
                     addstr(field);
-                    addch(']');
                     addch(' ');
                 }
                 /* Display if cell is locked */

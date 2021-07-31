@@ -117,11 +117,6 @@ struct range_s {
  * Some not too obvious things about the flags:
  *    IS_VALID means there is a valid number in v.
  *    IS_LOCKED means that the cell cannot be edited.
- *    IS_STREXPR set means expr yields a string expression.
- *    If IS_STREXPR is not set, and expr points to an expression tree, the
- *        expression yields a numeric expression.
- *    So, either v or label can be set to a constant.
- *        Either (but not both at the same time) can be set from an expression.
  */
 
 typedef struct enode enode_t;
@@ -147,7 +142,6 @@ struct scvalue {
 
 typedef struct eval_context eval_ctx_t;
 struct eval_context {
-    int error;
     int gmyrow, gmycol;  /* globals used to implement @myrow, @mycol cmds */
     int rowoffset, coloffset;   /* row & col offsets for range functions */
     int cellerror;
@@ -349,7 +343,6 @@ struct go_save {
 
 /* flag values (9 bits) */
 #define IS_VALID        0001  /* has a valid number value */
-#define IS_STREXPR      0002  /* has a string expression */
 #define IS_LOCKED       0004  /* is protected from user modification */
 #define IS_CHANGED      0010  /* set when modifying ent, tested and udated in update() for partial screen updates */
 #define IS_DELETED      0020  /* set by free_ent, cleared in move_area, pullcells, tested in eval, decompile */
@@ -382,10 +375,6 @@ struct go_save {
 #define TEX     3       /* 'TeX' */
 #define SLATEX  4       /* 'SLaTeX' (Scandinavian LaTeX) */
 #define FRAME   5       /* tblprint style output for FrameMaker */
-
-/* Types for etype() */
-#define NUM     1
-#define STR     2
 
 #define GROWAMT 30      /* default minimum amount to grow */
 
@@ -614,15 +603,15 @@ extern char *findplugin(const char *ext, char type);
 extern const char *coltoa(int col);
 extern const char *v_name(int row, int col);
 extern const char *r_name(int r1, int c1, int r2, int c2);
+extern scvalue_t eval_at(enode_t *e, int row, int col);
 extern SCXMEM string_t *seval_at(enode_t *se, int row, int col);
-extern double eval_at(enode_t *e, int row, int col);
+extern double neval_at(enode_t *e, int row, int col);
 extern int are_frames(void);
 extern int are_nranges(void);
 extern int atocol(const char *s, int *lenp);
 extern int creadfile(const char *fname, int eraseflg);
 extern int cwritefile(const char *fname, rangeref_t rr, int dcp_flags);
 extern int engformat(char *buf, size_t size, int fmt, int lprecision, double val, int *alignp);
-extern int etype(enode_t *e);
 extern int find_nrange_name(const char *name, int len, struct nrange **rng);
 struct nrange *find_nrange_coords(rangeref_t rr);
 extern int format(char *buf, size_t buflen, const char *fmt, int lprecision, double val, int *alignp);
@@ -746,7 +735,7 @@ extern int insertcol(cellref_t cr, int arg, int delta);
 extern int insertrow(cellref_t cr, int arg, int delta);
 extern void kbd_again(void);
 extern void unlet(cellref_t cr);
-extern void let(cellref_t cr, SCXMEM enode_t *e);
+extern void let(cellref_t cr, SCXMEM enode_t *e, int align);
 extern void list_nranges(FILE *f);
 extern void lock_cells(rangeref_t rr);
 extern void move_area(int dr, int dc, rangeref_t rr);
@@ -767,7 +756,6 @@ extern void setcalcorder(int i);
 extern void showcol(int c1, int c2);
 extern void showrow(int r1, int r2);
 extern void signals(void);
-extern void slet(cellref_t cr, SCXMEM enode_t *se, int align);
 extern void sortrange(rangeref_t rr, SCXMEM string_t *criteria);
 extern void startdisp(void);
 extern void stopdisp(void);

@@ -342,11 +342,11 @@ static SCXMEM string_t *get_strarg(cellref_t cr) {
 
 %%
 
-command:  S_LET var_or_range '=' e      { let($2.left, $4); }
+command:  S_LET var_or_range '=' e      { let($2.left, $4, -1); }
         | S_LET var_or_range '='        { unlet($2.left); }
-        | S_LABEL var_or_range '=' e    { slet($2.left, $4, ALIGN_CENTER); }
-        | S_LEFTSTRING var_or_range '=' e   { slet($2.left, $4, ALIGN_LEFT); }
-        | S_RIGHTSTRING var_or_range '=' e  { slet($2.left, $4, ALIGN_RIGHT); }
+        | S_LABEL var_or_range '=' e    { let($2.left, $4, ALIGN_CENTER); }
+        | S_LEFTSTRING var_or_range '=' e  { let($2.left, $4, ALIGN_LEFT); }
+        | S_RIGHTSTRING var_or_range '=' e  { let($2.left, $4, ALIGN_RIGHT); }
         | S_LEFTJUSTIFY var_or_range    { range_align($2, ALIGN_LEFT); }
         | S_LEFTJUSTIFY                 { range_align(rangeref_current(), ALIGN_LEFT); }
         | S_RIGHTJUSTIFY var_or_range   { range_align($2, ALIGN_RIGHT); }

@@ -3,13 +3,12 @@
 [ ] add format info in scvalue_t
 [ ] improve date/time representation and formatting
 [ ] save expression values in .sc files
-[/] STOP THIS NUMERIC/STRING confusing bullshit!
 [ ] add ':' range constructor from cell references
 [ ] make cell notes separate structures
 [ ] pattern directed input in vi.c
 [ ] sparse matrix database
 [ ] remove yacc based parser
-[/] stack based dynamic type interpreter
+[ ] stack based dynamic type interpreter
 [ ] remove cell pointers
 [ ] rewrite update()
 [ ] update() should not have a side effect on currow/curcol
@@ -33,8 +32,7 @@
 [ ] pass count to duprow() and dupcol() ???
 [ ] use rangeref_t for find_range_coords() ?
 [ ] change representation for ranges: abs/rel coords instead of pointers
-[/] change the expression evaluator: use a stack of dynamically typed values
-[ ] cell value must be either a number or a string, with an optional expression
+[ ] change the expression evaluator: use a stack of dynamically typed values
 [ ] use an array of format strings, store an index in the cell struct
 [ ] compile to bytecode
 [ ] implement virtual space: jagged 2D matrix
@@ -88,3 +86,5 @@
 [X] fix operator precedence issue in `<=`, `>=`, `!=` and `<>`
 [X] add third argument for @ext default/last answer
 [X] handle dynamic types
+[X] STOP THIS NUMERIC/STRING confusing bullshit!
+[X] cell value must be either a number or a string, with an optional expression

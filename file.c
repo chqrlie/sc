@@ -458,13 +458,19 @@ void write_cells(FILE *f, rangeref_t rr, cellref_t cr, int dcp_flags) {
             if (p) {
                 int row = r + cr.row - rr.left.row;
                 int col = c + cr.col - rr.left.col;
-                if (p->label || (p->flags & IS_STREXPR)) {
+                if (p->label || p->expr || (p->flags & IS_VALID)) {
                     edits(buf, row, col, p, dcp_flags);
                     fprintf(f, "%s\n", buf->buf);
-                }
-                if (p->flags & IS_VALID) {
-                    editv(buf, row, col, p, dcp_flags);
-                    fprintf(f, "%s\n", buf->buf);
+                } else
+                if ((p->flags & ALIGN_MASK) != ALIGN_DEFAULT) {
+                    const char *command = NULL;
+                    switch (p->flags & ALIGN_MASK) {
+                    default:
+                    case ALIGN_LEFT:    command = "leftjustify";  break;
+                    case ALIGN_RIGHT:   command = "rightjustify"; break;
+                    case ALIGN_CENTER:  command = "center";       break;
+                    }
+                    fprintf(f, "%s %s\n", command, v_name(row, col));
                 }
                 if (p->format) {
                     buf_setf(buf, "fmt %s ", v_name(row, col));

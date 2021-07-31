@@ -676,6 +676,15 @@ void vi_interaction(void) {
             if (!numeric && (c == '+' || c == '-')) {
                 /* increment/decrement ops */
                 p = *ATBL(tbl, currow, curcol);
+                if (p && p->label) {
+                    error("Cannot increment/decrement a string\n");
+                    continue;
+                }
+                if (p && p->expr) {
+                    // XXX: should decompile and append a '+'/'-'
+                    error("Cannot increment/decrement a formula\n");
+                    continue;
+                }
                 if (!p || !(p->flags & IS_VALID)) {
                     if (c == '+') {
                         /* copy cell contents into line array */
@@ -688,16 +697,13 @@ void vi_interaction(void) {
                     }
                     continue;
                 }
-                if (p->expr && !(p->flags & IS_STREXPR)) {
-                    error("Cannot increment/decrement a formula\n");
-                    continue;
-                }
-                FullUpdate++;
-                modflg++;
+                /* p has a valid number, increment/decrement value by uarg */
                 if (c == '+')
                     p->v += (double)uarg;
                 else
                     p->v -= (double)uarg;
+                FullUpdate++;
+                modflg++;
             } else
             if (c >= KEY_F0 && c <= KEY_F(FKEYS-1)) {
                 /* a function key was pressed */
@@ -1126,30 +1132,19 @@ void vi_interaction(void) {
                     range_align(rangeref_current(), ALIGN_CENTER);
                     break;
                 case 'e':
-                    if (!locked_cell(currow, curcol)) {
-                        p = lookat(currow, curcol);
-                        /* copy cell contents into line array */
-                        buf_init(buf, line, sizeof line);
-                        // XXX: the conversion should be localized
-                        linelim = linelen = editv(buf, currow, curcol, p, DCP_DEFAULT);
-                        setmark('0');
-                        cellassign = 1;
-
-                        if (!(p->flags & IS_VALID)) {
-                            insert_mode();
-                        } else
-                            edit_mode();
-                    }
-                    break;
                 case 'E':
                     if (!locked_cell(currow, curcol)) {
                         p = lookat(currow, curcol);
                         /* copy cell contents into line array */
                         buf_init(buf, line, sizeof line);
+                        // XXX: the conversion should be localized
                         linelim = linelen = edits(buf, currow, curcol, p, DCP_DEFAULT);
                         setmark('0');
                         cellassign = 1;
-                        edit_mode();
+                        if (c == 'e' && !(p->flags & IS_VALID)) {
+                            insert_mode();
+                        } else
+                            edit_mode();
                     }
                     break;
                 case 'f':
@@ -3810,13 +3805,17 @@ int modcheck(const char *endstr) {
 
 int editv(buf_t buf, int row, int col, struct ent *p, int dcp_flags) {
     buf_setf(buf, "let %s = ", v_name(row, col));
-    if (p && (p->flags & IS_VALID)) {
-        if ((dcp_flags & DCP_NO_EXPR) || (p->flags & IS_STREXPR) || p->expr == NULL) {
-            // XXX: should convert to locale: use out_const()?
-            buf_printf(buf, "%.15g", p->v);
-        } else {
+    if (p) {
+        if (p->expr && !(dcp_flags & DCP_NO_EXPR)) {
             // XXX: should pass row, col as the cell reference
             decompile_expr(buf, p->expr, row - p->row, col - p->col, dcp_flags);
+        } else
+        if (p->flags & IS_VALID) {
+            // XXX: should convert to locale: use out_const()?
+            buf_printf(buf, "%.15g", p->v);
+        } else
+        if (p->label) {
+            buf_quotestr(buf, '"', s2c(p->label), '"');
         }
     }
     return buf->len;
@@ -3827,16 +3826,21 @@ int edits(buf_t buf, int row, int col, struct ent *p, int dcp_flags) {
     const char *command;
 
     switch (align) {
-    default:
+    default:            command = "let";         break;
     case ALIGN_LEFT:    command = "leftstring";  break;
     case ALIGN_CENTER:  command = "label";       break;
     case ALIGN_RIGHT:   command = "rightstring"; break;
     }
     buf_setf(buf, "%s %s = ", command, v_name(row, col));
-    if (!(dcp_flags & DCP_NO_EXPR) && p && (p->flags & IS_STREXPR) && p->expr) {
+    if (p && p->expr && !(dcp_flags & DCP_NO_EXPR)) {
         // XXX: should pass row, col as the cell reference
         decompile_expr(buf, p->expr, row - p->row, col - p->col, dcp_flags);
-    } else if (p && p->label) {
+    } else
+    if (p->flags & IS_VALID) {
+        // XXX: should convert to locale: use out_const()?
+        buf_printf(buf, "%.15g", p->v);
+    } else
+    if (p && p->label) {
         buf_quotestr(buf, '"', s2c(p->label), '"');
     } else {
         /* output a single `"` for the user to start entering the string */
