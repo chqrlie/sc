@@ -841,13 +841,13 @@ static scvalue_t doext(eval_ctx_t *cp, enode_t *se) {
     char buff[FBUFLEN];     /* command line/output */
     SCXMEM string_t *command;
     enode_t *right = se->e.o.right;
-    enode_t *arg = right;
-    enode_t *def = NULL;
+    enode_t *args = right;
+    enode_t *prev = NULL;
     int cellerr = 0;
 
-    if (right && right->op == ',') {
-        arg = right->e.o.left;
-        def = right->e.o.right;
+    if (right && right->op == 0) {
+        prev = right->e.o.left;
+        args = right->e.o.right;
     }
     *buff = '\0';
 
@@ -857,7 +857,7 @@ static scvalue_t doext(eval_ctx_t *cp, enode_t *se) {
 #else
     if (!extfunc) {
         error("Warning: external functions disabled; using %s value",
-              def ? "null" : "previous");
+              prev ? "null" : "previous");
     } else {
         command = eval_str(cp, se->e.o.left);
         if (sempty(command)) {
@@ -866,9 +866,10 @@ static scvalue_t doext(eval_ctx_t *cp, enode_t *se) {
             free_string(command);
         } else {
             FILE *pf;
-            SCXMEM string_t *s = eval_str(cp, arg);
+            SCXMEM string_t *s = eval_str(cp, args);
 
             /* build cmd line */
+            // XXX: should accept argument list
             snprintf(buff, sizeof buff, "%s %s", s2c(command), s2str(s));
             free_string(s);
             free_string(command);
@@ -892,18 +893,19 @@ static scvalue_t doext(eval_ctx_t *cp, enode_t *se) {
                     error(" "); /* erase notice */
                 }
                 pclose(pf);
-                if (arg == right) {
-                    def = new_str(new_string(buff));
-                    se->e.o.right = right = new_node(',', arg, def);
+                if (args == right) {
+                    prev = new_str(new_string(buff));
+                    /* create dummy node to store previous value */
+                    se->e.o.right = right = new_node(0, prev, args);
                 } else
-                if (def && def->op == O_SCONST)
-                    set_string(&def->e.s, new_string(buff));
+                if (prev && prev->op == O_SCONST)
+                    set_string(&prev->e.s, new_string(buff));
             }
         }
     }
 #endif  /* NOEXTFUNCS */
-    if (def)
-        return eval_node(cp, def, 1);
+    if (prev)
+        return eval_node(cp, prev, 1);
     if (cellerr)
         return scvalue_error(cp, cellerr);
     else
@@ -1866,6 +1868,10 @@ static void out_unary(decomp_t *dcp, const char *s, enode_t *e) {
 
 static void decompile_list(decomp_t *dcp, enode_t *p) {
     while (p) {
+        if (p->op == 0) {   /* skip summy nodes (@EXP) */
+            p = p->e.o.right;
+            continue;
+        }
         buf_putc(dcp->buf, ',');
         if (p->op == ',') {
             decompile_node(dcp, p->e.o.left, 0);

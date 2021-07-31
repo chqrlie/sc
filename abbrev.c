@@ -11,16 +11,21 @@
 #include "sc.h"
 
 static SCXMEM struct abbrev *abbr_base;
+static struct abbrev *abbr_tail;
 
 static int are_abbrevs(void) {
     return abbr_base != NULL;
 }
 
 /* unlink and free an abbrev */
-static void free_abbr(SCXMEM struct abbrev *a, struct abbrev *prev) {
+static void free_abbr(SCXMEM struct abbrev *a) {
     if (a) {
-        if (prev)
-            prev->next = a->next;
+        if (a->next)
+            a->next->prev = a->prev;
+        else
+            abbr_tail = a->prev;
+        if (a->prev)
+            a->prev->next = a->next;
         else
             abbr_base = a->next;
         free_string(a->name);
@@ -110,18 +115,25 @@ void add_abbr(SCXMEM string_t *name, SCXMEM string_t *exp) {
         free_string(name);
         return;
     } else {
+        /* insert in lexicographical order */
         a = scxmalloc(sizeof(struct abbrev));
         a->name = name;
         a->exp = exp;
 
-        /* link abbreviation in singly linked list */
-        if (prev) {
+        /* link abbreviation in doubly linked list */
+        if ((a->prev = prev) != NULL) {
             a->next = prev->next;
             prev->next = a;
         } else {
             a->next = abbr_base;
             abbr_base = a;
         }
+        if (a->next)
+            a->next->prev = a;
+        else
+            abbr_tail = a;
+
+        modflg++;
         return;
     }
 }
@@ -130,13 +142,13 @@ void del_abbr(SCXMEM string_t *name) {
     struct abbrev *a, *prev;
 
     if (name && (a = find_abbr(s2c(name), -1, &prev)) != NULL)
-        free_abbr(a, prev);
+        free_abbr(a);
     free_string(name);
 }
 
 void clean_abbrevs(void) {
     while (abbr_base)
-        free_abbr(abbr_base, NULL);
+        free_abbr(abbr_base);
 }
 
 struct abbrev *find_abbr(const char *name, int len, struct abbrev **prev) {

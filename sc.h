@@ -128,9 +128,10 @@ typedef struct enode enode_t;
 
 #define SC_EMPTY   0
 #define SC_ERROR   1
-#define SC_NUMBER  1
-#define SC_RANGE   3
-#define SC_STRING  4
+#define SC_BOOLEAN 2
+#define SC_NUMBER  3
+#define SC_RANGE   4
+#define SC_STRING  5
 
 typedef struct scvalue scvalue_t;
 struct scvalue {
@@ -158,7 +159,8 @@ struct ent {
     SCXMEM string_t *label;     /* cell string value */
     SCXMEM enode_t *expr;       /* cell formula */
     SCXMEM string_t *format;    /* printf format for this cell */
-    char cellerror;             /* error in a cell? (should pack with flags) */
+    unsigned char cellerror;    /* error in a cell? (should pack with flags) */
+    unsigned char type;         /* SC_xxx */
     int row;
     short col;                  /* the cell col/row */
     short flags;
@@ -220,7 +222,7 @@ struct colorpair {
 struct abbrev {
     SCXMEM string_t *name;
     SCXMEM string_t *exp;
-    SCXMEM struct abbrev *next;
+    SCXMEM struct abbrev *next, *prev;
 };
 
 struct impexfilt {

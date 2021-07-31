@@ -141,13 +141,13 @@ void add_crange(rangeref_t rr, int pair) {
     r->r_right = lookat(rr.right.row, rr.right.col);
     r->r_color = pair;
 
-    r->r_next = color_base;
     r->r_prev = NULL;
-    if (color_base)
-        color_base->r_prev = r;
+    r->r_next = color_base;
+    color_base = r;
+    if (r->r_next)
+        r->r_next->r_prev = r;
     else
         color_tail = r;
-    color_base = r;
 
     modflg++;
     FullUpdate++;
