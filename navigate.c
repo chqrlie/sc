@@ -143,7 +143,7 @@ int num_search(int g_type, rangeref_t rr, double n) {
             }
         }
         if (!col_hidden[col] && (p = *ATBL(tbl, row, col))) {
-            if ((p->flags & IS_VALID) &&
+            if ((p->type == SC_NUMBER) &&
                 ((!errsearch && (p->v == n)) ||
                  (errsearch && (p->cellerror == errsearch)))) {   /* CELLERROR vs CELLINVALID */
                 found = 1;
@@ -266,7 +266,7 @@ int str_search(int g_type, rangeref_t rr, SCXMEM string_t *str) {
                 if (p->cellerror) {
                     s1 = (p->cellerror == CELLERROR) ? "ERROR" : "INVALID";
                 } else
-                if (p->flags & IS_VALID) {
+                if (p->type == SC_NUMBER) {
                     if (p->format) {
                         format(field, sizeof field, s2c(p->format), precision[col], p->v, &align);
                     } else {
@@ -281,8 +281,8 @@ int str_search(int g_type, rangeref_t rr, SCXMEM string_t *str) {
                         *field = '\0';
                 }
             }
-            if (gs.g_type == G_STR && p->label) {
-                s1 = s2c(p->label);
+            if (gs.g_type == G_STR && p->type == SC_STRING) {
+                s1 = s2str(p->label);
             }
             if (s1 && *s1
 #if defined REGCOMP

@@ -59,6 +59,7 @@ SCXMEM string_t *tblext;
 SCXMEM string_t *latexext;
 SCXMEM string_t *slatexext;
 SCXMEM string_t *texext;
+SCXMEM string_t *empty_string;
 int scrc = 0;
 int showsc, showsr;     /* Starting cell for highlighted range */
 int usecurses = TRUE;   /* Use curses unless piping/redirection or using -q */
@@ -138,6 +139,7 @@ int main(int argc, char **argv) {
     int Mopt = 0;
     int Dopt = 0;
 
+    empty_string = new_string("");
     histfile = new_string("~/.sc_history");
 
 #ifdef USELOCALE
@@ -328,14 +330,15 @@ int main(int argc, char **argv) {
         free_enode_list();
         free_styles();
         free_hist();
-        free_string(histfile);
-        free_string(scext);
-        free_string(ascext);
-        free_string(tbl0ext);
-        free_string(tblext);
-        free_string(latexext);
-        free_string(slatexext);
-        free_string(texext);
+        set_string(&histfile, NULL);
+        set_string(&scext, NULL);
+        set_string(&ascext, NULL);
+        set_string(&tbl0ext, NULL);
+        set_string(&tblext, NULL);
+        set_string(&latexext, NULL);
+        set_string(&slatexext, NULL);
+        set_string(&texext, NULL);
+        set_string(&empty_string, NULL);
         scxmemdump();
     }
 

@@ -196,12 +196,13 @@ int flush_saved(int idx) {
 
 void clearent(struct ent *v) {
     if (v) {
-        v->v = 0.0;
         set_string(&v->label, NULL);
-        set_string(&v->format, NULL);
         efree(v->expr);
         v->expr = NULL;
+        set_string(&v->format, NULL);
+        v->v = 0.0;
         v->cellerror = CELLOK;
+        v->type = SC_EMPTY;
         v->flags = IS_CHANGED | IS_CLEARED;
         v->nrr = rangeref_empty();
         // XXX: should clear other fields?
@@ -239,9 +240,10 @@ struct ent *lookat(int row, int col) {
         p->expr = NULL;
         p->format = NULL;
         p->cellerror = CELLOK;
-        p->flags = MAY_SYNC;
+        p->type = SC_EMPTY;
         p->row = row;
         p->col = col;
+        p->flags = MAY_SYNC;
         p->nrr = rangeref_empty();
         p->next = NULL;
         *pp = p;
@@ -1474,8 +1476,9 @@ void fillr(rangeref_t rr, double start, double inc, int bycols) {
                 clearent(n);
                 n->v = start;
                 start += inc;
-                n->flags |= IS_CHANGED | IS_VALID;
+                n->type = SC_NUMBER;
                 n->flags &= ~IS_CLEARED;
+                n->flags |= IS_CHANGED;
             }
         }
     } else {
@@ -1488,8 +1491,9 @@ void fillr(rangeref_t rr, double start, double inc, int bycols) {
                 clearent(n);
                 n->v = start;
                 start += inc;
-                n->flags |= IS_CHANGED | IS_VALID;
+                n->type = SC_NUMBER;
                 n->flags &= ~IS_CLEARED;
+                n->flags |= IS_CHANGED;
             }
         }
     }
@@ -1720,22 +1724,21 @@ void copyent(struct ent *n, struct ent *p, int dr, int dc,
         return;
     }
     if (special != 'f') {
-        if (special != 'm' || (p->flags & IS_VALID)) {
+        /* transfer value unless merging and no value */
+        if (special != 'm' || p->type != SC_EMPTY) {
+            set_string(&n->label, dup_string(p->label));
             n->v = p->v;
-            n->flags |= p->flags & IS_VALID;
+            n->type = p->type;
+            n->cellerror = p->cellerror;
         }
         if (special != 'm' || p->expr) {
+            efree(n->expr);
             n->expr = copye(p->expr, dr, dc, r1, c1, r2, c2,
                             special == 't', NULL);
         }
-        if (p->label) {
-            set_string(&n->label, dup_string(p->label));
-        } else if (special != 'm') {
-            set_string(&n->label, NULL);
-        }
+        /* transfer alignment and LOCKED flag */
         n->flags &= ~ALIGN_MASK;
-        n->flags |= p->flags & ALIGN_MASK;
-        n->flags |= p->flags & IS_LOCKED;
+        n->flags |= p->flags & (ALIGN_MASK | IS_LOCKED);
     }
     if (p->format) {
         set_string(&n->format, dup_string(p->format));

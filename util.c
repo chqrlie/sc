@@ -243,7 +243,7 @@ SCXMEM string_t *sub_string(SCXMEM string_t *s, int v1, int v2) {
             return dup_string(s);
     }
     if (v1 < 0 || v1 >= v2) {       /* out of range, return empty string */
-        p = new_string("");
+        p = dup_string(empty_string);
     } else {
         p = new_string_len(&s->s[v1], v2 - v1);
     }

@@ -145,24 +145,47 @@ int compare(const void *a1, const void *a2) {
         p2 = *ATBL(tbl, row2, sort[i].column);
 
         // XXX: comparison algorithm should be the same as for expressions
-        if (sort[i].type) {
-            if (p1 && p1->label) {
-                if (p2 && p2->label)
-                    result = strcmp(s2c(p1->label), s2c(p2->label));
-                else
-                    result = -1;
-            } else
-            if (p2 && p2->label)
-                result = 1;
-        } else {
-            if (p1 && p2 && (p1->flags & IS_VALID) && (p2->flags & IS_VALID)) {
+        /* mixed types are sorted in this order:
+           numbers < text < logical < error < empty
+         */
+        /* empty cells always compare larger */
+        if (!p1 || p1->type == SC_EMPTY) {
+            result = (p2 || p2->type == SC_EMPTY) ? 1 : 0;
+            continue;
+        }
+        if (!p2 || p2->type == SC_EMPTY) {
+            result = -1;
+            continue;
+        }
+        // XXX: ignore sort[i].type
+        if (p1->type == SC_NUMBER) {
+            if (p2->type == SC_NUMBER)
                 result = (p1->v > p2->v) - (p1->v < p2->v);
-            } else
-            if (p1 && (p1->flags & IS_VALID))
-                result = -1;
             else
-            if (p2 && (p2->flags & IS_VALID))
-                result = 1;
+                result = -1;
+        } else
+        if (p2->type == SC_NUMBER) {
+            result = 1;
+        } else
+        if (p1->type == SC_STRING) {
+            if (p2->type == SC_STRING)
+                result = strcmp(s2c(p1->label), s2c(p2->label));
+            else
+                result = -1;
+        } else
+        if (p2->type == SC_STRING) {
+            result = 1;
+        } else
+        if (p1->type == SC_BOOLEAN) {
+            if (p2->type == SC_BOOLEAN)
+                result = p2->v - p1->v;
+            else
+                result = -1;
+        } else
+        if (p2->type == SC_BOOLEAN) {
+            result = 1;
+        } else {
+            result = p2->cellerror - p1->cellerror;
         }
         result *= sort[i].direction;
     }

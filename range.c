@@ -79,11 +79,12 @@ void add_nrange(SCXMEM string_t *name, rangeref_t rr, int is_range) {
 
     if (autolabel && rr.left.col > 0 && !is_range) {
         struct ent *cp = lookat(rr.left.row, rr.left.col - 1);
-        if (!cp->label && !cp->expr && !cp->v && !(cp->flags & IS_VALID)) {
+        if (!cp->type && !cp->expr) {
             /* empty cell to the left of the defined cell:
                set the cell label to the name.
              */
             set_string(&cp->label, name);
+            cp->type = SC_STRING;
             cp->flags &= ~ALIGN_MASK;
             cp->flags |= ALIGN_DEFAULT;
             FullUpdate++;

@@ -458,7 +458,7 @@ void write_cells(FILE *f, rangeref_t rr, cellref_t cr, int dcp_flags) {
             if (p) {
                 int row = r + cr.row - rr.left.row;
                 int col = c + cr.col - rr.left.col;
-                if (p->label || p->expr || (p->flags & IS_VALID)) {
+                if (p->type || p->expr) {
                     edits(buf, row, col, p, dcp_flags);
                     fprintf(f, "%s\n", buf->buf);
                 } else

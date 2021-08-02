@@ -66,6 +66,7 @@ void printfile(SCXMEM string_t *str, rangeref_t rr) {
         for (col = rr.left.col; col <= rr.right.col; col = nextcol, w += fieldlen) {
             struct ent *p = *ATBL(tbl, row, col);
             const char *s;
+            int align, len;
 
             fieldlen = 0;
             nextcol = col + 1;
@@ -84,15 +85,19 @@ void printfile(SCXMEM string_t *str, rangeref_t rr) {
             // XXX: alignment should be determined from cell format
             //      ALIGN_AUTO, ALIGN_LEFT, ALIGN_CENTER, ALIGN_RIGHT
 
-            if (p->flags & IS_VALID) {
-                int align = p->flags & ALIGN_MASK;
-                int len;
+            align = p->flags & ALIGN_MASK;
 
-                if (p->cellerror) {
+            if (p->type == SC_NUMBER || p->type == SC_ERROR || p->type == SC_BOOLEAN) {
+                if (p->type == SC_ERROR) {
                     // XXX: append a space for cell alignment
                     len = pstrcpy(field, sizeof field,
                                   (p->cellerror == CELLERROR) ? "ERROR " : "INVALID ");
                     align |= ALIGN_CLIP;
+                } else
+                if (p->type == SC_BOOLEAN) {
+                    len = pstrcpy(field, sizeof field, p->v ? "TRUE " : "FALSE");
+                    if (!align)
+                        align = ALIGN_CENTER;
                 } else {
                     if (p->format) {
                         len = format(field, sizeof field, s2c(p->format), precision[col], p->v, &align);
@@ -126,8 +131,8 @@ void printfile(SCXMEM string_t *str, rangeref_t rr) {
                     buf_printf(buf, "%*s", fieldlen, field);
                 }
             } else
-            if (p->label) {
-                int slen = strlen(s = s2c(p->label));
+            if (p->type == SC_STRING) {
+                int slen = strlen(s = s2str(p->label));
                 int pad = 0;
                 int soff = 0;
 
@@ -148,7 +153,7 @@ void printfile(SCXMEM string_t *str, rangeref_t rr) {
                 while (slen > fieldlen && nextcol <= rr.right.col) {
                     if (!col_hidden[nextcol]) {
                         struct ent *nc = lookat_nc(row, nextcol);
-                        if (nc && ((nc->flags & IS_VALID) || nc->label))
+                        if (nc && (nc->type || nc->expr))
                             break;
                         fieldlen += fwidth[nextcol];
                     }
@@ -351,13 +356,18 @@ void tblprintfile(SCXMEM string_t *str, rangeref_t rr) {
                 char field[FBUFLEN];
                 int align = p->flags & ALIGN_MASK;
 
-                if (p->flags & IS_VALID) {
+                if (p->type == SC_NUMBER || p->type == SC_ERROR || p->type == SC_BOOLEAN) {
                     /* convert cell contents, do not test width, do not align with spaces */
                     // XXX: should implement alignment in output format
-                    if (p->cellerror) {
+                    if (p->type == SC_ERROR) {
                         pstrcpy(field, sizeof field,
                                 (p->cellerror == CELLERROR) ? "ERROR" : "INVALID");
                         align |= ALIGN_CLIP;
+                    } else
+                    if (p->type == SC_BOOLEAN) {
+                        pstrcpy(field, sizeof field, p->v ? "TRUE " : "FALSE");
+                        if (!align)
+                            align = ALIGN_CENTER;
                     } else {
                         if (p->format) {
                             format(field, sizeof field, s2c(p->format), precision[col], p->v, &align);
@@ -367,10 +377,10 @@ void tblprintfile(SCXMEM string_t *str, rangeref_t rr) {
                     }
                     // XXX: should fill fieldlen with * if too long
                     unspecial(f, field, coldelim);
-                }
-                if (p->label) {
+                } else
+                if (p->type == SC_STRING) {
                     // XXX: should handle repeated pattern starting with '\'
-                    unspecial(f, s2c(p->label), coldelim);
+                    unspecial(f, s2str(p->label), coldelim);
                 }
             }
             if (tbl_style == FRAME) {

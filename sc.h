@@ -113,20 +113,14 @@ struct range_s {
     struct ent_ptr left, right;
 };
 
-/*
- * Some not too obvious things about the flags:
- *    IS_VALID means there is a valid number in v.
- *    IS_LOCKED means that the cell cannot be edited.
- */
-
 typedef struct enode enode_t;
 
 #define SC_EMPTY   0
 #define SC_ERROR   1
 #define SC_BOOLEAN 2
 #define SC_NUMBER  3
-#define SC_RANGE   4
-#define SC_STRING  5
+#define SC_STRING  4
+#define SC_RANGE   5
 
 typedef struct scvalue scvalue_t;
 struct scvalue {
@@ -135,7 +129,7 @@ struct scvalue {
         SCXMEM string_t *str;
         rangeref_t rr;
         int cellerror;
-        int i;
+        int b;
     } u;
     int type;
 };
@@ -149,6 +143,7 @@ struct eval_context {
 
 /* info for each cell, only alloc'd when something is stored in a cell */
 struct ent {
+    // XXX: should use union
     double v;                   /* v && label are set in EvalAll() */
     SCXMEM string_t *label;     /* cell string value */
     SCXMEM enode_t *expr;       /* cell formula */
@@ -341,20 +336,20 @@ struct go_save {
 #define ROWS_     (OP_BASE + 80)
 #define COLS_     (OP_BASE + 81)
 
-/* flag values (9 bits) */
-#define IS_VALID        0001  /* has a valid number value */
-#define IS_LOCKED       0004  /* is protected from user modification */
-#define IS_CHANGED      0010  /* set when modifying ent, tested and udated in update() for partial screen updates */
-#define IS_DELETED      0020  /* set by free_ent, cleared in move_area, pullcells, tested in eval, decompile */
-#define IS_CLEARED      0040  /* set by clearent, used in syncref */
-#define MAY_SYNC        0100  /* set when deleting cells, used in syncref */
-#define ALIGN_MASK      0600
+/* flag values (8 bits) */
+#define IS_LOCKED       0001  /* is protected from user modification */
+#define IS_CHANGED      0002  /* set when modifying ent, tested and udated in update() for partial screen updates */
+#define IS_DELETED      0004  /* set by free_ent, cleared in move_area, pullcells, tested in eval, decompile */
+#define IS_CLEARED      0010  /* set by clearent, used in syncref */
+#define MAY_SYNC        0020  /* set when deleting cells, used in syncref */
+#define HAS_NOTE        0040
+
+#define ALIGN_MASK      0300
 #define ALIGN_DEFAULT   0000
-#define ALIGN_LEFT      0200
-#define ALIGN_CENTER    0400
-#define ALIGN_RIGHT     0600
-#define ALIGN_CLIP     01000  /* clip contents if longer than colwidth instead of displaying '*' */
-#define HAS_NOTE       02000
+#define ALIGN_LEFT      0100
+#define ALIGN_CENTER    0200
+#define ALIGN_RIGHT     0300
+#define ALIGN_CLIP      0400  /* clip contents if longer than colwidth instead of displaying '*' */
 
 /* cell error (1st generation (ERROR) or 2nd+ (INVALID)) */
 #define CELLOK          0
@@ -574,8 +569,7 @@ rangeref_t *range_normalize(rangeref_t *rr);
 
 /* check if the cell at r,c has a value */
 /* p must be defined as struct ent *p; */
-#define VALID_CELL(p, r, c) ((p = *ATBL(tbl, r, c)) && \
-                             ((p->flags & IS_VALID) || p->label))
+#define VALID_CELL(p, r, c) ((p = *ATBL(tbl, r, c)) && (p->type != SC_EMPTY))
 
 /* styles */
 extern SCXMEM struct colorpair *cpairs[CPAIRS + 1];

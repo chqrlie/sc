@@ -78,7 +78,7 @@ static inline scvalue_t scvalue_error(eval_ctx_t *cp, int error) {
 
 static inline scvalue_t scvalue_bool(int t) {
     scvalue_t res;
-    res.type = SC_NUMBER;
+    res.type = SC_BOOLEAN;
     res.u.v = t;
     return res;
 }
@@ -99,7 +99,7 @@ static inline scvalue_t scvalue_string(SCXMEM string_t *str) {
 
 static double eval_num(eval_ctx_t *cp, enode_t *e) {
     scvalue_t res = eval_node(cp, e, 1);
-    if (res.type == SC_NUMBER)
+    if (res.type == SC_NUMBER || res.type == SC_BOOLEAN)
         return res.u.v;
     if (res.type == SC_STRING) {
         char *end;
@@ -124,8 +124,10 @@ static SCXMEM string_t *eval_str(eval_ctx_t *cp, enode_t *e) {
         snprintf(buf, sizeof buf, "%.15g", res.u.v);
         return new_string(buf);
     }
+    if (res.type == SC_BOOLEAN)
+        return new_string(res.u.v ? "TRUE" : "FALSE");
     if (res.type == SC_EMPTY)
-        return new_string("");
+        return dup_string(empty_string);
 
     cp->cellerror = CELLERROR;
     return NULL;
@@ -203,12 +205,14 @@ static scvalue_t scvalue_getcell(eval_ctx_t *cp, struct ent *p) {
     if (p) {
         if (p->flags & IS_DELETED)
             return scvalue_error(cp, CELLERROR);
-        if (p->cellerror)
+        if (p->type == SC_ERROR)
             return scvalue_error(cp, CELLINVALID);
-        if (p->flags & IS_VALID)
+        if (p->type == SC_NUMBER)
             return scvalue_number(p->v);
-        if (p->label)
+        if (p->type == SC_STRING)
             return scvalue_string(dup_string(p->label));
+        if (p->type == SC_BOOLEAN)
+            return scvalue_bool(p->v);
     }
     return scvalue_empty();
 }
@@ -243,11 +247,13 @@ static scvalue_t dolookup(eval_ctx_t *cp, enode_t *val, int minr, int minc, int 
     struct ent *vp = NULL;
     int incr, incc, fndr, fndc;
 
+    // XXX: lookup algorithm is incorrect: should implement polymorphic comparison
+    //      should use binary search
     incr = vflag;
     incc = 1 - vflag;
     if (a.type == SC_NUMBER) {
         for (r = minr, c = minc; r <= maxr && c <= maxc; r += incr, c += incc) {
-            if ((p = *ATBL(tbl, r, c)) && (p->flags & IS_VALID)) {
+            if ((p = *ATBL(tbl, r, c)) && p->type == SC_NUMBER) {
                 if (p->v <= a.u.v) {
                     fndr = incc ? (minr + offset) : r;
                     fndc = incr ? (minc + offset) : c;
@@ -265,8 +271,8 @@ static scvalue_t dolookup(eval_ctx_t *cp, enode_t *val, int minr, int minc, int 
         const char *str = s2str(a.u.str);
 
         for (r = minr, c = minc; r <= maxr && c <= maxc; r += incr, c += incc) {
-            if ((p = *ATBL(tbl, r, c)) && p->label) {
-                if (strcmp(s2c(p->label), str) == 0) {
+            if ((p = *ATBL(tbl, r, c)) && p->type == SC_STRING) {
+                if (strcmp(s2str(p->label), str) == 0) {
                     fndr = incc ? (minr + offset) : r;
                     fndc = incr ? (minc + offset) : c;
                     if (ISVALID(fndr, fndc)) {
@@ -287,7 +293,7 @@ static scvalue_t dolookup(eval_ctx_t *cp, enode_t *val, int minr, int minc, int 
 
 static int eval_test(eval_ctx_t *cp, enode_t *e) {
     scvalue_t a = eval_node(cp, e, 1);
-    if (a.type == SC_NUMBER)
+    if (a.type == SC_NUMBER || a.type == SC_BOOLEAN)
         return a.u.v != 0;
     if (a.type == SC_STRING) {
         int res = s2str(a.u.str)[0] != '\0';
@@ -326,14 +332,17 @@ static scvalue_t docount(eval_ctx_t *cp, int minr, int minc, int maxr, int maxc,
     int count;
     struct ent *p;
 
+    /* Semantics: Counts the numbers in the list N. Only numbers in references
+       are counted; all other types are ignored. Errors are not propagated.
+       It is implementation-defined what happens if 0 parameters are passed,
+       but it should be an Error or 0.
+     */
     count = 0;
     for (r = minr; r <= maxr; r++) {
         for (c = minc; c <= maxc; c++) {
             if (e && !eval_test_offset(cp, e, r - minr, c - minc))
                 continue;
-            if ((p = *ATBL(tbl, r, c)) && (p->flags & IS_VALID)) {
-                if (p->cellerror)  // XXX: unclear what to do on invalid cells
-                    cp->cellerror = CELLINVALID;
+            if ((p = *ATBL(tbl, r, c)) && p->type == SC_NUMBER) {
                 count++;
             }
         }
@@ -351,9 +360,7 @@ static scvalue_t dosum(eval_ctx_t *cp, int minr, int minc, int maxr, int maxc, e
         for (c = minc; c <= maxc; c++) {
             if (e && !eval_test_offset(cp, e, r - minr, c - minc))
                 continue;
-            if ((p = *ATBL(tbl, r, c)) && (p->flags & IS_VALID)) {
-                if (p->cellerror)  // XXX: unclear what to do on invalid cells
-                    cp->cellerror = CELLINVALID;
+            if ((p = *ATBL(tbl, r, c)) && p->type == SC_NUMBER) {
                 v += p->v;
             }
         }
@@ -371,9 +378,7 @@ static scvalue_t doprod(eval_ctx_t *cp, int minr, int minc, int maxr, int maxc, 
         for (c = minc; c <= maxc; c++) {
             if (e && !eval_test_offset(cp, e, r - minr, c - minc))
                 continue;
-            if ((p = *ATBL(tbl, r, c)) && (p->flags & IS_VALID)) {
-                if (p->cellerror)  // XXX: unclear what to do on invalid cells
-                    cp->cellerror = CELLINVALID;
+            if ((p = *ATBL(tbl, r, c)) && p->type == SC_NUMBER) {
                 v *= p->v;
             }
         }
@@ -393,9 +398,7 @@ static scvalue_t doavg(eval_ctx_t *cp, int minr, int minc, int maxr, int maxc, e
         for (c = minc; c <= maxc; c++) {
             if (e && !eval_test_offset(cp, e, r - minr, c - minc))
                 continue;
-            if ((p = *ATBL(tbl, r, c)) && (p->flags & IS_VALID)) {
-                if (p->cellerror)  // XXX: unclear what to do on invalid cells
-                    cp->cellerror = CELLINVALID;
+            if ((p = *ATBL(tbl, r, c)) && p->type == SC_NUMBER) {
                 v += p->v;
                 count++;
             }
@@ -422,9 +425,7 @@ static scvalue_t dostddev(eval_ctx_t *cp, int minr, int minc, int maxr, int maxc
         for (c = minc; c <= maxc; c++) {
             if (e && !eval_test_offset(cp, e, r - minr, c - minc))
                 continue;
-            if ((p = *ATBL(tbl, r, c)) && (p->flags & IS_VALID)) {
-                if (p->cellerror)  // XXX: unclear what to do on invalid cells
-                    cp->cellerror = CELLINVALID;
+            if ((p = *ATBL(tbl, r, c)) && p->type == SC_NUMBER) {
                 v = p->v;
                 lp += v * v;
                 rp += v;
@@ -452,9 +453,7 @@ static scvalue_t domax(eval_ctx_t *cp, int minr, int minc, int maxr, int maxc, e
         for (c = minc; c <= maxc; c++) {
             if (e && !eval_test_offset(cp, e, r - minr, c - minc))
                 continue;
-            if ((p = *ATBL(tbl, r, c)) && (p->flags & IS_VALID)) {
-                if (p->cellerror)  // XXX: unclear what to do on invalid cells
-                    cp->cellerror = CELLINVALID;
+            if ((p = *ATBL(tbl, r, c)) && p->type == SC_NUMBER) {
                 if (!count++) {
                     v = p->v;
                 } else
@@ -478,9 +477,7 @@ static scvalue_t domin(eval_ctx_t *cp, int minr, int minc, int maxr, int maxc, e
         for (c = minc; c <= maxc; c++) {
             if (e && !eval_test_offset(cp, e, r - minr, c - minc))
                 continue;
-            if ((p = *ATBL(tbl, r, c)) && (p->flags & IS_VALID)) {
-                if (p->cellerror)  // XXX: unclear what to do on invalid cells
-                    cp->cellerror = CELLINVALID;
+            if ((p = *ATBL(tbl, r, c)) && p->type == SC_NUMBER) {
                 if (!count++) {
                     v = p->v;
                 } else
@@ -570,9 +567,12 @@ static scvalue_t doston(eval_ctx_t *cp, enode_t *e) {
 
     if (a.type == SC_NUMBER)
         return a;
-    // XXX: is an empty string an error?
-    // XXX: is a blank string an error?
+    if (a.type == SC_BOOLEAN)
+        v = a.u.v;
+    else
     if (a.type == SC_STRING) {
+        // XXX: is an empty string an error?
+        // XXX: is a blank string an error?
         v = strtod(s2str(a.u.str), &end);
         free_string(a.u.str);
         if (*end) {
@@ -642,6 +642,8 @@ static scvalue_t donval(eval_ctx_t *cp, SCXMEM string_t *colstr, double rowdoub)
     scvalue_t res = scvalue_getcell(cp, p);
     if (res.type == SC_NUMBER)
         return res;
+    if (res.type == SC_BOOLEAN)
+        return scvalue_number(res.u.v);
     if (res.type == SC_STRING) {
         char *end;
         double v = strtod(s2str(res.u.str), &end);
@@ -668,9 +670,8 @@ static scvalue_t dolmax(eval_ctx_t *cp, enode_t *ep) {
     for (e = ep; e; e = e->e.o.right) {
         scvalue_t res = eval_node(cp, e->e.o.left, 1);
         if (res.type == SC_NUMBER) {
-            if (!count++ || res.u.v > maxval) {
+            if (!count++ || res.u.v > maxval)
                 maxval = res.u.v;
-            }
         } else {
             scvalue_free(res);
         }
@@ -942,12 +943,14 @@ static scvalue_t dosval(eval_ctx_t *cp, SCXMEM string_t *colstr, double rowdoub)
     scvalue_t res = scvalue_getcell(cp, p);
     if (res.type == SC_STRING)
         return res;
+    if (res.type == SC_BOOLEAN)
+        return scvalue_string(new_string(res.u.v ? "TRUE" : "FALSE"));
     if (res.type == SC_NUMBER) {
         snprintf(buf, sizeof buf, "%.15g", res.u.v);
         return scvalue_string(new_string(buf));
     }
     if (res.type == SC_EMPTY)
-        return scvalue_string(new_string(""));
+        return scvalue_string(dup_string(empty_string));
 
     return scvalue_error(cp, CELLERROR);
 }
@@ -1015,7 +1018,7 @@ static scvalue_t dofilename(eval_ctx_t *cp, enode_t *e) {
 
 static scvalue_t eval_or(eval_ctx_t *cp, enode_t *e) {
     scvalue_t a = eval_node(cp, e->e.o.left, 1);
-    if (a.type == SC_NUMBER) {
+    if (a.type == SC_NUMBER || a.type == SC_BOOLEAN) {
         if (a.u.v != 0)
             return a;
     } else
@@ -1027,23 +1030,54 @@ static scvalue_t eval_or(eval_ctx_t *cp, enode_t *e) {
     return eval_node(cp, e->e.o.right, 1);
 }
 
-static scvalue_t eval_cmp(eval_ctx_t *cp, enode_t *e) {
+static int is_relative(int op) {
+    return op == '<' || op == '>' || op == OP_LE || op == OP_GE;
+}
+
+static scvalue_t eval_cmp(eval_ctx_t *cp, int op, enode_t *e) {
     scvalue_t a = eval_node(cp, e->e.o.left, 1);
     scvalue_t b = eval_node(cp, e->e.o.right, 1);
     int cmp = 0;
-    if (a.type == SC_NUMBER && b.type == SC_NUMBER) {
-        cmp = (a.u.v > a.u.v) - (a.u.v < a.u.v);
+    // XXX: mixed types should compare in this order:
+    //  number < string < logical < error < empty
+    if (a.type == SC_ERROR || b.type == SC_ERROR) {
+        if (op == '=' || op == EQS)
+            cmp = 1;  /* return false */
+        else
+            op = 0;  /* return error */
     } else
-    if (a.type == SC_STRING && b.type == SC_STRING) {
-        cmp = strcmp(s2str(a.u.str), s2str(b.u.str));
-        free_string(a.u.str);
-        free_string(b.u.str);
+    if (a.type == SC_NUMBER || (a.type == SC_BOOLEAN && is_relative(op))) {
+        if (b.type == SC_NUMBER || (b.type == SC_BOOLEAN && is_relative(op)))
+            cmp = (a.u.v > a.u.v) - (a.u.v < a.u.v);
+        else
+            cmp = -1;
+    } else
+    if (b.type == SC_NUMBER || (b.type == SC_BOOLEAN && is_relative(op))) {
+        cmp = 1;
+    } else
+    if (a.type == SC_STRING) {
+        if (b.type == SC_STRING)
+            cmp = strcmp(s2str(a.u.str), s2str(b.u.str));
+        else
+            cmp = -1;
+    } else
+    if (b.type == SC_STRING) {
+        cmp = 1;
+    } else
+    if (a.type == SC_BOOLEAN) {
+        if (b.type == SC_BOOLEAN)
+            cmp = b.u.v - a.u.v;
+        else
+            cmp = -1;
+    } else
+    if (b.type == SC_BOOLEAN) {
+        cmp = 1;
     } else {
-        cmp = -1;
-        scvalue_free(a);
-        scvalue_free(b);
+        cmp = 0;
     }
-    switch (e->op) {
+    scvalue_free(a);
+    scvalue_free(b);
+    switch (op) {
     case '<':   return scvalue_bool(cmp <  0);
     case OP_LE: return scvalue_bool(cmp <= 0);
     case EQS:
@@ -1053,7 +1087,7 @@ static scvalue_t eval_cmp(eval_ctx_t *cp, enode_t *e) {
     case '>':   return scvalue_bool(cmp >  0);
     case OP_GE: return scvalue_bool(cmp >= 0);
     }
-    return scvalue_bool(0);
+    return scvalue_error(cp, CELLERROR);
 }
 
 /*---------------- dynamic evaluator ----------------*/
@@ -1074,7 +1108,7 @@ scvalue_t eval_node(eval_ctx_t *cp, enode_t *e, int gv) {
     case OP_LG:
     case OP_NE:
     case '>':
-    case OP_GE:     return eval_cmp(cp, e);
+    case OP_GE:     return eval_cmp(cp, e->op, e);
                     // XXX: should have @and(list) and @or(list)
     case '&':       return eval_test(cp, e->e.o.left) ? eval_node(cp, e->e.o.right, 1) : scvalue_bool(0);
     case '|':       return eval_or(cp, e);
@@ -1192,7 +1226,7 @@ scvalue_t eval_node(eval_ctx_t *cp, enode_t *e, int gv) {
                                     e->e.o.right->e.o.left,
                                     e->e.o.right->e.o.right);
     case STON:      return doston(cp, e->e.o.left);
-    case EQS:       return eval_cmp(cp, e);
+    case EQS:       return eval_cmp(cp, e->op, e);
     case LMAX:      return dolmax(cp, e);
     case LMIN:      return dolmin(cp, e);
     case NVAL:      return donval(cp, eval_str(cp, e->e.o.left), eval_num(cp, e->e.o.right));
@@ -1345,34 +1379,63 @@ static void RealEvalOne(struct ent *p, enode_t *e, int row, int col, int *chgct)
     } else {
         res = eval_node(cp, e, 1);
     }
-    if (res.type == SC_STRING && res.u.str) {
-        if ((p->cellerror != cp->cellerror)
-        ||  (p->flags & IS_VALID) || !p->label || strcmp(s2c(res.u.str), s2c(p->label)) != 0)
-        {
-            if (!cp->cellerror)
-                (*chgct)++;
-            p->flags |= IS_CHANGED;
-            p->flags &= ~IS_VALID;
-            changed++;
-        }
-        set_string(&p->label, res.u.str);
-    } else
-    if (res.type == SC_NUMBER && isfinite(res.u.v)) {
-        if ((p->cellerror != cp->cellerror)
-        || !(p->flags & IS_VALID) || p->label || p->v != res.u.v)
-        {
-            if (!cp->cellerror)
-                (*chgct)++;
-            p->flags |= IS_CHANGED | IS_VALID;
-            changed++;
+    if ((res.type == SC_STRING && !res.u.str)
+    ||  (res.type == SC_NUMBER && !isfinite(res.u.v))) {
+        res = scvalue_error(cp, CELLERROR);
+    }
+    if (p->type == SC_STRING) {
+        if (res.type == SC_STRING && !strcmp(s2c(res.u.str), s2c(p->label))) {
+            free_string(res.u.str);
+            p->cellerror = 0;
+            return;
+        } else {
             set_string(&p->label, NULL);
         }
-        p->v = res.u.v;
-    } else {
-        if (p->cellerror != cp->cellerror)
-            p->flags |= IS_CHANGED;
     }
-    p->cellerror = cp->cellerror;
+    if (res.type == SC_STRING) {
+        (*chgct)++;
+        p->flags |= IS_CHANGED;
+        p->type = SC_STRING;
+        changed++;
+        set_string(&p->label, res.u.str);
+        p->cellerror = 0;
+    } else
+    if (res.type == SC_NUMBER) {
+        if (p->type != SC_NUMBER || p->v != res.u.v) {
+            (*chgct)++;
+            p->flags |= IS_CHANGED;
+            p->type = SC_NUMBER;
+            changed++;
+        }
+        p->v = res.u.v;
+        p->cellerror = 0;
+    } else
+    if (res.type == SC_BOOLEAN) {
+        if (p->type != SC_BOOLEAN || p->v != res.u.v) {
+            (*chgct)++;
+            p->flags |= IS_CHANGED;
+            p->type = SC_BOOLEAN;
+            changed++;
+        }
+        p->v = res.u.v;
+        p->cellerror = 0;
+    } else
+    if (res.type == SC_ERROR) {
+        if (p->type != SC_ERROR || p->cellerror != res.u.cellerror) {
+            p->flags |= IS_CHANGED;
+            p->type = SC_ERROR;
+        }
+        p->v = 0;
+        p->cellerror = res.u.cellerror;
+    } else
+    if (res.type == SC_EMPTY) {
+        if (p->type != SC_EMPTY) {
+            p->flags |= IS_CHANGED;
+            p->type = SC_EMPTY;
+        }
+        p->v = 0;
+        p->cellerror = 0;
+    }
 }
 
 /* set the calculation order */
@@ -1618,14 +1681,14 @@ static int constant_expr(enode_t *e, int full) {
 /* clear the value and expression of a cell */
 void unlet(cellref_t cr) {
     struct ent *v = lookat_nc(cr.row, cr.col);
-    if (v && ((v->flags & IS_VALID) || v->label || v->expr || v->cellerror)) {
+    if (v && v->type != SC_EMPTY) {
         // XXX: what if the cell is locked?
         v->v = 0.0;
         efree(v->expr);
         v->expr = NULL;
         set_string(&v->label, NULL);
         v->cellerror = CELLOK;
-        v->flags &= ~IS_VALID;
+        v->type = SC_EMPTY;
         v->flags |= IS_CHANGED;
         FullUpdate++;
         changed++;

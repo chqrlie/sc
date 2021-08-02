@@ -729,7 +729,7 @@ void update(int anychanged) {          /* did any cell really change in value? *
                 if ((showrange && !showneed && !showexpr
                         && (row >= minsr) && (row <= maxsr)
                         && (col >= minsc) && (col <= maxsc))
-                ||  (showneed && p && !p->expr && ((p->flags & IS_VALID) || p->label))
+                ||  (showneed && p && !p->expr && (p->type != SC_EMPTY))
                 ||  (showexpr && p && p->expr)
                 ||  (shownote && p && (p->flags & HAS_NOTE)))
                 {
@@ -761,7 +761,7 @@ void update(int anychanged) {          /* did any cell really change in value? *
                         p->flags &= ~IS_CHANGED;
                     }
 
-                    if (p->cellerror) {
+                    if (p->type == SC_ERROR) {
                         // XXX: right alignment is ignored
                         if (colorerr)
                             select_style(STYLE_ERROR, 0);
@@ -775,23 +775,29 @@ void update(int anychanged) {          /* did any cell really change in value? *
                                    row, col, &nextcol, mxcol, &fieldlen, r, c,
                                    fr, frightcols, flcols, frcols);
                     } else
-                    if (p->flags & IS_VALID) {
+                    if (p->type == SC_NUMBER || p->type == SC_BOOLEAN) {
                         /* Show cell's numeric value: */
                         int note = (p->flags & HAS_NOTE) != 0;
                         int align = p->flags & ALIGN_MASK;
 
-                        if (colorneg && p->v < 0) {
-                            if (cr)
-                                select_style(((cr->r_color) % CPAIRS) + 1, 0);
-                            else
-                                select_style(STYLE_NEG, 0);
-                        }
-                        /* convert cell contents, do not test width, should not align */
-                        *field = '\0';
-                        if (p->format) {
-                            len = format(field, sizeof field, s2c(p->format), precision[col], p->v, &align);
+                        if (p->type == SC_BOOLEAN) {
+                            len = pstrcpy(field, sizeof field, p->v ? "TRUE" : "FALSE");
+                            if (!align)
+                                align = ALIGN_CENTER;
                         } else {
-                            len = engformat(field, sizeof field, realfmt[col], precision[col], p->v, &align);
+                            if (colorneg && p->v < 0) {
+                                if (cr)
+                                    select_style(((cr->r_color) % CPAIRS) + 1, 0);
+                                else
+                                    select_style(STYLE_NEG, 0);
+                            }
+                            /* convert cell contents, do not test width, should not align */
+                            *field = '\0';
+                            if (p->format) {
+                                len = format(field, sizeof field, s2c(p->format), precision[col], p->v, &align);
+                            } else {
+                                len = engformat(field, sizeof field, realfmt[col], precision[col], p->v, &align);
+                            }
                         }
                         if (align & ALIGN_CLIP) {
                             align &= ~ALIGN_CLIP;
@@ -870,17 +876,17 @@ void update(int anychanged) {          /* did any cell really change in value? *
                                 addch(' ');
                         }
                     } else
-                    if (p->label) {
+                    if (p->type == SC_STRING) {
                         /* Show cell's label string: */
                         // XXX: should handle notes too */
-                        showstring(s2c(p->label),
+                        showstring(s2str(p->label),
                                    p->flags & ALIGN_MASK,
-                                   p->flags & IS_VALID,
+                                   /* hasvalue = */ 0,
                                    row, col, &nextcol, mxcol, &fieldlen,
                                    r, c, fr, frightcols, flcols, frcols);
                     } else      /* repaint a blank cell: XXX: too complicated */
                     if ((((do_stand || !FullUpdate) && (p->flags & IS_CHANGED)) ||
-                         (cr && cr->r_color != 1)) && !(p->flags & IS_VALID))
+                         (cr && cr->r_color != 1)))
                     {
                         printw("%*s", fieldlen, "");
                     }
@@ -974,17 +980,22 @@ void update(int anychanged) {          /* did any cell really change in value? *
                     addch(']');
                     addch(' ');
                 }
-                if (p->label) {
-                    /* value is a string */
-                    addch('\"');
-                    addstr(s2c(p->label));  // XXX: should encode string?
-                    addch('\"');
-                    addch(' ');
-                } else
-                if (p->flags & IS_VALID) {
+                if (p->type == SC_NUMBER) {
                     /* value is a number */
                     snprintf(field, sizeof field, "%.15g", p->v);
                     addstr(field);
+                    addch(' ');
+                } else
+                if (p->type == SC_BOOLEAN) {
+                    /* value is logical */
+                    addstr(p->v ? "TRUE" : "FALSE");
+                    addch(' ');
+                } else
+                if (p->type == SC_STRING) {
+                    /* value is a string */
+                    addch('\"');
+                    addstr(s2str(p->label));  // XXX: should encode string?
+                    addch('\"');
                     addch(' ');
                 }
                 /* Display if cell is locked */
@@ -1050,7 +1061,7 @@ void repaint_cursor(int set) {
         if ((cr = find_crange(row, col)))
             style = cr->r_color;
         if (p) {
-            if (colorneg && (p->flags & IS_VALID) && p->v < 0) {
+            if (colorneg && (p->type == SC_NUMBER) && p->v < 0) {
                 if (cr)
                     style = cr->r_color % CPAIRS + 1;
                 else

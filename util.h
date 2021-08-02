@@ -65,6 +65,8 @@ typedef struct string_t {
     char s[1];
 }  string_t;
 
+extern SCXMEM string_t *empty_string;
+
 string_t *new_string(const char *s);
 string_t *new_string_len(const char *s, size_t len);
 

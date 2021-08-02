@@ -18,13 +18,21 @@ void getnum(rangeref_t rr, int fd) {
     for (r = rr.left.row; r <= rr.right.row; r++) {
         for (c = rr.left.col; c <= rr.right.col; c++) {
             struct ent *p = *ATBL(tbl, r, c);
+
             *buf = '\0';
             if (p) {
-                if (p->cellerror)
+                switch (p->type) {
+                case SC_NUMBER:
+                    snprintf(buf, sizeof buf - 1, "%.15g", p->v);
+                    break;
+                case SC_BOOLEAN:
+                    snprintf(buf, sizeof buf - 1, "%s", p->v ? "TRUE" : "FALSE");
+                    break;
+                case SC_ERROR:
                     snprintf(buf, sizeof buf - 1, "%s",
                              p->cellerror == CELLERROR ? "ERROR" : "INVALID");
-                else if (p->flags & IS_VALID)
-                    snprintf(buf, sizeof buf - 1, "%.15g", p->v);
+                    break;
+                }
             }
             len = pstrcat(buf, sizeof buf, (c < rr.right.col) ? "\t" : "\n");
             write(fd, buf, len);
@@ -35,31 +43,36 @@ void getnum(rangeref_t rr, int fd) {
 }
 
 void fgetnum(rangeref_t rr, int fd) {
-    char field[FBUFLEN+1];
-    int row, col, len;
+    char buf[FBUFLEN+1];
+    int r, c, len;
 
-    for (row = rr.left.row; row <= rr.right.row; row++) {
-        for (col = rr.left.col; col <= rr.right.col; col++) {
+    for (r = rr.left.row; r <= rr.right.row; r++) {
+        for (c = rr.left.col; c <= rr.right.col; c++) {
             /* convert cell contents, but ignore alignment and width test */
-            struct ent *p = *ATBL(tbl, row, col);
+            struct ent *p = *ATBL(tbl, r, c);
             int align = ALIGN_DEFAULT;
 
-            *field = '\0';
+            *buf = '\0';
             if (p) {
-                if (p->cellerror) {
-                    snprintf(field, sizeof field - 1, "%s",
-                             p->cellerror == CELLERROR ? "ERROR" : "INVALID");
-                } else
-                if (p->flags & IS_VALID) {
+                switch (p->type) {
+                case SC_NUMBER:
                     if (p->format) {
-                        format(field, sizeof(field) - 1, s2c(p->format), precision[col], p->v, &align);
+                        format(buf, sizeof(buf) - 1, s2c(p->format), precision[c], p->v, &align);
                     } else {
-                        engformat(field, sizeof(field) - 1, realfmt[col], precision[col], p->v, &align);
+                        engformat(buf, sizeof(buf) - 1, realfmt[c], precision[c], p->v, &align);
                     }
+                    break;
+                case SC_BOOLEAN:
+                    snprintf(buf, sizeof buf - 1, "%s", p->v ? "TRUE" : "FALSE");
+                    break;
+                case SC_ERROR:
+                    snprintf(buf, sizeof buf - 1, "%s",
+                             p->cellerror == CELLERROR ? "ERROR" : "INVALID");
+                    break;
                 }
             }
-            len = pstrcat(field, sizeof field, (col < rr.right.col) ? "\t" : "\n");
-            write(fd, field, len);
+            len = pstrcat(buf, sizeof buf, (c < rr.right.col) ? "\t" : "\n");
+            write(fd, buf, len);
             if (brokenpipe)
                 return;
         }
@@ -74,8 +87,8 @@ void getstring(rangeref_t rr, int fd) {
         for (c = rr.left.col; c <= rr.right.col; c++) {
             struct ent *p = *ATBL(tbl, r, c);
             *buf = '\0';
-            if (p && p->label)
-                snprintf(buf, sizeof buf - 1, "%s", s2c(p->label));
+            if (p && p->type == SC_STRING)
+                snprintf(buf, sizeof buf - 1, "%s", s2str(p->label));
             len = pstrcat(buf, sizeof buf, (c < rr.right.col) ? "\t" : "\n");
             write(fd, buf, len);
             if (brokenpipe)
