@@ -220,7 +220,7 @@ static scvalue_t scvalue_getcell(eval_ctx_t *cp, struct ent *p) {
 static scvalue_t doindex(eval_ctx_t *cp, int minr, int minc, int maxr, int maxc, enode_t *val) {
     int r, c;
 
-    if (val->op == ',') {               /* index by both row and column */
+    if (val->op == OP_COMMA) {               /* index by both row and column */
         r = minr + (int)eval_num(cp, val->e.o.left) - 1;
         c = minc + (int)eval_num(cp, val->e.o.right) - 1;
     } else if (minr == maxr) {          /* look along the row */
@@ -549,12 +549,12 @@ static scvalue_t dotime(eval_ctx_t *cp, int which, enode_t *e) {
 
     if (tp) {
         switch (which) {
-        case HOUR:          return scvalue_number(tm_cache.tm_hour);
-        case MINUTE:        return scvalue_number(tm_cache.tm_min);
-        case SECOND:        return scvalue_number(tm_cache.tm_sec);
-        case MONTH:         return scvalue_number(tm_cache.tm_mon + 1);
-        case DAY:           return scvalue_number(tm_cache.tm_mday);
-        case YEAR:          return scvalue_number(tm_cache.tm_year + 1900);
+        case OP_HOUR:   return scvalue_number(tm_cache.tm_hour);
+        case OP_MINUTE: return scvalue_number(tm_cache.tm_min);
+        case OP_SECOND: return scvalue_number(tm_cache.tm_sec);
+        case OP_MONTH:  return scvalue_number(tm_cache.tm_mon + 1);
+        case OP_DAY:    return scvalue_number(tm_cache.tm_mday);
+        case OP_YEAR:   return scvalue_number(tm_cache.tm_year + 1900);
         }
     }
     return scvalue_error(cp, CELLERROR);
@@ -659,7 +659,7 @@ static scvalue_t donval(eval_ctx_t *cp, SCXMEM string_t *colstr, double rowdoub)
 
 /*
  * The list routines (e.g. dolmax) are called with an LMAX enode.
- * The left pointer is a value, the right pointer is a chain of ',' nodes
+ * The left pointer is a value, the right pointer is a chain of OP_COMMA nodes
  */
 static scvalue_t dolmax(eval_ctx_t *cp, enode_t *ep) {
     // XXX: should handle ranges in list
@@ -915,7 +915,7 @@ static scvalue_t doext(eval_ctx_t *cp, enode_t *se) {
                     /* create dummy node to store previous value */
                     se->e.o.right = right = new_node(0, prev, args);
                 } else
-                if (prev && prev->op == O_SCONST)
+                if (prev && prev->op == OP_SCONST)
                     set_string(&prev->e.s, new_string(buff));
             }
         }
@@ -960,7 +960,7 @@ static scvalue_t dosval(eval_ctx_t *cp, SCXMEM string_t *colstr, double rowdoub)
  */
 
 // XXX: should handle UTF-8 encoded UNICODE stuff
-static scvalue_t docase(eval_ctx_t *cp, int acase, SCXMEM string_t *s) {
+static scvalue_t docase(eval_ctx_t *cp, int op, SCXMEM string_t *s) {
     SCXMEM string_t *s2;
     char *p;
 
@@ -972,19 +972,19 @@ static scvalue_t docase(eval_ctx_t *cp, int acase, SCXMEM string_t *s) {
         return scvalue_error(cp, CELLERROR);
 
     free_string(s);
-    if (acase == UPPER) {
+    if (op == OP_UPPER) {
         for (p = s2->s; *p; p++) {
             if (islowerchar(*p))
                 *p = toupperchar(*p);
         }
     } else
-    if (acase == LOWER) {
+    if (op == OP_LOWER) {
         for (p = s2->s; *p; p++) {
             if (isupperchar(*p))
                 *p = tolowerchar(*p);
         }
     } else
-    if (acase == CAPITAL) {
+    if (op == OP_CAPITAL) {
         int skip = 1;
         int AllUpper = 1;
         for (p = s2->s; *p; p++) {
@@ -1031,7 +1031,7 @@ static scvalue_t eval_or(eval_ctx_t *cp, enode_t *e) {
 }
 
 static int is_relative(int op) {
-    return op == '<' || op == '>' || op == OP_LE || op == OP_GE;
+    return op == OP_LT || op == OP_GT || op == OP_LE || op == OP_GE;
 }
 
 static scvalue_t eval_cmp(eval_ctx_t *cp, int op, enode_t *e) {
@@ -1042,7 +1042,7 @@ static scvalue_t eval_cmp(eval_ctx_t *cp, int op, enode_t *e) {
     //  number < string < logical < error < empty
     // XXX: should stop error propagation
     if (a.type == SC_ERROR || b.type == SC_ERROR) {
-        if (op == '=' || op == EQS)
+        if (op == OP_EQ || op == OP_EQS)
             cmp = 1;  /* return false */
         else
             op = 0;  /* return error */
@@ -1079,14 +1079,14 @@ static scvalue_t eval_cmp(eval_ctx_t *cp, int op, enode_t *e) {
     scvalue_free(a);
     scvalue_free(b);
     switch (op) {
-    case '<':   return scvalue_bool(cmp <  0);
-    case OP_LE: return scvalue_bool(cmp <= 0);
-    case EQS:
-    case '=':   return scvalue_bool(cmp == 0);
+    case OP_LT:     return scvalue_bool(cmp <  0);
+    case OP_LE:     return scvalue_bool(cmp <= 0);
+    case OP_EQS:
+    case OP_EQ:     return scvalue_bool(cmp == 0);
     case OP_LG:
-    case OP_NE: return scvalue_bool(cmp != 0);
-    case '>':   return scvalue_bool(cmp >  0);
-    case OP_GE: return scvalue_bool(cmp >= 0);
+    case OP_NE:     return scvalue_bool(cmp != 0);
+    case OP_GT:     return scvalue_bool(cmp >  0);
+    case OP_GE:     return scvalue_bool(cmp >= 0);
     }
     return scvalue_error(cp, CELLERROR);
 }
@@ -1098,32 +1098,33 @@ scvalue_t eval_node(eval_ctx_t *cp, enode_t *e, int gv) {
         return scvalue_empty();
 
     switch (e->op) {
-    case '+':       return scvalue_number(eval_num(cp, e->e.o.left) + eval_num(cp, e->e.o.right));
-    case '-':       return scvalue_number(eval_num(cp, e->e.o.left) - eval_num(cp, e->e.o.right));
-    case '*':       return scvalue_number(eval_num(cp, e->e.o.left) * eval_num(cp, e->e.o.right));
-    case '/':       return eval_div(cp, e->e.o.left, e->e.o.right);
-    case '%':       return eval_mod(cp, e->e.o.left, e->e.o.right);
-    case '<':
+    case OP_PLUS:   return scvalue_number(eval_num(cp, e->e.o.left) + eval_num(cp, e->e.o.right));
+    case OP_MINUS:  return scvalue_number(eval_num(cp, e->e.o.left) - eval_num(cp, e->e.o.right));
+    case OP_STAR:   return scvalue_number(eval_num(cp, e->e.o.left) * eval_num(cp, e->e.o.right));
+    case OP_SLASH:  return eval_div(cp, e->e.o.left, e->e.o.right);
+    case OP_PERCENT: return eval_mod(cp, e->e.o.left, e->e.o.right);
+    case OP_LT:
     case OP_LE:
-    case '=':
+    case OP_EQ:
     case OP_LG:
     case OP_NE:
-    case '>':
+    case OP_GT:
     case OP_GE:     return eval_cmp(cp, e->op, e);
                     // XXX: should have @and(list) and @or(list)
-    case '&':       return eval_test(cp, e->e.o.left) ? eval_node(cp, e->e.o.right, 1) : scvalue_bool(0);
-    case '|':       return eval_or(cp, e);
-    case IF:
-    case '?':       return eval_node(cp, eval_test(cp, e->e.o.left) ?
+    case OP_AMPERSAND: return eval_test(cp, e->e.o.left) ? eval_node(cp, e->e.o.right, 1) : scvalue_bool(0);
+    case OP_VBAR:   return eval_or(cp, e);
+    case OP_IF:
+    case OP_QMARK:  return eval_node(cp, eval_test(cp, e->e.o.left) ?
                                      e->e.o.right->e.o.left : e->e.o.right->e.o.right, gv);
-    case 'm':       return scvalue_number(-eval_num(cp, e->e.o.left));
-    case 'f':       return eval_offset(cp, e->e.o.left, 0, 0);
-    case 'F':       return eval_node(cp, e->e.o.left, gv);
-    case '!':       return scvalue_bool(!eval_test(cp, e->e.o.left));
-    case ';':       return scvalue_number(((int)eval_num(cp, e->e.o.left) & 7) +
+    case OP_UMINUS: return scvalue_number(-eval_num(cp, e->e.o.left));
+    case OP_UPLUS:  return eval_node(cp, e->e.o.left, gv);
+    case OP_FIXED:  return eval_offset(cp, e->e.o.left, 0, 0);
+    case OP_PFIXED: return eval_node(cp, e->e.o.left, gv);
+    case OP_BANG:   return scvalue_bool(!eval_test(cp, e->e.o.left));
+    case OP_SEMI:   return scvalue_number(((int)eval_num(cp, e->e.o.left) & 7) +
                                           (((int)eval_num(cp, e->e.o.right) & 7) << 3));
-    case O_CONST:   return scvalue_number(e->e.k);
-    case O_VAR:     {
+    case OP_CONST:  return scvalue_number(e->e.k);
+    case OP_VAR:    {
                         struct ent *vp = e->e.v.vp;
                         if (vp && (cp->rowoffset || cp->coloffset)) {
                             int row = (e->e.v.vf & FIX_ROW) ?
@@ -1137,20 +1138,20 @@ scvalue_t eval_node(eval_ctx_t *cp, enode_t *e, int gv) {
                         }
                         return scvalue_getcell(cp, vp);
                     }
-    case SUM:
-    case PROD:
-    case AVG:
-    case COUNT:
-    case STDDEV:
-    case MAX:
-    case MIN:
-    case ROWS_:
-    case COLS_:
-    case STINDEX:
-    case INDEX:
-    case LOOKUP:
-    case HLOOKUP:
-    case VLOOKUP: {
+    case OP_SUM:
+    case OP_PROD:
+    case OP_AVG:
+    case OP_COUNT:
+    case OP_STDDEV:
+    case OP_MAX:
+    case OP_MIN:
+    case OP_ROWS:
+    case OP_COLS:
+    case OP_STINDEX:
+    case OP_INDEX:
+    case OP_LOOKUP:
+    case OP_HLOOKUP:
+    case OP_VLOOKUP: {
             // XXX: this 2 argument API is not general enough
             enode_t *left = e->e.o.left;
             enode_t *right = e->e.o.right;
@@ -1161,106 +1162,106 @@ scvalue_t eval_node(eval_ctx_t *cp, enode_t *e, int gv) {
             if (minr > maxr) SWAPINT(minr, maxr);
             if (minc > maxc) SWAPINT(minc, maxc);
             switch (e->op) {
-            case SUM:   return dosum(cp, minr, minc, maxr, maxc, right);
-            case PROD:  return doprod(cp, minr, minc, maxr, maxc, right);
-            case AVG:   return doavg(cp, minr, minc, maxr, maxc, right);
-            case COUNT: return docount(cp, minr, minc, maxr, maxc, right);
-            case STDDEV: return dostddev(cp, minr, minc, maxr, maxc, right);
-            case MAX:   return domax(cp, minr, minc, maxr, maxc, right);
-            case MIN:   return domin(cp, minr, minc, maxr, maxc, right);
-            case ROWS_: return scvalue_number(maxr - minr + 1);
-            case COLS_: return scvalue_number(maxc - minc + 1);
-            case LOOKUP: return dolookup(cp, right, minr, minc, maxr, maxc, 1, minc == maxc);
-            case HLOOKUP: return dolookup(cp, right->e.o.left, minr, minc, maxr, maxc,
+            case OP_SUM:    return dosum(cp, minr, minc, maxr, maxc, right);
+            case OP_PROD:   return doprod(cp, minr, minc, maxr, maxc, right);
+            case OP_AVG:    return doavg(cp, minr, minc, maxr, maxc, right);
+            case OP_COUNT:  return docount(cp, minr, minc, maxr, maxc, right);
+            case OP_STDDEV: return dostddev(cp, minr, minc, maxr, maxc, right);
+            case OP_MAX:    return domax(cp, minr, minc, maxr, maxc, right);
+            case OP_MIN:    return domin(cp, minr, minc, maxr, maxc, right);
+            case OP_ROWS:   return scvalue_number(maxr - minr + 1);
+            case OP_COLS:   return scvalue_number(maxc - minc + 1);
+            case OP_LOOKUP: return dolookup(cp, right, minr, minc, maxr, maxc, 1, minc == maxc);
+            case OP_HLOOKUP: return dolookup(cp, right->e.o.left, minr, minc, maxr, maxc,
                                           (int)eval_num(cp, right->e.o.right), 0);
-            case VLOOKUP: return dolookup(cp, right->e.o.left, minr, minc, maxr, maxc,
+            case OP_VLOOKUP: return dolookup(cp, right->e.o.left, minr, minc, maxr, maxc,
                                           (int)eval_num(cp, right->e.o.right), 1);
-            case STINDEX:
-            case INDEX: return doindex(cp, minr, minc, maxr, maxc, right);
+            case OP_STINDEX:
+            case OP_INDEX: return doindex(cp, minr, minc, maxr, maxc, right);
             }
         }
 
-    case ABS:       return fn1_eval(cp, fabs, e->e.o.left);
-    case ACOS:      return fn1_eval(cp, acos, e->e.o.left);
-    case ASIN:      return fn1_eval(cp, asin, e->e.o.left);
-    case ATAN:      return fn1_eval(cp, atan, e->e.o.left);
-    case ATAN2:     return fn2_eval(cp, atan2, e->e.o.left, e->e.o.right);
-    case CEIL:      return fn1_eval(cp, ceil, e->e.o.left);
-    case COS:       return fn1_eval(cp, cos, e->e.o.left);
-    case EXP:       return fn1_eval(cp, exp, e->e.o.left);
-    case FABS:      return fn1_eval(cp, fabs, e->e.o.left);
-    case FLOOR:     return fn1_eval(cp, floor, e->e.o.left);
-    case HYPOT:     return fn2_eval(cp, hypot, e->e.o.left, e->e.o.right);
-    case LOG:       return fn1_eval(cp, log, e->e.o.left);
-    case LOG10:     return fn1_eval(cp, log10, e->e.o.left);
-    case '^':
-    case POW:       return fn2_eval(cp, pow, e->e.o.left, e->e.o.right);
-    case SIN:       return fn1_eval(cp, sin, e->e.o.left);
-    case SQRT:      return fn1_eval(cp, sqrt, e->e.o.left);
-    case TAN:       return fn1_eval(cp, tan, e->e.o.left);
-    case DTR:       return scvalue_number(dtr(eval_num(cp, e->e.o.left)));
-    case RTD:       return scvalue_number(rtd(eval_num(cp, e->e.o.left)));
-    case RAND:      return scvalue_number((double)rand() / ((double)RAND_MAX + 1));
-    case RANDBETWEEN: return fn2_eval(cp, rand_between, e->e.o.left, e->e.o.right);
-    case RND:       return fn1_eval(cp, dornd, e->e.o.left);
-    case ROUND:     return fn2_eval(cp, doround, e->e.o.left, e->e.o.right);
-    case FV:        return fn3_eval(cp, fin_fv, e->e.o.left,
+    case OP_ABS:    return fn1_eval(cp, fabs, e->e.o.left);
+    case OP_ACOS:   return fn1_eval(cp, acos, e->e.o.left);
+    case OP_ASIN:   return fn1_eval(cp, asin, e->e.o.left);
+    case OP_ATAN:   return fn1_eval(cp, atan, e->e.o.left);
+    case OP_ATAN2:  return fn2_eval(cp, atan2, e->e.o.left, e->e.o.right);
+    case OP_CEIL:   return fn1_eval(cp, ceil, e->e.o.left);
+    case OP_COS:    return fn1_eval(cp, cos, e->e.o.left);
+    case OP_EXP:    return fn1_eval(cp, exp, e->e.o.left);
+    case OP_FABS:   return fn1_eval(cp, fabs, e->e.o.left);
+    case OP_FLOOR:  return fn1_eval(cp, floor, e->e.o.left);
+    case OP_HYPOT:  return fn2_eval(cp, hypot, e->e.o.left, e->e.o.right);
+    case OP_LOG:    return fn1_eval(cp, log, e->e.o.left);
+    case OP_LOG10:  return fn1_eval(cp, log10, e->e.o.left);
+    case OP_CARET:
+    case OP_POW:    return fn2_eval(cp, pow, e->e.o.left, e->e.o.right);
+    case OP_SIN:    return fn1_eval(cp, sin, e->e.o.left);
+    case OP_SQRT:   return fn1_eval(cp, sqrt, e->e.o.left);
+    case OP_TAN:    return fn1_eval(cp, tan, e->e.o.left);
+    case OP_DTR:    return scvalue_number(dtr(eval_num(cp, e->e.o.left)));
+    case OP_RTD:    return scvalue_number(rtd(eval_num(cp, e->e.o.left)));
+    case OP_RAND:   return scvalue_number((double)rand() / ((double)RAND_MAX + 1));
+    case OP_RANDBETWEEN: return fn2_eval(cp, rand_between, e->e.o.left, e->e.o.right);
+    case OP_RND:    return fn1_eval(cp, dornd, e->e.o.left);
+    case OP_ROUND:  return fn2_eval(cp, doround, e->e.o.left, e->e.o.right);
+    case OP_FV:     return fn3_eval(cp, fin_fv, e->e.o.left,
                                     e->e.o.right->e.o.left,
                                     e->e.o.right->e.o.right);
-    case PV:        return fn3_eval(cp, fin_pv, e->e.o.left,
+    case OP_PV:     return fn3_eval(cp, fin_pv, e->e.o.left,
                                     e->e.o.right->e.o.left,
                                     e->e.o.right->e.o.right);
-    case PMT:       return fn3_eval(cp, fin_pmt, e->e.o.left,
+    case OP_PMT:    return fn3_eval(cp, fin_pmt, e->e.o.left,
                                     e->e.o.right->e.o.left,
                                     e->e.o.right->e.o.right);
-    case HOUR:
-    case MINUTE:
-    case SECOND:
-    case MONTH:
-    case DAY:
-    case YEAR:      return dotime(cp, e->op, e->e.o.left);
-    case NOW:       return donow();
-    case DTS:       return dodts(cp, (int)eval_num(cp, e->e.o.left),
+    case OP_HOUR:
+    case OP_MINUTE:
+    case OP_SECOND:
+    case OP_MONTH:
+    case OP_DAY:
+    case OP_YEAR:   return dotime(cp, e->op, e->e.o.left);
+    case OP_NOW:    return donow();
+    case OP_DTS:    return dodts(cp, (int)eval_num(cp, e->e.o.left),
                                  (int)eval_num(cp, e->e.o.right->e.o.left),
                                  (int)eval_num(cp, e->e.o.right->e.o.right));
-    case TTS:       return fn3_eval(cp, dotts, e->e.o.left,
+    case OP_TTS:    return fn3_eval(cp, dotts, e->e.o.left,
                                     e->e.o.right->e.o.left,
                                     e->e.o.right->e.o.right);
-    case STON:      return doston(cp, e->e.o.left);
-    case EQS:       return eval_cmp(cp, e->op, e);
-    case LMAX:      return dolmax(cp, e);
-    case LMIN:      return dolmin(cp, e);
-    case NVAL:      return donval(cp, eval_str(cp, e->e.o.left), eval_num(cp, e->e.o.right));
-    case MYROW:     return scvalue_number(cp->gmyrow + cp->rowoffset);
-    case MYCOL:     return scvalue_number(cp->gmycol + cp->coloffset);
-    case LASTROW:   return scvalue_number(maxrow);
-    case LASTCOL:   return scvalue_number(maxcol);
-    case NUMITER:   return scvalue_number(repct);
-    case ERR_:      return scvalue_error(cp, CELLERROR);
-    case PI_:       return scvalue_number(M_PI);
-    case BLACK:     return scvalue_number(COLOR_BLACK);
-    case RED:       return scvalue_number(COLOR_RED);
-    case GREEN:     return scvalue_number(COLOR_GREEN);
-    case YELLOW:    return scvalue_number(COLOR_YELLOW);
-    case BLUE:      return scvalue_number(COLOR_BLUE);
-    case MAGENTA:   return scvalue_number(COLOR_MAGENTA);
-    case CYAN:      return scvalue_number(COLOR_CYAN);
-    case WHITE:     return scvalue_number(COLOR_WHITE);
-    case O_SCONST:  return scvalue_string(dup_string(e->e.s));
-    case '#':       return scvalue_string(cat_strings(eval_str(cp, e->e.o.left), eval_str(cp, e->e.o.right)));
-    case DATE:      return dodate(cp, e);
-    case FMT:       return dofmt(cp, e);
-    case CAPITAL:
-    case LOWER:
-    case UPPER:     return docase(cp, e->op, eval_str(cp, e->e.o.left));
-    case EXT:       return doext(cp, e);
-    case SVAL:      return dosval(cp, eval_str(cp, e->e.o.left), eval_num(cp, e->e.o.right));
-    case SUBSTR:    /* Substring: Note that v1 and v2 are one-based and v2 is included */
+    case OP_STON:   return doston(cp, e->e.o.left);
+    case OP_EQS:    return eval_cmp(cp, e->op, e);
+    case OP_LMAX:   return dolmax(cp, e);
+    case OP_LMIN:   return dolmin(cp, e);
+    case OP_NVAL:   return donval(cp, eval_str(cp, e->e.o.left), eval_num(cp, e->e.o.right));
+    case OP_MYROW:  return scvalue_number(cp->gmyrow + cp->rowoffset);
+    case OP_MYCOL:  return scvalue_number(cp->gmycol + cp->coloffset);
+    case OP_LASTROW: return scvalue_number(maxrow);
+    case OP_LASTCOL: return scvalue_number(maxcol);
+    case OP_NUMITER: return scvalue_number(repct);
+    case OP_ERR:    return scvalue_error(cp, CELLERROR);
+    case OP_PI:     return scvalue_number(M_PI);
+    case OP_BLACK:  return scvalue_number(COLOR_BLACK);
+    case OP_RED:    return scvalue_number(COLOR_RED);
+    case OP_GREEN:  return scvalue_number(COLOR_GREEN);
+    case OP_YELLOW: return scvalue_number(COLOR_YELLOW);
+    case OP_BLUE:   return scvalue_number(COLOR_BLUE);
+    case OP_MAGENTA: return scvalue_number(COLOR_MAGENTA);
+    case OP_CYAN:   return scvalue_number(COLOR_CYAN);
+    case OP_WHITE:  return scvalue_number(COLOR_WHITE);
+    case OP_SCONST: return scvalue_string(dup_string(e->e.s));
+    case OP_SHARP:  return scvalue_string(cat_strings(eval_str(cp, e->e.o.left), eval_str(cp, e->e.o.right)));
+    case OP_DATE:   return dodate(cp, e);
+    case OP_FMT:    return dofmt(cp, e);
+    case OP_CAPITAL:
+    case OP_LOWER:
+    case OP_UPPER:  return docase(cp, e->op, eval_str(cp, e->e.o.left));
+    case OP_EXT:    return doext(cp, e);
+    case OP_SVAL:   return dosval(cp, eval_str(cp, e->e.o.left), eval_num(cp, e->e.o.right));
+    case OP_SUBSTR: /* Substring: Note that v1 and v2 are one-based and v2 is included */
                     return scvalue_string(sub_string(eval_str(cp, e->e.o.left),
                                                      (int)eval_num(cp, e->e.o.right->e.o.left) - 1,
                                                      (int)eval_num(cp, e->e.o.right->e.o.right)));
-    case COLTOA:    return scvalue_string(new_string(coltoa((int)eval_num(cp, e->e.o.left))));
-    case FILENAME:  return dofilename(cp, e->e.o.left);
+    case OP_COLTOA: return scvalue_string(new_string(coltoa((int)eval_num(cp, e->e.o.left))));
+    case OP_FILENAME: return dofilename(cp, e->e.o.left);
     default:        error("Illegal expression");
                     exprerr = 1;
                     return scvalue_error(cp, CELLERROR);
@@ -1499,13 +1500,13 @@ SCXMEM enode_t *new_op3(int op, SCXMEM enode_t *a1, SCXMEM enode_t *a2,
         efree(a3);
         return NULL;
     }
-    return new_node(op, a1, new_node(op == '?' ? ':' : ',', a2, a3));
+    return new_node(op, a1, new_node(op == OP_QMARK ? OP_COLON : OP_COMMA, a2, a3));
 }
 
 SCXMEM enode_t *new_var(cellref_t cr) {
     SCXMEM enode_t *p;
 
-    if ((p = new_node(O_VAR, NULL, NULL))) {
+    if ((p = new_node(OP_VAR, NULL, NULL))) {
         p->type = OP_TYPE_VAR;
         p->e.v.vf = cr.vf;
         p->e.v.vp = lookat(cr.row, cr.col);
@@ -1516,7 +1517,7 @@ SCXMEM enode_t *new_var(cellref_t cr) {
 SCXMEM enode_t *new_range(rangeref_t rr) {
     SCXMEM enode_t *p;
 
-    if ((p = new_node(RANGEARG, NULL, NULL))) {
+    if ((p = new_node(OP_RANGEARG, NULL, NULL))) {
         p->type = OP_TYPE_RANGE;
         p->e.r.left.vf = rr.left.vf;
         p->e.r.left.vp = lookat(rr.left.row, rr.left.col);
@@ -1529,11 +1530,11 @@ SCXMEM enode_t *new_range(rangeref_t rr) {
 SCXMEM enode_t *new_const(double v) {
     SCXMEM enode_t *p;
 
-    if ((p = new_node(O_CONST, NULL, NULL))) {
+    if ((p = new_node(OP_CONST, NULL, NULL))) {
         p->type = OP_TYPE_DOUBLE;
         p->e.k = v;
         if (!isfinite(v))
-            p->op = ERR_;
+            p->op = OP_ERR;
     }
     return p;
 }
@@ -1541,7 +1542,7 @@ SCXMEM enode_t *new_const(double v) {
 SCXMEM enode_t *new_str(SCXMEM string_t *s) {
     SCXMEM enode_t *p = NULL;
 
-    if (s && (p = new_node(O_SCONST, NULL, NULL)) != NULL) {
+    if (s && (p = new_node(OP_SCONST, NULL, NULL)) != NULL) {
         p->type = OP_TYPE_STRING;
         p->e.s = s;
     }
@@ -1616,13 +1617,13 @@ enode_t *copye(enode_t *e, int Rdelta, int Cdelta,
         ret->e.s = dup_string(e->e.s);
     } else {
         switch (ret->op) {
-        case SUM:
-        case PROD:
-        case AVG:
-        case COUNT:
-        case STDDEV:
-        case MAX:
-        case MIN:
+        case OP_SUM:
+        case OP_PROD:
+        case OP_AVG:
+        case OP_COUNT:
+        case OP_STDDEV:
+        case OP_MAX:
+        case OP_MIN:
             // XXX: this hack is for SUM.IF and similar
             range = e->e.o.left;
             r1 = 0;
@@ -1630,11 +1631,11 @@ enode_t *copye(enode_t *e, int Rdelta, int Cdelta,
             r2 = maxrow;
             c2 = maxcol;
             break;
-        case 'f':
+        case OP_FIXED:
             if (!range)
                 Rdelta = Cdelta = 0;
             break;
-        case 'F':
+        case OP_PFIXED:
             if (range)
                 Rdelta = Cdelta = 0;
             break;
@@ -1656,25 +1657,25 @@ enode_t *copye(enode_t *e, int Rdelta, int Cdelta,
  */
 static int constant_expr(enode_t *e, int full) {
     return (e == NULL
-        ||  e->op == O_CONST
-        ||  e->op == O_SCONST
-        ||  (e->op == 'm' && constant_expr(e->e.o.left, 0)) /* unary minus */
+        ||  e->op == OP_CONST
+        ||  e->op == OP_SCONST
+        ||  (e->op == OP_UMINUS && constant_expr(e->e.o.left, 0)) /* unary minus */
         ||  (full
         &&   e->type == OP_TYPE_NODES
         &&   constant_expr(e->e.o.left, full)
         &&   constant_expr(e->e.o.right, full)
-        &&   e->op != RAND     /* non pure functions */
-        &&   e->op != RANDBETWEEN
-        &&   e->op != EXT
-        &&   e->op != NVAL
-        &&   e->op != SVAL
-        &&   e->op != NOW
-        &&   e->op != MYROW
-        &&   e->op != MYCOL
-        &&   e->op != LASTROW
-        &&   e->op != LASTCOL
-        &&   e->op != NUMITER
-        &&   e->op != FILENAME));
+        &&   e->op != OP_RAND     /* non pure functions */
+        &&   e->op != OP_RANDBETWEEN
+        &&   e->op != OP_EXT
+        &&   e->op != OP_NVAL
+        &&   e->op != OP_SVAL
+        &&   e->op != OP_NOW
+        &&   e->op != OP_MYROW
+        &&   e->op != OP_MYCOL
+        &&   e->op != OP_LASTROW
+        &&   e->op != OP_LASTCOL
+        &&   e->op != OP_NUMITER
+        &&   e->op != OP_FILENAME));
 }
 
 // XXX: all these should go to cmds.c
@@ -1720,7 +1721,7 @@ void let(cellref_t cr, SCXMEM enode_t *e, int align) {
     if (!loading) {
         // XXX: sc_decimal is a horrible hack!
         //      should use a flag in the expression node
-        if (e->type == O_CONST && !sc_decimal && prescale < 0.9999999)
+        if (e->op == OP_CONST && !sc_decimal && prescale < 0.9999999)
             e->e.k *= prescale;
         sc_decimal = FALSE;
     }
@@ -1860,7 +1861,7 @@ static void decompile_list(decomp_t *dcp, enode_t *p) {
             continue;
         }
         buf_putc(dcp->buf, ',');
-        if (p->op == ',') {
+        if (p->op == OP_COMMA) {
             decompile_node(dcp, p->e.o.left, 0);
             p = p->e.o.right;
         } else {
@@ -1880,13 +1881,11 @@ static void out_func(decomp_t *dcp, const char *s, enode_t *e) {
     }
 }
 
-static void out_infix(decomp_t *dcp, char op1, char op2, enode_t *e, int priority, int mypriority) {
+static void out_infix(decomp_t *dcp, const char *s, enode_t *e, int priority, int mypriority) {
     if (mypriority < priority)
         buf_putc(dcp->buf, '(');
     decompile_node(dcp, e->e.o.left, mypriority);
-    buf_putc(dcp->buf, op1);
-    if (op2)
-        buf_putc(dcp->buf, op2);
+    buf_puts(dcp->buf, s);
     // XXX: priority seems bogus
     decompile_node(dcp, e->e.o.right, mypriority + 1);
     if (mypriority < priority)
@@ -1917,41 +1916,41 @@ static void decompile_node(decomp_t *dcp, enode_t *e, int priority) {
         return;
     }
     switch (e->op) {
-    case O_CONST:   out_const(dcp, e->e.k);         break;
-    case O_SCONST:  out_sconst(dcp, s2c(e->e.s));   break;
-    case O_VAR:     out_var(dcp, e->e.v, 1);        break;
-    case RANGEARG:  out_range(dcp, e);              break;
-    case 'f':       out_unary(dcp, "@fixed ", e);   break;
-    case 'F':       out_unary(dcp, "(@fixed)", e);  break;
-    case 'm':       out_unary(dcp, "-", e);         break;
-    case '!':       out_unary(dcp, "!", e);         break;
-    case ';':       out_infix(dcp, e->op, 0, e, priority, 1); break;
-    case '?':       out_infix(dcp, e->op, 0, e, priority, 2); break;
-    case ':':       out_infix(dcp, e->op, 0, e, priority, 3); break;
-    case '|':       out_infix(dcp, e->op, 0, e, priority, 4); break;
-    case '&':       out_infix(dcp, e->op, 0, e, priority, 5); break;
-    case OP_GE:     out_infix(dcp, '>', '=', e, priority, 6); break;
-    case OP_LE:     out_infix(dcp, '<', '=', e, priority, 6); break;
-    case OP_LG:     out_infix(dcp, '<', '>', e, priority, 6); break;
-    case OP_NE:     out_infix(dcp, '!', '=', e, priority, 6); break;
-    case '<':
-    case '=':
-    case '>':       out_infix(dcp, e->op, 0, e, priority, 6); break;
-    case '+':
-    case '-':
-    case '#':       out_infix(dcp, e->op, 0, e, priority, 8); break;
-    case '*':
-    case '/':
-    case '%':       out_infix(dcp, e->op, 0, e, priority, 10); break;
-    case '^':       out_infix(dcp, e->op, 0, e, priority, 12); break;
-        // XXX: handle ',' nodes?
-    default:        if (e->op > OP_BASE && e->op < OP_END) {
-                        int n = e->op - OP_BASE - 1;
-                        out_func(dcp, opname[n], (opmin[n] < 0) ? NULL : e);
-                    } else {
-                        buf_printf(dcp->buf, "@errnode(%d)", e->op);
-                    }
-                    break;
+    case OP_DUMMY:      decompile_node(dcp, e->e.o.right, priority); break;
+    case OP_CONST:      out_const(dcp, e->e.k);         break;
+    case OP_SCONST:     out_sconst(dcp, s2c(e->e.s));   break;
+    case OP_VAR:        out_var(dcp, e->e.v, 1);        break;
+    case OP_RANGEARG:   out_range(dcp, e);              break;
+    case OP_FIXED:
+    case OP_PFIXED:
+    case OP_UMINUS:
+    case OP_UPLUS:
+    case OP_BANG:       out_unary(dcp, opname[e->op], e); break;
+    case OP_SEMI:       out_infix(dcp, opname[e->op], e, priority, 1); break;
+    case OP_QMARK:      out_infix(dcp, opname[e->op], e, priority, 2); break;
+    case OP_COLON:      out_infix(dcp, opname[e->op], e, priority, 3); break;
+    case OP_VBAR:       out_infix(dcp, opname[e->op], e, priority, 4); break;
+    case OP_AMPERSAND:  out_infix(dcp, opname[e->op], e, priority, 5); break;
+    case OP_EQ:
+    case OP_NE:
+    case OP_LG:
+    case OP_LT:
+    case OP_LE:
+    case OP_GE:
+    case OP_GT:         out_infix(dcp, opname[e->op], e, priority, 6); break;
+    case OP_SHARP:      out_infix(dcp, opname[e->op], e, priority, 7); break;
+    case OP_PLUS:
+    case OP_MINUS:      out_infix(dcp, opname[e->op], e, priority, 8); break;
+    case OP_STAR:
+    case OP_SLASH:
+    case OP_PERCENT:    out_infix(dcp, opname[e->op], e, priority, 10); break;
+    case OP_CARET:      out_infix(dcp, opname[e->op], e, priority, 12); break;
+    default:            if (e->op >= 0 && e->op < OP_count) {
+                            out_func(dcp, opname[e->op], (opmin[e->op] < 0) ? NULL : e);
+                        } else {
+                            buf_printf(dcp->buf, "@errnode(%d)", e->op);
+                        }
+                        break;
     }
 }
 

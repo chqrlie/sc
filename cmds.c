@@ -1575,7 +1575,7 @@ static void sync_expr(enode_t *e) {
     } else
     if (e->type == OP_TYPE_VAR) {
         if (e->e.v.vp->flags & IS_CLEARED) {
-            e->op = ERR_;
+            e->op = OP_ERR;
             e->e.o.left = NULL;
             e->e.o.right = NULL;
         } else

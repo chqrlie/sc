@@ -1,6 +1,8 @@
 # TODO
 
 [ ] fix error propagation scheme
+[ ] group functions by theme
+[ ] use infix operators from OASIS spec
 [ ] preserve spaces and parentheses from expression source using a pattern
 [ ] use expression pattern to preserve syntax errors and unknown functions
 [ ] add inline vectors, columns and matrices in expressions

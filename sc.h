@@ -241,23 +241,12 @@ struct go_save {
 #define G_NSTR    6
 #define G_XSTR    7
 
-/* op values */
-#define O_VAR 'v'
-#define O_CONST 'k'
-#define O_ECONST 'E'    /* constant cell w/ an error */
-#define O_SCONST '$'
-
-#define OP_GE 'g'
-#define OP_LE 'l'
-#define OP_LG 'o'
-#define OP_NE 'n'
-
+/* opcode symbols */
 enum opcode {
-    OP_BASE = 127,
 #define OP(op,str,min,max)  op,
 #include "opcodes.h"
 #undef OP
-    OP_END,
+    OP_count,
 };
 
 /* flag values (8 bits) */
