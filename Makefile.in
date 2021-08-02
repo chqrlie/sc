@@ -337,7 +337,7 @@ OBJS=$O/abbrev.o $O/cmds.o $O/color.o $(CRYPT_OBJ) $O/format.o $O/frame.o $O/gra
 DOCS=CHANGES README sc.doc psc.doc tutorial.sc VMS_NOTES torev build.com
 
 # The header files and other implicit dependency files
-DEPENDS:= sc.h config.h compat.h util.h Makefile
+DEPENDS:= sc.h config.h compat.h util.h opcodes.h Makefile
 
 all:	Makefile $O $(name) p$(name) $(name)qref $(name).1 p$(name).1 $(name)qref.1 \
 	x$(name) x$(name).1
@@ -408,7 +408,7 @@ $O/gram.o: $(YTAB).c $(YTAB).h $(DEPENDS)
 $O/help.o: help.c $(DEPENDS)
 	$(CC) $(_CFLAGS) -o $@ ${CRYPT} -c help.c
 
-$O/interp.o: interp.c $(DEPENDS)
+$O/interp.o: interp.c $(DEPENDS) opcodes.h
 	$(CC) $(_CFLAGS) -o $@ ${FLOAT_STORE} ${IEEE_MATH} ${SIGVOID} ${RINT} ${REGEX} ${FMOD} -c interp.c
 
 $O/lex.o: $(YTAB).h $(YTAB).c lex.c $(DEPENDS) $(YTAB).h tokens.h

@@ -1,5 +1,6 @@
 # TODO
 
+[ ] fix error propagation scheme
 [ ] preserve spaces and parentheses from expression source using a pattern
 [ ] use expression pattern to preserve syntax errors and unknown functions
 [ ] add inline vectors, columns and matrices in expressions

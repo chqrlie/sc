@@ -1040,6 +1040,7 @@ static scvalue_t eval_cmp(eval_ctx_t *cp, int op, enode_t *e) {
     int cmp = 0;
     // XXX: mixed types should compare in this order:
     //  number < string < logical < error < empty
+    // XXX: should stop error propagation
     if (a.type == SC_ERROR || b.type == SC_ERROR) {
         if (op == '=' || op == EQS)
             cmp = 1;  /* return false */
@@ -1871,10 +1872,12 @@ static void decompile_list(decomp_t *dcp, enode_t *p) {
 
 static void out_func(decomp_t *dcp, const char *s, enode_t *e) {
     buf_puts(dcp->buf, s);
-    buf_putc(dcp->buf, '(');
-    decompile_node(dcp, e->e.o.left, 0);
-    decompile_list(dcp, e->e.o.right);
-    buf_putc(dcp->buf, ')');
+    if (e) {
+        buf_putc(dcp->buf, '(');
+        decompile_node(dcp, e->e.o.left, 0);
+        decompile_list(dcp, e->e.o.right);
+        buf_putc(dcp->buf, ')');
+    }
 }
 
 static void out_infix(decomp_t *dcp, char op1, char op2, enode_t *e, int priority, int mypriority) {
@@ -1890,6 +1893,24 @@ static void out_infix(decomp_t *dcp, char op1, char op2, enode_t *e, int priorit
         buf_putc(dcp->buf, ')');
 }
 
+static const char * const opname[] = {
+#define OP(op,str,min,max)  str,
+#include "opcodes.h"
+#undef OP
+};
+static signed char const opmin[] = {
+#define OP(op,str,min,max)  min,
+#include "opcodes.h"
+#undef OP
+};
+#if 0
+static signed char const opmax[] = {
+#define OP(op,str,min,max)  max,
+#include "opcodes.h"
+#undef OP
+};
+#endif
+
 static void decompile_node(decomp_t *dcp, enode_t *e, int priority) {
     if (!e) {
         buf_putc(dcp->buf, '?');
@@ -1904,84 +1925,6 @@ static void decompile_node(decomp_t *dcp, enode_t *e, int priority) {
     case 'F':       out_unary(dcp, "(@fixed)", e);  break;
     case 'm':       out_unary(dcp, "-", e);         break;
     case '!':       out_unary(dcp, "!", e);         break;
-    case SUM:       out_func(dcp, "@sum", e);       break;
-    case PROD:      out_func(dcp, "@prod", e);      break;
-    case AVG:       out_func(dcp, "@avg", e);       break;
-    case COUNT:     out_func(dcp, "@count", e);     break;
-    case STDDEV:    out_func(dcp, "@stddev", e);    break;
-    case MAX:       out_func(dcp, "@max", e);       break;
-    case MIN:       out_func(dcp, "@min", e);       break;
-    case ROWS_:     out_func(dcp, "@rows", e);      break;
-    case COLS_:     out_func(dcp, "@cols", e);      break;
-    case ABS:       out_func(dcp, "@abs", e);       break;
-    case ACOS:      out_func(dcp, "@acos", e);      break;
-    case ASIN:      out_func(dcp, "@asin", e);      break;
-    case ATAN:      out_func(dcp, "@atan", e);      break;
-    case ATAN2:     out_func(dcp, "@atan2", e);     break;
-    case CEIL:      out_func(dcp, "@ceil", e);      break;
-    case COS:       out_func(dcp, "@cos", e);       break;
-    case EXP:       out_func(dcp, "@exp", e);       break;
-    case FABS:      out_func(dcp, "@fabs", e);      break;
-    case FLOOR:     out_func(dcp, "@floor", e);     break;
-    case HYPOT:     out_func(dcp, "@hypot", e);     break;
-    case LOG:       out_func(dcp, "@ln", e);        break;
-    case LOG10:     out_func(dcp, "@log", e);       break;
-    case POW:       out_func(dcp, "@pow", e);       break;
-    case SIN:       out_func(dcp, "@sin", e);       break;
-    case SQRT:      out_func(dcp, "@sqrt", e);      break;
-    case TAN:       out_func(dcp, "@tan", e);       break;
-    case DTR:       out_func(dcp, "@dtr", e);       break;
-    case RTD:       out_func(dcp, "@rtd", e);       break;
-    case RND:       out_func(dcp, "@rnd", e);       break;
-    case ROUND:     out_func(dcp, "@round", e);     break;
-    case HOUR:      out_func(dcp, "@hour", e);      break;
-    case MINUTE:    out_func(dcp, "@minute", e);    break;
-    case SECOND:    out_func(dcp, "@second", e);    break;
-    case MONTH:     out_func(dcp, "@month", e);     break;
-    case DAY:       out_func(dcp, "@day", e);       break;
-    case YEAR:      out_func(dcp, "@year", e);      break;
-    case NOW:       buf_puts(dcp->buf, "@now");     break;
-    case DATE:      out_func(dcp, "@date", e);      break;
-    case FMT:       out_func(dcp, "@fmt", e);       break;
-    case UPPER:     out_func(dcp, "@upper", e);     break;
-    case LOWER:     out_func(dcp, "@lower", e);     break;
-    case CAPITAL:   out_func(dcp, "@capital", e);   break;
-    case DTS:       out_func(dcp, "@dts", e);       break;
-    case TTS:       out_func(dcp, "@tts", e);       break;
-    case STON:      out_func(dcp, "@ston", e);      break;
-    case EQS:       out_func(dcp, "@eqs", e);       break;
-    case LMAX:      out_func(dcp, "@max", e);       break;
-    case LMIN:      out_func(dcp, "@min", e);       break;
-    case FV:        out_func(dcp, "@fv", e);        break;
-    case PV:        out_func(dcp, "@pv", e);        break;
-    case PMT:       out_func(dcp, "@pmt", e);       break;
-    case NVAL:      out_func(dcp, "@nval", e);      break;
-    case SVAL:      out_func(dcp, "@sval", e);      break;
-    case EXT:       out_func(dcp, "@ext", e);       break;
-    case SUBSTR:    out_func(dcp, "@substr", e);    break;
-    case STINDEX:   out_func(dcp, "@stindex", e);   break;
-    case INDEX:     out_func(dcp, "@index", e);     break;
-    case LOOKUP:    out_func(dcp, "@lookup", e);    break;
-    case HLOOKUP:   out_func(dcp, "@hlookup", e);   break;
-    case VLOOKUP:   out_func(dcp, "@vlookup", e);   break;
-    case IF:        out_func(dcp, "@if", e);        break;
-    case MYROW:     buf_puts(dcp->buf, "@myrow");   break;
-    case MYCOL:     buf_puts(dcp->buf, "@mycol");   break;
-    case LASTROW:   buf_puts(dcp->buf, "@lastrow"); break;
-    case LASTCOL:   buf_puts(dcp->buf, "@lastcol"); break;
-    case COLTOA:    out_func(dcp, "@coltoa", e);    break;
-    case FILENAME:  out_func(dcp, "@filename", e);  break;
-    case NUMITER:   buf_puts(dcp->buf, "@numiter"); break;
-    case ERR_:      buf_puts(dcp->buf, "@err");     break;
-    case PI_:       buf_puts(dcp->buf, "@pi");      break;
-    case BLACK:     buf_puts(dcp->buf, "@black");   break;
-    case RED:       buf_puts(dcp->buf, "@red");     break;
-    case GREEN:     buf_puts(dcp->buf, "@green");   break;
-    case YELLOW:    buf_puts(dcp->buf, "@yellow");  break;
-    case BLUE:      buf_puts(dcp->buf, "@blue");    break;
-    case MAGENTA:   buf_puts(dcp->buf, "@magenta"); break;
-    case CYAN:      buf_puts(dcp->buf, "@cyan");    break;
-    case WHITE:     buf_puts(dcp->buf, "@white");   break;
     case ';':       out_infix(dcp, e->op, 0, e, priority, 1); break;
     case '?':       out_infix(dcp, e->op, 0, e, priority, 2); break;
     case ':':       out_infix(dcp, e->op, 0, e, priority, 3); break;
@@ -2002,7 +1945,13 @@ static void decompile_node(decomp_t *dcp, enode_t *e, int priority) {
     case '%':       out_infix(dcp, e->op, 0, e, priority, 10); break;
     case '^':       out_infix(dcp, e->op, 0, e, priority, 12); break;
         // XXX: handle ',' nodes?
-    default:        buf_printf(dcp->buf, "@errnode(%d)", e->op); break;
+    default:        if (e->op > OP_BASE && e->op < OP_END) {
+                        int n = e->op - OP_BASE - 1;
+                        out_func(dcp, opname[n], (opmin[n] < 0) ? NULL : e);
+                    } else {
+                        buf_printf(dcp->buf, "@errnode(%d)", e->op);
+                    }
+                    break;
     }
 }
 
