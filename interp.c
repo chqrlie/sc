@@ -41,7 +41,7 @@ static int repct = 1;   /* Make repct a global variable so that the
 static enode_t *free_enodes = NULL;
 
 static SCXMEM enode_t *new_node(int op, SCXMEM enode_t *a1, SCXMEM enode_t *a2);
-extern scvalue_t eval_node(eval_ctx_t *cp, enode_t *e, int gv);
+extern scvalue_t eval_node(eval_ctx_t *cp, enode_t *e);
 static int RealEvalAll(void);
 static void RealEvalOne(struct ent *p, enode_t *e, int i, int j, int *chgct);
 
@@ -53,8 +53,9 @@ static sigret_t eval_fpe(int);
 #ifndef M_PI
 #define M_PI (double)3.14159265358979323846
 #endif
-#define dtr(x) ((x) * (M_PI / (double)180.0))
-#define rtd(x) ((x) * (180.0 / (double)M_PI))
+
+static double dtr(double x) { return x * (M_PI / 180.0); }
+static double rtd(double x) { return x * (180.0 / M_PI); }
 
 /*---------------- utility functions ----------------*/
 
@@ -98,7 +99,7 @@ static inline scvalue_t scvalue_string(SCXMEM string_t *str) {
 }
 
 static double eval_num(eval_ctx_t *cp, enode_t *e) {
-    scvalue_t res = eval_node(cp, e, 1);
+    scvalue_t res = eval_node(cp, e);
     if (res.type == SC_NUMBER || res.type == SC_BOOLEAN)
         return res.u.v;
     if (res.type == SC_STRING) {
@@ -123,7 +124,7 @@ static sclong_t eval_long(eval_ctx_t *cp, enode_t *e) {
 
 static SCXMEM string_t *eval_str(eval_ctx_t *cp, enode_t *e) {
     char buf[32];
-    scvalue_t res = eval_node(cp, e, 1);
+    scvalue_t res = eval_node(cp, e);
     if (res.type == SC_STRING)
         return res.u.str;
     if (res.type == SC_NUMBER) {
@@ -139,9 +140,25 @@ static SCXMEM string_t *eval_str(eval_ctx_t *cp, enode_t *e) {
     return NULL;
 }
 
-static scvalue_t eval_div(eval_ctx_t *cp, enode_t *a, enode_t *b) {
-    double num = eval_num(cp, a);
-    double denom = eval_num(cp, b);
+static scvalue_t eval_add(eval_ctx_t *cp, enode_t *e) {
+    return scvalue_number(eval_num(cp, e->e.o.left) + eval_num(cp, e->e.o.right));
+}
+
+static scvalue_t eval_sub(eval_ctx_t *cp, enode_t *e) {
+    return scvalue_number(eval_num(cp, e->e.o.left) - eval_num(cp, e->e.o.right));
+}
+
+static scvalue_t eval_mul(eval_ctx_t *cp, enode_t *e) {
+    return scvalue_number(eval_num(cp, e->e.o.left) * eval_num(cp, e->e.o.right));
+}
+
+static scvalue_t eval_neg(eval_ctx_t *cp, enode_t *e) {
+    return scvalue_number(-eval_num(cp, e->e.o.left));
+}
+
+static scvalue_t eval_div(eval_ctx_t *cp, enode_t *e) {
+    double num = eval_num(cp, e->e.o.left);
+    double denom = eval_num(cp, e->e.o.right);
     if (cp->cellerror)
         return scvalue_error(cp, CELLINVALID);
     else
@@ -151,10 +168,10 @@ static scvalue_t eval_div(eval_ctx_t *cp, enode_t *a, enode_t *b) {
         return scvalue_error(cp, CELLERROR);
 }
 
-static scvalue_t eval_mod(eval_ctx_t *cp, enode_t *a, enode_t *b) {
+static scvalue_t eval_mod(eval_ctx_t *cp, enode_t *e) {
     // XXX: this API is incorrect
-    double num = floor(eval_num(cp, a));
-    double denom = floor(eval_num(cp, b));
+    double num = floor(eval_num(cp, e->e.o.left));
+    double denom = floor(eval_num(cp, e->e.o.right));
     if (cp->cellerror)
         return scvalue_error(cp, CELLINVALID);
     else
@@ -223,6 +240,19 @@ static scvalue_t scvalue_getcell(eval_ctx_t *cp, struct ent *p) {
     return scvalue_empty();
 }
 
+static scvalue_t eval_var(eval_ctx_t *cp, enode_t *e) {
+    struct ent *vp = e->e.v.vp;
+    if (vp && (cp->rowoffset || cp->coloffset)) {
+        int row = (e->e.v.vf & FIX_ROW) ? vp->row : vp->row + cp->rowoffset;
+        int col = (e->e.v.vf & FIX_COL) ? vp->col : vp->col + cp->coloffset;
+        // XXX: this is bogus: out of bounds cells should
+        //      evaluate to 0.0 or a cellerror
+        checkbounds(&row, &col);
+        vp = *ATBL(tbl, row, col);
+    }
+    return scvalue_getcell(cp, vp);
+}
+
 static scvalue_t doindex(eval_ctx_t *cp, int minr, int minc, int maxr, int maxc, enode_t *val) {
     int r, c;
 
@@ -247,7 +277,7 @@ static scvalue_t doindex(eval_ctx_t *cp, int minr, int minc, int maxr, int maxc,
 }
 
 static scvalue_t dolookup(eval_ctx_t *cp, enode_t *val, int minr, int minc, int maxr, int maxc, int offset, int vflag) {
-    scvalue_t a = eval_node(cp, val, 1);
+    scvalue_t a = eval_node(cp, val);
     int r, c;
     struct ent *p = NULL;
     struct ent *vp = NULL;
@@ -298,7 +328,7 @@ static scvalue_t dolookup(eval_ctx_t *cp, enode_t *val, int minr, int minc, int 
 /*---------------- aggregate functions ----------------*/
 
 static int eval_test(eval_ctx_t *cp, enode_t *e) {
-    scvalue_t a = eval_node(cp, e, 1);
+    scvalue_t a = eval_node(cp, e);
     if (a.type == SC_NUMBER || a.type == SC_BOOLEAN)
         return a.u.v != 0;
     if (a.type == SC_STRING) {
@@ -315,7 +345,7 @@ static scvalue_t eval_offset(eval_ctx_t *cp, enode_t *e, int roffset, int coffse
     scvalue_t res;
     cp->rowoffset = roffset;
     cp->coloffset = coffset;
-    res = eval_node(cp, e, 1);
+    res = eval_node(cp, e);
     cp->rowoffset = save_rowoffset;
     cp->coloffset = save_coloffset;
     return res;
@@ -495,12 +525,47 @@ static scvalue_t domin(eval_ctx_t *cp, int minr, int minc, int maxr, int maxc, e
     return scvalue_number(v);
 }
 
+static scvalue_t eval_rangeop(eval_ctx_t *cp, enode_t *e) {
+    // XXX: this 2 argument API is not general enough
+    // XXX: use generic evaluator for these
+    enode_t *left = e->e.o.left;
+    enode_t *right = e->e.o.right;
+    int minr = left->e.r.left.vp->row;
+    int minc = left->e.r.left.vp->col;
+    int maxr = left->e.r.right.vp->row;
+    int maxc = left->e.r.right.vp->col;
+    if (minr > maxr) SWAPINT(minr, maxr);
+    if (minc > maxc) SWAPINT(minc, maxc);
+    switch (e->op) {
+    case OP_SUM:    return dosum(cp, minr, minc, maxr, maxc, right);
+    case OP_PROD:   return doprod(cp, minr, minc, maxr, maxc, right);
+    case OP_AVG:    return doavg(cp, minr, minc, maxr, maxc, right);
+    case OP_COUNT:  return docount(cp, minr, minc, maxr, maxc, right);
+    case OP_STDDEV: return dostddev(cp, minr, minc, maxr, maxc, right);
+    case OP_MAX:    return domax(cp, minr, minc, maxr, maxc, right);
+    case OP_MIN:    return domin(cp, minr, minc, maxr, maxc, right);
+    case OP_ROWS:   return scvalue_number(maxr - minr + 1);
+    case OP_COLS:   return scvalue_number(maxc - minc + 1);
+    case OP_LOOKUP: return dolookup(cp, right, minr, minc, maxr, maxc, 1, minc == maxc);
+    case OP_HLOOKUP: return dolookup(cp, right->e.o.left, minr, minc, maxr, maxc,
+                                     (int)eval_num(cp, right->e.o.right), 0);
+    case OP_VLOOKUP: return dolookup(cp, right->e.o.left, minr, minc, maxr, maxc,
+                                     (int)eval_num(cp, right->e.o.right), 1);
+    case OP_STINDEX:
+    case OP_INDEX: return doindex(cp, minr, minc, maxr, maxc, right);
+    }
+    return scvalue_error(cp, CELLERROR);
+}
+
 /*---------------- date and time functions ----------------*/
 
 // XXX: should accept 6 or 7 arguments
 // XXX: should use integral part for day and fraction for time.
 //      which may be incorrect for DST time adjustments.
-static scvalue_t dodts(eval_ctx_t *cp, int yr, int mo, int day) {
+static scvalue_t eval_dts(eval_ctx_t *cp, enode_t *e) {
+    int yr = (int)eval_num(cp, e->e.o.left);
+    int mo = (int)eval_num(cp, e->e.o.right->e.o.left);
+    int day = (int)eval_num(cp, e->e.o.right->e.o.right);
     time_t secs;
     struct tm t;
 
@@ -531,16 +596,17 @@ static double dotts(double hr, double min, double sec) {
     return seconds < 0 ? 86400 + seconds : seconds;
 }
 
-static scvalue_t donow(void) {
+static scvalue_t eval_now(eval_ctx_t *cp, enode_t *e) {
     // XXX: should use a more precise time value
     return scvalue_number((double)time(NULL));
 }
 
-static scvalue_t dotime(eval_ctx_t *cp, int which, enode_t *e) {
+static scvalue_t eval_time(eval_ctx_t *cp, enode_t *e) {
     static time_t t_cache;
     static struct tm tm_cache;
     struct tm *tp = &tm_cache;
-    time_t tloc = (time_t)eval_num(cp, e);
+    int which = e->op;
+    time_t tloc = (time_t)eval_num(cp, e->e.o.left);
 
     // XXX: this primitive cacheing system fails
     //      as soon as there are more than 1 time value
@@ -566,8 +632,8 @@ static scvalue_t dotime(eval_ctx_t *cp, int which, enode_t *e) {
     return scvalue_error(cp, CELLERROR);
 }
 
-static scvalue_t doston(eval_ctx_t *cp, enode_t *e) {
-    scvalue_t a = eval_node(cp, e, 1);
+static scvalue_t eval_ston(eval_ctx_t *cp, enode_t *e) {
+    scvalue_t a = eval_node(cp, e->e.o.left);
     double v = 0;
     char *end;
 
@@ -643,7 +709,9 @@ static struct ent *getent(eval_ctx_t *cp, SCXMEM string_t *colstr, double rowdou
  * number, return the selected cell's numeric value, if any.
  */
 
-static scvalue_t donval(eval_ctx_t *cp, SCXMEM string_t *colstr, double rowdoub) {
+static scvalue_t eval_nval(eval_ctx_t *cp, enode_t *e) {
+    SCXMEM string_t *colstr = eval_str(cp, e->e.o.left);
+    double rowdoub = eval_num(cp, e->e.o.right);
     struct ent *p = getent(cp, colstr, rowdoub);
     scvalue_t res = scvalue_getcell(cp, p);
     if (res.type == SC_NUMBER)
@@ -667,14 +735,14 @@ static scvalue_t donval(eval_ctx_t *cp, SCXMEM string_t *colstr, double rowdoub)
  * The list routines (e.g. dolmax) are called with an LMAX enode.
  * The left pointer is a value, the right pointer is a chain of OP_COMMA nodes
  */
-static scvalue_t dolmax(eval_ctx_t *cp, enode_t *ep) {
+static scvalue_t eval_lmax(eval_ctx_t *cp, enode_t *ep) {
     // XXX: should handle ranges in list
     int count = 0;
     double maxval = 0.0;
     enode_t *e;
 
     for (e = ep; e; e = e->e.o.right) {
-        scvalue_t res = eval_node(cp, e->e.o.left, 1);
+        scvalue_t res = eval_node(cp, e->e.o.left);
         if (res.type == SC_NUMBER) {
             if (!count++ || res.u.v > maxval)
                 maxval = res.u.v;
@@ -685,14 +753,14 @@ static scvalue_t dolmax(eval_ctx_t *cp, enode_t *ep) {
     return scvalue_number(maxval);
 }
 
-static scvalue_t dolmin(eval_ctx_t *cp, enode_t *ep) {
+static scvalue_t eval_lmin(eval_ctx_t *cp, enode_t *ep) {
     // XXX: should handle ranges in list
     int count = 0;
     double minval = 0.0;
     enode_t *e;
 
     for (e = ep; e; e = e->e.o.right) {
-        scvalue_t res = eval_node(cp, e->e.o.left, 1);
+        scvalue_t res = eval_node(cp, e->e.o.left);
         if (res.type == SC_NUMBER) {
             if (!count++ || res.u.v < minval)
                 minval = res.u.v;
@@ -721,7 +789,7 @@ static sigret_t eval_fpe(int i) { /* Trap for FPE errors in eval */
     longjmp(fpe_save, 1);
 }
 
-static scvalue_t fn1_eval(eval_ctx_t *cp, double (*fn)(double), enode_t *e) {
+static scvalue_t eval_fn1(eval_ctx_t *cp, enode_t *e, double (*fn)(double)) {
     double res;
     errno = 0;
     res = (*fn)(eval_num(cp, e->e.o.left));
@@ -730,7 +798,7 @@ static scvalue_t fn1_eval(eval_ctx_t *cp, double (*fn)(double), enode_t *e) {
     return scvalue_number(res);
 }
 
-static scvalue_t fn2_eval(eval_ctx_t *cp, double (*fn)(double, double), enode_t *e) {
+static scvalue_t eval_fn2(eval_ctx_t *cp, enode_t *e, double (*fn)(double, double)) {
     double res;
     errno = 0;
     res = (*fn)(eval_num(cp, e->e.o.left), eval_num(cp, e->e.o.right));
@@ -739,7 +807,7 @@ static scvalue_t fn2_eval(eval_ctx_t *cp, double (*fn)(double, double), enode_t 
     return scvalue_number(res);
 }
 
-static scvalue_t fn3_eval(eval_ctx_t *cp, double (*fn)(double, double, double), enode_t *e) {
+static scvalue_t eval_fn3(eval_ctx_t *cp, enode_t *e, double (*fn)(double, double, double)) {
     double res;
     errno = 0;
     res = (*fn)(eval_num(cp, e->e.o.left),
@@ -764,6 +832,10 @@ static double rand_between(double aa, double bb) {
         /* return an integer */
         return a + rand() * (b - a + 1) / ((long int)RAND_MAX + 1);
     }
+}
+
+static scvalue_t eval_rand(eval_ctx_t *cp, enode_t *e) {
+    return scvalue_number((double)rand() / ((double)RAND_MAX + 1));
 }
 
 #ifdef RINT
@@ -810,7 +882,7 @@ static double doround(double a, double b) {
 }
 
 #if 0
-static scvalue_t fl1_eval(eval_ctx_t *cp, sclong_t (*fn)(sclong_t), enode_t *e) {
+static scvalue_t eval_fl1(eval_ctx_t *cp, enode_t *e, sclong_t (*fn)(sclong_t)) {
     sclong_t res;
     errno = 0;
     res = (*fn)(eval_long(cp, e->e.o.left));
@@ -820,7 +892,7 @@ static scvalue_t fl1_eval(eval_ctx_t *cp, sclong_t (*fn)(sclong_t), enode_t *e) 
 }
 #endif
 
-static scvalue_t fl2_eval(eval_ctx_t *cp, sclong_t (*fn)(sclong_t, sclong_t), enode_t *e) {
+static scvalue_t eval_fl2(eval_ctx_t *cp, enode_t *e, sclong_t (*fn)(sclong_t, sclong_t)) {
     sclong_t res;
     errno = 0;
     res = (*fn)(eval_long(cp, e->e.o.left), eval_long(cp, e->e.o.right));
@@ -830,7 +902,7 @@ static scvalue_t fl2_eval(eval_ctx_t *cp, sclong_t (*fn)(sclong_t, sclong_t), en
 }
 
 #if 0
-static scvalue_t fl3_eval(eval_ctx_t *cp, sclong_t (*fn)(sclong_t, sclong_t, sclong_t), enode_t *e) {
+static scvalue_t eval_fl3(eval_ctx_t *cp, enode_t *e, sclong_t (*fn)(sclong_t, sclong_t, sclong_t)) {
     sclong_t res;
     errno = 0;
     res = (*fn)(eval_long(cp, e->e.o.left),
@@ -867,6 +939,10 @@ static sclong_t bitxor(sclong_t a, sclong_t b) {
     return a ^ b;
 }
 
+static sclong_t makecolor(sclong_t a, sclong_t b) {
+    return (a & 7) + ((b & 7) << 3);
+}
+
 /*---------------- string functions ----------------*/
 
 /*
@@ -875,7 +951,7 @@ static sclong_t bitxor(sclong_t a, sclong_t b) {
  * All returned strings are assumed to be xalloced.
  */
 
-static scvalue_t dodate(eval_ctx_t *cp, enode_t *e) {
+static scvalue_t eval_date(eval_ctx_t *cp, enode_t *e) {
     char buff[FBUFLEN];
     time_t tloc = (time_t)eval_num(cp, e->e.o.left);
     SCXMEM string_t *fmtstr = e->e.o.right ? eval_str(cp, e->e.o.right) : NULL;
@@ -893,7 +969,7 @@ static scvalue_t dodate(eval_ctx_t *cp, enode_t *e) {
     }
 }
 
-static scvalue_t dofmt(eval_ctx_t *cp, enode_t *e) {
+static scvalue_t eval_fmt(eval_ctx_t *cp, enode_t *e) {
     char buff[FBUFLEN];
     SCXMEM string_t *fmtstr = eval_str(cp, e->e.o.left);
     double v = eval_num(cp, e->e.o.right);
@@ -916,7 +992,7 @@ static scvalue_t dofmt(eval_ctx_t *cp, enode_t *e) {
  * this as a third argument of @ext().
  */
 
-static scvalue_t doext(eval_ctx_t *cp, enode_t *se) {
+static scvalue_t eval_ext(eval_ctx_t *cp, enode_t *se) {
     char buff[FBUFLEN];     /* command line/output */
     SCXMEM string_t *command;
     enode_t *right = se->e.o.right;
@@ -984,7 +1060,7 @@ static scvalue_t doext(eval_ctx_t *cp, enode_t *se) {
     }
 #endif  /* NOEXTFUNCS */
     if (prev)
-        return eval_node(cp, prev, 1);
+        return eval_node(cp, prev);
     if (cellerr)
         return scvalue_error(cp, cellerr);
     else
@@ -999,8 +1075,10 @@ static scvalue_t doext(eval_ctx_t *cp, enode_t *se) {
  * the expression is saved in a file, etc.
  */
 
-static scvalue_t dosval(eval_ctx_t *cp, SCXMEM string_t *colstr, double rowdoub) {
+static scvalue_t eval_sval(eval_ctx_t *cp, enode_t *e) {
     char buf[32];
+    SCXMEM string_t *colstr = eval_str(cp, e->e.o.left);
+    double rowdoub = eval_num(cp, e->e.o.right);
     struct ent *p = getent(cp, colstr, rowdoub);
     scvalue_t res = scvalue_getcell(cp, p);
     if (res.type == SC_STRING)
@@ -1022,7 +1100,8 @@ static scvalue_t dosval(eval_ctx_t *cp, SCXMEM string_t *colstr, double rowdoub)
  */
 
 // XXX: should handle UTF-8 encoded UNICODE stuff
-static scvalue_t docase(eval_ctx_t *cp, int op, SCXMEM string_t *s) {
+static scvalue_t eval_case(eval_ctx_t *cp, enode_t *e) {
+    SCXMEM string_t *s = eval_str(cp, e->e.o.left);
     SCXMEM string_t *s2;
     char *p;
 
@@ -1034,52 +1113,72 @@ static scvalue_t docase(eval_ctx_t *cp, int op, SCXMEM string_t *s) {
         return scvalue_error(cp, CELLERROR);
 
     free_string(s);
-    if (op == OP_UPPER) {
+    switch (e->op) {
+    case OP_UPPER:
         for (p = s2->s; *p; p++) {
             if (islowerchar(*p))
                 *p = toupperchar(*p);
         }
-    } else
-    if (op == OP_LOWER) {
+        break;
+    case OP_LOWER:
         for (p = s2->s; *p; p++) {
             if (isupperchar(*p))
                 *p = tolowerchar(*p);
         }
-    } else
-    if (op == OP_CAPITAL) {
-        int skip = 1;
-        int AllUpper = 1;
-        for (p = s2->s; *p; p++) {
-            if (islowerchar(*p)) {
-                AllUpper = 0;
-                break;
+        break;
+    case OP_CAPITAL: {
+            int skip = 1;
+            int AllUpper = 1;
+            for (p = s2->s; *p; p++) {
+                if (islowerchar(*p)) {
+                    AllUpper = 0;
+                    break;
+                }
+            }
+            for (p = s2->s; *p; p++) {
+                if (!isalnumchar(*p))
+                    skip = 1;
+                else
+                if (skip == 1) {
+                    skip = 0;
+                    if (islowerchar(*p))
+                        *p = toupperchar(*p);
+                } else {  /* if the string was all upper before */
+                    if (isupperchar(*p) && AllUpper != 0)
+                        *p = tolowerchar(*p);
+                }
             }
         }
-        for (p = s2->s; *p; p++) {
-            if (!isalnumchar(*p))
-                skip = 1;
-            else
-            if (skip == 1) {
-                skip = 0;
-                if (islowerchar(*p))
-                    *p = toupperchar(*p);
-            } else {  /* if the string was all upper before */
-                if (isupperchar(*p) && AllUpper != 0)
-                    *p = tolowerchar(*p);
-            }
-        }
+        break;
     }
     return scvalue_string(s2);
 }
 
-static scvalue_t dofilename(eval_ctx_t *cp, enode_t *e) {
-    int n = eval_test(cp, e);
+static scvalue_t eval_substr(eval_ctx_t *cp, enode_t *e) {
+    /* Substring: Note that v1 and v2 are one-based and v2 is included */
+    SCXMEM string_t *str = eval_str(cp, e->e.o.left);
+    int v1 = (int)eval_num(cp, e->e.o.right->e.o.left);
+    int v2 = (int)eval_num(cp, e->e.o.right->e.o.right);
+    return scvalue_string(sub_string(str, v1 - 1, v2));
+}
+
+static scvalue_t eval_filename(eval_ctx_t *cp, enode_t *e) {
+    int n = eval_test(cp, e->e.o.left);
     const char *s = n ? curfile : get_basename(curfile);
     return scvalue_string(new_string(s));
 }
 
+static scvalue_t eval_not(eval_ctx_t *cp, enode_t *e) {
+    // XXX: handle errors?
+    return scvalue_bool(!eval_test(cp, e->e.o.left));
+}
+
+static scvalue_t eval_and(eval_ctx_t *cp, enode_t *e) {
+    return eval_test(cp, e->e.o.left) ? eval_node(cp, e->e.o.right) : scvalue_bool(0);
+}
+
 static scvalue_t eval_or(eval_ctx_t *cp, enode_t *e) {
-    scvalue_t a = eval_node(cp, e->e.o.left, 1);
+    scvalue_t a = eval_node(cp, e->e.o.left);
     if (a.type == SC_NUMBER || a.type == SC_BOOLEAN) {
         if (a.u.v != 0)
             return a;
@@ -1089,16 +1188,22 @@ static scvalue_t eval_or(eval_ctx_t *cp, enode_t *e) {
             return a;
         free_string(a.u.str);
     }
-    return eval_node(cp, e->e.o.right, 1);
+    return eval_node(cp, e->e.o.right);
+}
+
+static scvalue_t eval_if(eval_ctx_t *cp, enode_t *e) {
+    return eval_node(cp, eval_test(cp, e->e.o.left) ?
+                     e->e.o.right->e.o.left : e->e.o.right->e.o.right);
 }
 
 static int is_relative(int op) {
     return op == OP_LT || op == OP_GT || op == OP_LE || op == OP_GE;
 }
 
-static scvalue_t eval_cmp(eval_ctx_t *cp, int op, enode_t *e) {
-    scvalue_t a = eval_node(cp, e->e.o.left, 1);
-    scvalue_t b = eval_node(cp, e->e.o.right, 1);
+static scvalue_t eval_cmp(eval_ctx_t *cp, enode_t *e) {
+    int op = e->op;
+    scvalue_t a = eval_node(cp, e->e.o.left);
+    scvalue_t b = eval_node(cp, e->e.o.right);
     int cmp = 0;
     // XXX: mixed types should compare in this order:
     //  number < string < logical < error < empty
@@ -1153,53 +1258,76 @@ static scvalue_t eval_cmp(eval_ctx_t *cp, int op, enode_t *e) {
     return scvalue_error(cp, CELLERROR);
 }
 
+static scvalue_t eval_const(eval_ctx_t *cp, enode_t *e) {
+    return scvalue_number(e->e.k);
+}
+
+static scvalue_t eval_sconst(eval_ctx_t *cp, enode_t *e) {
+    return scvalue_string(dup_string(e->e.s));
+}
+
+static scvalue_t eval_other(eval_ctx_t *cp, enode_t *e) {
+    int val = 0;
+    switch (e->op) {
+    case OP_MYROW:      val = cp->gmyrow + cp->rowoffset; break;
+    case OP_MYCOL:      val = cp->gmycol + cp->coloffset; break;
+    case OP_LASTROW:    val = maxrow;           break;
+    case OP_LASTCOL:    val = maxcol;           break;
+    case OP_NUMITER:    val = repct;            break;
+    case OP_BLACK:      val = COLOR_BLACK;      break;
+    case OP_RED:        val = COLOR_RED;        break;
+    case OP_GREEN:      val = COLOR_GREEN;      break;
+    case OP_YELLOW:     val = COLOR_YELLOW;     break;
+    case OP_BLUE:       val = COLOR_BLUE;       break;
+    case OP_MAGENTA:    val = COLOR_MAGENTA;    break;
+    case OP_CYAN:       val = COLOR_CYAN;       break;
+    case OP_WHITE:      val = COLOR_WHITE;      break;
+    case OP_PI:         return scvalue_number(M_PI);
+    case OP_COLTOA:     return scvalue_string(new_string(coltoa((int)eval_num(cp, e->e.o.left))));
+    case OP_SHARP:      return scvalue_string(cat_strings(eval_str(cp, e->e.o.left), eval_str(cp, e->e.o.right)));
+    default:            error("Illegal expression");
+                        exprerr = 1;
+                        FALLTHROUGH;
+    case OP_ERR:
+                        return scvalue_error(cp, CELLERROR);
+    }
+    return scvalue_number(val);
+}
+
 /*---------------- dynamic evaluator ----------------*/
 
-scvalue_t eval_node(eval_ctx_t *cp, enode_t *e, int gv) {
+scvalue_t eval_node(eval_ctx_t *cp, enode_t *e) {
     if (e == NULL)
         return scvalue_empty();
 
     switch (e->op) {
-    case OP_PLUS:   return scvalue_number(eval_num(cp, e->e.o.left) + eval_num(cp, e->e.o.right));
-    case OP_MINUS:  return scvalue_number(eval_num(cp, e->e.o.left) - eval_num(cp, e->e.o.right));
-    case OP_STAR:   return scvalue_number(eval_num(cp, e->e.o.left) * eval_num(cp, e->e.o.right));
-    case OP_SLASH:  return eval_div(cp, e->e.o.left, e->e.o.right);
-    case OP_PERCENT: return eval_mod(cp, e->e.o.left, e->e.o.right);
+    case OP_CONST:      return eval_const(cp, e);
+    case OP_SCONST:     return eval_sconst(cp, e);
+    case OP_VAR:        return eval_var(cp, e);
+
+    case OP_PLUS:       return eval_add(cp, e);
+    case OP_MINUS:      return eval_sub(cp, e);
+    case OP_STAR:       return eval_mul(cp, e);
+    case OP_SLASH:      return eval_div(cp, e);
+    case OP_PERCENT:    return eval_mod(cp, e);
     case OP_LT:
     case OP_LE:
     case OP_EQ:
     case OP_LG:
     case OP_NE:
     case OP_GT:
-    case OP_GE:     return eval_cmp(cp, e->op, e);
+    case OP_GE:         return eval_cmp(cp, e);
                     // XXX: should have @and(list) and @or(list)
-    case OP_AMPERSAND: return eval_test(cp, e->e.o.left) ? eval_node(cp, e->e.o.right, 1) : scvalue_bool(0);
-    case OP_VBAR:   return eval_or(cp, e);
+    case OP_AMPERSAND:  return eval_and(cp, e);
+    case OP_VBAR:       return eval_or(cp, e);
     case OP_IF:
-    case OP_QMARK:  return eval_node(cp, eval_test(cp, e->e.o.left) ?
-                                     e->e.o.right->e.o.left : e->e.o.right->e.o.right, gv);
-    case OP_UMINUS: return scvalue_number(-eval_num(cp, e->e.o.left));
-    case OP_UPLUS:  return eval_node(cp, e->e.o.left, gv);
-    case OP_FIXED:  return eval_offset(cp, e->e.o.left, 0, 0);
-    case OP_PFIXED: return eval_node(cp, e->e.o.left, gv);
-    case OP_BANG:   return scvalue_bool(!eval_test(cp, e->e.o.left));
-    case OP_SEMI:   return scvalue_number(((int)eval_num(cp, e->e.o.left) & 7) +
-                                          (((int)eval_num(cp, e->e.o.right) & 7) << 3));
-    case OP_CONST:  return scvalue_number(e->e.k);
-    case OP_VAR:    {
-                        struct ent *vp = e->e.v.vp;
-                        if (vp && (cp->rowoffset || cp->coloffset)) {
-                            int row = (e->e.v.vf & FIX_ROW) ?
-                                vp->row : vp->row + cp->rowoffset;
-                            int col = (e->e.v.vf & FIX_COL) ?
-                                vp->col : vp->col + cp->coloffset;
-                            // XXX: this is bogus: out of bounds cells should
-                            //      evaluate to 0.0 or a cellerror
-                            checkbounds(&row, &col);
-                            vp = *ATBL(tbl, row, col);
-                        }
-                        return scvalue_getcell(cp, vp);
-                    }
+    case OP_QMARK:      return eval_if(cp, e);
+    case OP_UMINUS:     return eval_neg(cp, e);
+    case OP_UPLUS:      return eval_node(cp, e->e.o.left);
+    case OP_FIXED:      return eval_offset(cp, e->e.o.left, 0, 0);
+    case OP_PFIXED:     return eval_node(cp, e->e.o.left);
+    case OP_BANG:       return eval_not(cp, e);
+    case OP_SEMI:       return eval_fl2(cp, e, makecolor);
     case OP_SUM:
     case OP_PROD:
     case OP_AVG:
@@ -1213,120 +1341,65 @@ scvalue_t eval_node(eval_ctx_t *cp, enode_t *e, int gv) {
     case OP_INDEX:
     case OP_LOOKUP:
     case OP_HLOOKUP:
-    case OP_VLOOKUP: {
-            // XXX: this 2 argument API is not general enough
-            // XXX: use generic evaluator for these
-            enode_t *left = e->e.o.left;
-            enode_t *right = e->e.o.right;
-            int minr = left->e.r.left.vp->row;
-            int minc = left->e.r.left.vp->col;
-            int maxr = left->e.r.right.vp->row;
-            int maxc = left->e.r.right.vp->col;
-            if (minr > maxr) SWAPINT(minr, maxr);
-            if (minc > maxc) SWAPINT(minc, maxc);
-            switch (e->op) {
-            case OP_SUM:    return dosum(cp, minr, minc, maxr, maxc, right);
-            case OP_PROD:   return doprod(cp, minr, minc, maxr, maxc, right);
-            case OP_AVG:    return doavg(cp, minr, minc, maxr, maxc, right);
-            case OP_COUNT:  return docount(cp, minr, minc, maxr, maxc, right);
-            case OP_STDDEV: return dostddev(cp, minr, minc, maxr, maxc, right);
-            case OP_MAX:    return domax(cp, minr, minc, maxr, maxc, right);
-            case OP_MIN:    return domin(cp, minr, minc, maxr, maxc, right);
-            case OP_ROWS:   return scvalue_number(maxr - minr + 1);
-            case OP_COLS:   return scvalue_number(maxc - minc + 1);
-            case OP_LOOKUP: return dolookup(cp, right, minr, minc, maxr, maxc, 1, minc == maxc);
-            case OP_HLOOKUP: return dolookup(cp, right->e.o.left, minr, minc, maxr, maxc,
-                                          (int)eval_num(cp, right->e.o.right), 0);
-            case OP_VLOOKUP: return dolookup(cp, right->e.o.left, minr, minc, maxr, maxc,
-                                          (int)eval_num(cp, right->e.o.right), 1);
-            case OP_STINDEX:
-            case OP_INDEX: return doindex(cp, minr, minc, maxr, maxc, right);
-            }
-        }
+    case OP_VLOOKUP:    return eval_rangeop(cp, e);
 
-    case OP_ABS:    return fn1_eval(cp, fabs, e);
-    case OP_ACOS:   return fn1_eval(cp, acos, e);
-    case OP_ASIN:   return fn1_eval(cp, asin, e);
-    case OP_ATAN:   return fn1_eval(cp, atan, e);
-    case OP_ATAN2:  return fn2_eval(cp, atan2, e);
-    case OP_CEIL:   return fn1_eval(cp, ceil, e);
-    case OP_COS:    return fn1_eval(cp, cos, e);
-    case OP_EXP:    return fn1_eval(cp, exp, e);
-    case OP_FABS:   return fn1_eval(cp, fabs, e);
-    case OP_FLOOR:  return fn1_eval(cp, floor, e);
-    case OP_HYPOT:  return fn2_eval(cp, hypot, e);
-    case OP_LOG:    return fn1_eval(cp, log, e);
-    case OP_LOG10:  return fn1_eval(cp, log10, e);
+    case OP_ABS:        return eval_fn1(cp, e, fabs);
+    case OP_ACOS:       return eval_fn1(cp, e, acos);
+    case OP_ASIN:       return eval_fn1(cp, e, asin);
+    case OP_ATAN:       return eval_fn1(cp, e, atan);
+    case OP_ATAN2:      return eval_fn2(cp, e, atan2);
+    case OP_CEIL:       return eval_fn1(cp, e, ceil);
+    case OP_COS:        return eval_fn1(cp, e, cos);
+    case OP_EXP:        return eval_fn1(cp, e, exp);
+    case OP_FABS:       return eval_fn1(cp, e, fabs);
+    case OP_FLOOR:      return eval_fn1(cp, e, floor);
+    case OP_HYPOT:      return eval_fn2(cp, e, hypot);
+    case OP_LOG:        return eval_fn1(cp, e, log);
+    case OP_LOG10:      return eval_fn1(cp, e, log10);
     case OP_CARET:
-    case OP_POW:    return fn2_eval(cp, pow, e);
-    case OP_SIN:    return fn1_eval(cp, sin, e);
-    case OP_SQRT:   return fn1_eval(cp, sqrt, e);
-    case OP_TAN:    return fn1_eval(cp, tan, e);
-    case OP_DTR:    return scvalue_number(dtr(eval_num(cp, e->e.o.left)));
-    case OP_RTD:    return scvalue_number(rtd(eval_num(cp, e->e.o.left)));
-    case OP_RAND:   return scvalue_number((double)rand() / ((double)RAND_MAX + 1));
-    case OP_RANDBETWEEN: return fn2_eval(cp, rand_between, e);
-    case OP_RND:    return fn1_eval(cp, dornd, e);
-    case OP_ROUND:  return fn2_eval(cp, doround, e);
-    case OP_FV:     return fn3_eval(cp, fin_fv, e);
-    case OP_PV:     return fn3_eval(cp, fin_pv, e);
-    case OP_PMT:    return fn3_eval(cp, fin_pmt, e);
+    case OP_POW:        return eval_fn2(cp, e, pow);
+    case OP_SIN:        return eval_fn1(cp, e, sin);
+    case OP_SQRT:       return eval_fn1(cp, e, sqrt);
+    case OP_TAN:        return eval_fn1(cp, e, tan);
+    case OP_DTR:        return eval_fn1(cp, e, dtr);
+    case OP_RTD:        return eval_fn1(cp, e, rtd);
+    case OP_RAND:       return eval_rand(cp, e);
+    case OP_RANDBETWEEN: return eval_fn2(cp, e, rand_between);
+    case OP_RND:        return eval_fn1(cp, e, dornd);
+    case OP_ROUND:      return eval_fn2(cp, e, doround);
+    case OP_FV:         return eval_fn3(cp, e, fin_fv);
+    case OP_PV:         return eval_fn3(cp, e, fin_pv);
+    case OP_PMT:        return eval_fn3(cp, e, fin_pmt);
     case OP_HOUR:
     case OP_MINUTE:
     case OP_SECOND:
     case OP_MONTH:
     case OP_DAY:
-    case OP_YEAR:   return dotime(cp, e->op, e->e.o.left);
-    case OP_NOW:    return donow();
-    case OP_DTS:    return dodts(cp, (int)eval_num(cp, e->e.o.left),
-                                 (int)eval_num(cp, e->e.o.right->e.o.left),
-                                 (int)eval_num(cp, e->e.o.right->e.o.right));
-    case OP_TTS:    return fn3_eval(cp, dotts, e);
-    case OP_STON:   return doston(cp, e->e.o.left);
-    case OP_EQS:    return eval_cmp(cp, e->op, e);
-    case OP_LMAX:   return dolmax(cp, e);
-    case OP_LMIN:   return dolmin(cp, e);
-    case OP_NVAL:   return donval(cp, eval_str(cp, e->e.o.left), eval_num(cp, e->e.o.right));
-    case OP_MYROW:  return scvalue_number(cp->gmyrow + cp->rowoffset);
-    case OP_MYCOL:  return scvalue_number(cp->gmycol + cp->coloffset);
-    case OP_LASTROW: return scvalue_number(maxrow);
-    case OP_LASTCOL: return scvalue_number(maxcol);
-    case OP_NUMITER: return scvalue_number(repct);
-    case OP_ERR:    return scvalue_error(cp, CELLERROR);
-    case OP_PI:     return scvalue_number(M_PI);
-    case OP_BLACK:  return scvalue_number(COLOR_BLACK);
-    case OP_RED:    return scvalue_number(COLOR_RED);
-    case OP_GREEN:  return scvalue_number(COLOR_GREEN);
-    case OP_YELLOW: return scvalue_number(COLOR_YELLOW);
-    case OP_BLUE:   return scvalue_number(COLOR_BLUE);
-    case OP_MAGENTA: return scvalue_number(COLOR_MAGENTA);
-    case OP_CYAN:   return scvalue_number(COLOR_CYAN);
-    case OP_WHITE:  return scvalue_number(COLOR_WHITE);
-    case OP_SCONST: return scvalue_string(dup_string(e->e.s));
-    case OP_SHARP:  return scvalue_string(cat_strings(eval_str(cp, e->e.o.left), eval_str(cp, e->e.o.right)));
-    case OP_DATE:   return dodate(cp, e);
-    case OP_FMT:    return dofmt(cp, e);
+    case OP_YEAR:       return eval_time(cp, e);
+    case OP_NOW:        return eval_now(cp, e);
+    case OP_DTS:        return eval_dts(cp, e);
+    case OP_TTS:        return eval_fn3(cp, e, dotts);
+    case OP_STON:       return eval_ston(cp, e);
+    case OP_EQS:        return eval_cmp(cp, e);
+    case OP_LMAX:       return eval_lmax(cp, e);
+    case OP_LMIN:       return eval_lmin(cp, e);
+    case OP_NVAL:       return eval_nval(cp, e);
+    case OP_DATE:       return eval_date(cp, e);
+    case OP_FMT:        return eval_fmt(cp, e);
     case OP_CAPITAL:
     case OP_LOWER:
-    case OP_UPPER:  return docase(cp, e->op, eval_str(cp, e->e.o.left));
-    case OP_EXT:    return doext(cp, e);
-    case OP_SVAL:   return dosval(cp, eval_str(cp, e->e.o.left), eval_num(cp, e->e.o.right));
-    case OP_SUBSTR: /* Substring: Note that v1 and v2 are one-based and v2 is included */
-                    return scvalue_string(sub_string(eval_str(cp, e->e.o.left),
-                                                     (int)eval_num(cp, e->e.o.right->e.o.left) - 1,
-                                                     (int)eval_num(cp, e->e.o.right->e.o.right)));
-    case OP_COLTOA: return scvalue_string(new_string(coltoa((int)eval_num(cp, e->e.o.left))));
-    case OP_FILENAME: return dofilename(cp, e->e.o.left);
+    case OP_UPPER:      return eval_case(cp, e);
+    case OP_EXT:        return eval_ext(cp, e);
+    case OP_SVAL:       return eval_sval(cp, e);
+    case OP_SUBSTR:     return eval_substr(cp, e);
+    case OP_FILENAME:   return eval_filename(cp, e);
+    case OP_BITAND:     return eval_fl2(cp, e, bitand);
+    case OP_BITLSHIFT:  return eval_fl2(cp, e, bitlshift);
+    case OP_BITOR:      return eval_fl2(cp, e, bitor);
+    case OP_BITRSHIFT:  return eval_fl2(cp, e, bitrshift);
+    case OP_BITXOR:     return eval_fl2(cp, e, bitxor);
 
-    case OP_BITAND: return fl2_eval(cp, bitand, e);
-    case OP_BITLSHIFT: return fl2_eval(cp, bitlshift, e);
-    case OP_BITOR:  return fl2_eval(cp, bitor, e);
-    case OP_BITRSHIFT: return fl2_eval(cp, bitrshift, e);
-    case OP_BITXOR: return fl2_eval(cp, bitxor, e);
-
-    default:        error("Illegal expression");
-                    exprerr = 1;
-                    return scvalue_error(cp, CELLERROR);
+    default:            return eval_other(cp, e);
     }
 }
 
@@ -1334,7 +1407,7 @@ scvalue_t eval_node(eval_ctx_t *cp, enode_t *e, int gv) {
 
 scvalue_t eval_at(enode_t *e, int row, int col) {
     eval_ctx_t cp[1] = {{ row, col, 0, 0, 0 }};
-    return eval_node(cp, e, 1);
+    return eval_node(cp, e);
 }
 
 double neval_at(enode_t *e, int row, int col) {
@@ -1441,7 +1514,7 @@ static void RealEvalOne(struct ent *p, enode_t *e, int row, int col, int *chgct)
         error("Floating point exception at %s", v_name(row, col));
         res = scvalue_error(cp, CELLERROR);
     } else {
-        res = eval_node(cp, e, 1);
+        res = eval_node(cp, e);
     }
     if ((res.type == SC_STRING && !res.u.str)
     ||  (res.type == SC_NUMBER && !isfinite(res.u.v))) {
