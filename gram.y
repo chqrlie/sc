@@ -288,6 +288,11 @@ static SCXMEM string_t *get_strarg(cellref_t cr) {
 %token F_COLTOA
 %token F_NUMITER
 %token F_ERR
+%token F_BITAND
+%token F_BITLSHIFT
+%token F_BITOR
+%token F_BITRSHIFT
+%token F_BITXOR
 
 /* setting names */
 %token K_AUTO
@@ -725,6 +730,11 @@ term:     var                           { $$ = new_var($1); }
         | F_MAGENTA                     { $$ = new_op0(OP_MAGENTA); }
         | F_CYAN                        { $$ = new_op0(OP_CYAN); }
         | F_WHITE                       { $$ = new_op0(OP_WHITE); }
+        | F_BITAND '(' e ',' e ')'      { $$ = new_op2(OP_BITAND, $3, $5); }
+        | F_BITLSHIFT '(' e ',' e ')'   { $$ = new_op2(OP_BITLSHIFT, $3, $5); }
+        | F_BITOR '(' e ',' e ')'       { $$ = new_op2(OP_BITOR, $3, $5); }
+        | F_BITRSHIFT '(' e ',' e ')'   { $$ = new_op2(OP_BITRSHIFT, $3, $5); }
+        | F_BITXOR '(' e ',' e ')'      { $$ = new_op2(OP_BITXOR, $3, $5); }
         ;
 
 /* expressions */

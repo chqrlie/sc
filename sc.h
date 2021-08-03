@@ -122,6 +122,8 @@ typedef struct enode enode_t;
 #define SC_STRING  4
 #define SC_RANGE   5
 
+typedef long long sclong_t;
+
 typedef struct scvalue scvalue_t;
 struct scvalue {
     union {

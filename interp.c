@@ -115,6 +115,12 @@ static double eval_num(eval_ctx_t *cp, enode_t *e) {
     return 0.0;
 }
 
+static sclong_t eval_long(eval_ctx_t *cp, enode_t *e) {
+    // XXX: simplify this if SC_LONG becomes a value type
+    // XXX: check rounding issues
+    return (sclong_t)eval_num(cp, e);
+}
+
 static SCXMEM string_t *eval_str(eval_ctx_t *cp, enode_t *e) {
     char buf[32];
     scvalue_t res = eval_node(cp, e, 1);
@@ -715,32 +721,30 @@ static sigret_t eval_fpe(int i) { /* Trap for FPE errors in eval */
     longjmp(fpe_save, 1);
 }
 
-static scvalue_t fn1_eval(eval_ctx_t *cp, double (*fn)(double), enode_t *a) {
+static scvalue_t fn1_eval(eval_ctx_t *cp, double (*fn)(double), enode_t *e) {
     double res;
     errno = 0;
-    res = (*fn)(eval_num(cp, a));
+    res = (*fn)(eval_num(cp, e->e.o.left));
     if (errno)
         return scvalue_error(cp, CELLERROR);
     return scvalue_number(res);
 }
 
-static scvalue_t fn2_eval(eval_ctx_t *cp, double (*fn)(double, double),
-                          enode_t *arg1, enode_t *arg2)
-{
+static scvalue_t fn2_eval(eval_ctx_t *cp, double (*fn)(double, double), enode_t *e) {
     double res;
     errno = 0;
-    res = (*fn)(eval_num(cp, arg1), eval_num(cp, arg2));
+    res = (*fn)(eval_num(cp, e->e.o.left), eval_num(cp, e->e.o.right));
     if (errno)
         return scvalue_error(cp, CELLERROR);
     return scvalue_number(res);
 }
 
-static scvalue_t fn3_eval(eval_ctx_t *cp, double (*fn)(double, double, double),
-                          enode_t *arg1, enode_t *arg2, enode_t *arg3)
-{
+static scvalue_t fn3_eval(eval_ctx_t *cp, double (*fn)(double, double, double), enode_t *e) {
     double res;
     errno = 0;
-    res = (*fn)(eval_num(cp, arg1), eval_num(cp, arg2), eval_num(cp, arg3));
+    res = (*fn)(eval_num(cp, e->e.o.left),
+                eval_num(cp, e->e.o.right->e.o.left),
+                eval_num(cp, e->e.o.right->e.o.right));
     if (errno)
         return scvalue_error(cp, CELLERROR);
     return scvalue_number(res);
@@ -803,6 +807,64 @@ static double doround(double a, double b) {
         prec++;
     }
     return dornd(a * scale) / scale;
+}
+
+#if 0
+static scvalue_t fl1_eval(eval_ctx_t *cp, sclong_t (*fn)(sclong_t), enode_t *e) {
+    sclong_t res;
+    errno = 0;
+    res = (*fn)(eval_long(cp, e->e.o.left));
+    if (errno)
+        return scvalue_error(cp, CELLERROR);
+    return scvalue_number(res);
+}
+#endif
+
+static scvalue_t fl2_eval(eval_ctx_t *cp, sclong_t (*fn)(sclong_t, sclong_t), enode_t *e) {
+    sclong_t res;
+    errno = 0;
+    res = (*fn)(eval_long(cp, e->e.o.left), eval_long(cp, e->e.o.right));
+    if (errno)
+        return scvalue_error(cp, CELLERROR);
+    return scvalue_number(res);
+}
+
+#if 0
+static scvalue_t fl3_eval(eval_ctx_t *cp, sclong_t (*fn)(sclong_t, sclong_t, sclong_t), enode_t *e) {
+    sclong_t res;
+    errno = 0;
+    res = (*fn)(eval_long(cp, e->e.o.left),
+                eval_long(cp, e->e.o.right->e.o.left),
+                eval_long(cp, e->e.o.right->e.o.right));
+    if (errno)
+        return scvalue_error(cp, CELLERROR);
+    return scvalue_number(res);
+}
+#endif
+
+static sclong_t bitand(sclong_t a, sclong_t b) {
+    /* BITAND(value1, value2)    Bitwise boolean AND of two numbers. */
+    return a & b;
+}
+
+static sclong_t bitlshift(sclong_t a, sclong_t b) {
+    /* BITLSHIFT(value, shift_amount)    Shifts the bits of the input a certain number of places to the left. */
+    return b < 0 ? a >> b : a << b;
+}
+
+static sclong_t bitor(sclong_t a, sclong_t b) {
+    /* BITOR(value1, value2)    Bitwise boolean OR of 2 numbers. */
+    return a | b;
+}
+
+static sclong_t bitrshift(sclong_t a, sclong_t b) {
+    /* BITRSHIFT(value, shift_amount)    Shifts the bits of the input a certain number of places to the right. */
+    return b < 0 ? a << b : a >> b;
+}
+
+static sclong_t bitxor(sclong_t a, sclong_t b) {
+    /* BITXOR(value1, value2)    Bitwise XOR (exclusive OR) of 2 numbers. */
+    return a ^ b;
 }
 
 /*---------------- string functions ----------------*/
@@ -1153,6 +1215,7 @@ scvalue_t eval_node(eval_ctx_t *cp, enode_t *e, int gv) {
     case OP_HLOOKUP:
     case OP_VLOOKUP: {
             // XXX: this 2 argument API is not general enough
+            // XXX: use generic evaluator for these
             enode_t *left = e->e.o.left;
             enode_t *right = e->e.o.right;
             int minr = left->e.r.left.vp->row;
@@ -1181,39 +1244,33 @@ scvalue_t eval_node(eval_ctx_t *cp, enode_t *e, int gv) {
             }
         }
 
-    case OP_ABS:    return fn1_eval(cp, fabs, e->e.o.left);
-    case OP_ACOS:   return fn1_eval(cp, acos, e->e.o.left);
-    case OP_ASIN:   return fn1_eval(cp, asin, e->e.o.left);
-    case OP_ATAN:   return fn1_eval(cp, atan, e->e.o.left);
-    case OP_ATAN2:  return fn2_eval(cp, atan2, e->e.o.left, e->e.o.right);
-    case OP_CEIL:   return fn1_eval(cp, ceil, e->e.o.left);
-    case OP_COS:    return fn1_eval(cp, cos, e->e.o.left);
-    case OP_EXP:    return fn1_eval(cp, exp, e->e.o.left);
-    case OP_FABS:   return fn1_eval(cp, fabs, e->e.o.left);
-    case OP_FLOOR:  return fn1_eval(cp, floor, e->e.o.left);
-    case OP_HYPOT:  return fn2_eval(cp, hypot, e->e.o.left, e->e.o.right);
-    case OP_LOG:    return fn1_eval(cp, log, e->e.o.left);
-    case OP_LOG10:  return fn1_eval(cp, log10, e->e.o.left);
+    case OP_ABS:    return fn1_eval(cp, fabs, e);
+    case OP_ACOS:   return fn1_eval(cp, acos, e);
+    case OP_ASIN:   return fn1_eval(cp, asin, e);
+    case OP_ATAN:   return fn1_eval(cp, atan, e);
+    case OP_ATAN2:  return fn2_eval(cp, atan2, e);
+    case OP_CEIL:   return fn1_eval(cp, ceil, e);
+    case OP_COS:    return fn1_eval(cp, cos, e);
+    case OP_EXP:    return fn1_eval(cp, exp, e);
+    case OP_FABS:   return fn1_eval(cp, fabs, e);
+    case OP_FLOOR:  return fn1_eval(cp, floor, e);
+    case OP_HYPOT:  return fn2_eval(cp, hypot, e);
+    case OP_LOG:    return fn1_eval(cp, log, e);
+    case OP_LOG10:  return fn1_eval(cp, log10, e);
     case OP_CARET:
-    case OP_POW:    return fn2_eval(cp, pow, e->e.o.left, e->e.o.right);
-    case OP_SIN:    return fn1_eval(cp, sin, e->e.o.left);
-    case OP_SQRT:   return fn1_eval(cp, sqrt, e->e.o.left);
-    case OP_TAN:    return fn1_eval(cp, tan, e->e.o.left);
+    case OP_POW:    return fn2_eval(cp, pow, e);
+    case OP_SIN:    return fn1_eval(cp, sin, e);
+    case OP_SQRT:   return fn1_eval(cp, sqrt, e);
+    case OP_TAN:    return fn1_eval(cp, tan, e);
     case OP_DTR:    return scvalue_number(dtr(eval_num(cp, e->e.o.left)));
     case OP_RTD:    return scvalue_number(rtd(eval_num(cp, e->e.o.left)));
     case OP_RAND:   return scvalue_number((double)rand() / ((double)RAND_MAX + 1));
-    case OP_RANDBETWEEN: return fn2_eval(cp, rand_between, e->e.o.left, e->e.o.right);
-    case OP_RND:    return fn1_eval(cp, dornd, e->e.o.left);
-    case OP_ROUND:  return fn2_eval(cp, doround, e->e.o.left, e->e.o.right);
-    case OP_FV:     return fn3_eval(cp, fin_fv, e->e.o.left,
-                                    e->e.o.right->e.o.left,
-                                    e->e.o.right->e.o.right);
-    case OP_PV:     return fn3_eval(cp, fin_pv, e->e.o.left,
-                                    e->e.o.right->e.o.left,
-                                    e->e.o.right->e.o.right);
-    case OP_PMT:    return fn3_eval(cp, fin_pmt, e->e.o.left,
-                                    e->e.o.right->e.o.left,
-                                    e->e.o.right->e.o.right);
+    case OP_RANDBETWEEN: return fn2_eval(cp, rand_between, e);
+    case OP_RND:    return fn1_eval(cp, dornd, e);
+    case OP_ROUND:  return fn2_eval(cp, doround, e);
+    case OP_FV:     return fn3_eval(cp, fin_fv, e);
+    case OP_PV:     return fn3_eval(cp, fin_pv, e);
+    case OP_PMT:    return fn3_eval(cp, fin_pmt, e);
     case OP_HOUR:
     case OP_MINUTE:
     case OP_SECOND:
@@ -1224,9 +1281,7 @@ scvalue_t eval_node(eval_ctx_t *cp, enode_t *e, int gv) {
     case OP_DTS:    return dodts(cp, (int)eval_num(cp, e->e.o.left),
                                  (int)eval_num(cp, e->e.o.right->e.o.left),
                                  (int)eval_num(cp, e->e.o.right->e.o.right));
-    case OP_TTS:    return fn3_eval(cp, dotts, e->e.o.left,
-                                    e->e.o.right->e.o.left,
-                                    e->e.o.right->e.o.right);
+    case OP_TTS:    return fn3_eval(cp, dotts, e);
     case OP_STON:   return doston(cp, e->e.o.left);
     case OP_EQS:    return eval_cmp(cp, e->op, e);
     case OP_LMAX:   return dolmax(cp, e);
@@ -1262,6 +1317,13 @@ scvalue_t eval_node(eval_ctx_t *cp, enode_t *e, int gv) {
                                                      (int)eval_num(cp, e->e.o.right->e.o.right)));
     case OP_COLTOA: return scvalue_string(new_string(coltoa((int)eval_num(cp, e->e.o.left))));
     case OP_FILENAME: return dofilename(cp, e->e.o.left);
+
+    case OP_BITAND: return fl2_eval(cp, bitand, e);
+    case OP_BITLSHIFT: return fl2_eval(cp, bitlshift, e);
+    case OP_BITOR:  return fl2_eval(cp, bitor, e);
+    case OP_BITRSHIFT: return fl2_eval(cp, bitrshift, e);
+    case OP_BITXOR: return fl2_eval(cp, bitxor, e);
+
     default:        error("Illegal expression");
                     exprerr = 1;
                     return scvalue_error(cp, CELLERROR);
