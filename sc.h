@@ -245,7 +245,7 @@ struct go_save {
 
 /* opcode symbols */
 enum opcode {
-#define OP(op,str,min,max)  op,
+#define OP(op,str,min,max,efun,arg)  op,
 #include "opcodes.h"
 #undef OP
     OP_count,

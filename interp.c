@@ -54,6 +54,20 @@ static sigret_t eval_fpe(int);
 #define M_PI (double)3.14159265358979323846
 #endif
 
+typedef void (*scarg_t)(void);
+
+struct opdef {
+    const char *name;
+    signed char min;
+    signed char max;
+    signed char priority;
+    signed char signature;
+    scvalue_t (*efun)(eval_ctx_t *cp, enode_t *e);
+    scarg_t arg;
+};
+
+extern struct opdef const opdefs[];
+
 static double dtr(double x) { return x * (M_PI / 180.0); }
 static double rtd(double x) { return x * (180.0 / M_PI); }
 
@@ -179,6 +193,10 @@ static scvalue_t eval_mod(eval_ctx_t *cp, enode_t *e) {
         return scvalue_number(num - floor(num / denom) * denom);
     else
         return scvalue_error(cp, CELLERROR);
+}
+
+static scvalue_t eval_pi(eval_ctx_t *cp, enode_t *e) {
+    return scvalue_number(M_PI);
 }
 
 /*---------------- financial functions ----------------*/
@@ -528,12 +546,22 @@ static scvalue_t domin(eval_ctx_t *cp, int minr, int minc, int maxr, int maxc, e
 static scvalue_t eval_rangeop(eval_ctx_t *cp, enode_t *e) {
     // XXX: this 2 argument API is not general enough
     // XXX: use generic evaluator for these
+    int minr, minc, maxr, maxc;
     enode_t *left = e->e.o.left;
     enode_t *right = e->e.o.right;
-    int minr = left->e.r.left.vp->row;
-    int minc = left->e.r.left.vp->col;
-    int maxr = left->e.r.right.vp->row;
-    int maxc = left->e.r.right.vp->col;
+    /* reorder arguments if necessary */
+    if (left->op != OP_RANGEARG) {
+        if (right->op == OP_RANGEARG) {
+            left = right;
+            right = e->e.o.left;
+        } else {
+            return scvalue_error(cp, CELLERROR);
+        }
+    }
+    minr = left->e.r.left.vp->row;
+    minc = left->e.r.left.vp->col;
+    maxr = left->e.r.right.vp->row;
+    maxc = left->e.r.right.vp->col;
     if (minr > maxr) SWAPINT(minr, maxr);
     if (minc > maxc) SWAPINT(minc, maxc);
     switch (e->op) {
@@ -789,30 +817,35 @@ static sigret_t eval_fpe(int i) { /* Trap for FPE errors in eval */
     longjmp(fpe_save, 1);
 }
 
-static scvalue_t eval_fn1(eval_ctx_t *cp, enode_t *e, double (*fn)(double)) {
+static scvalue_t eval_fn1(eval_ctx_t *cp, enode_t *e) {
+    scarg_t fun = opdefs[e->op].arg;
     double res;
     errno = 0;
-    res = (*fn)(eval_num(cp, e->e.o.left));
+    res = ((double (*)(double))fun)(eval_num(cp, e->e.o.left));
     if (errno)
         return scvalue_error(cp, CELLERROR);
     return scvalue_number(res);
 }
 
-static scvalue_t eval_fn2(eval_ctx_t *cp, enode_t *e, double (*fn)(double, double)) {
+static scvalue_t eval_fn2(eval_ctx_t *cp, enode_t *e) {
+    scarg_t fun = opdefs[e->op].arg;
     double res;
     errno = 0;
-    res = (*fn)(eval_num(cp, e->e.o.left), eval_num(cp, e->e.o.right));
+    res = ((double (*)(double, double))fun)
+        (eval_num(cp, e->e.o.left), eval_num(cp, e->e.o.right));
     if (errno)
         return scvalue_error(cp, CELLERROR);
     return scvalue_number(res);
 }
 
-static scvalue_t eval_fn3(eval_ctx_t *cp, enode_t *e, double (*fn)(double, double, double)) {
+static scvalue_t eval_fn3(eval_ctx_t *cp, enode_t *e) {
+    scarg_t fun = opdefs[e->op].arg;
     double res;
     errno = 0;
-    res = (*fn)(eval_num(cp, e->e.o.left),
-                eval_num(cp, e->e.o.right->e.o.left),
-                eval_num(cp, e->e.o.right->e.o.right));
+    res = ((double (*)(double, double, double))fun)
+        (eval_num(cp, e->e.o.left),
+         eval_num(cp, e->e.o.right->e.o.left),
+         eval_num(cp, e->e.o.right->e.o.right));
     if (errno)
         return scvalue_error(cp, CELLERROR);
     return scvalue_number(res);
@@ -882,32 +915,37 @@ static double doround(double a, double b) {
 }
 
 #if 0
-static scvalue_t eval_fl1(eval_ctx_t *cp, enode_t *e, sclong_t (*fn)(sclong_t)) {
+static scvalue_t eval_fl1(eval_ctx_t *cp, enode_t *e) {
+    scarg_t fun = opdefs[e->op].arg;
     sclong_t res;
     errno = 0;
-    res = (*fn)(eval_long(cp, e->e.o.left));
+    res = ((sclong_t (*)(sclong_t))fun)(eval_long(cp, e->e.o.left));
     if (errno)
         return scvalue_error(cp, CELLERROR);
     return scvalue_number(res);
 }
 #endif
 
-static scvalue_t eval_fl2(eval_ctx_t *cp, enode_t *e, sclong_t (*fn)(sclong_t, sclong_t)) {
+static scvalue_t eval_fl2(eval_ctx_t *cp, enode_t *e) {
+    scarg_t fun = opdefs[e->op].arg;
     sclong_t res;
     errno = 0;
-    res = (*fn)(eval_long(cp, e->e.o.left), eval_long(cp, e->e.o.right));
+    res = ((sclong_t (*)(sclong_t, sclong_t))fun)
+        (eval_long(cp, e->e.o.left), eval_long(cp, e->e.o.right));
     if (errno)
         return scvalue_error(cp, CELLERROR);
     return scvalue_number(res);
 }
 
 #if 0
-static scvalue_t eval_fl3(eval_ctx_t *cp, enode_t *e, sclong_t (*fn)(sclong_t, sclong_t, sclong_t)) {
+static scvalue_t eval_fl3(eval_ctx_t *cp, enode_t *e) {
+    scarg_t fun = opdefs[e->op].arg;
     sclong_t res;
     errno = 0;
-    res = (*fn)(eval_long(cp, e->e.o.left),
-                eval_long(cp, e->e.o.right->e.o.left),
-                eval_long(cp, e->e.o.right->e.o.right));
+    res = ((sclong_t (*)(sclong_t, sclong_t, sclong_t))fun)
+        (eval_long(cp, e->e.o.left),
+         eval_long(cp, e->e.o.right->e.o.left),
+         eval_long(cp, e->e.o.right->e.o.right));
     if (errno)
         return scvalue_error(cp, CELLERROR);
     return scvalue_number(res);
@@ -1162,10 +1200,19 @@ static scvalue_t eval_substr(eval_ctx_t *cp, enode_t *e) {
     return scvalue_string(sub_string(str, v1 - 1, v2));
 }
 
+static scvalue_t eval_concat(eval_ctx_t *cp, enode_t *e) {
+    // XXX: should accept expression list
+    return scvalue_string(cat_strings(eval_str(cp, e->e.o.left), eval_str(cp, e->e.o.right)));
+}
+
 static scvalue_t eval_filename(eval_ctx_t *cp, enode_t *e) {
     int n = eval_test(cp, e->e.o.left);
     const char *s = n ? curfile : get_basename(curfile);
     return scvalue_string(new_string(s));
+}
+
+static scvalue_t eval_coltoa(eval_ctx_t *cp, enode_t *e) {
+    return scvalue_string(new_string(coltoa((int)eval_num(cp, e->e.o.left))));
 }
 
 static scvalue_t eval_not(eval_ctx_t *cp, enode_t *e) {
@@ -1282,125 +1329,37 @@ static scvalue_t eval_other(eval_ctx_t *cp, enode_t *e) {
     case OP_MAGENTA:    val = COLOR_MAGENTA;    break;
     case OP_CYAN:       val = COLOR_CYAN;       break;
     case OP_WHITE:      val = COLOR_WHITE;      break;
-    case OP_PI:         return scvalue_number(M_PI);
-    case OP_COLTOA:     return scvalue_string(new_string(coltoa((int)eval_num(cp, e->e.o.left))));
-    case OP_SHARP:      return scvalue_string(cat_strings(eval_str(cp, e->e.o.left), eval_str(cp, e->e.o.right)));
+    case OP_UPLUS:      return eval_node(cp, e->e.o.left);
+    case OP_FIXED:      return eval_offset(cp, e->e.o.left, 0, 0);
+    case OP_PFIXED:     return eval_node(cp, e->e.o.left);
     default:            error("Illegal expression");
                         exprerr = 1;
                         FALLTHROUGH;
-    case OP_ERR:
-                        return scvalue_error(cp, CELLERROR);
+    case OP_ERR:        return scvalue_error(cp, CELLERROR);
     }
     return scvalue_number(val);
 }
 
 /*---------------- dynamic evaluator ----------------*/
 
+/* opcode definitions, used for evaluator and decompiler */
+// XXX: should use for parser and constant_node() too.
+struct opdef const opdefs[] = {
+#define OP(op,str,min,max,efun,arg)  { str, min, max, 0, 0, efun, (scarg_t)(arg) },
+#include "opcodes.h"
+#undef OP
+};
+
 scvalue_t eval_node(eval_ctx_t *cp, enode_t *e) {
     if (e == NULL)
         return scvalue_empty();
 
-    switch (e->op) {
-    case OP_CONST:      return eval_const(cp, e);
-    case OP_SCONST:     return eval_sconst(cp, e);
-    case OP_VAR:        return eval_var(cp, e);
-
-    case OP_PLUS:       return eval_add(cp, e);
-    case OP_MINUS:      return eval_sub(cp, e);
-    case OP_STAR:       return eval_mul(cp, e);
-    case OP_SLASH:      return eval_div(cp, e);
-    case OP_PERCENT:    return eval_mod(cp, e);
-    case OP_LT:
-    case OP_LE:
-    case OP_EQ:
-    case OP_LG:
-    case OP_NE:
-    case OP_GT:
-    case OP_GE:         return eval_cmp(cp, e);
-                    // XXX: should have @and(list) and @or(list)
-    case OP_AMPERSAND:  return eval_and(cp, e);
-    case OP_VBAR:       return eval_or(cp, e);
-    case OP_IF:
-    case OP_QMARK:      return eval_if(cp, e);
-    case OP_UMINUS:     return eval_neg(cp, e);
-    case OP_UPLUS:      return eval_node(cp, e->e.o.left);
-    case OP_FIXED:      return eval_offset(cp, e->e.o.left, 0, 0);
-    case OP_PFIXED:     return eval_node(cp, e->e.o.left);
-    case OP_BANG:       return eval_not(cp, e);
-    case OP_SEMI:       return eval_fl2(cp, e, makecolor);
-    case OP_SUM:
-    case OP_PROD:
-    case OP_AVG:
-    case OP_COUNT:
-    case OP_STDDEV:
-    case OP_MAX:
-    case OP_MIN:
-    case OP_ROWS:
-    case OP_COLS:
-    case OP_STINDEX:
-    case OP_INDEX:
-    case OP_LOOKUP:
-    case OP_HLOOKUP:
-    case OP_VLOOKUP:    return eval_rangeop(cp, e);
-
-    case OP_ABS:        return eval_fn1(cp, e, fabs);
-    case OP_ACOS:       return eval_fn1(cp, e, acos);
-    case OP_ASIN:       return eval_fn1(cp, e, asin);
-    case OP_ATAN:       return eval_fn1(cp, e, atan);
-    case OP_ATAN2:      return eval_fn2(cp, e, atan2);
-    case OP_CEIL:       return eval_fn1(cp, e, ceil);
-    case OP_COS:        return eval_fn1(cp, e, cos);
-    case OP_EXP:        return eval_fn1(cp, e, exp);
-    case OP_FABS:       return eval_fn1(cp, e, fabs);
-    case OP_FLOOR:      return eval_fn1(cp, e, floor);
-    case OP_HYPOT:      return eval_fn2(cp, e, hypot);
-    case OP_LOG:        return eval_fn1(cp, e, log);
-    case OP_LOG10:      return eval_fn1(cp, e, log10);
-    case OP_CARET:
-    case OP_POW:        return eval_fn2(cp, e, pow);
-    case OP_SIN:        return eval_fn1(cp, e, sin);
-    case OP_SQRT:       return eval_fn1(cp, e, sqrt);
-    case OP_TAN:        return eval_fn1(cp, e, tan);
-    case OP_DTR:        return eval_fn1(cp, e, dtr);
-    case OP_RTD:        return eval_fn1(cp, e, rtd);
-    case OP_RAND:       return eval_rand(cp, e);
-    case OP_RANDBETWEEN: return eval_fn2(cp, e, rand_between);
-    case OP_RND:        return eval_fn1(cp, e, dornd);
-    case OP_ROUND:      return eval_fn2(cp, e, doround);
-    case OP_FV:         return eval_fn3(cp, e, fin_fv);
-    case OP_PV:         return eval_fn3(cp, e, fin_pv);
-    case OP_PMT:        return eval_fn3(cp, e, fin_pmt);
-    case OP_HOUR:
-    case OP_MINUTE:
-    case OP_SECOND:
-    case OP_MONTH:
-    case OP_DAY:
-    case OP_YEAR:       return eval_time(cp, e);
-    case OP_NOW:        return eval_now(cp, e);
-    case OP_DTS:        return eval_dts(cp, e);
-    case OP_TTS:        return eval_fn3(cp, e, dotts);
-    case OP_STON:       return eval_ston(cp, e);
-    case OP_EQS:        return eval_cmp(cp, e);
-    case OP_LMAX:       return eval_lmax(cp, e);
-    case OP_LMIN:       return eval_lmin(cp, e);
-    case OP_NVAL:       return eval_nval(cp, e);
-    case OP_DATE:       return eval_date(cp, e);
-    case OP_FMT:        return eval_fmt(cp, e);
-    case OP_CAPITAL:
-    case OP_LOWER:
-    case OP_UPPER:      return eval_case(cp, e);
-    case OP_EXT:        return eval_ext(cp, e);
-    case OP_SVAL:       return eval_sval(cp, e);
-    case OP_SUBSTR:     return eval_substr(cp, e);
-    case OP_FILENAME:   return eval_filename(cp, e);
-    case OP_BITAND:     return eval_fl2(cp, e, bitand);
-    case OP_BITLSHIFT:  return eval_fl2(cp, e, bitlshift);
-    case OP_BITOR:      return eval_fl2(cp, e, bitor);
-    case OP_BITRSHIFT:  return eval_fl2(cp, e, bitrshift);
-    case OP_BITXOR:     return eval_fl2(cp, e, bitxor);
-
-    default:            return eval_other(cp, e);
+    if (e->op >= 0 && e->op < OP_count) {
+        const struct opdef *opp = &opdefs[e->op];
+        if (opp->efun)
+            return opp->efun(cp, e);
     }
+    return eval_other(cp, e);
 }
 
 /*---------------- typed evaluators ----------------*/
@@ -2027,29 +1986,14 @@ static void out_infix(decomp_t *dcp, const char *s, enode_t *e, int priority, in
         buf_putc(dcp->buf, ')');
 }
 
-static const char * const opname[] = {
-#define OP(op,str,min,max)  str,
-#include "opcodes.h"
-#undef OP
-};
-static signed char const opmin[] = {
-#define OP(op,str,min,max)  min,
-#include "opcodes.h"
-#undef OP
-};
-#if 0
-static signed char const opmax[] = {
-#define OP(op,str,min,max)  max,
-#include "opcodes.h"
-#undef OP
-};
-#endif
-
 static void decompile_node(decomp_t *dcp, enode_t *e, int priority) {
+    const struct opdef *opp;
+
     if (!e) {
         buf_putc(dcp->buf, '?');
         return;
     }
+    opp = &opdefs[e->op];
     switch (e->op) {
     case OP_DUMMY:      decompile_node(dcp, e->e.o.right, priority); break;
     case OP_CONST:      out_const(dcp, e->e.k);         break;
@@ -2060,28 +2004,28 @@ static void decompile_node(decomp_t *dcp, enode_t *e, int priority) {
     case OP_PFIXED:
     case OP_UMINUS:
     case OP_UPLUS:
-    case OP_BANG:       out_unary(dcp, opname[e->op], e); break;
-    case OP_SEMI:       out_infix(dcp, opname[e->op], e, priority, 1); break;
-    case OP_QMARK:      out_infix(dcp, opname[e->op], e, priority, 2); break;
-    case OP_COLON:      out_infix(dcp, opname[e->op], e, priority, 3); break;
-    case OP_VBAR:       out_infix(dcp, opname[e->op], e, priority, 4); break;
-    case OP_AMPERSAND:  out_infix(dcp, opname[e->op], e, priority, 5); break;
+    case OP_BANG:       out_unary(dcp, opp->name, e); break;
+    case OP_SEMI:       out_infix(dcp, opp->name, e, priority, 1); break;
+    case OP_QMARK:      out_infix(dcp, opp->name, e, priority, 2); break;
+    case OP_COLON:      out_infix(dcp, opp->name, e, priority, 3); break;
+    case OP_VBAR:       out_infix(dcp, opp->name, e, priority, 4); break;
+    case OP_AMPERSAND:  out_infix(dcp, opp->name, e, priority, 5); break;
     case OP_EQ:
     case OP_NE:
     case OP_LG:
     case OP_LT:
     case OP_LE:
     case OP_GE:
-    case OP_GT:         out_infix(dcp, opname[e->op], e, priority, 6); break;
-    case OP_SHARP:      out_infix(dcp, opname[e->op], e, priority, 7); break;
+    case OP_GT:         out_infix(dcp, opp->name, e, priority, 6); break;
+    case OP_SHARP:      out_infix(dcp, opp->name, e, priority, 7); break;
     case OP_PLUS:
-    case OP_MINUS:      out_infix(dcp, opname[e->op], e, priority, 8); break;
+    case OP_MINUS:      out_infix(dcp, opp->name, e, priority, 8); break;
     case OP_STAR:
     case OP_SLASH:
-    case OP_PERCENT:    out_infix(dcp, opname[e->op], e, priority, 10); break;
-    case OP_CARET:      out_infix(dcp, opname[e->op], e, priority, 12); break;
+    case OP_PERCENT:    out_infix(dcp, opp->name, e, priority, 10); break;
+    case OP_CARET:      out_infix(dcp, opp->name, e, priority, 12); break;
     default:            if (e->op >= 0 && e->op < OP_count) {
-                            out_func(dcp, opname[e->op], (opmin[e->op] < 0) ? NULL : e);
+                            out_func(dcp, opp->name, (opp->min < 0) ? NULL : e);
                         } else {
                             buf_printf(dcp->buf, "@errnode(%d)", e->op);
                         }
