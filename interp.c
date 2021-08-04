@@ -1966,7 +1966,13 @@ static void decompile_list(decomp_t *dcp, enode_t *p) {
 }
 
 static void out_func(decomp_t *dcp, const char *s, enode_t *e) {
-    buf_puts(dcp->buf, s);
+    if (*s == '@') {
+        buf_puts(dcp->buf, s);
+    } else {
+        buf_putc(dcp->buf, '@');
+        while (*s && *s != '(')
+            buf_putc(dcp->buf, tolowerchar(*s++));
+    }
     if (e) {
         buf_putc(dcp->buf, '(');
         decompile_node(dcp, e->e.o.left, 0);

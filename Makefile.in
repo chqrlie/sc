@@ -390,16 +390,16 @@ $O/frame.o: frame.c $(DEPENDS)
 tokens.h: gram.y Makefile
 	@echo '/* file generated automatically, do not edit */' > $@
 	@echo 'static struct key const cmdres[] = { /* commands */' >> $@
-	sed -e '/%token.*S_/!d' -e '/%token.*S_\(.*\)/s//    { "\1", S_\1 },/' < gram.y | sort >> $@
+	sed -e '/%token.*S_/!d' -e '/%token.*S_\(.*\)/s//    { "\1", S_\1, S_\1 },/' < gram.y | sort >> $@
 	@echo '};' >> $@
 	@echo 'static struct key const gotores[] = { /* goto targets */' >> $@
-	sed -e '/%token.*GO_/!d' -e '/%token.*GO_\(.*\)/s//    { "\1", GO_\1 },/' < gram.y | sort  >> $@
+	sed -e '/%token.*GO_/!d' -e '/%token.*GO_\(.*\)/s//    { "\1", GO_\1, GO_\1 },/' < gram.y | sort  >> $@
 	@echo '};' >> $@
 	@echo 'static struct key const funcres[] = { /* function names */' >> $@
-	sed -e '/%token.*F_/!d' -e '/%token.*F_\(.*\)/s//    { "\1", F_\1 },/' < gram.y | sort  >> $@
+	sed -e '/%token.*F_/!d' -e '/%token.*F_\(.*\)/s//    { "\1", F_\1, OP_\1 },/' < gram.y | sort  >> $@
 	@echo '};' >> $@
 	@echo 'static struct key const settingres[] = { /* settings */' >> $@
-	sed -e '/%token.*K_/!d' -e '/%token.*K_\(.*\)/s//    { "\1", K_\1 },/' < gram.y | sort  >> $@
+	sed -e '/%token.*K_/!d' -e '/%token.*K_\(.*\)/s//    { "\1", K_\1, K_\1 },/' < gram.y | sort  >> $@
 	@echo '};' >> $@
 
 $O/gram.o: $(YTAB).c $(YTAB).h $(DEPENDS)

@@ -80,7 +80,7 @@ sigret_t time_out(int signo) {
 
 struct key {
     const char *key;
-    int val;
+    short val, op;
 };
 
 #include "tokens.h"
@@ -217,7 +217,7 @@ static int compare_name(const char *p, int len, const char *str) {
 }
 
 /* Use binary sort, assuming keywords are all uppercase and sorted */
-static int lookup_name(const struct key *tblp, size_t count, const char *p, int len) {
+static int lookup_name(const struct key *tblp, size_t count, const char *p, int len, int *pop) {
     if (len --> 0) {
         size_t a = 0, b = count;
         char c = toupperchar(*p++);
@@ -225,8 +225,10 @@ static int lookup_name(const struct key *tblp, size_t count, const char *p, int 
         while (a < b) {
             size_t n = (a + b) >> 1;
             const struct key *tp = tblp + n;
-            if (!(cmp = c - tp->key[0]) && !(cmp = compare_name(p, len, tp->key + 1)))
+            if (!(cmp = c - tp->key[0]) && !(cmp = compare_name(p, len, tp->key + 1))) {
+                *pop = tp->op;
                 return tp->val;
+            }
             if (cmp < 0) {
                 b = n;
             } else {
@@ -237,7 +239,7 @@ static int lookup_name(const struct key *tblp, size_t count, const char *p, int 
     return -1;
 }
 #else
-static int lookup_name(const struct key *tblp, size_t count, const char *p, int len) {
+static int lookup_name(const struct key *tblp, size_t count, const char *p, int len, int *pop) {
     // XXX: should use binary search
     for (; count --> 0; tblp++) {
         // XXX: ugly hard coded case mapped comparison
@@ -249,8 +251,10 @@ static int lookup_name(const struct key *tblp, size_t count, const char *p, int 
             int i;
             for (i = 1; i < len && ((p[i] ^ tblp->key[i]) & 0x5F) == 0; i++)
                 continue;
-            if (i == len)
+            if (i == len) {
+                *pop = tblp->op;
                 return tblp->val;
+            }
         }
     }
     return -1;
@@ -291,8 +295,7 @@ int yylex(void) {
 
             if (p0 == src_line) {
                 /* look up command name */
-                if ((ret = lookup_name(cmdres, countof(cmdres), p0, p - p0)) >= 0) {
-                    yylval.ival = ret;
+                if ((ret = lookup_name(cmdres, countof(cmdres), p0, p - p0, &yylval.ival)) >= 0) {
                     /* set context for specific keywords */
                     /* accept column names for some commands */
                     colstate = (ret <= S_FORMAT);
@@ -303,10 +306,8 @@ int yylex(void) {
             }
             if (isfunc) {
                 isfunc = 0;
-                if ((yylval.ival = lookup_name(funcres, countof(funcres), p0, p - p0)) >= 0) {
-                    ret = yylval.ival;
+                if ((ret = lookup_name(funcres, countof(funcres), p0, p - p0, &yylval.ival)) >= 0)
                     break;
-                }
                 yylval.ival = ret = '@'; // unknown function name, return single '@'
                 p = p0;
                 break;
@@ -320,17 +321,14 @@ int yylex(void) {
                 break;
             }
             if (isgoto) {
-                if ((yylval.ival = lookup_name(gotores, countof(gotores), p0, p - p0)) >= 0) {
+                if ((ret = lookup_name(gotores, countof(gotores), p0, p - p0, &yylval.ival)) >= 0) {
                     isgoto = 0;
-                    ret = yylval.ival;
                     break;
                 }
             }
             if (issetting) {
-                if ((yylval.ival = lookup_name(settingres, countof(settingres), p0, p - p0)) >= 0) {
-                    ret = yylval.ival;
+                if ((ret = lookup_name(settingres, countof(settingres), p0, p - p0, &yylval.ival)) >= 0)
                     break;
-                }
             }
             if (!find_nrange_name(p0, p - p0, &r)) {
                 if (r->r_is_range) {

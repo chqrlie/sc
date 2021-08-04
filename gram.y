@@ -207,92 +207,90 @@ static SCXMEM string_t *get_strarg(cellref_t cr) {
 %token GO_INVALID
 
 /* function names */
-%token F_FIXED
-%token F_SUM
-%token F_PROD
-%token F_AVG
-%token F_STDDEV
-%token F_COUNT
-%token F_ROWS
-%token F_COLS
-%token F_ABS
-%token F_ACOS
-%token F_ASIN
-%token F_ATAN
-%token F_ATAN2
-%token F_CEIL
-%token F_COS
-%token F_EXP
-%token F_FABS
-%token F_FLOOR
-%token F_HYPOT
-%token F_LN
-%token F_LOG
-%token F_PI
-%token F_POW
-%token F_SIN
-%token F_SQRT
-%token F_TAN
-%token F_DTR
-%token F_RTD
-%token F_MAX
-%token F_MIN
-%token F_RAND
-%token F_RANDBETWEEN
-%token F_RND
-%token F_ROUND
-%token F_IF
-
-%token F_PV
-%token F_FV
-%token F_PMT
-
-%token F_HOUR
-%token F_MINUTE
-%token F_SECOND
-%token F_MONTH
-%token F_DAY
-%token F_YEAR
-%token F_NOW
-%token F_DATE
-%token F_DTS
-%token F_TTS
-%token F_FMT
-%token F_SUBSTR
-%token F_UPPER
-%token F_LOWER
-%token F_CAPITAL
-%token F_STON
-%token F_EQS
-%token F_EXT
-%token F_NVAL
-%token F_SVAL
-%token F_LOOKUP
-%token F_HLOOKUP
-%token F_VLOOKUP
-%token F_INDEX
-%token F_STINDEX
-%token F_BLACK
-%token F_RED
-%token F_GREEN
-%token F_YELLOW
-%token F_BLUE
-%token F_MAGENTA
-%token F_CYAN
-%token F_WHITE
-%token F_FILENAME
-%token F_MYROW
-%token F_MYCOL
-%token F_LASTROW
-%token F_LASTCOL
-%token F_COLTOA
-%token F_NUMITER
-%token F_ERR
-%token F_BITAND
-%token F_BITLSHIFT
-%token F_BITOR
-%token F_BITRSHIFT
-%token F_BITXOR
+%token <ival> F_FIXED
+%token <ival> F_SUM
+%token <ival> F_PROD
+%token <ival> F_AVG
+%token <ival> F_STDDEV
+%token <ival> F_COUNT
+%token <ival> F_ROWS
+%token <ival> F_COLS
+%token <ival> F_ABS
+%token <ival> F_ACOS
+%token <ival> F_ASIN
+%token <ival> F_ATAN
+%token <ival> F_ATAN2
+%token <ival> F_CEIL
+%token <ival> F_COS
+%token <ival> F_EXP
+%token <ival> F_FABS
+%token <ival> F_FLOOR
+%token <ival> F_HYPOT
+%token <ival> F_LN
+%token <ival> F_LOG
+%token <ival> F_PI
+%token <ival> F_POW
+%token <ival> F_SIN
+%token <ival> F_SQRT
+%token <ival> F_TAN
+%token <ival> F_DTR
+%token <ival> F_RTD
+%token <ival> F_MAX
+%token <ival> F_MIN
+%token <ival> F_RAND
+%token <ival> F_RANDBETWEEN
+%token <ival> F_RND
+%token <ival> F_ROUND
+%token <ival> F_IF
+%token <ival> F_PV
+%token <ival> F_FV
+%token <ival> F_PMT
+%token <ival> F_HOUR
+%token <ival> F_MINUTE
+%token <ival> F_SECOND
+%token <ival> F_MONTH
+%token <ival> F_DAY
+%token <ival> F_YEAR
+%token <ival> F_NOW
+%token <ival> F_DATE
+%token <ival> F_DTS
+%token <ival> F_TTS
+%token <ival> F_FMT
+%token <ival> F_SUBSTR
+%token <ival> F_UPPER
+%token <ival> F_LOWER
+%token <ival> F_CAPITAL
+%token <ival> F_STON
+%token <ival> F_EQS
+%token <ival> F_EXT
+%token <ival> F_NVAL
+%token <ival> F_SVAL
+%token <ival> F_LOOKUP
+%token <ival> F_HLOOKUP
+%token <ival> F_VLOOKUP
+%token <ival> F_INDEX
+%token <ival> F_STINDEX
+%token <ival> F_BLACK
+%token <ival> F_RED
+%token <ival> F_GREEN
+%token <ival> F_YELLOW
+%token <ival> F_BLUE
+%token <ival> F_MAGENTA
+%token <ival> F_CYAN
+%token <ival> F_WHITE
+%token <ival> F_FILENAME
+%token <ival> F_MYROW
+%token <ival> F_MYCOL
+%token <ival> F_LASTROW
+%token <ival> F_LASTCOL
+%token <ival> F_COLTOA
+%token <ival> F_NUMITER
+%token <ival> F_ERR
+%token <ival> F_BITAND
+%token <ival> F_BITLSHIFT
+%token <ival> F_BITOR
+%token <ival> F_BITRSHIFT
+%token <ival> F_BITXOR
 
 /* setting names */
 %token K_AUTO
@@ -634,106 +632,106 @@ term:         var                       { $$ = new_var($1); }
         |     NUMBER                    { $$ = new_const((double)$1); }
         |     FNUMBER                   { $$ = new_const($1); }
         |     STRING                    { $$ = new_str($1); }
-        | F_SUM '(' vrnode ')'          { $$ = new_op1(OP_SUM, $3); }
-        | F_SUM '(' rnode ',' e ')'     { $$ = new_op2(OP_SUM, $3, $5); }
-        | F_PROD '(' vrnode ')'         { $$ = new_op1(OP_PROD, $3); }
-        | F_PROD '(' rnode ',' e ')'    { $$ = new_op2(OP_PROD, $3, $5); }
-        | F_AVG '(' vrnode ')'          { $$ = new_op1(OP_AVG, $3); }
-        | F_AVG '(' rnode ',' e ')'     { $$ = new_op2(OP_AVG, $3, $5); }
-        | F_STDDEV '(' vrnode ')'       { $$ = new_op1(OP_STDDEV, $3); }
-        | F_STDDEV '(' rnode ',' e ')'  { $$ = new_op2(OP_STDDEV, $3, $5); }
-        | F_COUNT '(' vrnode ')'        { $$ = new_op1(OP_COUNT, $3); }
-        | F_COUNT '(' rnode ',' e ')'   { $$ = new_op2(OP_COUNT, $3, $5); }
-        | F_MAX '(' vrnode ')'          { $$ = new_op1(OP_MAX, $3); }
-        | F_MAX '(' rnode ',' e ')'     { $$ = new_op2(OP_MAX, $3, $5); }
+        | F_SUM '(' vrnode ')'          { $$ = new_op1($1, $3); }
+        | F_SUM '(' rnode ',' e ')'     { $$ = new_op2($1, $3, $5); }
+        | F_PROD '(' vrnode ')'         { $$ = new_op1($1, $3); }
+        | F_PROD '(' rnode ',' e ')'    { $$ = new_op2($1, $3, $5); }
+        | F_AVG '(' vrnode ')'          { $$ = new_op1($1, $3); }
+        | F_AVG '(' rnode ',' e ')'     { $$ = new_op2($1, $3, $5); }
+        | F_STDDEV '(' vrnode ')'       { $$ = new_op1($1, $3); }
+        | F_STDDEV '(' rnode ',' e ')'  { $$ = new_op2($1, $3, $5); }
+        | F_COUNT '(' vrnode ')'        { $$ = new_op1($1, $3); }
+        | F_COUNT '(' rnode ',' e ')'   { $$ = new_op2($1, $3, $5); }
+        | F_MAX '(' vrnode ')'          { $$ = new_op1($1, $3); }
+        | F_MAX '(' rnode ',' e ')'     { $$ = new_op2($1, $3, $5); }
         | F_MAX '(' e ',' expr_list ')' { $$ = new_op2(OP_LMAX, $3, $5); }
-        | F_MIN '(' vrnode ')'          { $$ = new_op1(OP_MIN, $3); }
-        | F_MIN '(' rnode ',' e ')'     { $$ = new_op2(OP_MIN, $3, $5); }
+        | F_MIN '(' vrnode ')'          { $$ = new_op1($1, $3); }
+        | F_MIN '(' rnode ',' e ')'     { $$ = new_op2($1, $3, $5); }
         | F_MIN '(' e ',' expr_list ')' { $$ = new_op2(OP_LMIN, $3, $5); }
-        | F_ROWS '(' vrnode ')'         { $$ = new_op1(OP_ROWS, $3); }
-        | F_COLS '(' vrnode ')'         { $$ = new_op1(OP_COLS, $3); }
-        | F_ABS '(' e ')'               { $$ = new_op1(OP_ABS, $3); }
-        | F_ACOS '(' e ')'              { $$ = new_op1(OP_ACOS, $3); }
-        | F_ASIN '(' e ')'              { $$ = new_op1(OP_ASIN, $3); }
-        | F_ATAN '(' e ')'              { $$ = new_op1(OP_ATAN, $3); }
-        | F_ATAN2 '(' e ',' e ')'       { $$ = new_op2(OP_ATAN2, $3, $5); }
-        | F_CEIL '(' e ')'              { $$ = new_op1(OP_CEIL, $3); }
-        | F_COS '(' e ')'               { $$ = new_op1(OP_COS, $3); }
-        | F_EXP '(' e ')'               { $$ = new_op1(OP_EXP, $3); }
-        | F_FABS '(' e ')'              { $$ = new_op1(OP_FABS, $3); }
-        | F_FLOOR '(' e ')'             { $$ = new_op1(OP_FLOOR, $3); }
-        | F_HYPOT '(' e ',' e ')'       { $$ = new_op2(OP_HYPOT, $3, $5); }
-        | F_LN '(' e ')'                { $$ = new_op1(OP_LOG, $3); }
-        | F_LOG '(' e ')'               { $$ = new_op1(OP_LOG10, $3); }
-        | F_POW '(' e ',' e ')'         { $$ = new_op2(OP_POW, $3, $5); }
-        | F_SIN '(' e ')'               { $$ = new_op1(OP_SIN, $3); }
-        | F_SQRT '(' e ')'              { $$ = new_op1(OP_SQRT, $3); }
-        | F_TAN '(' e ')'               { $$ = new_op1(OP_TAN, $3); }
-        | F_DTR '(' e ')'               { $$ = new_op1(OP_DTR, $3); }
-        | F_RTD '(' e ')'               { $$ = new_op1(OP_RTD, $3); }
-        | F_RAND '(' ')'                { $$ = new_op0(OP_RAND); }
-        | F_RANDBETWEEN '(' e ',' e ')' { $$ = new_op2(OP_RANDBETWEEN, $3, $5); }
-        | F_RND '(' e ')'               { $$ = new_op1(OP_RND, $3); }
-        | F_ROUND '(' e ',' e ')'       { $$ = new_op2(OP_ROUND, $3, $5); }
-        | F_IF '(' e ',' e ',' e ')'    { $$ = new_op3(OP_IF, $3, $5, $7); }
-        | F_PV '(' e ',' e ',' e ')'    { $$ = new_op3(OP_PV, $3, $5, $7); }
-        | F_FV '(' e ',' e ',' e ')'    { $$ = new_op3(OP_FV, $3, $5, $7); }
-        | F_PMT '(' e ',' e ',' e ')'   { $$ = new_op3(OP_PMT, $3, $5, $7); }
-        | F_HOUR '(' e ')'              { $$ = new_op1(OP_HOUR, $3); }
-        | F_MINUTE '(' e ')'            { $$ = new_op1(OP_MINUTE, $3); }
-        | F_SECOND '(' e ')'            { $$ = new_op1(OP_SECOND, $3); }
-        | F_MONTH '(' e ')'             { $$ = new_op1(OP_MONTH, $3); }
-        | F_DAY '(' e ')'               { $$ = new_op1(OP_DAY, $3); }
-        | F_YEAR '(' e ')'              { $$ = new_op1(OP_YEAR, $3); }
-        | F_NOW                         { $$ = new_op0(OP_NOW); }
-        | F_DTS '(' e ',' e ',' e ')'   { $$ = new_op3(OP_DTS, $3, $5, $7); }
-        | F_TTS '(' e ',' e ',' e ')'   { $$ = new_op3(OP_TTS, $3, $5, $7); }
-        | F_STON '(' e ')'              { $$ = new_op1(OP_STON, $3); }
-        | F_EQS '(' e ',' e ')'         { $$ = new_op2(OP_EQS, $3, $5); }
-        | F_DATE '(' e ')'              { $$ = new_op1(OP_DATE, $3); }
-        | F_DATE '(' e ',' e ')'        { $$ = new_op2(OP_DATE, $3, $5); }
-        | F_FMT '(' e ',' e ')'         { $$ = new_op2(OP_FMT, $3, $5); }
-        | F_UPPER '(' e ')'             { $$ = new_op1(OP_UPPER, $3); }
-        | F_LOWER '(' e ')'             { $$ = new_op1(OP_LOWER, $3); }
-        | F_CAPITAL '(' e ')'           { $$ = new_op1(OP_CAPITAL, $3); }
-        | F_INDEX '(' rnode ',' e ')'   { $$ = new_op2(OP_INDEX, $3, $5); }
-        | F_INDEX '(' e ',' rnode ')'   { $$ = new_op2(OP_INDEX, $3, $5); }
-        | F_INDEX '(' rnode ',' e ',' e ')'  { $$ = new_op3(OP_INDEX, $3, $5, $7); }
-        | F_LOOKUP '(' rnode ',' e ')'  { $$ = new_op2(OP_LOOKUP, $3, $5); }
-        | F_LOOKUP '(' e ',' rnode ')'  { $$ = new_op2(OP_LOOKUP, $3, $5); }
-        | F_HLOOKUP '(' rnode ',' e ',' e ')'  { $$ = new_op3(OP_HLOOKUP, $3, $5, $7); }
-        | F_HLOOKUP '(' e ',' rnode ',' e ')'  { $$ = new_op3(OP_HLOOKUP, $3, $5, $7); }
-        | F_VLOOKUP '(' rnode ',' e ',' e ')'  { $$ = new_op3(OP_VLOOKUP, $3, $5, $7); }
-        | F_VLOOKUP '(' e ',' rnode ',' e ')'  { $$ = new_op3(OP_VLOOKUP, $3, $5, $7); }
-        | F_STINDEX '(' rnode ',' e ')' { $$ = new_op2(OP_STINDEX, $3, $5); }
-        | F_STINDEX '(' e ',' rnode ')' { $$ = new_op2(OP_STINDEX, $3, $5); }
-        | F_STINDEX '(' rnode ',' e ',' e ')'  { $$ = new_op3(OP_STINDEX, $3, $5, $7); }
-        | F_EXT '(' e ',' e ')'         { $$ = new_op2(OP_EXT, $3, $5); }
-        | F_NVAL '(' e ',' e ')'        { $$ = new_op2(OP_NVAL, $3, $5); }
-        | F_SVAL '(' e ',' e ')'        { $$ = new_op2(OP_SVAL, $3, $5); }
-        | F_SUBSTR '(' e ',' e ',' e ')'  { $$ = new_op3(OP_SUBSTR, $3, $5, $7); }
-        | F_PI                          { $$ = new_op0(OP_PI); }
-        | F_FILENAME '(' e ')'          { $$ = new_op1(OP_FILENAME, $3); }
-        | F_MYROW                       { $$ = new_op0(OP_MYROW); }
-        | F_MYCOL                       { $$ = new_op0(OP_MYCOL); }
-        | F_LASTROW                     { $$ = new_op0(OP_LASTROW); }
-        | F_LASTCOL                     { $$ = new_op0(OP_LASTCOL); }
-        | F_COLTOA '(' e ')'            { $$ = new_op1(OP_COLTOA, $3); }
-        | F_NUMITER                     { $$ = new_op0(OP_NUMITER); }
-        | F_ERR                         { $$ = new_op0(OP_ERR); }
-        | F_BLACK                       { $$ = new_op0(OP_BLACK); }
-        | F_RED                         { $$ = new_op0(OP_RED); }
-        | F_GREEN                       { $$ = new_op0(OP_GREEN); }
-        | F_YELLOW                      { $$ = new_op0(OP_YELLOW); }
-        | F_BLUE                        { $$ = new_op0(OP_BLUE); }
-        | F_MAGENTA                     { $$ = new_op0(OP_MAGENTA); }
-        | F_CYAN                        { $$ = new_op0(OP_CYAN); }
-        | F_WHITE                       { $$ = new_op0(OP_WHITE); }
-        | F_BITAND '(' e ',' e ')'      { $$ = new_op2(OP_BITAND, $3, $5); }
-        | F_BITLSHIFT '(' e ',' e ')'   { $$ = new_op2(OP_BITLSHIFT, $3, $5); }
-        | F_BITOR '(' e ',' e ')'       { $$ = new_op2(OP_BITOR, $3, $5); }
-        | F_BITRSHIFT '(' e ',' e ')'   { $$ = new_op2(OP_BITRSHIFT, $3, $5); }
-        | F_BITXOR '(' e ',' e ')'      { $$ = new_op2(OP_BITXOR, $3, $5); }
+        | F_ROWS '(' vrnode ')'         { $$ = new_op1($1, $3); }
+        | F_COLS '(' vrnode ')'         { $$ = new_op1($1, $3); }
+        | F_ABS '(' e ')'               { $$ = new_op1($1, $3); }
+        | F_ACOS '(' e ')'              { $$ = new_op1($1, $3); }
+        | F_ASIN '(' e ')'              { $$ = new_op1($1, $3); }
+        | F_ATAN '(' e ')'              { $$ = new_op1($1, $3); }
+        | F_ATAN2 '(' e ',' e ')'       { $$ = new_op2($1, $3, $5); }
+        | F_CEIL '(' e ')'              { $$ = new_op1($1, $3); }
+        | F_COS '(' e ')'               { $$ = new_op1($1, $3); }
+        | F_EXP '(' e ')'               { $$ = new_op1($1, $3); }
+        | F_FABS '(' e ')'              { $$ = new_op1($1, $3); }
+        | F_FLOOR '(' e ')'             { $$ = new_op1($1, $3); }
+        | F_HYPOT '(' e ',' e ')'       { $$ = new_op2($1, $3, $5); }
+        | F_LN '(' e ')'                { $$ = new_op1($1, $3); }
+        | F_LOG '(' e ')'               { $$ = new_op1($1, $3); }
+        | F_POW '(' e ',' e ')'         { $$ = new_op2($1, $3, $5); }
+        | F_SIN '(' e ')'               { $$ = new_op1($1, $3); }
+        | F_SQRT '(' e ')'              { $$ = new_op1($1, $3); }
+        | F_TAN '(' e ')'               { $$ = new_op1($1, $3); }
+        | F_DTR '(' e ')'               { $$ = new_op1($1, $3); }
+        | F_RTD '(' e ')'               { $$ = new_op1($1, $3); }
+        | F_RAND '(' ')'                { $$ = new_op0($1); }
+        | F_RANDBETWEEN '(' e ',' e ')' { $$ = new_op2($1, $3, $5); }
+        | F_RND '(' e ')'               { $$ = new_op1($1, $3); }
+        | F_ROUND '(' e ',' e ')'       { $$ = new_op2($1, $3, $5); }
+        | F_IF '(' e ',' e ',' e ')'    { $$ = new_op3($1, $3, $5, $7); }
+        | F_PV '(' e ',' e ',' e ')'    { $$ = new_op3($1, $3, $5, $7); }
+        | F_FV '(' e ',' e ',' e ')'    { $$ = new_op3($1, $3, $5, $7); }
+        | F_PMT '(' e ',' e ',' e ')'   { $$ = new_op3($1, $3, $5, $7); }
+        | F_HOUR '(' e ')'              { $$ = new_op1($1, $3); }
+        | F_MINUTE '(' e ')'            { $$ = new_op1($1, $3); }
+        | F_SECOND '(' e ')'            { $$ = new_op1($1, $3); }
+        | F_MONTH '(' e ')'             { $$ = new_op1($1, $3); }
+        | F_DAY '(' e ')'               { $$ = new_op1($1, $3); }
+        | F_YEAR '(' e ')'              { $$ = new_op1($1, $3); }
+        | F_NOW                         { $$ = new_op0($1); }
+        | F_DTS '(' e ',' e ',' e ')'   { $$ = new_op3($1, $3, $5, $7); }
+        | F_TTS '(' e ',' e ',' e ')'   { $$ = new_op3($1, $3, $5, $7); }
+        | F_STON '(' e ')'              { $$ = new_op1($1, $3); }
+        | F_EQS '(' e ',' e ')'         { $$ = new_op2($1, $3, $5); }
+        | F_DATE '(' e ')'              { $$ = new_op1($1, $3); }
+        | F_DATE '(' e ',' e ')'        { $$ = new_op2($1, $3, $5); }
+        | F_FMT '(' e ',' e ')'         { $$ = new_op2($1, $3, $5); }
+        | F_UPPER '(' e ')'             { $$ = new_op1($1, $3); }
+        | F_LOWER '(' e ')'             { $$ = new_op1($1, $3); }
+        | F_CAPITAL '(' e ')'           { $$ = new_op1($1, $3); }
+        | F_INDEX '(' rnode ',' e ')'   { $$ = new_op2($1, $3, $5); }
+        | F_INDEX '(' e ',' rnode ')'   { $$ = new_op2($1, $3, $5); }
+        | F_INDEX '(' rnode ',' e ',' e ')'  { $$ = new_op3($1, $3, $5, $7); }
+        | F_LOOKUP '(' rnode ',' e ')'  { $$ = new_op2($1, $3, $5); }
+        | F_LOOKUP '(' e ',' rnode ')'  { $$ = new_op2($1, $3, $5); }
+        | F_HLOOKUP '(' rnode ',' e ',' e ')'  { $$ = new_op3($1, $3, $5, $7); }
+        | F_HLOOKUP '(' e ',' rnode ',' e ')'  { $$ = new_op3($1, $3, $5, $7); }
+        | F_VLOOKUP '(' rnode ',' e ',' e ')'  { $$ = new_op3($1, $3, $5, $7); }
+        | F_VLOOKUP '(' e ',' rnode ',' e ')'  { $$ = new_op3($1, $3, $5, $7); }
+        | F_STINDEX '(' rnode ',' e ')' { $$ = new_op2($1, $3, $5); }
+        | F_STINDEX '(' e ',' rnode ')' { $$ = new_op2($1, $3, $5); }
+        | F_STINDEX '(' rnode ',' e ',' e ')'  { $$ = new_op3($1, $3, $5, $7); }
+        | F_EXT '(' e ',' e ')'         { $$ = new_op2($1, $3, $5); }
+        | F_NVAL '(' e ',' e ')'        { $$ = new_op2($1, $3, $5); }
+        | F_SVAL '(' e ',' e ')'        { $$ = new_op2($1, $3, $5); }
+        | F_SUBSTR '(' e ',' e ',' e ')'  { $$ = new_op3($1, $3, $5, $7); }
+        | F_PI                          { $$ = new_op0($1); }
+        | F_FILENAME '(' e ')'          { $$ = new_op1($1, $3); }
+        | F_MYROW                       { $$ = new_op0($1); }
+        | F_MYCOL                       { $$ = new_op0($1); }
+        | F_LASTROW                     { $$ = new_op0($1); }
+        | F_LASTCOL                     { $$ = new_op0($1); }
+        | F_COLTOA '(' e ')'            { $$ = new_op1($1, $3); }
+        | F_NUMITER                     { $$ = new_op0($1); }
+        | F_ERR                         { $$ = new_op0($1); }
+        | F_BLACK                       { $$ = new_op0($1); }
+        | F_RED                         { $$ = new_op0($1); }
+        | F_GREEN                       { $$ = new_op0($1); }
+        | F_YELLOW                      { $$ = new_op0($1); }
+        | F_BLUE                        { $$ = new_op0($1); }
+        | F_MAGENTA                     { $$ = new_op0($1); }
+        | F_CYAN                        { $$ = new_op0($1); }
+        | F_WHITE                       { $$ = new_op0($1); }
+        | F_BITAND '(' e ',' e ')'      { $$ = new_op2($1, $3, $5); }
+        | F_BITLSHIFT '(' e ',' e ')'   { $$ = new_op2($1, $3, $5); }
+        | F_BITOR '(' e ',' e ')'       { $$ = new_op2($1, $3, $5); }
+        | F_BITRSHIFT '(' e ',' e ')'   { $$ = new_op2($1, $3, $5); }
+        | F_BITXOR '(' e ',' e ')'      { $$ = new_op2($1, $3, $5); }
         ;
 
 /* expressions */

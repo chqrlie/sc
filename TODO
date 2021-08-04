@@ -1,7 +1,11 @@
 # TODO
 
+[ ] add VF_FULL_ROW and VF_FULL_COL
+[ ] parse num:num and col:col as ranges
+[ ] merge rnode and term
+[ ] simplify grammar rules
 [ ] fix error propagation scheme
-[ ] group functions by theme
+[/] group functions by theme
 [ ] use infix operators from OASIS spec
 [ ] preserve spaces and parentheses from expression source using a pattern
 [ ] use expression pattern to preserve syntax errors and unknown functions
