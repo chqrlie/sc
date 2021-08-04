@@ -173,9 +173,9 @@ XX( OP_DTS,         "@dts", 3, 3, eval_dts, NULL)
 XX( OP_TTS,         "@tts", 3, 3, eval_fn3, dotts)
 
 /* 6.11 External Access Functions */
-__( OP_DDE,         "@dde", 3, 4, NULL, NULL)
+__( OP_DDE,         "DDE(server, topic, item, [mode=0])", 3, 4, NULL, NULL) // Returns data from a DDE request
 LO( OP_ENCODEURL,   "ENCODEURL(text)", 1, 1, NULL, NULL) // Encodes a string of text for the purpose of using in a URL query.
-XX( OP_EXT,         "@ext", 2, 2, eval_ext, NULL)// XXX: should be 1,-1
+XX( OP_EXT,         "EXT(command, arg)", 2, 2, eval_ext, NULL) // Run an external process, return first line of output
 __( OP_HYPERLINK,   "HYPERLINK(url, [link_label])", 1, 2, NULL, NULL) // Creates a hyperlink inside a cell
 LO( OP_IMPORTDATA,  "IMPORTDATA(url)", 1, 1, NULL, NULL) // Imports data at a given url in .csv (comma-separated value) or .tsv (tab-separated value) format
 LO( OP_IMPORTFEED,  "IMPORTFEED(url, [query], [headers], [num_items])", 1, 4, NULL, NULL) // Imports a RSS or ATOM feed
@@ -237,7 +237,7 @@ __( OP_YIELDDISC,   "YIELDDISC(settlement, maturity, price, redemption, [day_cou
 __( OP_YIELDMAT,    "YIELDMAT(settlement, maturity, issue, rate, price, [day_count_convention])", 1, 1, NULL, NULL) // Calculates the annual yield of a security paying interest at maturity, based on price
 
 /* 6.13 Information Functions */
-__( OP_AREAS,       "@areas", 1, 1, NULL, NULL)
+__( OP_AREAS,       "AREAS(reference list)", 1, 1, NULL, NULL) // Returns the number of areas in a given list of references.
 __( OP_CELL,        "CELL(info_type, [reference])", 1, 2, NULL, NULL) // Returns the requested information about the specified cell
 __( OP_COLUMN,      "COLUMN([cell_reference])", 0, 1, NULL, NULL) // Returns the column number of a specified cell, with `A=1`
 __( OP_COLUMNS,     "COLUMNS(range)", 1, 1, NULL, NULL) // Returns the number of columns in a specified array or range
@@ -267,11 +267,11 @@ __( OP_ISREF,       "ISREF(value)", 1, 1, NULL, NULL) // Checks whether a value 
 __( OP_ISTEXT,      "ISTEXT(value)", 1, 1, NULL, NULL) // Checks whether a value is text
 __( OP_N,           "N(value)", 1, 1, NULL, NULL) // Returns the argument provided as a number
 __( OP_NA,          "NA()", -1, 0, NULL, NULL) // Returns the 'value not available' error, `#N/A`
-__( OP_NUMBERVALUE, "@numbervalue", 1, 3, NULL, NULL)
-__( OP_ROW,         "ROW([cell_reference])", 1, 1, NULL, NULL) // Returns the row number of a specified cell
+__( OP_NUMBERVALUE, "NUMBERVALUE(text, [decimalseparator, [groupseparator]])", 1, 3, NULL, NULL) // Convert text to number, in a locale-independent way.
+__( OP_ROW,         "ROW([cell_reference])", 0, 1, NULL, NULL) // Returns the row number of a specified cell
 OP( OP_ROWS,        "ROWS(range)", 1, 1, eval_rangeop, NULL) // Returns the number of rows in a specified array or range
-__( OP_SHEET,       "@sheet", 1, 1, NULL, NULL)
-__( OP_SHEETS,      "@sheets", 1, 1, NULL, NULL)
+__( OP_SHEET,       "SHEET([Text|Reference])", 0, 1, NULL, NULL) // Returns the sheet number of the reference or the string representing a sheet name.
+__( OP_SHEETS,      "SHEETS([Reference])", 0, 1, NULL, NULL) // Returns the number of sheets in a reference or current document.
 __( OP_TYPE,        "TYPE(value)", 1, 1, NULL, NULL) // Returns a number associated with the type of data passed into the function
 __( OP_VALUE,       "VALUE(text)", 1, 1, NULL, NULL) // Converts a string in any of the date, time or number formats that Google Sheets understands into a number
 
@@ -297,7 +297,7 @@ OP( OP_INDEX,       "INDEX(reference, [row], [column])", 2, 3, eval_rangeop, NUL
 __( OP_INDIRECT,    "INDIRECT(cell_reference_as_string, [is_A1_notation])", 1, 2, NULL, NULL) // Returns a cell reference specified by a string
 OP( OP_LOOKUP,      "LOOKUP(search_key, search_range|search_result_array, [result_range])", 2, 2, eval_rangeop, NULL) // Looks through a row or column for a key and returns the value of the cell in a result range located in the same position as the search row or column
 __( OP_MATCH,       "MATCH(search_key, range, [search_type])", 2, 3, NULL, NULL) // Returns the relative position of an item in a range that matches a specified value
-__( OP_MULTIPLE_OPERATIONS, "@multiple.operations", 3, 5, NULL, NULL)
+__( OP_MULTIPLE_OPERATIONS, "MULTIPLE.OPERATIONS(formulacell, rowcell, rowreplacement, [columncell, columnreplacement])", 3, 5, NULL, NULL) // Executes a formula expression while substituting a row reference and a column reference.
 __( OP_OFFSET,      "OFFSET(cell_reference, offset_rows, offset_columns, [height], [width])", 3, 5, NULL, NULL) // Returns a range reference shifted a specified number of rows and columns from a starting cell reference
 OP( OP_VLOOKUP,     "VLOOKUP(search_key, range, index, [is_sorted])", 3, 3, eval_rangeop, NULL) // Vertical lookup. Searches down the first column of a range for a key and returns the value of a specified cell in the row found
 
@@ -327,10 +327,10 @@ __( OP_ASINH,       "ASINH(value)", 1, 1, NULL, NULL) // Returns the inverse hyp
 OP( OP_ATAN,        "ATAN(value)", 1, 1, eval_fn1, atan) // Returns the inverse tangent of a value, in radians
 OP( OP_ATAN2,       "ATAN2(x, y)", 2, 2, eval_fn2, atan2) // Returns the angle between the x-axis and a line segment from the origin (0,0) to specified coordinate pair (`x`,`y`), in radians
 __( OP_ATANH,       "ATANH(value)", 1, 1, NULL, NULL) // Returns the inverse hyperbolic tangent of a number
-__( OP_BESSELI,     "@besseli", 2, 2, NULL, NULL)
-__( OP_BESSELJ,     "@besselj", 2, 2, NULL, NULL)
-__( OP_BESSELK,     "@besselk", 2, 2, NULL, NULL)
-__( OP_BESSELY,     "@bessely", 2, 2, NULL, NULL)
+__( OP_BESSELI,     "BESSELI(x, n)", 2, 2, NULL, NULL) // Returns the modified Bessel function of integer order In(X).
+__( OP_BESSELJ,     "BESSELJ(x, n)", 2, 2, NULL, NULL) // Returns the Bessel function of integer order Jn(X) (cylinder function)
+__( OP_BESSELK,     "BESSELK(x, n)", 2, 2, NULL, NULL) // Returns the modified Bessel function of integer order Kn(x).
+__( OP_BESSELY,     "BESSELY(x, n)", 2, 2, NULL, NULL) // Returns the Bessel function of integer order Yn(X), also known as the Neumann function.
 __( OP_COMBIN,      "COMBIN(n, k)", 2, 2, NULL, NULL) // Returns the number of ways to choose some number of objects from a pool of a given size of objects
 __( OP_COMBINA,     "COMBINA(n, k)", 2, 2, NULL, NULL) // Returns the number of ways to choose some number of objects from a pool of a given size of objects, including ways that choose the same object multiple times.
 __( OP_CONVERT,     "CONVERT(value, start_unit, end_unit)", 3, 3, NULL, NULL) // Converts a numeric value to a different unit of measure
@@ -345,7 +345,9 @@ __( OP_DELTA,       "DELTA(number1, [number2])", 1, 2, NULL, NULL) // Compare tw
 __( OP_ERF,         "ERF(lower_bound, [upper_bound])", 1, 2, NULL, NULL) // The ERF function returns the integral of the Gauss error function over an interval of values.
 __( OP_ERFC,        "ERFC(z)", 1, 1, NULL, NULL) // Returns the complementary Gauss error function of a value
 LO( OP_ERFC_PRECISE, "ERFC.PRECISE(z)", 1, 1, NULL, NULL) // See ERFC
-__( OP_EUROCONVERT, "@euroconvert", 3, 5, NULL, NULL)
+
+
+__( OP_EUROCONVERT, "EUROCONVERT(n, from, to, [fullprecision=FALSE, [triangulationprecision]])", 3, 5, NULL, NULL) // Converts a Number, representing a value in one European currency, to an equivalent value in another European currency, according to the fixed conversion rates defined by the Council of the European Union.
 __( OP_EVEN,        "EVEN(value)", 1, 1, NULL, NULL) // Rounds a number up to the nearest even integer
 OP( OP_EXP,         "EXP(exponent)", 1, 1, eval_fn1, exp) // Returns Euler's number, e (~2.718) raised to a power
 __( OP_FACT,        "FACT(value)", 1, 1, NULL, NULL) // Returns the factorial of a number
@@ -382,11 +384,11 @@ __( OP_SUBTOTAL,    "SUBTOTAL(function_code, range1, [range2, ...])", 2, -1, NUL
 OP( OP_SUM,         "SUM(value1, [value2, ...])", 1, -1, eval_rangeop, NULL) // Returns the sum of a series of numbers and/or cells
 __( OP_SUMIF,       "SUMIF(range, criterion, [sum_range])", 2, 3, NULL, NULL) // Returns a conditional sum across a range
 __( OP_SUMIFS,      "SUMIFS(sum_range, criteria_range1, criterion1, [criteria_range2, criterion2, ...])", 3, -1, NULL, NULL) // Returns the sum of a range depending on multiple criteria
-__( OP_SUMPRODUCT,  "@sumproduct", 1, -1, NULL, NULL)
+__( OP_SUMPRODUCT,  "SUMPRODUCT(arrays)", 1, -1, NULL, NULL) // Returns the sum of the products of the matrix elements.
 __( OP_SUMSQ,       "SUMSQ(value1, [value2, ...])", 1, -1, NULL, NULL) // Returns the sum of the squares of a series of numbers and/or cells
-__( OP_SUMX2MY2,    "@sumx2my2", 2, 2, NULL, NULL)
-__( OP_SUMX2PY2,    "@sumx2py2", 2, 2, NULL, NULL)
-__( OP_SUMXMY2,     "@sumxmy2", 2, 2, NULL, NULL)
+__( OP_SUMX2MY2,    "SUMX2MY2(array A, array B)", 2, 2, NULL, NULL) // Returns the sum of the difference between the squares of the matrices A and B.
+__( OP_SUMX2PY2,    "SUMX2PY2(array A, array B)", 2, 2, NULL, NULL) // Returns the total sum of the squares of the matrices A and B
+__( OP_SUMXMY2,     "SUMXMY2(array A, array B)", 2, 2, NULL, NULL) // Returns the sum of the squares of the differences between matrix A and B.
 OP( OP_TAN,         "TAN(angle)", 1, 1, eval_fn1, tan) // Returns the tangent of an angle provided in radians
 __( OP_TANH,        "TANH(value)", 1, 1, NULL, NULL) // Returns the hyperbolic tangent of any real number
 
@@ -399,7 +401,7 @@ XX( OP_PROD,        "@prod", 1, -1, eval_rangeop, NULL)
 
 /* 6.17 Rounding Functions */
 __( OP_CEILING,     "CEILING(value, [factor], [mode])", 1, 3, NULL, NULL) // Rounds a number up to the nearest integer multiple of specified significance
-LO( OP_CEILING_MATH,    "CEILING.MATH(number, [significance], [mode])", 1, 3, NULL, NULL) // Rounds a number up to the nearest integer multiple of specified significance, with negative numbers rounding toward or away from 0 depending on the mode.
+LO( OP_CEILING_MATH, "CEILING.MATH(number, [significance], [mode])", 1, 3, NULL, NULL) // Rounds a number up to the nearest integer multiple of specified significance, with negative numbers rounding toward or away from 0 depending on the mode.
 LO( OP_CEILING_PRECISE, "CEILING.PRECISE(number, [significance])", 1, 2, NULL, NULL) // Rounds a number up to the nearest integer multiple of specified significance. If the number is positive or negative, it is rounded up.
 __( OP_INT,         "INT(value)", 1, 1, NULL, NULL) // Rounds a number down to the nearest integer that is less than or equal to it
 OP( OP_FLOOR,       "FLOOR(value, [factor])", 1, 2, eval_fn1, floor) // Rounds a number down to the nearest integer multiple of specified significance
@@ -591,7 +593,7 @@ __( OP_DOLLAR,      "DOLLAR(number, [number_of_places])", 1, 2, NULL, NULL) // F
 __( OP_EXACT,       "EXACT(string1, string2)", 2, 2, NULL, NULL) // Tests whether two strings are identical
 __( OP_FIND,        "FIND(search_for, text_to_search, [starting_at])", 2, 3, NULL, NULL) // Returns the position at which a string is first found within text
 __( OP_FIXED,       "FIXED(number, [number_of_places], [suppress_separator])", 1, 3, NULL, NULL) // Formats a number with a fixed number of decimal places
-__( OP_JIS,         "@jis", 1, 1, NULL, NULL)
+__( OP_JIS,         "JIS(text)", 1, 1, NULL, NULL) // Converts half-width to full-width ASCII and katakana characters.
 LO( OP_JOIN,        "JOIN(delimiter, value_or_array1, [value_or_array2, ...])", 2, -1, NULL, NULL) // Concatenates the elements of one or more one-dimensional arrays using a specified delimiter
 __( OP_LEFT,        "LEFT(string, [number_of_characters])", 1, 2, NULL, NULL) // Returns a substring from the beginning of a specified string
 __( OP_LEN,         "LEN(text)", 1, 1, NULL, NULL) // Returns the length of a string

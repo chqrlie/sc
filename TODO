@@ -1,5 +1,6 @@
 # TODO
 
+[ ] fix seg fault when running `./sc tutorial.sc > t`
 [ ] add VF_FULL_ROW and VF_FULL_COL
 [ ] parse num:num and col:col as ranges
 [ ] merge rnode and term
