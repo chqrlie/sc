@@ -81,8 +81,7 @@ static SCXMEM string_t *get_strarg(cellref_t cr) {
 
 %type <cval> var
 %type <fval> num
-%type <rval> range
-%type <rval> var_or_range
+%type <rval> range var_or_range
 %type <sval> strarg
 %type <enode> e term expr_list vrnode rnode
 %type <ival> noval
@@ -91,9 +90,11 @@ static SCXMEM string_t *get_strarg(cellref_t cr) {
 %token <fval> FNUMBER
 %token <rval> RANGE
 %token <cval> VAR
-%token <sval> WORD
-%token <sval> PLUGIN
+%token <sval> WORD PLUGIN
 %token <ival> COL
+%token <ival> FUNC0 FUNC01 FUNC1 FUNC12 FUNC2 FUNC23 FUNC3
+
+/* command names (one per line for automatic generation of tokens.h) */
 
 /*
  *  When adding new commands, make sure that any commands that may take
@@ -206,93 +207,18 @@ static SCXMEM string_t *get_strarg(cellref_t cr) {
 %token GO_ERROR
 %token GO_INVALID
 
-/* function names */
+/* function names (one per line for automatic generation of tokens.h) */
 %token <ival> F_FIXED
 %token <ival> F_SUM
 %token <ival> F_PROD
 %token <ival> F_AVG
 %token <ival> F_STDDEV
 %token <ival> F_COUNT
-%token <ival> F_ROWS
-%token <ival> F_COLS
-%token <ival> F_ABS
-%token <ival> F_ACOS
-%token <ival> F_ASIN
-%token <ival> F_ATAN
-%token <ival> F_ATAN2
-%token <ival> F_CEIL
-%token <ival> F_COS
-%token <ival> F_EXP
-%token <ival> F_FABS
-%token <ival> F_FLOOR
-%token <ival> F_HYPOT
-%token <ival> F_LN
-%token <ival> F_LOG
-%token <ival> F_PI
-%token <ival> F_POW
-%token <ival> F_SIN
-%token <ival> F_SQRT
-%token <ival> F_TAN
-%token <ival> F_DTR
-%token <ival> F_RTD
 %token <ival> F_MAX
 %token <ival> F_MIN
-%token <ival> F_RAND
-%token <ival> F_RANDBETWEEN
-%token <ival> F_RND
-%token <ival> F_ROUND
-%token <ival> F_IF
-%token <ival> F_PV
-%token <ival> F_FV
-%token <ival> F_PMT
-%token <ival> F_HOUR
-%token <ival> F_MINUTE
-%token <ival> F_SECOND
-%token <ival> F_MONTH
-%token <ival> F_DAY
-%token <ival> F_YEAR
-%token <ival> F_NOW
-%token <ival> F_DATE
-%token <ival> F_DTS
-%token <ival> F_TTS
-%token <ival> F_FMT
-%token <ival> F_SUBSTR
-%token <ival> F_UPPER
-%token <ival> F_LOWER
-%token <ival> F_CAPITAL
-%token <ival> F_STON
-%token <ival> F_EQS
-%token <ival> F_EXT
-%token <ival> F_NVAL
-%token <ival> F_SVAL
-%token <ival> F_LOOKUP
-%token <ival> F_HLOOKUP
-%token <ival> F_VLOOKUP
-%token <ival> F_INDEX
-%token <ival> F_STINDEX
-%token <ival> F_BLACK
-%token <ival> F_RED
-%token <ival> F_GREEN
-%token <ival> F_YELLOW
-%token <ival> F_BLUE
-%token <ival> F_MAGENTA
-%token <ival> F_CYAN
-%token <ival> F_WHITE
-%token <ival> F_FILENAME
-%token <ival> F_MYROW
-%token <ival> F_MYCOL
-%token <ival> F_LASTROW
-%token <ival> F_LASTCOL
-%token <ival> F_COLTOA
-%token <ival> F_NUMITER
 %token <ival> F_ERR
-%token <ival> F_BITAND
-%token <ival> F_BITLSHIFT
-%token <ival> F_BITOR
-%token <ival> F_BITRSHIFT
-%token <ival> F_BITXOR
 
-/* setting names */
+/* setting names (one per line for automatic generation of tokens.h) */
 %token K_AUTO
 %token K_AUTOCALC
 %token K_AUTOINSERT
@@ -648,90 +574,19 @@ term:         var                       { $$ = new_var($1); }
         | F_MIN '(' vrnode ')'          { $$ = new_op1($1, $3); }
         | F_MIN '(' rnode ',' e ')'     { $$ = new_op2($1, $3, $5); }
         | F_MIN '(' e ',' expr_list ')' { $$ = new_op2(OP_LMIN, $3, $5); }
-        | F_ROWS '(' vrnode ')'         { $$ = new_op1($1, $3); }
-        | F_COLS '(' vrnode ')'         { $$ = new_op1($1, $3); }
-        | F_ABS '(' e ')'               { $$ = new_op1($1, $3); }
-        | F_ACOS '(' e ')'              { $$ = new_op1($1, $3); }
-        | F_ASIN '(' e ')'              { $$ = new_op1($1, $3); }
-        | F_ATAN '(' e ')'              { $$ = new_op1($1, $3); }
-        | F_ATAN2 '(' e ',' e ')'       { $$ = new_op2($1, $3, $5); }
-        | F_CEIL '(' e ')'              { $$ = new_op1($1, $3); }
-        | F_COS '(' e ')'               { $$ = new_op1($1, $3); }
-        | F_EXP '(' e ')'               { $$ = new_op1($1, $3); }
-        | F_FABS '(' e ')'              { $$ = new_op1($1, $3); }
-        | F_FLOOR '(' e ')'             { $$ = new_op1($1, $3); }
-        | F_HYPOT '(' e ',' e ')'       { $$ = new_op2($1, $3, $5); }
-        | F_LN '(' e ')'                { $$ = new_op1($1, $3); }
-        | F_LOG '(' e ')'               { $$ = new_op1($1, $3); }
-        | F_POW '(' e ',' e ')'         { $$ = new_op2($1, $3, $5); }
-        | F_SIN '(' e ')'               { $$ = new_op1($1, $3); }
-        | F_SQRT '(' e ')'              { $$ = new_op1($1, $3); }
-        | F_TAN '(' e ')'               { $$ = new_op1($1, $3); }
-        | F_DTR '(' e ')'               { $$ = new_op1($1, $3); }
-        | F_RTD '(' e ')'               { $$ = new_op1($1, $3); }
-        | F_RAND '(' ')'                { $$ = new_op0($1); }
-        | F_RANDBETWEEN '(' e ',' e ')' { $$ = new_op2($1, $3, $5); }
-        | F_RND '(' e ')'               { $$ = new_op1($1, $3); }
-        | F_ROUND '(' e ',' e ')'       { $$ = new_op2($1, $3, $5); }
-        | F_IF '(' e ',' e ',' e ')'    { $$ = new_op3($1, $3, $5, $7); }
-        | F_PV '(' e ',' e ',' e ')'    { $$ = new_op3($1, $3, $5, $7); }
-        | F_FV '(' e ',' e ',' e ')'    { $$ = new_op3($1, $3, $5, $7); }
-        | F_PMT '(' e ',' e ',' e ')'   { $$ = new_op3($1, $3, $5, $7); }
-        | F_HOUR '(' e ')'              { $$ = new_op1($1, $3); }
-        | F_MINUTE '(' e ')'            { $$ = new_op1($1, $3); }
-        | F_SECOND '(' e ')'            { $$ = new_op1($1, $3); }
-        | F_MONTH '(' e ')'             { $$ = new_op1($1, $3); }
-        | F_DAY '(' e ')'               { $$ = new_op1($1, $3); }
-        | F_YEAR '(' e ')'              { $$ = new_op1($1, $3); }
-        | F_NOW                         { $$ = new_op0($1); }
-        | F_DTS '(' e ',' e ',' e ')'   { $$ = new_op3($1, $3, $5, $7); }
-        | F_TTS '(' e ',' e ',' e ')'   { $$ = new_op3($1, $3, $5, $7); }
-        | F_STON '(' e ')'              { $$ = new_op1($1, $3); }
-        | F_EQS '(' e ',' e ')'         { $$ = new_op2($1, $3, $5); }
-        | F_DATE '(' e ')'              { $$ = new_op1($1, $3); }
-        | F_DATE '(' e ',' e ')'        { $$ = new_op2($1, $3, $5); }
-        | F_FMT '(' e ',' e ')'         { $$ = new_op2($1, $3, $5); }
-        | F_UPPER '(' e ')'             { $$ = new_op1($1, $3); }
-        | F_LOWER '(' e ')'             { $$ = new_op1($1, $3); }
-        | F_CAPITAL '(' e ')'           { $$ = new_op1($1, $3); }
-        | F_INDEX '(' rnode ',' e ')'   { $$ = new_op2($1, $3, $5); }
-        | F_INDEX '(' e ',' rnode ')'   { $$ = new_op2($1, $3, $5); }
-        | F_INDEX '(' rnode ',' e ',' e ')'  { $$ = new_op3($1, $3, $5, $7); }
-        | F_LOOKUP '(' rnode ',' e ')'  { $$ = new_op2($1, $3, $5); }
-        | F_LOOKUP '(' e ',' rnode ')'  { $$ = new_op2($1, $3, $5); }
-        | F_HLOOKUP '(' rnode ',' e ',' e ')'  { $$ = new_op3($1, $3, $5, $7); }
-        | F_HLOOKUP '(' e ',' rnode ',' e ')'  { $$ = new_op3($1, $3, $5, $7); }
-        | F_VLOOKUP '(' rnode ',' e ',' e ')'  { $$ = new_op3($1, $3, $5, $7); }
-        | F_VLOOKUP '(' e ',' rnode ',' e ')'  { $$ = new_op3($1, $3, $5, $7); }
-        | F_STINDEX '(' rnode ',' e ')' { $$ = new_op2($1, $3, $5); }
-        | F_STINDEX '(' e ',' rnode ')' { $$ = new_op2($1, $3, $5); }
-        | F_STINDEX '(' rnode ',' e ',' e ')'  { $$ = new_op3($1, $3, $5, $7); }
-        | F_EXT '(' e ',' e ')'         { $$ = new_op2($1, $3, $5); }
-        | F_NVAL '(' e ',' e ')'        { $$ = new_op2($1, $3, $5); }
-        | F_SVAL '(' e ',' e ')'        { $$ = new_op2($1, $3, $5); }
-        | F_SUBSTR '(' e ',' e ',' e ')'  { $$ = new_op3($1, $3, $5, $7); }
-        | F_PI                          { $$ = new_op0($1); }
-        | F_FILENAME '(' e ')'          { $$ = new_op1($1, $3); }
-        | F_MYROW                       { $$ = new_op0($1); }
-        | F_MYCOL                       { $$ = new_op0($1); }
-        | F_LASTROW                     { $$ = new_op0($1); }
-        | F_LASTCOL                     { $$ = new_op0($1); }
-        | F_COLTOA '(' e ')'            { $$ = new_op1($1, $3); }
-        | F_NUMITER                     { $$ = new_op0($1); }
         | F_ERR                         { $$ = new_op0($1); }
-        | F_BLACK                       { $$ = new_op0($1); }
-        | F_RED                         { $$ = new_op0($1); }
-        | F_GREEN                       { $$ = new_op0($1); }
-        | F_YELLOW                      { $$ = new_op0($1); }
-        | F_BLUE                        { $$ = new_op0($1); }
-        | F_MAGENTA                     { $$ = new_op0($1); }
-        | F_CYAN                        { $$ = new_op0($1); }
-        | F_WHITE                       { $$ = new_op0($1); }
-        | F_BITAND '(' e ',' e ')'      { $$ = new_op2($1, $3, $5); }
-        | F_BITLSHIFT '(' e ',' e ')'   { $$ = new_op2($1, $3, $5); }
-        | F_BITOR '(' e ',' e ')'       { $$ = new_op2($1, $3, $5); }
-        | F_BITRSHIFT '(' e ',' e ')'   { $$ = new_op2($1, $3, $5); }
-        | F_BITXOR '(' e ',' e ')'      { $$ = new_op2($1, $3, $5); }
+        | FUNC0 '(' ')'                 { $$ = new_op0($1); }
+        | FUNC0                         { $$ = new_op0($1); }
+        | FUNC01 '(' ')'                { $$ = new_op0($1); }
+        | FUNC01                        { $$ = new_op0($1); }
+        | FUNC01 '(' e ')'              { $$ = new_op1($1, $3); }
+        | FUNC1 '(' e ')'               { $$ = new_op1($1, $3); }
+        | FUNC12 '(' e ')'              { $$ = new_op1($1, $3); }
+        | FUNC12 '(' e ',' e ')'        { $$ = new_op2($1, $3, $5); }
+        | FUNC2 '(' e ',' e ')'         { $$ = new_op2($1, $3, $5); }
+        | FUNC23 '(' e ',' e ')'        { $$ = new_op2($1, $3, $5); }
+        | FUNC23 '(' e ',' e ',' e ')'  { $$ = new_op3($1, $3, $5, $7); }
+        | FUNC3 '(' e ',' e ',' e ')'   { $$ = new_op3($1, $3, $5, $7); }
         ;
 
 /* expressions */

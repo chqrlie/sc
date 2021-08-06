@@ -351,6 +351,19 @@ char *get_extension(const char *filename) {
     return ext;
 }
 
+/*---------------- simple case handling ----------------*/
+
+int strncasecmp(const char *a, const char *b, size_t n) {
+    int aa = 0, bb = 0;
+    while (n --> 0) {
+        aa = tolowerchar(*a++);
+        bb = tolowerchar(*b++);
+        if (aa != bb || aa == 0)
+            break;
+    }
+    return aa - bb;
+}
+
 /*---------------- buffered strings ----------------*/
 
 /* append a char to a buffer  */

@@ -54,20 +54,6 @@ static sigret_t eval_fpe(int);
 #define M_PI (double)3.14159265358979323846
 #endif
 
-typedef void (*scarg_t)(void);
-
-struct opdef {
-    const char *name;
-    signed char min;
-    signed char max;
-    signed char priority;
-    signed char signature;
-    scvalue_t (*efun)(eval_ctx_t *cp, enode_t *e);
-    scarg_t arg;
-};
-
-extern struct opdef const opdefs[];
-
 static double dtr(double x) { return x * (M_PI / 180.0); }
 static double rtd(double x) { return x * (180.0 / M_PI); }
 
@@ -294,7 +280,9 @@ static scvalue_t doindex(eval_ctx_t *cp, int minr, int minc, int maxr, int maxc,
     return scvalue_empty();
 }
 
-static scvalue_t dolookup(eval_ctx_t *cp, enode_t *val, int minr, int minc, int maxr, int maxc, int offset, int vflag) {
+static scvalue_t dolookup(eval_ctx_t *cp, enode_t *val, int minr, int minc,
+                          int maxr, int maxc, int offset, int vflag)
+{
     scvalue_t a = eval_node(cp, val);
     int r, c;
     struct ent *p = NULL;
@@ -549,38 +537,45 @@ static scvalue_t eval_rangeop(eval_ctx_t *cp, enode_t *e) {
     int minr, minc, maxr, maxc;
     enode_t *left = e->e.o.left;
     enode_t *right = e->e.o.right;
+    enode_t *range_arg = left;
+    enode_t *arg1 = right;
+    enode_t *arg2 = NULL;
+    // XXX: this argument matching mess is obsolete,
+    //      should use separate evaluators.
+    if (right && right->op == OP_COMMA) {
+        arg1 = right->e.o.left;
+        arg2 = right->e.o.right;
+    }
     /* reorder arguments if necessary */
-    if (left->op != OP_RANGEARG) {
-        if (right->op == OP_RANGEARG) {
-            left = right;
-            right = e->e.o.left;
+    if (!range_arg || range_arg->op != OP_RANGEARG) {
+        if (arg1 && arg1->op == OP_RANGEARG) {
+            range_arg = arg1;
+            arg1 = left;
         } else {
             return scvalue_error(cp, CELLERROR);
         }
     }
-    minr = left->e.r.left.vp->row;
-    minc = left->e.r.left.vp->col;
-    maxr = left->e.r.right.vp->row;
-    maxc = left->e.r.right.vp->col;
+    minr = range_arg->e.r.left.vp->row;
+    minc = range_arg->e.r.left.vp->col;
+    maxr = range_arg->e.r.right.vp->row;
+    maxc = range_arg->e.r.right.vp->col;
     if (minr > maxr) SWAPINT(minr, maxr);
     if (minc > maxc) SWAPINT(minc, maxc);
     switch (e->op) {
-    case OP_SUM:    return dosum(cp, minr, minc, maxr, maxc, right);
-    case OP_PROD:   return doprod(cp, minr, minc, maxr, maxc, right);
-    case OP_AVG:    return doavg(cp, minr, minc, maxr, maxc, right);
-    case OP_COUNT:  return docount(cp, minr, minc, maxr, maxc, right);
-    case OP_STDDEV: return dostddev(cp, minr, minc, maxr, maxc, right);
-    case OP_MAX:    return domax(cp, minr, minc, maxr, maxc, right);
-    case OP_MIN:    return domin(cp, minr, minc, maxr, maxc, right);
+    case OP_SUM:    return dosum(cp, minr, minc, maxr, maxc, arg1);
+    case OP_PROD:   return doprod(cp, minr, minc, maxr, maxc, arg1);
+    case OP_AVG:    return doavg(cp, minr, minc, maxr, maxc, arg1);
+    case OP_COUNT:  return docount(cp, minr, minc, maxr, maxc, arg1);
+    case OP_STDDEV: return dostddev(cp, minr, minc, maxr, maxc, arg1);
+    case OP_MAX:    return domax(cp, minr, minc, maxr, maxc, arg1);
+    case OP_MIN:    return domin(cp, minr, minc, maxr, maxc, arg1);
     case OP_ROWS:   return scvalue_number(maxr - minr + 1);
     case OP_COLS:   return scvalue_number(maxc - minc + 1);
-    case OP_LOOKUP: return dolookup(cp, right, minr, minc, maxr, maxc, 1, minc == maxc);
-    case OP_HLOOKUP: return dolookup(cp, right->e.o.left, minr, minc, maxr, maxc,
-                                     (int)eval_num(cp, right->e.o.right), 0);
-    case OP_VLOOKUP: return dolookup(cp, right->e.o.left, minr, minc, maxr, maxc,
-                                     (int)eval_num(cp, right->e.o.right), 1);
     case OP_STINDEX:
     case OP_INDEX: return doindex(cp, minr, minc, maxr, maxc, right);
+    case OP_LOOKUP: return dolookup(cp, arg1, minr, minc, maxr, maxc, 1, minc == maxc);
+    case OP_HLOOKUP: return dolookup(cp, arg1, minr, minc, maxr, maxc, (int)eval_num(cp, arg2), 0);
+    case OP_VLOOKUP: return dolookup(cp, arg1, minr, minc, maxr, maxc, (int)eval_num(cp, arg2), 1);
     }
     return scvalue_error(cp, CELLERROR);
 }

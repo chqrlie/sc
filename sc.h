@@ -251,6 +251,20 @@ enum opcode {
     OP_count,
 };
 
+typedef void (*scarg_t)(void);
+
+struct opdef {
+    const char *name;
+    signed char min;
+    signed char max;
+    signed char priority;
+    signed char signature;
+    scvalue_t (*efun)(eval_ctx_t *cp, enode_t *e);
+    scarg_t arg;
+};
+
+extern struct opdef const opdefs[];
+
 /* flag values (8 bits) */
 #define IS_LOCKED       0001  /* is protected from user modification */
 #define IS_CHANGED      0002  /* set when modifying ent, tested and udated in update() for partial screen updates */
@@ -773,17 +787,3 @@ extern void vi_interaction(void);
 extern void sc_cmd_put(const char *arg, int vopt);
 extern void sc_cmd_write(const char *arg);
 extern void lotus_menu(void);
-
-/* character class macros to avoid undefined behavior on negative chars */
-#define isspacechar(c)   isspace((unsigned char)(c))
-#define isdigitchar(c)   isdigit((unsigned char)(c))
-#define isxdigitchar(c)  isxdigit((unsigned char)(c))
-#define isalphachar(c)   isalpha((unsigned char)(c))
-#define isalnumchar(c)   isalnum((unsigned char)(c))
-#define islowerchar(c)   islower((unsigned char)(c))
-#define isupperchar(c)   isupper((unsigned char)(c))
-#define tolowerchar(c)   tolower((unsigned char)(c))
-#define toupperchar(c)   toupper((unsigned char)(c))
-
-static inline int isalphachar_(char c) { return isalphachar(c) || c == '_'; }
-static inline int isalnumchar_(char c) { return isalnumchar(c) || c == '_'; }

@@ -57,6 +57,24 @@ extern size_t strsplice(char *dst, size_t size, size_t from, size_t len1,
 extern char *get_basename(const char *filename);
 extern char *get_extension(const char *filename);
 
+/*---------------- simple case handling ----------------*/
+
+/* character class macros to avoid undefined behavior on negative chars */
+#define isspacechar(c)   isspace((unsigned char)(c))
+#define isdigitchar(c)   isdigit((unsigned char)(c))
+#define isxdigitchar(c)  isxdigit((unsigned char)(c))
+#define isalphachar(c)   isalpha((unsigned char)(c))
+#define isalnumchar(c)   isalnum((unsigned char)(c))
+#define islowerchar(c)   islower((unsigned char)(c))
+#define isupperchar(c)   isupper((unsigned char)(c))
+#define tolowerchar(c)   tolower((unsigned char)(c))
+#define toupperchar(c)   toupper((unsigned char)(c))
+
+static inline int isalphachar_(char c) { return isalphachar(c) || c == '_'; }
+static inline int isalnumchar_(char c) { return isalnumchar(c) || c == '_'; }
+
+extern int strncasecmp(const char *a, const char *b, size_t n);
+
 /*---------------- refcounted string_t ----------------*/
 
 typedef struct string_t {

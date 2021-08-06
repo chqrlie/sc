@@ -143,7 +143,8 @@ __( OP_DVAR,        "DVAR(database, field, criteria)", 3, 3, NULL, NULL) // Retu
 __( OP_DVARP,       "DVARP(database, field, criteria)", 3, 3, NULL, NULL) // Returns the variance of an entire population selected from a database table-like array or range using a SQL-like query
 
 /* 6.10 Date and Time Functions */
-OP( OP_DATE,        "DATE(year, month, day)", 3, 3, eval_date, NULL) // Converts a provided year, month, and day into a date
+__( OP_DATE,        "DATE(year, month, day)", 3, 3, eval_dts, NULL) // Converts a year, month, and day triplet into a date
+XX( OP_DATE,        "DATE(date, [format])", 1, 2, eval_date, NULL) // Converts a date into a formated string
 __( OP_DATEDIF,     "DATEDIF(start_date, end_date, unit)", 3, 3, NULL, NULL) // Calculates the number of days, months, or years between two dates
 __( OP_DATEVALUE,   "DATEVALUE(date_string)", 1, 1, NULL, NULL) // Converts a provided date string in a known format to a date value
 OP( OP_DAY,         "DAY(date)", 1, 1, eval_time, NULL) // Returns the day of the month that a specific date falls on, in numeric format
@@ -295,7 +296,7 @@ __( OP_GETPIVOTDATA, "GETPIVOTDATA(value_name, any_pivot_table_cell, [original_c
 OP( OP_HLOOKUP,     "HLOOKUP(search_key, range, index, [is_sorted])", 3, 3, eval_rangeop, NULL) // Horizontal lookup. Searches across the first row of a range for a key and returns the value of a specified cell in the column found
 OP( OP_INDEX,       "INDEX(reference, [row], [column])", 2, 3, eval_rangeop, NULL) // Returns the content of a cell, specified by row and column offset
 __( OP_INDIRECT,    "INDIRECT(cell_reference_as_string, [is_A1_notation])", 1, 2, NULL, NULL) // Returns a cell reference specified by a string
-OP( OP_LOOKUP,      "LOOKUP(search_key, search_range|search_result_array, [result_range])", 2, 2, eval_rangeop, NULL) // Looks through a row or column for a key and returns the value of the cell in a result range located in the same position as the search row or column
+OP( OP_LOOKUP,      "LOOKUP(search_key, search_range|search_result_array, [result_range])", 2, 3, eval_rangeop, NULL) // Looks through a row or column for a key and returns the value of the cell in a result range located in the same position as the search row or column
 __( OP_MATCH,       "MATCH(search_key, range, [search_type])", 2, 3, NULL, NULL) // Returns the relative position of an item in a range that matches a specified value
 __( OP_MULTIPLE_OPERATIONS, "MULTIPLE.OPERATIONS(formulacell, rowcell, rowreplacement, [columncell, columnreplacement])", 3, 5, NULL, NULL) // Executes a formula expression while substituting a row reference and a column reference.
 __( OP_OFFSET,      "OFFSET(cell_reference, offset_rows, offset_columns, [height], [width])", 3, 5, NULL, NULL) // Returns a range reference shifted a specified number of rows and columns from a starting cell reference

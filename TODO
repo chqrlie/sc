@@ -1,5 +1,9 @@
 # TODO
 
+[ ] remove obsolete APIs for @hlookup, @vlookup, @lookup, @index, @stindex, @col
+[ ] fix API for @date, @row...
+[ ] use left/right for last pair of arguments in expression lists
+[ ] use hash table to match function names
 [ ] fix seg fault when running `./sc tutorial.sc > t`
 [ ] add VF_FULL_ROW and VF_FULL_COL
 [ ] parse num:num and col:col as ranges

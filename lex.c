@@ -206,6 +206,40 @@ static int parse_date(const char *s, const char **endp, double *vp) {
     return 0;
 }
 
+static int lookup_fname(const char *p, int len, int *pop) {
+    const struct opdef *opp = opdefs;
+    const char *fname;
+    int op;
+
+    for (op = 0; op < OP_count; op++, opp++) {
+        if (!(fname = opp->name))
+            continue;
+        if (*fname == '@')
+            fname++;
+        if (!strncasecmp(fname, p, len) && (fname[len] == '\0' || fname[len] == '(')) {
+            *pop = op;
+            if (opp->min == -1)
+                return FUNC0;
+            if (opp->min == 0 && opp->max == 0)
+                return FUNC0;
+            if (opp->min == 0 && opp->max == 1)
+                return FUNC01;
+            if (opp->min == 1 && opp->max == 1)
+                return FUNC1;
+            if (opp->min == 1 && opp->max == 2)
+                return FUNC12;
+            if (opp->min == 2 && opp->max == 2)
+                return FUNC2;
+            if (opp->min == 2 && opp->max == 3)
+                return FUNC23;
+            if (opp->min == 3 && opp->max == 3)
+                return FUNC3;
+            return -1;
+        }
+    }
+    return -1;
+}
+
 #if 1
 static int compare_name(const char *p, int len, const char *str) {
     while (len --> 0) {
@@ -304,10 +338,14 @@ int yylex(void) {
                     break;
                 }
             }
-            if (isfunc) {
+            if (isfunc || *p == '(') {
                 isfunc = 0;
+                if ((ret = lookup_fname(p0, p - p0, &yylval.ival)) >= 0)
+                    break;
                 if ((ret = lookup_name(funcres, countof(funcres), p0, p - p0, &yylval.ival)) >= 0)
                     break;
+                // XXX: should accept unknown function name and create node
+                //      for later re-editing the formula and/or saving it.
                 yylval.ival = ret = '@'; // unknown function name, return single '@'
                 p = p0;
                 break;
