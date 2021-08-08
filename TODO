@@ -1,5 +1,8 @@
 # TODO
 
+[ ] factorize xxx, xxxA, xxxIF, xxxIFS aggregate functions
+[ ] only support simple string expressions for xxxIF functions
+[ ] simplify copye()
 [ ] remove obsolete APIs for @hlookup, @vlookup, @lookup, @index, @stindex, @col
 [ ] fix API for @date, @row...
 [ ] use left/right for last pair of arguments in expression lists

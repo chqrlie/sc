@@ -83,7 +83,7 @@ static SCXMEM string_t *get_strarg(cellref_t cr) {
 %type <fval> num
 %type <rval> range var_or_range
 %type <sval> strarg
-%type <enode> e term expr_list vrnode rnode
+%type <enode> e term expr_list
 %type <ival> noval
 %token <sval> STRING
 %token <ival> NUMBER
@@ -92,7 +92,7 @@ static SCXMEM string_t *get_strarg(cellref_t cr) {
 %token <cval> VAR
 %token <sval> WORD PLUGIN
 %token <ival> COL
-%token <ival> FUNC0 FUNC01 FUNC1 FUNC12 FUNC2 FUNC23 FUNC3
+%token <ival> FUNC0 FUNC01 FUNC1 FUNC12 FUNC13 FUNC1x FUNC2 FUNC23 FUNC3
 
 /* command names (one per line for automatic generation of tokens.h) */
 
@@ -206,17 +206,6 @@ static SCXMEM string_t *get_strarg(cellref_t cr) {
 /* goto keywords */
 %token GO_ERROR
 %token GO_INVALID
-
-/* function names (one per line for automatic generation of tokens.h) */
-%token <ival> F_FIXED
-%token <ival> F_SUM
-%token <ival> F_PROD
-%token <ival> F_AVG
-%token <ival> F_STDDEV
-%token <ival> F_COUNT
-%token <ival> F_MAX
-%token <ival> F_MIN
-%token <ival> F_ERR
 
 /* setting names (one per line for automatic generation of tokens.h) */
 %token K_AUTO
@@ -542,15 +531,8 @@ noval:                                  { $$ = DCP_DEFAULT; }
         | '*'                           { $$ = DCP_NO_EXPR; }
         ;
 
-vrnode:   var_or_range                  { $$ = new_range($1); }
-        ;
-
-rnode:    range                         { $$ = new_range($1); }
-        ;
-
-term:         var                       { $$ = new_var($1); }
-        | F_FIXED term                  { $$ = new_op1(OP_FIXED, $2); }
-        | '(' F_FIXED ')' term          { $$ = new_op1(OP_PFIXED, $4); }
+term:         VAR                       { $$ = new_var($1); }
+        |     RANGE                     { $$ = new_range($1); }
         |     '(' e ')'                 { $$ = $2; }
         |     '+' term                  { $$ = new_op1(OP_UPLUS, $2); }
         |     '-' term                  { $$ = new_op1(OP_UMINUS, $2); }
@@ -558,23 +540,6 @@ term:         var                       { $$ = new_var($1); }
         |     NUMBER                    { $$ = new_const((double)$1); }
         |     FNUMBER                   { $$ = new_const($1); }
         |     STRING                    { $$ = new_str($1); }
-        | F_SUM '(' vrnode ')'          { $$ = new_op1($1, $3); }
-        | F_SUM '(' rnode ',' e ')'     { $$ = new_op2($1, $3, $5); }
-        | F_PROD '(' vrnode ')'         { $$ = new_op1($1, $3); }
-        | F_PROD '(' rnode ',' e ')'    { $$ = new_op2($1, $3, $5); }
-        | F_AVG '(' vrnode ')'          { $$ = new_op1($1, $3); }
-        | F_AVG '(' rnode ',' e ')'     { $$ = new_op2($1, $3, $5); }
-        | F_STDDEV '(' vrnode ')'       { $$ = new_op1($1, $3); }
-        | F_STDDEV '(' rnode ',' e ')'  { $$ = new_op2($1, $3, $5); }
-        | F_COUNT '(' vrnode ')'        { $$ = new_op1($1, $3); }
-        | F_COUNT '(' rnode ',' e ')'   { $$ = new_op2($1, $3, $5); }
-        | F_MAX '(' vrnode ')'          { $$ = new_op1($1, $3); }
-        | F_MAX '(' rnode ',' e ')'     { $$ = new_op2($1, $3, $5); }
-        | F_MAX '(' e ',' expr_list ')' { $$ = new_op2(OP_LMAX, $3, $5); }
-        | F_MIN '(' vrnode ')'          { $$ = new_op1($1, $3); }
-        | F_MIN '(' rnode ',' e ')'     { $$ = new_op2($1, $3, $5); }
-        | F_MIN '(' e ',' expr_list ')' { $$ = new_op2(OP_LMIN, $3, $5); }
-        | F_ERR                         { $$ = new_op0($1); }
         | FUNC0 '(' ')'                 { $$ = new_op0($1); }
         | FUNC0                         { $$ = new_op0($1); }
         | FUNC01 '(' ')'                { $$ = new_op0($1); }
@@ -583,6 +548,11 @@ term:         var                       { $$ = new_var($1); }
         | FUNC1 '(' e ')'               { $$ = new_op1($1, $3); }
         | FUNC12 '(' e ')'              { $$ = new_op1($1, $3); }
         | FUNC12 '(' e ',' e ')'        { $$ = new_op2($1, $3, $5); }
+        | FUNC13 '(' e ')'              { $$ = new_op1($1, $3); }
+        | FUNC13 '(' e ',' e ')'        { $$ = new_op2($1, $3, $5); }
+        | FUNC13 '(' e ',' e ',' e ')'  { $$ = new_op3($1, $3, $5, $7); }
+        | FUNC1x '(' e ')'              { $$ = new_op1($1, $3); }
+        | FUNC1x '(' e ',' expr_list ')' { $$ = new_op2($1, $3, $5); }
         | FUNC2 '(' e ',' e ')'         { $$ = new_op2($1, $3, $5); }
         | FUNC23 '(' e ',' e ')'        { $$ = new_op2($1, $3, $5); }
         | FUNC23 '(' e ',' e ',' e ')'  { $$ = new_op3($1, $3, $5, $7); }

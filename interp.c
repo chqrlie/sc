@@ -42,6 +42,8 @@ static enode_t *free_enodes = NULL;
 
 static SCXMEM enode_t *new_node(int op, SCXMEM enode_t *a1, SCXMEM enode_t *a2);
 extern scvalue_t eval_node(eval_ctx_t *cp, enode_t *e);
+extern scvalue_t eval_node_value(eval_ctx_t *cp, enode_t *e);
+static scvalue_t scvalue_getcell(eval_ctx_t *cp, int row, int col);
 static int RealEvalAll(void);
 static void RealEvalOne(struct ent *p, enode_t *e, int i, int j, int *chgct);
 
@@ -98,8 +100,15 @@ static inline scvalue_t scvalue_string(SCXMEM string_t *str) {
     return res;
 }
 
+static inline scvalue_t scvalue_range(rangeref_t rr) {
+    scvalue_t res;
+    res.type = SC_RANGE;
+    res.u.rr = rr;
+    return res;
+}
+
 static double eval_num(eval_ctx_t *cp, enode_t *e) {
-    scvalue_t res = eval_node(cp, e);
+    scvalue_t res = eval_node_value(cp, e);
     if (res.type == SC_NUMBER || res.type == SC_BOOLEAN)
         return res.u.v;
     if (res.type == SC_STRING) {
@@ -124,7 +133,7 @@ static sclong_t eval_long(eval_ctx_t *cp, enode_t *e) {
 
 static SCXMEM string_t *eval_str(eval_ctx_t *cp, enode_t *e) {
     char buf[32];
-    scvalue_t res = eval_node(cp, e);
+    scvalue_t res = eval_node_value(cp, e);
     if (res.type == SC_STRING)
         return res.u.str;
     if (res.type == SC_NUMBER) {
@@ -228,7 +237,8 @@ static double fin_pmt(double v1, double v2, double v3) {
 
 /*---------------- range lookup functions ----------------*/
 
-static scvalue_t scvalue_getcell(eval_ctx_t *cp, struct ent *p) {
+static scvalue_t scvalue_getcell(eval_ctx_t *cp, int row, int col) {
+    struct ent *p = lookat_nc(row, col);
     if (p) {
         if (p->flags & IS_DELETED)
             return scvalue_error(cp, CELLERROR);
@@ -241,69 +251,88 @@ static scvalue_t scvalue_getcell(eval_ctx_t *cp, struct ent *p) {
         if (p->type == SC_BOOLEAN)
             return scvalue_bool(p->v);
     }
+    if (row < 0 || col < 0)
+        return scvalue_error(cp, CELLERROR);
+
     return scvalue_empty();
 }
 
 static scvalue_t eval_var(eval_ctx_t *cp, enode_t *e) {
     struct ent *vp = e->e.v.vp;
-    if (vp && (cp->rowoffset || cp->coloffset)) {
+    if (vp) {
         int row = (e->e.v.vf & FIX_ROW) ? vp->row : vp->row + cp->rowoffset;
         int col = (e->e.v.vf & FIX_COL) ? vp->col : vp->col + cp->coloffset;
-        // XXX: this is bogus: out of bounds cells should
-        //      evaluate to 0.0 or a cellerror
-        checkbounds(&row, &col);
-        vp = *ATBL(tbl, row, col);
+        if (row >= 0 && col >= 0)
+            return scvalue_range(rangeref(row, col, row, col));
     }
-    return scvalue_getcell(cp, vp);
+    return scvalue_error(cp, CELLERROR);
 }
 
-static scvalue_t doindex(eval_ctx_t *cp, int minr, int minc, int maxr, int maxc, enode_t *val) {
-    int r, c;
+static scvalue_t eval_range(eval_ctx_t *cp, enode_t *e) {
+    struct ent *v1 = e->e.r.left.vp;
+    struct ent *v2 = e->e.r.right.vp;
+    if (v1 && v2) {
+        int minr = (e->e.r.left.vf & FIX_ROW) ? v1->row : v1->row + cp->rowoffset;
+        int minc = (e->e.r.left.vf & FIX_COL) ? v1->col : v1->col + cp->coloffset;
+        int maxr = (e->e.r.right.vf & FIX_ROW) ? v2->row : v2->row + cp->rowoffset;
+        int maxc = (e->e.r.right.vf & FIX_COL) ? v2->col : v2->col + cp->coloffset;
+        if (minr > maxr) SWAPINT(minr, maxr);
+        if (minc > maxc) SWAPINT(minc, maxc);
+        if (minr >= 0 && minc >= 0)
+            return scvalue_range(rangeref(minr, minc, maxr, maxc));
+    }
+    return scvalue_error(cp, CELLERROR);
+}
 
-    if (val->op == OP_COMMA) {               /* index by both row and column */
-        r = minr + (int)eval_num(cp, val->e.o.left) - 1;
-        c = minc + (int)eval_num(cp, val->e.o.right) - 1;
-    } else if (minr == maxr) {          /* look along the row */
-        r = minr;
-        c = minc + (int)eval_num(cp, val) - 1;
-    } else if (minc == maxc) {          /* look down the column */
-        r = minr + (int)eval_num(cp, val) - 1;
-        c = minc;
-    } else {
-        error("Improper indexing operation");
-        return scvalue_empty();
+static scvalue_t eval_index(eval_ctx_t *cp, enode_t *e) {
+    scvalue_t res = eval_node(cp, e->e.o.left);
+    enode_t *args = e->e.o.right;
+    int r = 0, c = 0;
+
+    if (res.type != SC_RANGE)
+        return scvalue_error(cp, CELLERROR);
+
+    if (args) {
+        if (args->op == OP_COMMA) {     /* index by both row and column */
+            r = (int)eval_num(cp, args->e.o.left);
+            c = (int)eval_num(cp, args->e.o.right);
+        } else if (res.u.rr.right.row == res.u.rr.left.row) {
+            /* single row: argument is column index */
+            c = (int)eval_num(cp, args);
+        } else {
+            r = (int)eval_num(cp, args);
+        }
     }
-    if (c >= minc && c <= maxc && r >= minr && r <= maxr) {
-        struct ent *p = *ATBL(tbl, r, c);
-        return scvalue_getcell(cp, p);
-    }
-    return scvalue_empty();
+    if (c < 0 || c > res.u.rr.right.col - res.u.rr.left.col + 1
+    ||  r < 0 || r > res.u.rr.right.row - res.u.rr.left.row + 1)
+        return scvalue_error(cp, CELLERROR);
+    if (c > 0)
+        res.u.rr.right.col = res.u.rr.left.col += c - 1;
+    if (r > 0)
+        res.u.rr.right.row = res.u.rr.left.row += r - 1;
+    return res;
 }
 
 static scvalue_t dolookup(eval_ctx_t *cp, enode_t *val, int minr, int minc,
                           int maxr, int maxc, int offset, int vflag)
 {
-    scvalue_t a = eval_node(cp, val);
+    scvalue_t a = eval_node_value(cp, val);
     int r, c;
     struct ent *p = NULL;
-    struct ent *vp = NULL;
     int incr, incc, fndr, fndc;
 
     // XXX: lookup algorithm is incorrect: should implement polymorphic comparison
     //      should use binary search
     incr = vflag;
     incc = 1 - vflag;
+    fndr = -1;
+    fndc = -1;
     if (a.type == SC_NUMBER) {
         for (r = minr, c = minc; r <= maxr && c <= maxc; r += incr, c += incc) {
             if ((p = *ATBL(tbl, r, c)) && p->type == SC_NUMBER) {
                 if (p->v <= a.u.v) {
                     fndr = incc ? (minr + offset) : r;
                     fndc = incr ? (minc + offset) : c;
-                    if (ISVALID(fndr, fndc)) {
-                        vp = *ATBL(tbl, fndr, fndc);
-                    } else {
-                        vp = NULL;
-                    }
                 } else
                     break;
             }
@@ -311,30 +340,29 @@ static scvalue_t dolookup(eval_ctx_t *cp, enode_t *val, int minr, int minc,
     } else
     if (a.type == SC_STRING) {
         const char *str = s2str(a.u.str);
-
+        // XXX: incorrect API: should implement binary lookup?
         for (r = minr, c = minc; r <= maxr && c <= maxc; r += incr, c += incc) {
             if ((p = *ATBL(tbl, r, c)) && p->type == SC_STRING) {
                 if (strcmp(s2str(p->label), str) == 0) {
                     fndr = incc ? (minr + offset) : r;
                     fndc = incr ? (minc + offset) : c;
-                    if (ISVALID(fndr, fndc)) {
-                        vp = *ATBL(tbl, fndr, fndc);
-                    } else {
-                        vp = NULL;
-                    }
                     break;
                 }
             }
         }
         free_string(a.u.str);
     }
-    return scvalue_getcell(cp, vp);
+    if (fndr >= 0) {
+        // XXX: should we return a reference?
+        return scvalue_getcell(cp, fndr, fndc);
+    }
+    return scvalue_empty();
 }
 
 /*---------------- aggregate functions ----------------*/
 
 static int eval_test(eval_ctx_t *cp, enode_t *e) {
-    scvalue_t a = eval_node(cp, e);
+    scvalue_t a = eval_node_value(cp, e);
     if (a.type == SC_NUMBER || a.type == SC_BOOLEAN)
         return a.u.v != 0;
     if (a.type == SC_STRING) {
@@ -343,18 +371,6 @@ static int eval_test(eval_ctx_t *cp, enode_t *e) {
         return res;
     }
     return 0;
-}
-
-static scvalue_t eval_offset(eval_ctx_t *cp, enode_t *e, int roffset, int coffset) {
-    int save_rowoffset = cp->rowoffset;
-    int save_coloffset = cp->coloffset;
-    scvalue_t res;
-    cp->rowoffset = roffset;
-    cp->coloffset = coffset;
-    res = eval_node(cp, e);
-    cp->rowoffset = save_rowoffset;
-    cp->coloffset = save_coloffset;
-    return res;
 }
 
 static int eval_test_offset(eval_ctx_t *cp, enode_t *e, int roffset, int coffset) {
@@ -410,24 +426,6 @@ static scvalue_t dosum(eval_ctx_t *cp, int minr, int minc, int maxr, int maxc, e
     return scvalue_number(v);
 }
 
-static scvalue_t doprod(eval_ctx_t *cp, int minr, int minc, int maxr, int maxc, enode_t *e) {
-    double v;
-    int r, c;
-    struct ent *p;
-
-    v = 1.0;
-    for (r = minr; r <= maxr; r++) {
-        for (c = minc; c <= maxc; c++) {
-            if (e && !eval_test_offset(cp, e, r - minr, c - minc))
-                continue;
-            if ((p = *ATBL(tbl, r, c)) && p->type == SC_NUMBER) {
-                v *= p->v;
-            }
-        }
-    }
-    return scvalue_number(v);
-}
-
 static scvalue_t doavg(eval_ctx_t *cp, int minr, int minc, int maxr, int maxc, enode_t *e) {
     double v;
     int r, c;
@@ -446,41 +444,7 @@ static scvalue_t doavg(eval_ctx_t *cp, int minr, int minc, int maxr, int maxc, e
             }
         }
     }
-
-    if (count == 0)
-        return scvalue_number(0.0);
-    else
-        return scvalue_number(v / (double)count);
-}
-
-static scvalue_t dostddev(eval_ctx_t *cp, int minr, int minc, int maxr, int maxc, enode_t *e) {
-    double res, lp, rp, v, nd;
-    int r, c;
-    int count;
-    struct ent *p;
-
-    res = 0.0;
-    lp = 0.0;
-    rp = 0.0;
-    count = 0;
-    for (r = minr; r <= maxr; r++) {
-        for (c = minc; c <= maxc; c++) {
-            if (e && !eval_test_offset(cp, e, r - minr, c - minc))
-                continue;
-            if ((p = *ATBL(tbl, r, c)) && p->type == SC_NUMBER) {
-                v = p->v;
-                lp += v * v;
-                rp += v;
-                count++;
-            }
-        }
-    }
-
-    if (count > 1) {
-        nd = (double)count;
-        res = sqrt((nd * lp - rp * rp) / (nd * (nd - 1)));
-    }
-    return scvalue_number(res);
+    return scvalue_number(count ? v / count : 0.0);
 }
 
 static scvalue_t domax(eval_ctx_t *cp, int minr, int minc, int maxr, int maxc, enode_t *e) {
@@ -562,17 +526,13 @@ static scvalue_t eval_rangeop(eval_ctx_t *cp, enode_t *e) {
     if (minr > maxr) SWAPINT(minr, maxr);
     if (minc > maxc) SWAPINT(minc, maxc);
     switch (e->op) {
-    case OP_SUM:    return dosum(cp, minr, minc, maxr, maxc, arg1);
-    case OP_PROD:   return doprod(cp, minr, minc, maxr, maxc, arg1);
-    case OP_AVG:    return doavg(cp, minr, minc, maxr, maxc, arg1);
-    case OP_COUNT:  return docount(cp, minr, minc, maxr, maxc, arg1);
-    case OP_STDDEV: return dostddev(cp, minr, minc, maxr, maxc, arg1);
-    case OP_MAX:    return domax(cp, minr, minc, maxr, maxc, arg1);
-    case OP_MIN:    return domin(cp, minr, minc, maxr, maxc, arg1);
+    case OP_SUMIF:  return dosum(cp, minr, minc, maxr, maxc, arg1);
+    case OP_AVERAGEIF: return doavg(cp, minr, minc, maxr, maxc, arg1);
+    case OP_COUNTIF:  return docount(cp, minr, minc, maxr, maxc, arg1);
+    case OP_MAXIF:  return domax(cp, minr, minc, maxr, maxc, arg1);
+    case OP_MINIF:  return domin(cp, minr, minc, maxr, maxc, arg1);
     case OP_ROWS:   return scvalue_number(maxr - minr + 1);
     case OP_COLS:   return scvalue_number(maxc - minc + 1);
-    case OP_STINDEX:
-    case OP_INDEX: return doindex(cp, minr, minc, maxr, maxc, right);
     case OP_LOOKUP: return dolookup(cp, arg1, minr, minc, maxr, maxc, 1, minc == maxc);
     case OP_HLOOKUP: return dolookup(cp, arg1, minr, minc, maxr, maxc, (int)eval_num(cp, arg2), 0);
     case OP_VLOOKUP: return dolookup(cp, arg1, minr, minc, maxr, maxc, (int)eval_num(cp, arg2), 1);
@@ -656,7 +616,7 @@ static scvalue_t eval_time(eval_ctx_t *cp, enode_t *e) {
 }
 
 static scvalue_t eval_ston(eval_ctx_t *cp, enode_t *e) {
-    scvalue_t a = eval_node(cp, e->e.o.left);
+    scvalue_t a = eval_node_value(cp, e->e.o.left);
     double v = 0;
     char *end;
 
@@ -705,26 +665,18 @@ static double doeqs(SCXMEM string_t *s1, SCXMEM string_t *s2) {
  * Use only the integer part of the column number.  Always free the string.
  */
 
-static struct ent *getent(eval_ctx_t *cp, SCXMEM string_t *colstr, double rowdoub) {
-    int collen;             /* length of column name */
-    int row, col;           /* integer values */
-    struct ent *p = NULL;   /* selected entry */
+static scvalue_t eval_getent(eval_ctx_t *cp, enode_t *e) {
+    SCXMEM string_t *colstr = eval_str(cp, e->e.o.left);
+    double rowdoub = eval_num(cp, e->e.o.right);
+    int row = (int)floor(rowdoub);
+    int col = atocol(s2str(colstr), NULL);
 
-    if (((row = (int)floor(rowdoub)) >= 0)
-    &&  colstr
-    &&  ((col = atocol(s2c(colstr), &collen)) >= 0)   /* has column */
-    &&  (s2c(colstr)[collen] == '\0'))      /* exact match */
-    {
-        if (row < maxrows && col < maxcols) { /* in range */
-            p = *ATBL(tbl, row, col);
-            if (p && p->cellerror)
-                cp->cellerror = CELLINVALID;
-        }
-    } else {
-        cp->cellerror = CELLERROR;
-    }
     free_string(colstr);
-    return p;
+    // XXX: should return a reference?
+    if (row >= 0 && col >= 0)
+        return scvalue_getcell(cp, row, col);
+    else
+        return scvalue_error(cp, CELLERROR);
 }
 
 /*
@@ -733,10 +685,8 @@ static struct ent *getent(eval_ctx_t *cp, SCXMEM string_t *colstr, double rowdou
  */
 
 static scvalue_t eval_nval(eval_ctx_t *cp, enode_t *e) {
-    SCXMEM string_t *colstr = eval_str(cp, e->e.o.left);
-    double rowdoub = eval_num(cp, e->e.o.right);
-    struct ent *p = getent(cp, colstr, rowdoub);
-    scvalue_t res = scvalue_getcell(cp, p);
+    // XXX: should return an SC_RANGE and use eval_make_number()
+    scvalue_t res = eval_getent(cp, e);
     if (res.type == SC_NUMBER)
         return res;
     if (res.type == SC_BOOLEAN)
@@ -755,17 +705,28 @@ static scvalue_t eval_nval(eval_ctx_t *cp, enode_t *e) {
 }
 
 /*
- * The list routines (e.g. dolmax) are called with an LMAX enode.
- * The left pointer is a value, the right pointer is a chain of OP_COMMA nodes
+ * The list routines (e.g. eval_max) are called with a list of expressions.
+ * The left pointer is an expression, the right pointer is a chain of OP_COMMA nodes
  */
-static scvalue_t eval_lmax(eval_ctx_t *cp, enode_t *ep) {
-    // XXX: should handle ranges in list
-    int count = 0;
-    double maxval = 0.0;
+static scvalue_t eval_max(eval_ctx_t *cp, enode_t *ep) {
     enode_t *e;
+    double maxval = 0.0;
+    int count = 0;
 
     for (e = ep; e; e = e->e.o.right) {
         scvalue_t res = eval_node(cp, e->e.o.left);
+        if (res.type == SC_RANGE) {
+            int r, c;
+            struct ent *p;
+            for (r = res.u.rr.left.row; r <= res.u.rr.right.row; r++) {
+                for (c = res.u.rr.left.col; c <= res.u.rr.right.col; c++) {
+                    if ((p = *ATBL(tbl, r, c)) && p->type == SC_NUMBER) {
+                        if (!count++ || p->v > maxval)
+                            maxval = p->v;
+                    }
+                }
+            }
+        } else
         if (res.type == SC_NUMBER) {
             if (!count++ || res.u.v > maxval)
                 maxval = res.u.v;
@@ -776,14 +737,25 @@ static scvalue_t eval_lmax(eval_ctx_t *cp, enode_t *ep) {
     return scvalue_number(maxval);
 }
 
-static scvalue_t eval_lmin(eval_ctx_t *cp, enode_t *ep) {
-    // XXX: should handle ranges in list
-    int count = 0;
-    double minval = 0.0;
+static scvalue_t eval_min(eval_ctx_t *cp, enode_t *ep) {
     enode_t *e;
+    double minval = 0.0;
+    int count = 0;
 
     for (e = ep; e; e = e->e.o.right) {
         scvalue_t res = eval_node(cp, e->e.o.left);
+        if (res.type == SC_RANGE) {
+            int r, c;
+            struct ent *p;
+            for (r = res.u.rr.left.row; r <= res.u.rr.right.row; r++) {
+                for (c = res.u.rr.left.col; c <= res.u.rr.right.col; c++) {
+                    if ((p = *ATBL(tbl, r, c)) && p->type == SC_NUMBER) {
+                        if (!count++ || p->v < minval)
+                            minval = p->v;
+                    }
+                }
+            }
+        } else
         if (res.type == SC_NUMBER) {
             if (!count++ || res.u.v < minval)
                 minval = res.u.v;
@@ -792,6 +764,150 @@ static scvalue_t eval_lmin(eval_ctx_t *cp, enode_t *ep) {
         }
     }
     return scvalue_number(minval);
+}
+
+static scvalue_t eval_count(eval_ctx_t *cp, enode_t *ep) {
+    enode_t *e;
+    int count = 0;
+
+    for (e = ep; e; e = e->e.o.right) {
+        scvalue_t res = eval_node(cp, e->e.o.left);
+        if (res.type == SC_RANGE) {
+            int r, c;
+            struct ent *p;
+            for (r = res.u.rr.left.row; r <= res.u.rr.right.row; r++) {
+                for (c = res.u.rr.left.col; c <= res.u.rr.right.col; c++) {
+                    if ((p = *ATBL(tbl, r, c)) && p->type == SC_NUMBER)
+                        count++;
+                }
+            }
+        } else
+        if (res.type == SC_NUMBER) {
+            count++;
+        } else {
+            scvalue_free(res);
+        }
+    }
+    return scvalue_number(count);
+}
+
+static scvalue_t eval_sum(eval_ctx_t *cp, enode_t *ep) {
+    double sum = 0.0;
+    enode_t *e;
+
+    for (e = ep; e; e = e->e.o.right) {
+        scvalue_t res = eval_node(cp, e->e.o.left);
+        if (res.type == SC_RANGE) {
+            int r, c;
+            struct ent *p;
+            for (r = res.u.rr.left.row; r <= res.u.rr.right.row; r++) {
+                for (c = res.u.rr.left.col; c <= res.u.rr.right.col; c++) {
+                    if ((p = *ATBL(tbl, r, c)) && p->type == SC_NUMBER)
+                        sum += p->v;
+                }
+            }
+        } else
+        if (res.type == SC_NUMBER) {
+            sum += res.u.v;
+        } else {
+            scvalue_free(res);
+        }
+    }
+    return scvalue_number(sum);
+}
+
+static scvalue_t eval_average(eval_ctx_t *cp, enode_t *ep) {
+    enode_t *e;
+    double v = 0.0;
+    int count = 0;
+
+    for (e = ep; e; e = e->e.o.right) {
+        scvalue_t res = eval_node(cp, e->e.o.left);
+        if (res.type == SC_RANGE) {
+            int r, c;
+            struct ent *p;
+            for (r = res.u.rr.left.row; r <= res.u.rr.right.row; r++) {
+                for (c = res.u.rr.left.col; c <= res.u.rr.right.col; c++) {
+                    if ((p = *ATBL(tbl, r, c)) && p->type == SC_NUMBER) {
+                        v += p->v;
+                        count++;
+                    }
+                }
+            }
+        } else
+        if (res.type == SC_NUMBER) {
+            v += res.u.v;
+            count++;
+        } else {
+            scvalue_free(res);
+        }
+    }
+    return scvalue_number(count ? v / count : v);
+}
+
+static scvalue_t eval_product(eval_ctx_t *cp, enode_t *ep) {
+    double v = 1.0;
+    enode_t *e;
+
+    for (e = ep; e; e = e->e.o.right) {
+        scvalue_t res = eval_node(cp, e->e.o.left);
+        if (res.type == SC_RANGE) {
+            int r, c;
+            struct ent *p;
+            for (r = res.u.rr.left.row; r <= res.u.rr.right.row; r++) {
+                for (c = res.u.rr.left.col; c <= res.u.rr.right.col; c++) {
+                    if ((p = *ATBL(tbl, r, c)) && p->type == SC_NUMBER)
+                        v *= p->v;
+                }
+            }
+        } else
+        if (res.type == SC_NUMBER) {
+            v *= res.u.v;
+        } else {
+            scvalue_free(res);
+        }
+    }
+    return scvalue_number(v);
+}
+
+static scvalue_t eval_stdev(eval_ctx_t *cp, enode_t *ep) {
+    enode_t *e;
+    double lp, rp, v, nd;
+    int count;
+
+    lp = 0.0;
+    rp = 0.0;
+    count = 0;
+    for (e = ep; e; e = e->e.o.right) {
+        scvalue_t res = eval_node(cp, e->e.o.left);
+        if (res.type == SC_RANGE) {
+            int r, c;
+            struct ent *p;
+            for (r = res.u.rr.left.row; r <= res.u.rr.right.row; r++) {
+                for (c = res.u.rr.left.col; c <= res.u.rr.right.col; c++) {
+                    if ((p = *ATBL(tbl, r, c)) && p->type == SC_NUMBER) {
+                        v = p->v;
+                        lp += v * v;
+                        rp += v;
+                        count++;
+                    }
+                }
+            }
+        } else
+        if (res.type == SC_NUMBER) {
+            v = res.u.v;
+            lp += res.u.v * res.u.v;
+            rp += res.u.v;
+            count++;
+        } else {
+            scvalue_free(res);
+        }
+    }
+    if (count > 1) {
+        nd = (double)count;
+        rp = sqrt((nd * lp - rp * rp) / (nd * (nd - 1)));
+    }
+    return scvalue_number(rp);
 }
 
 static sigret_t eval_fpe(int i) { /* Trap for FPE errors in eval */
@@ -1110,10 +1226,8 @@ static scvalue_t eval_ext(eval_ctx_t *cp, enode_t *se) {
 
 static scvalue_t eval_sval(eval_ctx_t *cp, enode_t *e) {
     char buf[32];
-    SCXMEM string_t *colstr = eval_str(cp, e->e.o.left);
-    double rowdoub = eval_num(cp, e->e.o.right);
-    struct ent *p = getent(cp, colstr, rowdoub);
-    scvalue_t res = scvalue_getcell(cp, p);
+    // XXX: should return an SC_RANGE and use eval_make_string()
+    scvalue_t res = eval_getent(cp, e);
     if (res.type == SC_STRING)
         return res;
     if (res.type == SC_BOOLEAN)
@@ -1216,11 +1330,11 @@ static scvalue_t eval_not(eval_ctx_t *cp, enode_t *e) {
 }
 
 static scvalue_t eval_and(eval_ctx_t *cp, enode_t *e) {
-    return eval_test(cp, e->e.o.left) ? eval_node(cp, e->e.o.right) : scvalue_bool(0);
+    return eval_test(cp, e->e.o.left) ? eval_node_value(cp, e->e.o.right) : scvalue_bool(0);
 }
 
 static scvalue_t eval_or(eval_ctx_t *cp, enode_t *e) {
-    scvalue_t a = eval_node(cp, e->e.o.left);
+    scvalue_t a = eval_node_value(cp, e->e.o.left);
     if (a.type == SC_NUMBER || a.type == SC_BOOLEAN) {
         if (a.u.v != 0)
             return a;
@@ -1230,7 +1344,7 @@ static scvalue_t eval_or(eval_ctx_t *cp, enode_t *e) {
             return a;
         free_string(a.u.str);
     }
-    return eval_node(cp, e->e.o.right);
+    return eval_node_value(cp, e->e.o.right);
 }
 
 static scvalue_t eval_if(eval_ctx_t *cp, enode_t *e) {
@@ -1244,8 +1358,8 @@ static int is_relative(int op) {
 
 static scvalue_t eval_cmp(eval_ctx_t *cp, enode_t *e) {
     int op = e->op;
-    scvalue_t a = eval_node(cp, e->e.o.left);
-    scvalue_t b = eval_node(cp, e->e.o.right);
+    scvalue_t a = eval_node_value(cp, e->e.o.left);
+    scvalue_t b = eval_node_value(cp, e->e.o.right);
     int cmp = 0;
     // XXX: mixed types should compare in this order:
     //  number < string < logical < error < empty
@@ -1324,9 +1438,7 @@ static scvalue_t eval_other(eval_ctx_t *cp, enode_t *e) {
     case OP_MAGENTA:    val = COLOR_MAGENTA;    break;
     case OP_CYAN:       val = COLOR_CYAN;       break;
     case OP_WHITE:      val = COLOR_WHITE;      break;
-    case OP_UPLUS:      return eval_node(cp, e->e.o.left);
-    case OP_FIXED:      return eval_offset(cp, e->e.o.left, 0, 0);
-    case OP_PFIXED:     return eval_node(cp, e->e.o.left);
+    case OP_UPLUS:      return eval_node_value(cp, e->e.o.left);
     default:            error("Illegal expression");
                         exprerr = 1;
                         FALLTHROUGH;
@@ -1359,9 +1471,25 @@ scvalue_t eval_node(eval_ctx_t *cp, enode_t *e) {
 
 /*---------------- typed evaluators ----------------*/
 
+scvalue_t eval_node_value(eval_ctx_t *cp, enode_t *e) {
+    scvalue_t res = eval_node(cp, e);
+    if (res.type == SC_RANGE) {
+        /* reduce dimensions by intersecting with cell row and column */
+        int row = res.u.rr.left.row;
+        int col = res.u.rr.left.col;
+        if ((row == res.u.rr.right.row || ((row = cp->gmyrow) >= res.u.rr.left.row && row <= res.u.rr.right.row))
+        &&  (col == res.u.rr.right.col || ((col = cp->gmycol) >= res.u.rr.left.col && row <= res.u.rr.right.col))) {
+            return scvalue_getcell(cp, row, col);
+        }
+        return scvalue_error(cp, CELLERROR);
+    } else {
+        return res;
+    }
+}
+
 scvalue_t eval_at(enode_t *e, int row, int col) {
     eval_ctx_t cp[1] = {{ row, col, 0, 0, 0 }};
-    return eval_node(cp, e);
+    return eval_node_value(cp, e);
 }
 
 double neval_at(enode_t *e, int row, int col) {
@@ -1468,7 +1596,7 @@ static void RealEvalOne(struct ent *p, enode_t *e, int row, int col, int *chgct)
         error("Floating point exception at %s", v_name(row, col));
         res = scvalue_error(cp, CELLERROR);
     } else {
-        res = eval_node(cp, e);
+        res = eval_node_value(cp, e);
     }
     if ((res.type == SC_STRING && !res.u.str)
     ||  (res.type == SC_NUMBER && !isfinite(res.u.v))) {
@@ -1697,7 +1825,7 @@ enode_t *copye(enode_t *e, int Rdelta, int Cdelta,
         ret->e.v.vp = lookat(newrow, newcol);
         ret->e.v.vf = vf;
     } else
-    if (e->type == OP_TYPE_VAR) {
+    if (e->type == OP_TYPE_DOUBLE) {
         ret->type = OP_TYPE_DOUBLE;
         ret->e.k = e->e.k;
     } else
@@ -1705,30 +1833,6 @@ enode_t *copye(enode_t *e, int Rdelta, int Cdelta,
         ret->type = OP_TYPE_STRING;
         ret->e.s = dup_string(e->e.s);
     } else {
-        switch (ret->op) {
-        case OP_SUM:
-        case OP_PROD:
-        case OP_AVG:
-        case OP_COUNT:
-        case OP_STDDEV:
-        case OP_MAX:
-        case OP_MIN:
-            // XXX: this hack is for SUM.IF and similar
-            range = e->e.o.left;
-            r1 = 0;
-            c1 = 0;
-            r2 = maxrow;
-            c2 = maxcol;
-            break;
-        case OP_FIXED:
-            if (!range)
-                Rdelta = Cdelta = 0;
-            break;
-        case OP_PFIXED:
-            if (range)
-                Rdelta = Cdelta = 0;
-            break;
-        }
         if ((e->e.o.left && !(ret->e.o.left = copye(e->e.o.left, Rdelta, Cdelta,
                                                     r1, c1, r2, c2, transpose, range)))
         ||  (e->e.o.right && !(ret->e.o.right = copye(e->e.o.right, Rdelta, Cdelta,
@@ -2001,8 +2105,6 @@ static void decompile_node(decomp_t *dcp, enode_t *e, int priority) {
     case OP_SCONST:     out_sconst(dcp, s2c(e->e.s));   break;
     case OP_VAR:        out_var(dcp, e->e.v, 1);        break;
     case OP_RANGEARG:   out_range(dcp, e);              break;
-    case OP_FIXED:
-    case OP_PFIXED:
     case OP_UMINUS:
     case OP_UPLUS:
     case OP_BANG:       out_unary(dcp, opp->name, e); break;

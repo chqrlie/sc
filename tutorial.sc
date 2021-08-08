@@ -93,6 +93,9 @@ leftstring B19 = "You can go directly to a cell by typing 'g' and the cell name.
 leftstring B20 = "'g c6' will take you to cell c6."
 leftstring H20 = @ext("pwd",0)
 leftstring A21 = "Cells can contain numbers, formulas, or text."
+let I21 = @sum(I9:I14)
+let J21 = @sum(J9:J14)
+let K21 = @sum(K9:K14)
 leftstring A22 = "Most of the cells on this page contain text."
 leftstring C23 = "<Type 'g page2' to continue>"
 leftstring A25 = "Cell d22 contains text"
@@ -114,7 +117,7 @@ let G27 = @sum(D27:F27)
 let D28 = @sum(D26:D27)
 let E28 = @sum(E26:E27)
 let F28 = @sum(F26:F27)
-let G28 = @sum(G26:G27)=@sum(D28:F28)?1:0
+let G28 = @sum(G26:G27)=@sum(D28:F28)
 let H28 = @max(1,2,3,4,5,A1)
 leftstring A29 = "To see what the cell contains, just move the cursor"
 leftstring A30 = "onto the cell.  The contents will show up on line 1 in the brackets."

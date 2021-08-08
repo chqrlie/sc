@@ -135,6 +135,7 @@ static int parse_cellref(const char *p, cellref_t *cp, int *lenp) {
     *cp = cellref1(row, col, vf);
     if (lenp)
         *lenp = i;
+    // XXX: should reject if isalnumchar_(p[i]) ?
     return 1;
 }
 
@@ -228,6 +229,10 @@ static int lookup_fname(const char *p, int len, int *pop) {
                 return FUNC1;
             if (opp->min == 1 && opp->max == 2)
                 return FUNC12;
+            if (opp->min == 1 && opp->max == 3)
+                return FUNC12;
+            if (opp->min == 1 && opp->max == -1)
+                return FUNC1x;
             if (opp->min == 2 && opp->max == 2)
                 return FUNC2;
             if (opp->min == 2 && opp->max == 3)
@@ -342,8 +347,10 @@ int yylex(void) {
                 isfunc = 0;
                 if ((ret = lookup_fname(p0, p - p0, &yylval.ival)) >= 0)
                     break;
+#if 0
                 if ((ret = lookup_name(funcres, countof(funcres), p0, p - p0, &yylval.ival)) >= 0)
                     break;
+#endif
                 // XXX: should accept unknown function name and create node
                 //      for later re-editing the formula and/or saving it.
                 yylval.ival = ret = '@'; // unknown function name, return single '@'
@@ -351,8 +358,17 @@ int yylex(void) {
                 break;
             }
             if (parse_cellref(p0, &yylval.cval, &len) && len == p - p0) {
-                ret = VAR;
-                break;
+                cellref_t c2;
+                if (*p == ':' && parse_cellref(p + 1, &c2, &len) && !isalnumchar_(p[len+1])) {
+                    yylval.rval.left = yylval.cval;
+                    yylval.rval.right = c2;
+                    p += 1 + len;
+                    ret = RANGE;
+                    break;
+                } else {
+                    ret = VAR;
+                    break;
+                }
             }
             if (colstate && (yylval.ival = atocol(p0, &len)) >= 0 && len == p - p0) {
                 ret = COL;
@@ -463,10 +479,12 @@ int yylex(void) {
                     ret = FNUMBER;
                     yylval.fval = strtod(nstart, &endp);
                     p = endp;
-                    if (!isfinite(yylval.fval))
-                        ret = F_ERR;
-                    else
+                    if (!isfinite(yylval.fval)) {
+                        yylval.ival = OP_ERR;
+                        ret = FUNC0;
+                    } else {
                         sc_decimal = TRUE;
+                    }
                 } else {
                     temp = (int)v;
                     if ((double)temp == v) {
@@ -556,7 +574,7 @@ int plugin_exists(const char *name, int len, char *path, size_t size) {
  * Given a token string starting with a symbolic column name and its valid
  * length, convert column name ("A"-"Z" or "AA"-"ZZ") to a column number (0-N).
  * Never mind if the column number is illegal (too high).  The procedure's name
- * and function are the inverse of coltoa().
+ * and function are the inverse of coltoa(). Pass NULL lenp for exact match.
  */
 
 int atocol(const char *s, int *lenp) {
@@ -567,9 +585,14 @@ int atocol(const char *s, int *lenp) {
 
     // XXX: use more than 2 letters?
     col = toupperchar(s[i++]) - 'A';
-    if (isalphachar(s[i]))
+    if (isalphachar(s[i])) {
         col = (col + 1) * 26 + (toupperchar(s[i++]) - 'A');
-    if (lenp)
+    }
+    if (lenp) {
         *lenp = i;
+    } else {
+        if (s[i] != '\0')
+            col = -1;
+    }
     return col;
 }

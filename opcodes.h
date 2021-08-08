@@ -22,11 +22,9 @@ OP( OP_DUMMY,       NULL, -2, 2, NULL, NULL)
 OP( OP_CONST,       NULL, -2, 2, eval_const, NULL)
 OP( OP_SCONST,      NULL, -2, 2, eval_sconst, NULL)
 OP( OP_VAR,         NULL, -2, 2, eval_var, NULL)
-OP( OP_RANGEARG,    NULL, -2, 1, NULL, NULL)
+OP( OP_RANGEARG,    NULL, -2, 1, eval_range, NULL)
 
 /* unary operators */
-XX( OP_FIXED,       "@fixed ", -3, 2, NULL, NULL)
-XX( OP_PFIXED,      "(@fixed)", -3, 2, NULL, NULL)
 OP( OP_UMINUS,      "-", -3, 2, eval_neg, NULL)
 OP( OP_UPLUS,       "+", -3, 2, NULL, NULL)
 XX( OP_BANG,        "!", -3, 2, eval_not, NULL)
@@ -242,10 +240,10 @@ __( OP_AREAS,       "AREAS(reference list)", 1, 1, NULL, NULL) // Returns the nu
 __( OP_CELL,        "CELL(info_type, [reference])", 1, 2, NULL, NULL) // Returns the requested information about the specified cell
 __( OP_COLUMN,      "COLUMN([cell_reference])", 0, 1, NULL, NULL) // Returns the column number of a specified cell, with `A=1`
 __( OP_COLUMNS,     "COLUMNS(range)", 1, 1, NULL, NULL) // Returns the number of columns in a specified array or range
-OP( OP_COUNT,       "COUNT(value1, [value2, ...])", 1, -1, eval_rangeop, NULL) // Returns a count of the number of numeric values in a dataset
+OP( OP_COUNT,       "COUNT(value1, [value2, ...])", 1, -1, eval_count, NULL) // Returns a count of the number of numeric values in a dataset
 __( OP_COUNTA,      "COUNTA(value1, [value2, ...])", 1, -1, NULL, NULL) // Returns a count of the number of values in a dataset
 __( OP_COUNTBLANK,  "COUNTBLANK(range)", 1, 1, NULL, NULL) // Returns the number of empty cells in a given range
-__( OP_COUNTIF,     "COUNTIF(range, criterion)", 2, 2, NULL, NULL) // Returns a conditional count across a range
+OP( OP_COUNTIF,     "COUNTIF(range, criterion)", 2, 2, eval_rangeop, NULL) // Returns a conditional count across a range
 __( OP_COUNTIFS,    "COUNTIFS(criteria_range1, criterion1, [criteria_range2, criterion2, ...])", 2, -1, NULL, NULL) // Returns the count of a range depending on multiple criteria
 LO( OP_COUNTUNIQUE, "COUNTUNIQUE(value1, [value2, ...])", 1, -1, NULL, NULL) // Counts the number of unique values in a list of specified values and ranges
 __( OP_ERROR_TYPE,  "ERROR.TYPE(reference)", 1, 1, NULL, NULL) // Returns a number corresponding to the error value in a different cell
@@ -294,7 +292,7 @@ __( OP_ADDRESS,     "ADDRESS(row, column, [absolute_relative_mode], [use_a1_nota
 __( OP_CHOOSE,      "CHOOSE(index, choice1, [choice2, ...])", 2, -1, NULL, NULL) // Returns an element from a list of choices based on index
 __( OP_GETPIVOTDATA, "GETPIVOTDATA(value_name, any_pivot_table_cell, [original_column, ...], [pivot_item, ...])", 2, -1, NULL, NULL) // Extracts an aggregated value from a pivot table that corresponds to the specified row and column headings
 OP( OP_HLOOKUP,     "HLOOKUP(search_key, range, index, [is_sorted])", 3, 3, eval_rangeop, NULL) // Horizontal lookup. Searches across the first row of a range for a key and returns the value of a specified cell in the column found
-OP( OP_INDEX,       "INDEX(reference, [row], [column])", 2, 3, eval_rangeop, NULL) // Returns the content of a cell, specified by row and column offset
+OP( OP_INDEX,       "INDEX(reference, [row], [column])", 1, 3, eval_index, NULL) // Returns the content of a cell, specified by row and column offset
 __( OP_INDIRECT,    "INDIRECT(cell_reference_as_string, [is_A1_notation])", 1, 2, NULL, NULL) // Returns a cell reference specified by a string
 OP( OP_LOOKUP,      "LOOKUP(search_key, search_range|search_result_array, [result_range])", 2, 3, eval_rangeop, NULL) // Looks through a row or column for a key and returns the value of the cell in a result range located in the same position as the search row or column
 __( OP_MATCH,       "MATCH(search_key, range, [search_type])", 2, 3, NULL, NULL) // Returns the relative position of an item in a range that matches a specified value
@@ -302,7 +300,7 @@ __( OP_MULTIPLE_OPERATIONS, "MULTIPLE.OPERATIONS(formulacell, rowcell, rowreplac
 __( OP_OFFSET,      "OFFSET(cell_reference, offset_rows, offset_columns, [height], [width])", 3, 5, NULL, NULL) // Returns a range reference shifted a specified number of rows and columns from a starting cell reference
 OP( OP_VLOOKUP,     "VLOOKUP(search_key, range, index, [is_sorted])", 3, 3, eval_rangeop, NULL) // Vertical lookup. Searches down the first column of a range for a key and returns the value of a specified cell in the row found
 
-XX( OP_STINDEX,     "@stindex", 2, 3, eval_rangeop, NULL)
+XX( OP_STINDEX,     "@stindex", 1, 3, eval_index, NULL) // Obsolete string version of INDEX(ref,row,column)
 
 /* 6.15 Logical Functions */
 __( OP_AND,         "AND(logical_expression1, [logical_expression2, ...])", 1, -1, NULL, NULL) // Returns true if all of the provided arguments are logically true, and false if any of the provided arguments are logically false
@@ -368,7 +366,7 @@ __( OP_MULTINOMIAL, "MULTINOMIAL(value1, [value2...])", 1, -1, NULL, NULL) // Re
 __( OP_ODD,         "ODD(value)", 1, 1, NULL, NULL) // Rounds a number up to the nearest odd integer
 OP( OP_PI,          "PI()", -1, 0, eval_pi, NULL) // Returns the value of Pi to 14 decimal places
 __( OP_POWER,       "POWER(base, exponent)", 2, 2, NULL, NULL) // Returns a number raised to a power
-__( OP_PRODUCT,     "PRODUCT(factor1, [factor2, ...])", 1, -1, NULL, NULL) // Returns the result of multiplying a series of numbers together
+OP( OP_PRODUCT,     "PRODUCT(factor1, [factor2, ...])", 1, -1, eval_product, NULL) // Returns the result of multiplying a series of numbers together
 __( OP_QUOTIENT,    "QUOTIENT(dividend, divisor)", 2, 2, NULL, NULL) // Returns one number divided by another
 __( OP_RADIANS,     "RADIANS(angle)", 1, 1, NULL, NULL) // Converts an angle value in degrees to radians
 OP( OP_RAND,        "RAND()", 0, 0, eval_rand, NULL) // Returns a random number between 0 inclusive and 1 exclusive
@@ -382,8 +380,8 @@ __( OP_SINH,        "SINH(value)", 1, 1, NULL, NULL) // Returns the hyperbolic s
 OP( OP_SQRT,        "SQRT(value)", 1, 1, eval_fn1, sqrt) // Returns the positive square root of a positive number
 __( OP_SQRTPI,      "SQRTPI(value)", 1, 1, NULL, NULL) // Returns the positive square root of the product of Pi and the given positive number
 __( OP_SUBTOTAL,    "SUBTOTAL(function_code, range1, [range2, ...])", 2, -1, NULL, NULL) // Returns a subtotal for a vertical range of cells using a specified aggregation function
-OP( OP_SUM,         "SUM(value1, [value2, ...])", 1, -1, eval_rangeop, NULL) // Returns the sum of a series of numbers and/or cells
-__( OP_SUMIF,       "SUMIF(range, criterion, [sum_range])", 2, 3, NULL, NULL) // Returns a conditional sum across a range
+OP( OP_SUM,         "SUM(value1, [value2, ...])", 1, -1, eval_sum, NULL) // Returns the sum of a series of numbers and/or cells
+OP( OP_SUMIF,       "SUMIF(range, criterion, [sum_range])", 2, 3, eval_rangeop, NULL) // Returns a conditional sum across a range
 __( OP_SUMIFS,      "SUMIFS(sum_range, criteria_range1, criterion1, [criteria_range2, criterion2, ...])", 3, -1, NULL, NULL) // Returns the sum of a range depending on multiple criteria
 __( OP_SUMPRODUCT,  "SUMPRODUCT(arrays)", 1, -1, NULL, NULL) // Returns the sum of the products of the matrix elements.
 __( OP_SUMSQ,       "SUMSQ(value1, [value2, ...])", 1, -1, NULL, NULL) // Returns the sum of the squares of a series of numbers and/or cells
@@ -398,7 +396,6 @@ XX( OP_HYPOT,       "@hypot", 2, 2, eval_fn2, hypot)
 XX( OP_DTR,         "@dtr", 1, 1, eval_fn1, dtr)
 XX( OP_RTD,         "@rtd", 1, 1, eval_fn1, rtd)
 XX( OP_POW,         "@pow", 2, 2, eval_fn2, pow)
-XX( OP_PROD,        "@prod", 1, -1, eval_rangeop, NULL)
 
 /* 6.17 Rounding Functions */
 __( OP_CEILING,     "CEILING(value, [factor], [mode])", 1, 3, NULL, NULL) // Rounds a number up to the nearest integer multiple of specified significance
@@ -419,10 +416,10 @@ XX( OP_RND,         "@rnd", 1, 1, eval_fn1, dornd)
 
 /* 6.18 Statistical Functions */
 __( OP_AVEDEV,      "AVEDEV(value1, [value2, ...])", 1, -1, NULL, NULL) // Calculates the average of the magnitudes of deviations of data from a dataset's mean
-__( OP_AVERAGE,     "AVERAGE(value1, [value2, ...])", 1, -1, NULL, NULL) // Returns the numerical average value in a dataset, ignoring text
+OP( OP_AVERAGE,     "AVERAGE(value1, [value2, ...])", 1, -1, eval_average, NULL) // Returns the numerical average value in a dataset, ignoring text
 __( OP_AVERAGE_WEIGHTED, "AVERAGE.WEIGHTED(values, weights, [additional values], [additional weights])", 1, 1, NULL, NULL) // Finds the weighted average of a set of values, given the values and the corresponding weights.
 __( OP_AVERAGEA,    "AVERAGEA(value1, [value2, ...])", 1, -1, NULL, NULL) // Returns the numerical average value in a dataset
-__( OP_AVERAGEIF,   "AVERAGEIF(criteria_range, criterion, [average_range])", 2, 3, NULL, NULL) // Returns the average of a range depending on criteria
+OP( OP_AVERAGEIF,   "AVERAGEIF(criteria_range, criterion, [average_range])", 2, 3, eval_rangeop, NULL) // Returns the average of a range depending on criteria
 __( OP_AVERAGEIFS,  "AVERAGEIFS(average_range, criteria_range1, criterion1, [criteria_range2, criterion2, ...])", 3, -1, NULL, NULL) // Returns the average of a range depending on multiple criteria
 __( OP_BETA_DIST,   "BETA.DIST(value, alpha, beta, cumulative, lower_bound, upper_bound)", 1, 1, NULL, NULL) // Returns the probability of a given value as defined by the beta distribution function.
 __( OP_BETA_INV,    "BETA.INV(probability, alpha, beta, lower_bound, upper_bound)", 1, 1, NULL, NULL) // Returns the value of the inverse beta distribution function for a given probability.
@@ -443,8 +440,6 @@ __( OP_CONFIDENCE,  "CONFIDENCE(alpha, standard_deviation, pop_size)", 1, 1, NUL
 __( OP_CONFIDENCE_NORM, "CONFIDENCE.NORM(alpha, standard_deviation, pop_size)", 1, 1, NULL, NULL) // Calculates the width of half the confidence interval for a normal distribution.
 __( OP_CONFIDENCE_T, "CONFIDENCE.T(alpha, standard_deviation, size)", 1, 1, NULL, NULL) // Calculates the width of half the confidence interval for a Students t-distribution.
 __( OP_CORREL,      "CORREL(data_y, data_x)", 1, 1, NULL, NULL) // Calculates r, the Pearson product-moment correlation coefficient of a dataset
-__( OP_COUNT,       "COUNT(value1, [value2, ...])", 1, 1, NULL, NULL) // Returns a count of the number of numeric values in a dataset
-__( OP_COUNTA,      "COUNTA(value1, [value2, ...])", 1, 1, NULL, NULL) // Returns a count of the number of values in a dataset
 __( OP_COVAR,       "COVAR(data_y, data_x)", 1, 1, NULL, NULL) // Calculates the covariance of a dataset
 __( OP_COVARIANCE_P, "COVARIANCE.P(data_y, data_x)", 1, 1, NULL, NULL) // See COVAR
 __( OP_COVARIANCE_S, "COVARIANCE.S(data_y, data_x)", 1, 1, NULL, NULL) // Calculates the covariance of a dataset, where the dataset is a sample of the total population.
@@ -480,12 +475,14 @@ __( OP_LOGINV,      "LOGINV(x, mean, standard_deviation)", 1, 1, NULL, NULL) // 
 __( OP_LOGNORM_DIST, "LOGNORM.DIST(x, mean, standard_deviation)", 1, 1, NULL, NULL) // See LOGNORMDIST
 __( OP_LOGNORM_INV, "LOGNORM.INV(x, mean, standard_deviation)", 1, 1, NULL, NULL) // See LOGINV
 __( OP_LOGNORMDIST, "LOGNORMDIST(x, mean, standard_deviation)", 1, 1, NULL, NULL) // Returns the value of the log-normal cumulative distribution with given mean and standard deviation at a specified value
-OP( OP_MAX,         "MAX(value1, [value2, ...])", 1, -1, eval_rangeop, NULL) // Returns the maximum value in a numeric dataset
+OP( OP_MAX,         "MAX(value1, [value2, ...])", 1, -1, eval_max, NULL) // Returns the maximum value in a numeric dataset
 __( OP_MAXA,        "MAXA(value1, value2)", 2, 2, NULL, NULL) // Returns the maximum numeric value in a dataset
+XX( OP_MAXIF,       "MAXIF(range, criteria_range1)", 2, 2, eval_rangeop, NULL) // Returns the maximum value in a numeric dataset
 __( OP_MAXIFS,      "MAXIFS(range, criteria_range1, criterion1, [criteria_range2, criterion2], ¦)", 1, 1, NULL, NULL) // Returns the maximum value in a range of cells, filtered by a set of criteria.
 __( OP_MEDIAN,      "MEDIAN(value1, [value2, ...])", 1, -1, NULL, NULL) // Returns the median value in a numeric dataset
-OP( OP_MIN,         "MIN(value1, [value2, ...])", 1, -1, eval_rangeop, NULL) // Returns the minimum value in a numeric dataset
+OP( OP_MIN,         "MIN(value1, [value2, ...])", 1, -1, eval_min, NULL) // Returns the minimum value in a numeric dataset
 __( OP_MINA,        "MINA(value1, value2)", 2, 2, NULL, NULL) // Returns the minimum numeric value in a dataset
+XX( OP_MINIF,       "MINIF(range, criteria_range1)", 2, 2, eval_rangeop, NULL) // Returns the maximum value in a numeric dataset
 __( OP_MINIFS,      "MINIFS(range, criteria_range1, criterion1, [criteria_range2, criterion2], ¦)", 1, 1, NULL, NULL) // Returns the minimum value in a range of cells, filtered by a set of criteria.
 __( OP_MODE,        "MODE(value1, [value2, ...])", 1, -1, NULL, NULL) // Returns the most commonly occurring value in a dataset
 __( OP_MODE_MULT,   "MODE.MULT(value1, value2)", 1, 1, NULL, NULL) // Returns the most commonly occurring values in a dataset.
@@ -525,7 +522,7 @@ __( OP_SKEW_P,      "SKEW.P(value1, value2)", 1, 1, NULL, NULL) // Calculates th
 __( OP_SLOPE,       "SLOPE(data_y, data_x)", 1, 1, NULL, NULL) // Calculates the slope of the line resulting from linear regression of a dataset
 __( OP_SMALL,       "SMALL(data, n)", 2, 2, NULL, NULL) // Returns the nth smallest element from a data set, where n is user-defined
 __( OP_STANDARDIZE, "STANDARDIZE(value, mean, standard_deviation)", 1, 1, NULL, NULL) // Calculates the normalized equivalent of a random variable given mean and standard deviation of the distribution
-__( OP_STDEV,       "STDEV(value1, [value2, ...])", 1, -1, NULL, NULL) // Calculates the standard deviation based on a sample
+OP( OP_STDEV,       "STDEV(value1, [value2, ...])", 1, -1, eval_stdev, NULL) // Calculates the standard deviation based on a sample
 __( OP_STDEV_P,     "STDEV.P(value1, [value2, ...])", 1, -1, NULL, NULL) // See STDEVP
 __( OP_STDEV_S,     "STDEV.S(value1, [value2, ...])", 1, -1, NULL, NULL) // See STDEV
 __( OP_STDEVA,      "STDEVA(value1, value2)", 2, 2, NULL, NULL) // Calculates the standard deviation based on a sample, setting text to the value `0`
@@ -553,10 +550,7 @@ __( OP_WEIBULL_DIST, "WEIBULL.DIST(x, shape, scale, cumulative)", 4, 4, NULL, NU
 __( OP_Z_TEST,      "Z.TEST(data, value, [standard_deviation])", 2, 3, NULL, NULL) // Returns the one-tailed P-value of a Z-test with standard distribution.
 __( OP_ZTEST,       "ZTEST(data, value, [standard_deviation])", 2, 3, NULL, NULL) // See Z.TEST.
 
-XX( OP_AVG,         "@avg", 1, -1, eval_rangeop, NULL)
-XX( OP_LMAX,        "@max", 1, -1, eval_lmax, NULL)
-XX( OP_LMIN,        "@min", 1, -1, eval_lmin, NULL)
-XX( OP_STDDEV,      "@stddev", 1, -1, eval_rangeop, NULL)
+XX( OP_AVG,         "AVG(value1, [value2, ...])", 1, -1, eval_average, NULL) // Equivalent to AVERAGE()
 
 /* 6.19 Number Representation Conversion Functions */
 __( OP_TO_DATE,     "TO_DATE(value)", 1, 1, NULL, NULL) // Converts a provided number to a date
