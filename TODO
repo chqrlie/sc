@@ -1,17 +1,17 @@
 # TODO
 
-[ ] factorize xxx, xxxA, xxxIF, xxxIFS aggregate functions
+[ ] fix operator priorities
+[ ] fix postfix percent operator
+[ ] remove | and & operators, use & for string concatenation
+[ ] change OP_TYPE_NODES nodes to array of arguments
+[ ] factorize xxxIFS aggregate functions
 [ ] only support simple string expressions for xxxIF functions
-[ ] simplify copye()
-[ ] remove obsolete APIs for @hlookup, @vlookup, @lookup, @index, @stindex, @col
 [ ] fix API for @date, @row...
 [ ] use left/right for last pair of arguments in expression lists
 [ ] use hash table to match function names
 [ ] fix seg fault when running `./sc tutorial.sc > t`
 [ ] add VF_FULL_ROW and VF_FULL_COL
 [ ] parse num:num and col:col as ranges
-[ ] merge rnode and term
-[ ] simplify grammar rules
 [ ] fix error propagation scheme
 [/] group functions by theme
 [ ] use infix operators from OASIS spec
@@ -108,3 +108,8 @@
 [X] STOP THIS NUMERIC/STRING confusing bullshit!
 [X] cell value must be either a number or a string, with an optional expression
 [X] special case some sc_string_t like the empty string?
+[X] simplify copye()
+[X] factorize xxx, xxxA, xxxIF aggregate functions
+[X] remove obsolete APIs for @hlookup, @vlookup, @lookup, @index, @stindex, @col
+[X] merge rnode and term
+[X] simplify grammar rules

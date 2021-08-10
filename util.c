@@ -353,7 +353,7 @@ char *get_extension(const char *filename) {
 
 /*---------------- simple case handling ----------------*/
 
-int strncasecmp(const char *a, const char *b, size_t n) {
+int sc_strncasecmp(const char *a, const char *b, size_t n) {
     int aa = 0, bb = 0;
     while (n --> 0) {
         aa = tolowerchar(*a++);

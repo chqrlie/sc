@@ -56,9 +56,6 @@ static sigret_t eval_fpe(int);
 #define M_PI (double)3.14159265358979323846
 #endif
 
-static double dtr(double x) { return x * (M_PI / 180.0); }
-static double rtd(double x) { return x * (180.0 / M_PI); }
-
 /*---------------- utility functions ----------------*/
 
 static inline void scvalue_free(scvalue_t v) {
@@ -147,6 +144,23 @@ static SCXMEM string_t *eval_str(eval_ctx_t *cp, enode_t *e) {
 
     cp->cellerror = CELLERROR;
     return NULL;
+}
+
+static scvalue_t eval_colon(eval_ctx_t *cp, enode_t *e) {
+    scvalue_t a = eval_node(cp, e->e.o.left);
+    scvalue_t b = eval_node(cp, e->e.o.right);
+    if (a.type == SC_RANGE && b.type == SC_RANGE) {
+        if (a.u.rr.left.col > b.u.rr.left.col)
+            a.u.rr.left.col = b.u.rr.left.col;
+        if (a.u.rr.left.row > b.u.rr.left.row)
+            a.u.rr.left.row = b.u.rr.left.row;
+        if (a.u.rr.right.col < b.u.rr.right.col)
+            a.u.rr.right.col = b.u.rr.right.col;
+        if (a.u.rr.right.row < b.u.rr.right.row)
+            a.u.rr.right.row = b.u.rr.right.row;
+        return a;
+    }
+    return scvalue_error(cp, CELLERROR);
 }
 
 static scvalue_t eval_add(eval_ctx_t *cp, enode_t *e) {
@@ -257,7 +271,7 @@ static scvalue_t scvalue_getcell(eval_ctx_t *cp, int row, int col) {
     return scvalue_empty();
 }
 
-static scvalue_t eval_var(eval_ctx_t *cp, enode_t *e) {
+static scvalue_t eval_vararg(eval_ctx_t *cp, enode_t *e) {
     struct ent *vp = e->e.v.vp;
     if (vp) {
         int row = (e->e.v.vf & FIX_ROW) ? vp->row : vp->row + cp->rowoffset;
@@ -313,50 +327,75 @@ static scvalue_t eval_index(eval_ctx_t *cp, enode_t *e) {
     return res;
 }
 
-static scvalue_t dolookup(eval_ctx_t *cp, enode_t *val, int minr, int minc,
-                          int maxr, int maxc, int offset, int vflag)
-{
-    scvalue_t a = eval_node_value(cp, val);
-    int r, c;
-    struct ent *p = NULL;
-    int incr, incc, fndr, fndc;
+static scvalue_t eval_lookup(eval_ctx_t *cp, enode_t *e) {
+    scvalue_t a;
+    scvalue_t rr = eval_node_value(cp, e->e.o.right->op == OP_COMMA ?
+                                    e->e.o.right->e.o.left : e->e.o.right);
+    scvalue_t dest;
+    int r, c, incc = 0, incr = 0, dr = 0, dc = 0, offset, found = -1;
 
-    // XXX: lookup algorithm is incorrect: should implement polymorphic comparison
-    //      should use binary search
-    incr = vflag;
-    incc = 1 - vflag;
-    fndr = -1;
-    fndc = -1;
-    if (a.type == SC_NUMBER) {
-        for (r = minr, c = minc; r <= maxr && c <= maxc; r += incr, c += incc) {
-            if ((p = *ATBL(tbl, r, c)) && p->type == SC_NUMBER) {
-                if (p->v <= a.u.v) {
-                    fndr = incc ? (minr + offset) : r;
-                    fndc = incr ? (minc + offset) : c;
-                } else
-                    break;
+    if (rr.type != SC_RANGE || a.type == SC_ERROR) {
+        scvalue_free(rr);
+        return scvalue_error(cp, CELLERROR);
+    }
+
+    if (e->op == OP_LOOKUP) {
+        if (rr.u.rr.right.row - rr.u.rr.left.row >= rr.u.rr.right.col - rr.u.rr.left.col) {
+            incr = 1;
+            offset = rr.u.rr.right.col - rr.u.rr.left.col;
+        } else {
+            incc = 1;
+            offset = rr.u.rr.right.row - rr.u.rr.left.row;
+        }
+        if (e->e.o.right->op == OP_COMMA) {
+            offset = 0;
+            dest = eval_node(cp, e->e.o.right->e.o.right);
+            if (dest.type != SC_RANGE
+            ||  ((dr = dest.u.rr.right.row == dest.u.rr.left.row) != 0 &&
+                 (dc = dest.u.rr.right.col == dest.u.rr.left.col) != 0)) {
+                scvalue_free(dest);
+                return scvalue_error(cp, CELLERROR);
             }
         }
-    } else
-    if (a.type == SC_STRING) {
-        const char *str = s2str(a.u.str);
-        // XXX: incorrect API: should implement binary lookup?
-        for (r = minr, c = minc; r <= maxr && c <= maxc; r += incr, c += incc) {
-            if ((p = *ATBL(tbl, r, c)) && p->type == SC_STRING) {
-                if (strcmp(s2str(p->label), str) == 0) {
-                    fndr = incc ? (minr + offset) : r;
-                    fndc = incr ? (minc + offset) : c;
-                    break;
-                }
+    } else {
+        offset = (int)eval_num(cp, (e->e.o.right->e.o.right->op == OP_COMMA ?
+                                    e->e.o.right->e.o.right->e.o.left :
+                                    e->e.o.right->e.o.right)) - 1;
+        if (e->op == OP_VLOOKUP) {
+            dr = incr = 1;
+        } else {
+            dc = incc = 1;
+        }
+        dest = rr;
+    }
+
+    a = eval_node_value(cp, e->e.o.left);
+    // XXX: should implement binary search unless 4th argument is provided and false
+    for (r = rr.u.rr.left.row, c = rr.u.rr.left.col; r <= rr.u.rr.right.row && c <= rr.u.rr.right.col; r += incr, c += incc) {
+        struct ent *p = *ATBL(tbl, r, c);
+        if (!p)
+            continue;
+        if (p->type == SC_NUMBER) {
+            if (a.type == SC_NUMBER) {
+                if (p->v > a.u.v) break;
+                found = (r - dest.u.rr.left.row) + (c - dest.u.rr.left.col);
+            }
+        } else
+        if (p->type == SC_STRING) {
+            if (a.type == SC_STRING) {
+                int cmp = strcmp(s2str(p->label), s2str(a.u.str));
+                if (cmp > 0) break;
+                found = (r - dest.u.rr.left.row) + (c - dest.u.rr.left.col);
             }
         }
-        free_string(a.u.str);
     }
-    if (fndr >= 0) {
-        // XXX: should we return a reference?
-        return scvalue_getcell(cp, fndr, fndc);
+    scvalue_free(a);
+    if (found >= 0) {
+        r = dest.u.rr.left.row + (dr ? found : offset);
+        c = dest.u.rr.left.col + (dc ? found : offset);
+        return scvalue_range(rangeref(r, c, r, c));
     }
-    return scvalue_empty();
+    return scvalue_error(cp, CELLERROR);    // ERROR_NA
 }
 
 /*---------------- aggregate functions ----------------*/
@@ -385,159 +424,246 @@ static int eval_test_offset(eval_ctx_t *cp, enode_t *e, int roffset, int coffset
     return res;
 }
 
-static scvalue_t docount(eval_ctx_t *cp, int minr, int minc, int maxr, int maxc, enode_t *e) {
-    int r, c;
+static scvalue_t eval_rows_cols(eval_ctx_t *cp, enode_t *e) {
+    scvalue_t res = eval_node(cp, e->e.o.left);
+    if (res.type == SC_RANGE) {
+        return scvalue_number((e->op == OP_ROWS ?
+                               res.u.rr.right.row - res.u.rr.left.row :
+                               res.u.rr.right.col - res.u.rr.left.col));
+    } else {
+        return scvalue_number(0);
+    }
+}
+
+struct agregatedata_t {
     int count;
-    struct ent *p;
+    double v, v2;
+};
 
-    /* Semantics: Counts the numbers in the list N. Only numbers in references
-       are counted; all other types are ignored. Errors are not propagated.
-       It is implementation-defined what happens if 0 parameters are passed,
-       but it should be an Error or 0.
-     */
-    count = 0;
-    for (r = minr; r <= maxr; r++) {
-        for (c = minc; c <= maxc; c++) {
-            if (e && !eval_test_offset(cp, e, r - minr, c - minc))
-                continue;
-            if ((p = *ATBL(tbl, r, c)) && p->type == SC_NUMBER) {
-                count++;
-            }
-        }
-    }
-    return scvalue_number(count);
+static void aggregate_count(struct agregatedata_t *sp, double v) {
+    sp->count++;
+}
+static void aggregate_max(struct agregatedata_t *sp, double v) {
+    if (!sp->count++ || sp->v > v) sp->v = v;
+}
+static void aggregate_min(struct agregatedata_t *sp, double v) {
+    if (!sp->count++ || sp->v < v) sp->v = v;
+}
+static void aggregate_product(struct agregatedata_t *sp, double v) {
+    sp->v *= v;
+    sp->count++;
+}
+static void aggregate_sum(struct agregatedata_t *sp, double v) {
+    sp->v += v;
+    sp->count++;
+}
+static void aggregate_sum2(struct agregatedata_t *sp, double v) {
+    sp->v += v;
+    sp->v2 += v * v;
+    sp->count++;
 }
 
-static scvalue_t dosum(eval_ctx_t *cp, int minr, int minc, int maxr, int maxc, enode_t *e) {
-    double v;
+static scvalue_t aggregate_average_ret(eval_ctx_t *cp, struct agregatedata_t *ap) {
+    return scvalue_number(ap->count ? ap->v / ap->count : ap->v);
+}
+
+static scvalue_t aggregate_count_ret(eval_ctx_t *cp, struct agregatedata_t *ap) {
+    return scvalue_number(ap->count);
+}
+
+static scvalue_t aggregate_v_ret(eval_ctx_t *cp, struct agregatedata_t *ap) {
+    return scvalue_number(ap->v);
+}
+
+static scvalue_t aggregate_v2_ret(eval_ctx_t *cp, struct agregatedata_t *ap) {
+    return scvalue_number(ap->v2);
+}
+
+static scvalue_t aggregate_stdev_ret(eval_ctx_t *cp, struct agregatedata_t *ap) {
+    double rp = 0.0;
+    if (ap->count > 1) {
+        double nd = (double)ap->count;
+        rp = sqrt((nd * ap->v2 - ap->v * ap->v) / (nd * (nd - 1)));
+    }
+    return scvalue_number(rp);
+}
+
+static scvalue_t aggregate_stdevp_ret(eval_ctx_t *cp, struct agregatedata_t *ap) {
+    double rp = 0.0;
+    if (ap->count > 0) {
+        double nd = (double)ap->count;
+        rp = sqrt((nd * ap->v2 - ap->v * ap->v) / (nd * nd));
+    }
+    return scvalue_number(rp);
+}
+
+static scvalue_t aggregate_var_ret(eval_ctx_t *cp, struct agregatedata_t *ap) {
+    double rp = 0.0;
+    if (ap->count > 1) {
+        double nd = (double)ap->count;
+        rp = (nd * ap->v2 - ap->v * ap->v) / (nd * (nd - 1));
+    }
+    return scvalue_number(rp);
+}
+
+static scvalue_t aggregate_varp_ret(eval_ctx_t *cp, struct agregatedata_t *ap) {
+    double rp = 0.0;
+    if (ap->count > 0) {
+        double nd = (double)ap->count;
+        rp = (nd * ap->v2 - ap->v * ap->v) / (nd * nd);
+    }
+    return scvalue_number(rp);
+}
+
+/*
+ * The list routines (e.g. eval_max) are called with a list of expressions.
+ * The left pointer is an expression, the right pointer is a chain of OP_COMMA nodes
+ */
+static scvalue_t eval_aggregate(eval_ctx_t *cp, enode_t *ep,
+                                void (*fun)(struct agregatedata_t *sp, double v),
+                                scvalue_t (*retfun)(eval_ctx_t *cp, struct agregatedata_t *sp),
+                                struct agregatedata_t *ap,
+                                int allvalues)
+{
+    enode_t *e;
+
+    for (e = ep; e; e = e->e.o.right) {
+        scvalue_t res = eval_node(cp, e->e.o.left);
+        switch (res.type) {
+        case SC_RANGE: {
+                int r, c;
+                struct ent *p;
+                for (r = res.u.rr.left.row; r <= res.u.rr.right.row; r++) {
+                    for (c = res.u.rr.left.col; c <= res.u.rr.right.col; c++) {
+                        if ((p = *ATBL(tbl, r, c))) {
+                            switch (p->type) {
+                            case SC_NUMBER:  fun(ap, p->v); break;
+                            case SC_BOOLEAN: if (allvalues) fun(ap, p->v); break;
+                            case SC_ERROR:
+                            case SC_STRING:  if (allvalues) fun(ap, 0); break;
+                            }
+                        }
+                    }
+                }
+                break;
+            }
+        case SC_NUMBER:     fun(ap, res.u.v); break;
+        case SC_BOOLEAN:    if (allvalues) fun(ap, res.u.v); break;
+        case SC_ERROR:
+        case SC_STRING:     if (allvalues) fun(ap, 0);
+                            scvalue_free(res);
+                            break;
+        }
+    }
+    return retfun(cp, ap);
+}
+
+static scvalue_t eval_aggregateif(eval_ctx_t *cp, enode_t *ep,
+                                  void (*fun)(struct agregatedata_t *sp, double v),
+                                  scvalue_t (*retfun)(eval_ctx_t *cp, struct agregatedata_t *sp),
+                                  struct agregatedata_t *ap,
+                                  int allvalues)
+{
+    scvalue_t res = eval_node(cp, ep->e.o.left);
+    enode_t *test = ep->e.o.left;
     int r, c;
     struct ent *p;
 
-    v = 0.0;
-    for (r = minr; r <= maxr; r++) {
-        for (c = minc; c <= maxc; c++) {
-            if (e && !eval_test_offset(cp, e, r - minr, c - minc))
+    if (res.type != SC_RANGE) {
+        scvalue_free(res);
+        return scvalue_error(cp, CELLERROR);
+    }
+    // XXX: should implement simple comparisons as a string
+    for (r = res.u.rr.left.row; r <= res.u.rr.right.row; r++) {
+        for (c = res.u.rr.left.col; c <= res.u.rr.right.col; c++) {
+            if (test && !eval_test_offset(cp, test, r - res.u.rr.left.row, c - res.u.rr.left.col))
                 continue;
             if ((p = *ATBL(tbl, r, c)) && p->type == SC_NUMBER) {
-                v += p->v;
+                fun(ap, p->v);
             }
         }
     }
-    return scvalue_number(v);
+    return retfun(cp, ap);
 }
 
-static scvalue_t doavg(eval_ctx_t *cp, int minr, int minc, int maxr, int maxc, enode_t *e) {
-    double v;
-    int r, c;
-    int count;
-    struct ent *p;
-
-    v = 0.0;
-    count = 0;
-    for (r = minr; r <= maxr; r++) {
-        for (c = minc; c <= maxc; c++) {
-            if (e && !eval_test_offset(cp, e, r - minr, c - minc))
-                continue;
-            if ((p = *ATBL(tbl, r, c)) && p->type == SC_NUMBER) {
-                v += p->v;
-                count++;
-            }
-        }
-    }
-    return scvalue_number(count ? v / count : 0.0);
+static scvalue_t eval_average(eval_ctx_t *cp, enode_t *ep) {
+    struct agregatedata_t pack = { 0, 0, 0 };
+    return eval_aggregate(cp, ep, aggregate_sum, aggregate_average_ret, &pack, ep->op == OP_AVERAGEA);
 }
 
-static scvalue_t domax(eval_ctx_t *cp, int minr, int minc, int maxr, int maxc, enode_t *e) {
-    double v;
-    int r, c;
-    int count;
-    struct ent *p;
-
-    v = 0.0;
-    count = 0;
-    for (r = minr; r <= maxr; r++) {
-        for (c = minc; c <= maxc; c++) {
-            if (e && !eval_test_offset(cp, e, r - minr, c - minc))
-                continue;
-            if ((p = *ATBL(tbl, r, c)) && p->type == SC_NUMBER) {
-                if (!count++) {
-                    v = p->v;
-                } else
-                if (p->v > v)
-                    v = p->v;
-            }
-        }
-    }
-    return scvalue_number(v);
+static scvalue_t eval_count(eval_ctx_t *cp, enode_t *ep) {
+    struct agregatedata_t pack = { 0, 0, 0 };
+    return eval_aggregate(cp, ep, aggregate_count, aggregate_count_ret, &pack, ep->op == OP_COUNTA);
 }
 
-static scvalue_t domin(eval_ctx_t *cp, int minr, int minc, int maxr, int maxc, enode_t *e) {
-    double v;
-    int r, c;
-    int count;
-    struct ent *p;
-
-    v = 0.0;
-    count = 0;
-    for (r = minr; r <= maxr; r++) {
-        for (c = minc; c <= maxc; c++) {
-            if (e && !eval_test_offset(cp, e, r - minr, c - minc))
-                continue;
-            if ((p = *ATBL(tbl, r, c)) && p->type == SC_NUMBER) {
-                if (!count++) {
-                    v = p->v;
-                } else
-                if (p->v < v)
-                    v = p->v;
-            }
-        }
-    }
-    return scvalue_number(v);
+static scvalue_t eval_max(eval_ctx_t *cp, enode_t *ep) {
+    struct agregatedata_t pack = { 0, 0, 0 };
+    return eval_aggregate(cp, ep, aggregate_max, aggregate_v_ret, &pack, ep->op == OP_MAXA);
 }
 
-static scvalue_t eval_rangeop(eval_ctx_t *cp, enode_t *e) {
-    // XXX: this 2 argument API is not general enough
-    // XXX: use generic evaluator for these
-    int minr, minc, maxr, maxc;
-    enode_t *left = e->e.o.left;
-    enode_t *right = e->e.o.right;
-    enode_t *range_arg = left;
-    enode_t *arg1 = right;
-    enode_t *arg2 = NULL;
-    // XXX: this argument matching mess is obsolete,
-    //      should use separate evaluators.
-    if (right && right->op == OP_COMMA) {
-        arg1 = right->e.o.left;
-        arg2 = right->e.o.right;
-    }
-    /* reorder arguments if necessary */
-    if (!range_arg || range_arg->op != OP_RANGEARG) {
-        if (arg1 && arg1->op == OP_RANGEARG) {
-            range_arg = arg1;
-            arg1 = left;
-        } else {
-            return scvalue_error(cp, CELLERROR);
-        }
-    }
-    minr = range_arg->e.r.left.vp->row;
-    minc = range_arg->e.r.left.vp->col;
-    maxr = range_arg->e.r.right.vp->row;
-    maxc = range_arg->e.r.right.vp->col;
-    if (minr > maxr) SWAPINT(minr, maxr);
-    if (minc > maxc) SWAPINT(minc, maxc);
-    switch (e->op) {
-    case OP_SUMIF:  return dosum(cp, minr, minc, maxr, maxc, arg1);
-    case OP_AVERAGEIF: return doavg(cp, minr, minc, maxr, maxc, arg1);
-    case OP_COUNTIF:  return docount(cp, minr, minc, maxr, maxc, arg1);
-    case OP_MAXIF:  return domax(cp, minr, minc, maxr, maxc, arg1);
-    case OP_MINIF:  return domin(cp, minr, minc, maxr, maxc, arg1);
-    case OP_ROWS:   return scvalue_number(maxr - minr + 1);
-    case OP_COLS:   return scvalue_number(maxc - minc + 1);
-    case OP_LOOKUP: return dolookup(cp, arg1, minr, minc, maxr, maxc, 1, minc == maxc);
-    case OP_HLOOKUP: return dolookup(cp, arg1, minr, minc, maxr, maxc, (int)eval_num(cp, arg2), 0);
-    case OP_VLOOKUP: return dolookup(cp, arg1, minr, minc, maxr, maxc, (int)eval_num(cp, arg2), 1);
-    }
-    return scvalue_error(cp, CELLERROR);
+static scvalue_t eval_min(eval_ctx_t *cp, enode_t *ep) {
+    struct agregatedata_t pack = { 0, 0, 0 };
+    return eval_aggregate(cp, ep, aggregate_min, aggregate_v_ret, &pack, ep->op == OP_MINA);
+}
+
+static scvalue_t eval_product(eval_ctx_t *cp, enode_t *ep) {
+    struct agregatedata_t pack = { 0, 1.0, 0 };
+    return eval_aggregate(cp, ep, aggregate_product, aggregate_v_ret, &pack, FALSE);
+}
+
+static scvalue_t eval_sum(eval_ctx_t *cp, enode_t *ep) {
+    struct agregatedata_t pack = { 0, 0, 0 };
+    return eval_aggregate(cp, ep, aggregate_sum, aggregate_v_ret, &pack, FALSE);
+}
+
+static scvalue_t eval_sumsq(eval_ctx_t *cp, enode_t *ep) {
+    struct agregatedata_t pack = { 0, 0, 0 };
+    return eval_aggregate(cp, ep, aggregate_sum2, aggregate_v2_ret, &pack, FALSE);
+}
+
+static scvalue_t eval_stdev(eval_ctx_t *cp, enode_t *ep) {
+    struct agregatedata_t pack = { 0, 0, 0 };
+    return eval_aggregate(cp, ep, aggregate_sum2, aggregate_stdev_ret, &pack, ep->op == OP_STDEVA);
+}
+
+static scvalue_t eval_stdevp(eval_ctx_t *cp, enode_t *ep) {
+    struct agregatedata_t pack = { 0, 0, 0 };
+    return eval_aggregate(cp, ep, aggregate_sum2, aggregate_stdevp_ret, &pack, ep->op == OP_STDEVPA);
+}
+
+static scvalue_t eval_var(eval_ctx_t *cp, enode_t *ep) {
+    struct agregatedata_t pack = { 0, 0, 0 };
+    return eval_aggregate(cp, ep, aggregate_sum2, aggregate_var_ret, &pack, ep->op == OP_VARA);
+}
+
+static scvalue_t eval_varp(eval_ctx_t *cp, enode_t *ep) {
+    struct agregatedata_t pack = { 0, 0, 0 };
+    return eval_aggregate(cp, ep, aggregate_sum2, aggregate_varp_ret, &pack, ep->op == OP_VARPA);
+}
+
+static scvalue_t eval_averageif(eval_ctx_t *cp, enode_t *ep) {
+    struct agregatedata_t pack = { 0, 0, 0 };
+    return eval_aggregateif(cp, ep, aggregate_sum, aggregate_average_ret, &pack, ep->op == OP_AVERAGEA);
+}
+
+static scvalue_t eval_countif(eval_ctx_t *cp, enode_t *ep) {
+    struct agregatedata_t pack = { 0, 0, 0 };
+    return eval_aggregateif(cp, ep, aggregate_count, aggregate_count_ret, &pack, ep->op == OP_COUNTA);
+}
+
+static scvalue_t eval_maxif(eval_ctx_t *cp, enode_t *ep) {
+    struct agregatedata_t pack = { 0, 0, 0 };
+    return eval_aggregateif(cp, ep, aggregate_max, aggregate_v_ret, &pack, ep->op == OP_MAXA);
+}
+
+static scvalue_t eval_minif(eval_ctx_t *cp, enode_t *ep) {
+    struct agregatedata_t pack = { 0, 0, 0 };
+    return eval_aggregateif(cp, ep, aggregate_min, aggregate_v_ret, &pack, ep->op == OP_MINA);
+}
+
+static scvalue_t eval_sumif(eval_ctx_t *cp, enode_t *ep) {
+    struct agregatedata_t pack = { 0, 0, 0 };
+    return eval_aggregateif(cp, ep, aggregate_sum, aggregate_v_ret, &pack, FALSE);
 }
 
 /*---------------- date and time functions ----------------*/
@@ -704,211 +830,7 @@ static scvalue_t eval_nval(eval_ctx_t *cp, enode_t *e) {
     return scvalue_error(cp, CELLERROR);
 }
 
-/*
- * The list routines (e.g. eval_max) are called with a list of expressions.
- * The left pointer is an expression, the right pointer is a chain of OP_COMMA nodes
- */
-static scvalue_t eval_max(eval_ctx_t *cp, enode_t *ep) {
-    enode_t *e;
-    double maxval = 0.0;
-    int count = 0;
-
-    for (e = ep; e; e = e->e.o.right) {
-        scvalue_t res = eval_node(cp, e->e.o.left);
-        if (res.type == SC_RANGE) {
-            int r, c;
-            struct ent *p;
-            for (r = res.u.rr.left.row; r <= res.u.rr.right.row; r++) {
-                for (c = res.u.rr.left.col; c <= res.u.rr.right.col; c++) {
-                    if ((p = *ATBL(tbl, r, c)) && p->type == SC_NUMBER) {
-                        if (!count++ || p->v > maxval)
-                            maxval = p->v;
-                    }
-                }
-            }
-        } else
-        if (res.type == SC_NUMBER) {
-            if (!count++ || res.u.v > maxval)
-                maxval = res.u.v;
-        } else {
-            scvalue_free(res);
-        }
-    }
-    return scvalue_number(maxval);
-}
-
-static scvalue_t eval_min(eval_ctx_t *cp, enode_t *ep) {
-    enode_t *e;
-    double minval = 0.0;
-    int count = 0;
-
-    for (e = ep; e; e = e->e.o.right) {
-        scvalue_t res = eval_node(cp, e->e.o.left);
-        if (res.type == SC_RANGE) {
-            int r, c;
-            struct ent *p;
-            for (r = res.u.rr.left.row; r <= res.u.rr.right.row; r++) {
-                for (c = res.u.rr.left.col; c <= res.u.rr.right.col; c++) {
-                    if ((p = *ATBL(tbl, r, c)) && p->type == SC_NUMBER) {
-                        if (!count++ || p->v < minval)
-                            minval = p->v;
-                    }
-                }
-            }
-        } else
-        if (res.type == SC_NUMBER) {
-            if (!count++ || res.u.v < minval)
-                minval = res.u.v;
-        } else {
-            scvalue_free(res);
-        }
-    }
-    return scvalue_number(minval);
-}
-
-static scvalue_t eval_count(eval_ctx_t *cp, enode_t *ep) {
-    enode_t *e;
-    int count = 0;
-
-    for (e = ep; e; e = e->e.o.right) {
-        scvalue_t res = eval_node(cp, e->e.o.left);
-        if (res.type == SC_RANGE) {
-            int r, c;
-            struct ent *p;
-            for (r = res.u.rr.left.row; r <= res.u.rr.right.row; r++) {
-                for (c = res.u.rr.left.col; c <= res.u.rr.right.col; c++) {
-                    if ((p = *ATBL(tbl, r, c)) && p->type == SC_NUMBER)
-                        count++;
-                }
-            }
-        } else
-        if (res.type == SC_NUMBER) {
-            count++;
-        } else {
-            scvalue_free(res);
-        }
-    }
-    return scvalue_number(count);
-}
-
-static scvalue_t eval_sum(eval_ctx_t *cp, enode_t *ep) {
-    double sum = 0.0;
-    enode_t *e;
-
-    for (e = ep; e; e = e->e.o.right) {
-        scvalue_t res = eval_node(cp, e->e.o.left);
-        if (res.type == SC_RANGE) {
-            int r, c;
-            struct ent *p;
-            for (r = res.u.rr.left.row; r <= res.u.rr.right.row; r++) {
-                for (c = res.u.rr.left.col; c <= res.u.rr.right.col; c++) {
-                    if ((p = *ATBL(tbl, r, c)) && p->type == SC_NUMBER)
-                        sum += p->v;
-                }
-            }
-        } else
-        if (res.type == SC_NUMBER) {
-            sum += res.u.v;
-        } else {
-            scvalue_free(res);
-        }
-    }
-    return scvalue_number(sum);
-}
-
-static scvalue_t eval_average(eval_ctx_t *cp, enode_t *ep) {
-    enode_t *e;
-    double v = 0.0;
-    int count = 0;
-
-    for (e = ep; e; e = e->e.o.right) {
-        scvalue_t res = eval_node(cp, e->e.o.left);
-        if (res.type == SC_RANGE) {
-            int r, c;
-            struct ent *p;
-            for (r = res.u.rr.left.row; r <= res.u.rr.right.row; r++) {
-                for (c = res.u.rr.left.col; c <= res.u.rr.right.col; c++) {
-                    if ((p = *ATBL(tbl, r, c)) && p->type == SC_NUMBER) {
-                        v += p->v;
-                        count++;
-                    }
-                }
-            }
-        } else
-        if (res.type == SC_NUMBER) {
-            v += res.u.v;
-            count++;
-        } else {
-            scvalue_free(res);
-        }
-    }
-    return scvalue_number(count ? v / count : v);
-}
-
-static scvalue_t eval_product(eval_ctx_t *cp, enode_t *ep) {
-    double v = 1.0;
-    enode_t *e;
-
-    for (e = ep; e; e = e->e.o.right) {
-        scvalue_t res = eval_node(cp, e->e.o.left);
-        if (res.type == SC_RANGE) {
-            int r, c;
-            struct ent *p;
-            for (r = res.u.rr.left.row; r <= res.u.rr.right.row; r++) {
-                for (c = res.u.rr.left.col; c <= res.u.rr.right.col; c++) {
-                    if ((p = *ATBL(tbl, r, c)) && p->type == SC_NUMBER)
-                        v *= p->v;
-                }
-            }
-        } else
-        if (res.type == SC_NUMBER) {
-            v *= res.u.v;
-        } else {
-            scvalue_free(res);
-        }
-    }
-    return scvalue_number(v);
-}
-
-static scvalue_t eval_stdev(eval_ctx_t *cp, enode_t *ep) {
-    enode_t *e;
-    double lp, rp, v, nd;
-    int count;
-
-    lp = 0.0;
-    rp = 0.0;
-    count = 0;
-    for (e = ep; e; e = e->e.o.right) {
-        scvalue_t res = eval_node(cp, e->e.o.left);
-        if (res.type == SC_RANGE) {
-            int r, c;
-            struct ent *p;
-            for (r = res.u.rr.left.row; r <= res.u.rr.right.row; r++) {
-                for (c = res.u.rr.left.col; c <= res.u.rr.right.col; c++) {
-                    if ((p = *ATBL(tbl, r, c)) && p->type == SC_NUMBER) {
-                        v = p->v;
-                        lp += v * v;
-                        rp += v;
-                        count++;
-                    }
-                }
-            }
-        } else
-        if (res.type == SC_NUMBER) {
-            v = res.u.v;
-            lp += res.u.v * res.u.v;
-            rp += res.u.v;
-            count++;
-        } else {
-            scvalue_free(res);
-        }
-    }
-    if (count > 1) {
-        nd = (double)count;
-        rp = sqrt((nd * lp - rp * rp) / (nd * (nd - 1)));
-    }
-    return scvalue_number(rp);
-}
+/*---------------- math functions ----------------*/
 
 static sigret_t eval_fpe(int i) { /* Trap for FPE errors in eval */
     (void)i;
@@ -927,6 +849,10 @@ static sigret_t eval_fpe(int i) { /* Trap for FPE errors in eval */
     signal(SIGFPE, eval_fpe);
     longjmp(fpe_save, 1);
 }
+
+static double radians(double x) { return x * (M_PI / 180.0); }
+static double degrees(double x) { return x * (180.0 / M_PI); }
+static double sc_sign(double x) { return x < 0 ? -1 : x > 0; }
 
 static scvalue_t eval_fn1(eval_ctx_t *cp, enode_t *e) {
     scarg_t fun = opdefs[e->op].arg;
@@ -1438,6 +1364,8 @@ static scvalue_t eval_other(eval_ctx_t *cp, enode_t *e) {
     case OP_MAGENTA:    val = COLOR_MAGENTA;    break;
     case OP_CYAN:       val = COLOR_CYAN;       break;
     case OP_WHITE:      val = COLOR_WHITE;      break;
+    case OP_FALSE:      return scvalue_bool(0); break;
+    case OP_TRUE:       return scvalue_bool(1); break;
     case OP_UPLUS:      return eval_node_value(cp, e->e.o.left);
     default:            error("Illegal expression");
                         exprerr = 1;
@@ -1717,13 +1645,13 @@ SCXMEM enode_t *new_op3(int op, SCXMEM enode_t *a1, SCXMEM enode_t *a2,
         efree(a3);
         return NULL;
     }
-    return new_node(op, a1, new_node(op == OP_QMARK ? OP_COLON : OP_COMMA, a2, a3));
+    return new_node(op, a1, new_node(OP_COMMA, a2, a3));
 }
 
 SCXMEM enode_t *new_var(cellref_t cr) {
     SCXMEM enode_t *p;
 
-    if ((p = new_node(OP_VAR, NULL, NULL))) {
+    if ((p = new_node(OP_VARARG, NULL, NULL))) {
         p->type = OP_TYPE_VAR;
         p->e.v.vf = cr.vf;
         p->e.v.vp = lookat(cr.row, cr.col);
@@ -1767,7 +1695,7 @@ SCXMEM enode_t *new_str(SCXMEM string_t *s) {
 }
 
 enode_t *copye(enode_t *e, int Rdelta, int Cdelta,
-               int r1, int c1, int r2, int c2, int transpose, enode_t *range)
+               int r1, int c1, int r2, int c2, int transpose)
 {
     enode_t *ret;
 
@@ -1809,19 +1737,10 @@ enode_t *copye(enode_t *e, int Rdelta, int Cdelta,
         vf = e->e.v.vf;
         row = e->e.v.vp->row;
         col = e->e.v.vp->col;
-        if (range
-        &&  row >= range->e.r.left.vp->row
-        &&  row <= range->e.r.right.vp->row
-        &&  col >= range->e.r.left.vp->col
-        &&  col <= range->e.r.right.vp->col) {
-            newrow = ((range->e.r.left.vf & FIX_ROW) ? row : row + Rdelta);
-            newcol = ((range->e.r.left.vf & FIX_COL) ? col : col + Cdelta);
-        } else {
-            newrow = ((vf & FIX_ROW) || row < r1 || row > r2 || col < c1 || col > c2 ?
-                      row : transpose ? r1 + Rdelta + col - c1 : row + Rdelta);
-            newcol = ((vf & FIX_COL) || row < r1 || row > r2 || col < c1 || col > c2 ?
-                      col : transpose ? c1 + Cdelta + row - r1 : col + Cdelta);
-        }
+        newrow = ((vf & FIX_ROW) || row < r1 || row > r2 || col < c1 || col > c2 ?
+              row : transpose ? r1 + Rdelta + col - c1 : row + Rdelta);
+        newcol = ((vf & FIX_COL) || row < r1 || row > r2 || col < c1 || col > c2 ?
+              col : transpose ? c1 + Cdelta + row - r1 : col + Cdelta);
         ret->e.v.vp = lookat(newrow, newcol);
         ret->e.v.vf = vf;
     } else
@@ -1834,9 +1753,9 @@ enode_t *copye(enode_t *e, int Rdelta, int Cdelta,
         ret->e.s = dup_string(e->e.s);
     } else {
         if ((e->e.o.left && !(ret->e.o.left = copye(e->e.o.left, Rdelta, Cdelta,
-                                                    r1, c1, r2, c2, transpose, range)))
+                                                    r1, c1, r2, c2, transpose)))
         ||  (e->e.o.right && !(ret->e.o.right = copye(e->e.o.right, Rdelta, Cdelta,
-                                                      r1, c1, r2, c2, transpose, range))))
+                                                      r1, c1, r2, c2, transpose))))
         {
             efree(ret);
             return NULL;
@@ -2103,14 +2022,12 @@ static void decompile_node(decomp_t *dcp, enode_t *e, int priority) {
     case OP_DUMMY:      decompile_node(dcp, e->e.o.right, priority); break;
     case OP_CONST:      out_const(dcp, e->e.k);         break;
     case OP_SCONST:     out_sconst(dcp, s2c(e->e.s));   break;
-    case OP_VAR:        out_var(dcp, e->e.v, 1);        break;
+    case OP_VARARG:     out_var(dcp, e->e.v, 1);        break;
     case OP_RANGEARG:   out_range(dcp, e);              break;
     case OP_UMINUS:
     case OP_UPLUS:
     case OP_BANG:       out_unary(dcp, opp->name, e); break;
     case OP_SEMI:       out_infix(dcp, opp->name, e, priority, 1); break;
-    case OP_QMARK:      out_infix(dcp, opp->name, e, priority, 2); break;
-    case OP_COLON:      out_infix(dcp, opp->name, e, priority, 3); break;
     case OP_VBAR:       out_infix(dcp, opp->name, e, priority, 4); break;
     case OP_AMPERSAND:  out_infix(dcp, opp->name, e, priority, 5); break;
     case OP_EQ:
@@ -2127,6 +2044,7 @@ static void decompile_node(decomp_t *dcp, enode_t *e, int priority) {
     case OP_SLASH:
     case OP_PERCENT:    out_infix(dcp, opp->name, e, priority, 10); break;
     case OP_CARET:      out_infix(dcp, opp->name, e, priority, 12); break;
+    case OP_COLON:      out_infix(dcp, opp->name, e, priority, 13); break;
     default:            if (e->op >= 0 && e->op < OP_count) {
                             out_func(dcp, opp->name, (opp->min < 0) ? NULL : e);
                         } else {

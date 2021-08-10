@@ -547,7 +547,7 @@ extern int writefile(const char *fname, rangeref_t rr, int dcp_flags);
 extern int yn_ask(const char *msg);
 extern struct abbrev *find_abbr(const char *abbrev, int len, struct abbrev **prev);
 extern enode_t *copye(enode_t *e, int Rdelta, int Cdelta,
-                      int r1, int c1, int r2, int c2, int transpose, enode_t *range);
+                      int r1, int c1, int r2, int c2, int transpose);
 
 extern SCXMEM enode_t *new_op0(int op);
 extern SCXMEM enode_t *new_op1(int op, SCXMEM enode_t *a1);

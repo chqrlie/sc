@@ -217,28 +217,28 @@ static int lookup_fname(const char *p, int len, int *pop) {
             continue;
         if (*fname == '@')
             fname++;
-        if (!strncasecmp(fname, p, len) && (fname[len] == '\0' || fname[len] == '(')) {
+        if (!sc_strncasecmp(fname, p, len) && (fname[len] == '\0' || fname[len] == '(')) {
             *pop = op;
-            if (opp->min == -1)
-                return FUNC0;
-            if (opp->min == 0 && opp->max == 0)
-                return FUNC0;
-            if (opp->min == 0 && opp->max == 1)
-                return FUNC01;
-            if (opp->min == 1 && opp->max == 1)
-                return FUNC1;
-            if (opp->min == 1 && opp->max == 2)
-                return FUNC12;
-            if (opp->min == 1 && opp->max == 3)
-                return FUNC12;
-            if (opp->min == 1 && opp->max == -1)
-                return FUNC1x;
-            if (opp->min == 2 && opp->max == 2)
-                return FUNC2;
-            if (opp->min == 2 && opp->max == 3)
-                return FUNC23;
-            if (opp->min == 3 && opp->max == 3)
-                return FUNC3;
+            switch (opp->min) {
+            case -1:    return FUNC0;
+            case 0:     if (opp->max == 0) return FUNC0;
+                        if (opp->max == 1) return FUNC01;
+                        break;
+            case 1:     if (opp->max == 1) return FUNC1;
+                        if (opp->max == 2) return FUNC12;
+                        if (opp->max == 3) return FUNC13;
+                        if (opp->max == -1) return FUNC1x;
+                        break;
+            case 2:     if (opp->max == 2) return FUNC2;
+                        if (opp->max == 3) return FUNC23;
+                        if (opp->max == -1) return FUNC2x;
+                        break;
+            case 3:     if (opp->max == 3) return FUNC3;
+                        if (opp->max == 4) return FUNC34;
+                        if (opp->max == 5) return FUNC35;
+                        break;
+                        // XXX: other combinations: 1/4, 2/4, 4/4, 5/5
+            }
             return -1;
         }
     }

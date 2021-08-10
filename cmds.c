@@ -1733,8 +1733,7 @@ void copyent(struct ent *n, struct ent *p, int dr, int dc,
         }
         if (special != 'm' || p->expr) {
             efree(n->expr);
-            n->expr = copye(p->expr, dr, dc, r1, c1, r2, c2,
-                            special == 't', NULL);
+            n->expr = copye(p->expr, dr, dc, r1, c1, r2, c2, special == 't');
         }
         /* transfer alignment and LOCKED flag */
         n->flags &= ~ALIGN_MASK;

@@ -97,6 +97,7 @@ let I21 = @sum(I9:I14)
 let J21 = @sum(J9:J14)
 let K21 = @sum(K9:K14)
 leftstring A22 = "Most of the cells on this page contain text."
+let I22 = -2^2
 leftstring C23 = "<Type 'g page2' to continue>"
 leftstring A25 = "Cell d22 contains text"
 leftstring D25 = "Text "
@@ -182,4 +183,4 @@ leftstring A89 = "The basic commands.  Much more detail is available"
 leftstring A90 = "in the man page."
 leftstring A92 = "To quit this program, type 'q'."
 leftstring D94 = "GOOD LUCK!"
-goto H21 A0
+goto I22 A0

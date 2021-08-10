@@ -21,7 +21,7 @@ OP( OP_DUMMY,       NULL, -2, 2, NULL, NULL)
 /* constants and references */
 OP( OP_CONST,       NULL, -2, 2, eval_const, NULL)
 OP( OP_SCONST,      NULL, -2, 2, eval_sconst, NULL)
-OP( OP_VAR,         NULL, -2, 2, eval_var, NULL)
+OP( OP_VARARG,      NULL, -2, 2, eval_vararg, NULL)
 OP( OP_RANGEARG,    NULL, -2, 1, eval_range, NULL)
 
 /* unary operators */
@@ -54,8 +54,7 @@ OP( OP_STAR,        "*", -3, 2, eval_mul, NULL)
 OP( OP_SLASH,       "/", -3, 2, eval_div, NULL)
 XX( OP_PERCENT,     "%", -3, 2, eval_mod, NULL)// XXX: should be postfix %
 OP( OP_CARET,       "^", -3, 2, eval_fn2, pow)
-XX( OP_QMARK,       "?", -3, 2, eval_if, NULL)
-OP( OP_COLON,       ":", -3, 2, NULL, NULL)
+OP( OP_COLON,       ":", -3, 2, eval_colon, NULL)
 XX( OP_SEMI,        ";", -3, 2, eval_fl2, makecolor)
 OP( OP_EQ,          "=", -3, 2, eval_cmp, NULL)
 OP( OP_LG,          "<>", -3, 2, eval_cmp, NULL)
@@ -184,66 +183,66 @@ LO( OP_IMPORTXML,   "IMPORTXML(url, xpath_query)", 2, 2, NULL, NULL) // Imports 
 LO( OP_ISURL,       "ISURL(value)", 1, 1, NULL, NULL) // Checks whether a value is a valid URL
 
 /* 6.12 Financial Functions */
-__( OP_ACCRINT,     "ACCRINT(issue, first_payment, settlement, rate, redemption, frequency, [day_count_convention])", 1, 1, NULL, NULL) // Calculates the accrued interest of a security that has periodic payments
-__( OP_ACCRINTM,    "ACCRINTM(issue, maturity, rate, [redemption], [day_count_convention])", 1, 1, NULL, NULL) // Calculates the accrued interest of a security that pays interest at maturity
-__( OP_AMORLINC,    "AMORLINC(cost, purchase_date, first_period_end, salvage, period, rate, [basis])", 1, 1, NULL, NULL) // Returns the depreciation for an accounting period, or the prorated depreciation if the asset was purchased in the middle of a period.
-__( OP_COUPDAYBS,   "COUPDAYBS(settlement, maturity, frequency, [day_count_convention])", 1, 1, NULL, NULL) // Calculates the number of days from the first coupon, or interest payment, until settlement
-__( OP_COUPDAYS,    "COUPDAYS(settlement, maturity, frequency, [day_count_convention])", 1, 1, NULL, NULL) // Calculates the number of days in the coupon, or interest payment, period that contains the specified settlement date
-__( OP_COUPDAYSNC,  "COUPDAYSNC(settlement, maturity, frequency, [day_count_convention])", 1, 1, NULL, NULL) //  Calculates the number of days from the settlement date until the next coupon, or interest payment
-__( OP_COUPNCD,     "COUPNCD(settlement, maturity, frequency, [day_count_convention])", 1, 1, NULL, NULL) // Calculates next coupon, or interest payment, date after the settlement date
-__( OP_COUPNUM,     "COUPNUM(settlement, maturity, frequency, [day_count_convention])", 1, 1, NULL, NULL) // Calculates the number of coupons, or interest payments, between the settlement date and the maturity date of the investment
-__( OP_COUPPCD,     "COUPPCD(settlement, maturity, frequency, [day_count_convention])", 1, 1, NULL, NULL) // Calculates last coupon, or interest payment, date before the settlement date
-__( OP_CUMIPMT,     "CUMIPMT(rate, number_of_periods, present_value, first_period, last_period, end_or_beginning)", 1, 1, NULL, NULL) // Calculates the cumulative interest over a range of payment periods for an investment based on constant-amount periodic payments and a constant interest rate
-__( OP_CUMPRINC,    "CUMPRINC(rate, number_of_periods, present_value, first_period, last_period, end_or_beginning)", 1, 1, NULL, NULL) // Calculates the cumulative principal paid over a range of payment periods for an investment based on constant-amount periodic payments and a constant interest rate
-__( OP_DB,          "DB(cost, salvage, life, period, [month])", 1, 1, NULL, NULL) // Calculates the depreciation of an asset for a specified period using the arithmetic declining balance method
-__( OP_DDB,         "DDB(cost, salvage, life, period, [factor])", 1, 1, NULL, NULL) // Calculates the depreciation of an asset for a specified period using the double-declining balance method
-__( OP_DISC,        "DISC(settlement, maturity, price, redemption, [day_count_convention])", 1, 1, NULL, NULL) // Calculates the discount rate of a security based on price
-__( OP_DOLLARDE,    "DOLLARDE(fractional_price, unit)", 1, 1, NULL, NULL) // Converts a price quotation given as a decimal fraction into a decimal value
-__( OP_DOLLARFR,    "DOLLARFR(decimal_price, unit)", 1, 1, NULL, NULL) // Converts a price quotation given as a decimal value into a decimal fraction
-__( OP_DURATION,    "DURATION(settlement, maturity, rate, yield, frequency, [day_count_convention])", 1, 1, NULL, NULL) // ,"Calculates the number of compounding periods required for an investment of a specified present value appreciating at a given rate to reach a target value
-__( OP_EFFECT,      "EFFECT(nominal_rate, periods_per_year)", 1, 1, NULL, NULL) // Calculates the annual effective interest rate given the nominal rate and number of compounding periods per year
-OP( OP_FV,          "FV(rate, number_of_periods, payment_amount, [present_value], [end_or_beginning])", 3, 3, eval_fn3, fin_fv) // Calculates the future value of an annuity investment based on constant-amount periodic payments and a constant interest rate
-__( OP_FVSCHEDULE,  "FVSCHEDULE(principal, rate_schedule)", 1, 1, NULL, NULL) // Calculates the future value of some principal based on a specified series of potentially varying interest rates
-__( OP_INTRATE,     "INTRATE(buy_date, sell_date, buy_price, sell_price, [day_count_convention])", 1, 1, NULL, NULL) //  Calculates the effective interest rate generated when an investment is purchased at one price and sold at another with no interest or dividends generated by the investment itself
-__( OP_IPMT,        "IPMT(rate, period, number_of_periods, present_value, [future_value], [end_or_beginning])", 1, 1, NULL, NULL) // Calculates the payment on interest for an investment based on constant-amount periodic payments and a constant interest rate
-__( OP_IRR,         "IRR(cashflow_amounts, [rate_guess])", 1, 1, NULL, NULL) // Calculates the internal rate of return on an investment based on a series of periodic cash flows
-__( OP_ISPMT,       "ISPMT(rate, period, number_of_periods, present_value)", 1, 1, NULL, NULL) // The ISPMT function calculates the interest paid during a particular period of an investment.
-__( OP_MDURATION,   "MDURATION(settlement, maturity, rate, yield, frequency, [day_count_convention])", 1, 1, NULL, NULL) // Calculates the modified Macaulay duration of a security paying periodic interest, such as a US Treasury Bond, based on expected yield
-__( OP_MIRR,        "MIRR(cashflow_amounts, financing_rate, reinvestment_return_rate)", 1, 1, NULL, NULL) // Calculates the modified internal rate of return on an investment based on a series of periodic cash flows and the difference between the interest rate paid on financing versus the return received on reinvested income
-__( OP_NOMINAL,     "NOMINAL(effective_rate, periods_per_year)", 1, 1, NULL, NULL) // Calculates the annual nominal interest rate given the effective rate and number of compounding periods per year
-__( OP_NPER,        "NPER(rate, payment_amount, present_value, [future_value], [end_or_beginning])", 1, 1, NULL, NULL) //  Calculates the number of payment periods for an investment based on constant-amount periodic payments and a constant interest rate
-__( OP_NPV,         "NPV(discount, cashflow1, [cashflow2, ...])", 1, 1, NULL, NULL) // Calculates the net present value of an investment based on a series of periodic cash flows and a discount rate
-__( OP_PDURATION,   "PDURATION(rate, present_value, future_value)", 1, 1, NULL, NULL) // Returns the number of periods for an investment to reach a specific value at a given rate.
-OP( OP_PMT,         "PMT(rate, number_of_periods, present_value, [future_value], [end_or_beginning])", 3, 3, eval_fn3, fin_pmt) // Calculates the periodic payment for an annuity investment based on constant-amount periodic payments and a constant interest rate
-__( OP_PPMT,        "PPMT(rate, period, number_of_periods, present_value, [future_value], [end_or_beginning])", 1, 1, NULL, NULL) // Calculates the payment on the principal of an investment based on constant-amount periodic payments and a constant interest rate
-__( OP_PRICE,       "PRICE(settlement, maturity, rate, yield, redemption, frequency, [day_count_convention])", 1, 1, NULL, NULL) // Calculates the price of a security paying periodic interest, such as a US Treasury Bond, based on expected yield
-__( OP_PRICEDISC,   "PRICEDISC(settlement, maturity, discount, redemption, [day_count_convention])", 1, 1, NULL, NULL) // Calculates the price of a discount (non-interest-bearing) security, based on expected yield
-__( OP_PRICEMAT,    "PRICEMAT(settlement, maturity, issue, rate, yield, [day_count_convention])", 1, 1, NULL, NULL) //  Calculates the price of a security paying interest at maturity, based on expected yield
-OP( OP_PV,          "PV(rate, number_of_periods, payment_amount, [future_value], [end_or_beginning])", 3, 3, eval_fn3, fin_pv) // Calculates the present value of an annuity investment based on constant-amount periodic payments and a constant interest rate
-__( OP_RATE,        "RATE(number_of_periods, payment_per_period, present_value, [future_value], [end_or_beginning], [rate_guess])", 1, 1, NULL, NULL) // Calculates the interest rate of an annuity investment based on constant-amount periodic payments and the assumption of a constant interest rate
-__( OP_RECEIVED,    "RECEIVED(settlement, maturity, investment, discount, [day_count_convention])", 1, 1, NULL, NULL) //  Calculates the amount received at maturity for an investment in fixed-income securities purchased on a given date
-__( OP_RRI,         "RRI(number_of_periods, present_value, future_value)", 1, 1, NULL, NULL) // Returns the interest rate needed for an investment to reach a specific value within a given number of periods.
-__( OP_SLN,         "SLN(cost, salvage, life)", 1, 1, NULL, NULL) // Calculates the depreciation of an asset for one period using the straight-line method
-__( OP_SYD,         "SYD(cost, salvage, life, period)", 1, 1, NULL, NULL) // Calculates the depreciation of an asset for a specified period using the sum of years digits method
-__( OP_TBILLEQ,     "TBILLEQ(settlement, maturity, discount)", 1, 1, NULL, NULL) // Calculates the equivalent annualized rate of return of a US Treasury Bill based on discount rate
-__( OP_TBILLPRICE,  "TBILLPRICE(settlement, maturity, discount)", 1, 1, NULL, NULL) // Calculates the price of a US Treasury Bill based on discount rate
-__( OP_TBILLYIELD,  "TBILLYIELD(settlement, maturity, price)", 1, 1, NULL, NULL) // Calculates the yield of a US Treasury Bill based on price
-__( OP_VDB,         "VDB(cost, salvage, life, start_period, end_period, [factor], [no_switch])", 1, 1, NULL, NULL) // Returns the depreciation of an asset for a particular period (or partial period).
-__( OP_XIRR,        "XIRR(cashflow_amounts, cashflow_dates, [rate_guess])", 1, 1, NULL, NULL) // Calculates the internal rate of return of an investment based on a specified series of potentially irregularly spaced cash flows
-__( OP_XNPV,        "XNPV(discount, cashflow_amounts, cashflow_dates)", 1, 1, NULL, NULL) // Calculates the net present value of an investment based on a specified series of potentially irregularly spaced cash flows and a discount rate
-__( OP_YIELD,       "YIELD(settlement, maturity, rate, price, redemption, frequency, [day_count_convention])", 1, 1, NULL, NULL) // Calculates the annual yield of a security paying periodic interest, such as a US Treasury Bond, based on price
-__( OP_YIELDDISC,   "YIELDDISC(settlement, maturity, price, redemption, [day_count_convention])", 1, 1, NULL, NULL) //  Calculates the annual yield of a discount (non-interest-bearing) security, based on price
-__( OP_YIELDMAT,    "YIELDMAT(settlement, maturity, issue, rate, price, [day_count_convention])", 1, 1, NULL, NULL) // Calculates the annual yield of a security paying interest at maturity, based on price
+__( OP_ACCRINT,     "ACCRINT(issue, first_payment, settlement, rate, redemption, frequency, [day_count_convention])", 6, 7, NULL, NULL) // Calculates the accrued interest of a security that has periodic payments
+__( OP_ACCRINTM,    "ACCRINTM(issue, maturity, rate, [redemption], [day_count_convention])", 3, 5, NULL, NULL) // Calculates the accrued interest of a security that pays interest at maturity
+__( OP_AMORLINC,    "AMORLINC(cost, purchase_date, first_period_end, salvage, period, rate, [basis])", 6, 7, NULL, NULL) // Returns the depreciation for an accounting period, or the prorated depreciation if the asset was purchased in the middle of a period.
+__( OP_COUPDAYBS,   "COUPDAYBS(settlement, maturity, frequency, [day_count_convention])", 3, 4, NULL, NULL) // Calculates the number of days from the first coupon, or interest payment, until settlement
+__( OP_COUPDAYS,    "COUPDAYS(settlement, maturity, frequency, [day_count_convention])", 3, 4, NULL, NULL) // Calculates the number of days in the coupon, or interest payment, period that contains the specified settlement date
+__( OP_COUPDAYSNC,  "COUPDAYSNC(settlement, maturity, frequency, [day_count_convention])", 3, 4, NULL, NULL) //  Calculates the number of days from the settlement date until the next coupon, or interest payment
+__( OP_COUPNCD,     "COUPNCD(settlement, maturity, frequency, [day_count_convention])", 3, 4, NULL, NULL) // Calculates next coupon, or interest payment, date after the settlement date
+__( OP_COUPNUM,     "COUPNUM(settlement, maturity, frequency, [day_count_convention])", 3, 4, NULL, NULL) // Calculates the number of coupons, or interest payments, between the settlement date and the maturity date of the investment
+__( OP_COUPPCD,     "COUPPCD(settlement, maturity, frequency, [day_count_convention])", 3, 4, NULL, NULL) // Calculates last coupon, or interest payment, date before the settlement date
+__( OP_CUMIPMT,     "CUMIPMT(rate, number_of_periods, present_value, first_period, last_period, end_or_beginning)", 6, 6, NULL, NULL) // Calculates the cumulative interest over a range of payment periods for an investment based on constant-amount periodic payments and a constant interest rate
+__( OP_CUMPRINC,    "CUMPRINC(rate, number_of_periods, present_value, first_period, last_period, end_or_beginning)", 6, 6, NULL, NULL) // Calculates the cumulative principal paid over a range of payment periods for an investment based on constant-amount periodic payments and a constant interest rate
+__( OP_DB,          "DB(cost, salvage, life, period, [month])", 4, 5, NULL, NULL) // Calculates the depreciation of an asset for a specified period using the arithmetic declining balance method
+__( OP_DDB,         "DDB(cost, salvage, life, period, [factor])", 4, 5, NULL, NULL) // Calculates the depreciation of an asset for a specified period using the double-declining balance method
+__( OP_DISC,        "DISC(settlement, maturity, price, redemption, [day_count_convention])", 4, 5, NULL, NULL) // Calculates the discount rate of a security based on price
+__( OP_DOLLARDE,    "DOLLARDE(fractional_price, unit)", 2, 2, NULL, NULL) // Converts a price quotation given as a decimal fraction into a decimal value
+__( OP_DOLLARFR,    "DOLLARFR(decimal_price, unit)", 2, 2, NULL, NULL) // Converts a price quotation given as a decimal value into a decimal fraction
+__( OP_DURATION,    "DURATION(settlement, maturity, rate, yield, frequency, [day_count_convention])", 5, 6, NULL, NULL) // ,"Calculates the number of compounding periods required for an investment of a specified present value appreciating at a given rate to reach a target value
+__( OP_EFFECT,      "EFFECT(nominal_rate, periods_per_year)", 2, 2, NULL, NULL) // Calculates the annual effective interest rate given the nominal rate and number of compounding periods per year
+OP( OP_FV,          "FV(rate, number_of_periods, payment_amount, [present_value], [end_or_beginning])", 3, 5, eval_fn3, fin_fv) // Calculates the future value of an annuity investment based on constant-amount periodic payments and a constant interest rate
+__( OP_FVSCHEDULE,  "FVSCHEDULE(principal, rate_schedule)", 2, 2, NULL, NULL) // Calculates the future value of some principal based on a specified series of potentially varying interest rates
+__( OP_INTRATE,     "INTRATE(buy_date, sell_date, buy_price, sell_price, [day_count_convention])", 4, 5, NULL, NULL) //  Calculates the effective interest rate generated when an investment is purchased at one price and sold at another with no interest or dividends generated by the investment itself
+__( OP_IPMT,        "IPMT(rate, period, number_of_periods, present_value, [future_value], [end_or_beginning])", 4, 6, NULL, NULL) // Calculates the payment on interest for an investment based on constant-amount periodic payments and a constant interest rate
+__( OP_IRR,         "IRR(cashflow_amounts, [rate_guess])", 1, 2, NULL, NULL) // Calculates the internal rate of return on an investment based on a series of periodic cash flows
+__( OP_ISPMT,       "ISPMT(rate, period, number_of_periods, present_value)", 4, 4, NULL, NULL) // The ISPMT function calculates the interest paid during a particular period of an investment.
+__( OP_MDURATION,   "MDURATION(settlement, maturity, rate, yield, frequency, [day_count_convention])", 5, 6, NULL, NULL) // Calculates the modified Macaulay duration of a security paying periodic interest, such as a US Treasury Bond, based on expected yield
+__( OP_MIRR,        "MIRR(cashflow_amounts, financing_rate, reinvestment_return_rate)", 3, 3, NULL, NULL) // Calculates the modified internal rate of return on an investment based on a series of periodic cash flows and the difference between the interest rate paid on financing versus the return received on reinvested income
+__( OP_NOMINAL,     "NOMINAL(effective_rate, periods_per_year)", 2, 3, NULL, NULL) // Calculates the annual nominal interest rate given the effective rate and number of compounding periods per year
+__( OP_NPER,        "NPER(rate, payment_amount, present_value, [future_value], [end_or_beginning])", 3, 5, NULL, NULL) //  Calculates the number of payment periods for an investment based on constant-amount periodic payments and a constant interest rate
+__( OP_NPV,         "NPV(discount, cashflow1, [cashflow2, ...])", 2, -1, NULL, NULL) // Calculates the net present value of an investment based on a series of periodic cash flows and a discount rate
+__( OP_PDURATION,   "PDURATION(rate, present_value, future_value)", 3, 3, NULL, NULL) // Returns the number of periods for an investment to reach a specific value at a given rate.
+OP( OP_PMT,         "PMT(rate, number_of_periods, present_value, [future_value], [end_or_beginning])", 3, 5, eval_fn3, fin_pmt) // Calculates the periodic payment for an annuity investment based on constant-amount periodic payments and a constant interest rate
+__( OP_PPMT,        "PPMT(rate, period, number_of_periods, present_value, [future_value], [end_or_beginning])", 4, 6, NULL, NULL) // Calculates the payment on the principal of an investment based on constant-amount periodic payments and a constant interest rate
+__( OP_PRICE,       "PRICE(settlement, maturity, rate, yield, redemption, frequency, [day_count_convention])", 6, 7, NULL, NULL) // Calculates the price of a security paying periodic interest, such as a US Treasury Bond, based on expected yield
+__( OP_PRICEDISC,   "PRICEDISC(settlement, maturity, discount, redemption, [day_count_convention])", 4, 5, NULL, NULL) // Calculates the price of a discount (non-interest-bearing) security, based on expected yield
+__( OP_PRICEMAT,    "PRICEMAT(settlement, maturity, issue, rate, yield, [day_count_convention])", 5, 6, NULL, NULL) //  Calculates the price of a security paying interest at maturity, based on expected yield
+OP( OP_PV,          "PV(rate, number_of_periods, payment_amount, [future_value], [end_or_beginning])", 3, 5, eval_fn3, fin_pv) // Calculates the present value of an annuity investment based on constant-amount periodic payments and a constant interest rate
+__( OP_RATE,        "RATE(number_of_periods, payment_per_period, present_value, [future_value], [end_or_beginning], [rate_guess])", 3, 6, NULL, NULL) // Calculates the interest rate of an annuity investment based on constant-amount periodic payments and the assumption of a constant interest rate
+__( OP_RECEIVED,    "RECEIVED(settlement, maturity, investment, discount, [day_count_convention])", 4, 5, NULL, NULL) //  Calculates the amount received at maturity for an investment in fixed-income securities purchased on a given date
+__( OP_RRI,         "RRI(number_of_periods, present_value, future_value)", 3, 3, NULL, NULL) // Returns the interest rate needed for an investment to reach a specific value within a given number of periods.
+__( OP_SLN,         "SLN(cost, salvage, life)", 3, 3, NULL, NULL) // Calculates the depreciation of an asset for one period using the straight-line method
+__( OP_SYD,         "SYD(cost, salvage, life, period)", 4, 4, NULL, NULL) // Calculates the depreciation of an asset for a specified period using the sum of years digits method
+__( OP_TBILLEQ,     "TBILLEQ(settlement, maturity, discount)", 3, 3, NULL, NULL) // Calculates the equivalent annualized rate of return of a US Treasury Bill based on discount rate
+__( OP_TBILLPRICE,  "TBILLPRICE(settlement, maturity, discount)", 3, 3, NULL, NULL) // Calculates the price of a US Treasury Bill based on discount rate
+__( OP_TBILLYIELD,  "TBILLYIELD(settlement, maturity, price)", 3, 3, NULL, NULL) // Calculates the yield of a US Treasury Bill based on price
+__( OP_VDB,         "VDB(cost, salvage, life, start_period, end_period, [factor], [no_switch])", 5, 7, NULL, NULL) // Returns the depreciation of an asset for a particular period (or partial period).
+__( OP_XIRR,        "XIRR(cashflow_amounts, cashflow_dates, [rate_guess])", 2, 3, NULL, NULL) // Calculates the internal rate of return of an investment based on a specified series of potentially irregularly spaced cash flows
+__( OP_XNPV,        "XNPV(discount, cashflow_amounts, cashflow_dates)", 3, 3, NULL, NULL) // Calculates the net present value of an investment based on a specified series of potentially irregularly spaced cash flows and a discount rate
+__( OP_YIELD,       "YIELD(settlement, maturity, rate, price, redemption, frequency, [day_count_convention])", 6, 7, NULL, NULL) // Calculates the annual yield of a security paying periodic interest, such as a US Treasury Bond, based on price
+__( OP_YIELDDISC,   "YIELDDISC(settlement, maturity, price, redemption, [day_count_convention])", 4, 5, NULL, NULL) //  Calculates the annual yield of a discount (non-interest-bearing) security, based on price
+__( OP_YIELDMAT,    "YIELDMAT(settlement, maturity, issue, rate, price, [day_count_convention])", 4, 5, NULL, NULL) // Calculates the annual yield of a security paying interest at maturity, based on price
 
 /* 6.13 Information Functions */
-__( OP_AREAS,       "AREAS(reference list)", 1, 1, NULL, NULL) // Returns the number of areas in a given list of references.
+__( OP_AREAS,       "AREAS(reference list)", 1, -1, NULL, NULL) // Returns the number of areas in a given list of references.
 __( OP_CELL,        "CELL(info_type, [reference])", 1, 2, NULL, NULL) // Returns the requested information about the specified cell
 __( OP_COLUMN,      "COLUMN([cell_reference])", 0, 1, NULL, NULL) // Returns the column number of a specified cell, with `A=1`
-__( OP_COLUMNS,     "COLUMNS(range)", 1, 1, NULL, NULL) // Returns the number of columns in a specified array or range
+OP( OP_COLUMNS,     "COLUMNS(range)", 1, 1, eval_rows_cols, NULL) // Returns the number of columns in a specified array or range
 OP( OP_COUNT,       "COUNT(value1, [value2, ...])", 1, -1, eval_count, NULL) // Returns a count of the number of numeric values in a dataset
-__( OP_COUNTA,      "COUNTA(value1, [value2, ...])", 1, -1, NULL, NULL) // Returns a count of the number of values in a dataset
-__( OP_COUNTBLANK,  "COUNTBLANK(range)", 1, 1, NULL, NULL) // Returns the number of empty cells in a given range
-OP( OP_COUNTIF,     "COUNTIF(range, criterion)", 2, 2, eval_rangeop, NULL) // Returns a conditional count across a range
+OP( OP_COUNTA,      "COUNTA(value1, [value2, ...])", 1, -1, eval_count, NULL) // Returns a count of the number of values in a dataset
+__( OP_COUNTBLANK,  "COUNTBLANK(range)", 1, -1, NULL, NULL) // Returns the number of empty cells in a given range
+OP( OP_COUNTIF,     "COUNTIF(range, criterion)", 2, 2, eval_countif, NULL) // Returns a conditional count across a range
 __( OP_COUNTIFS,    "COUNTIFS(criteria_range1, criterion1, [criteria_range2, criterion2, ...])", 2, -1, NULL, NULL) // Returns the count of a range depending on multiple criteria
 LO( OP_COUNTUNIQUE, "COUNTUNIQUE(value1, [value2, ...])", 1, -1, NULL, NULL) // Counts the number of unique values in a list of specified values and ranges
 __( OP_ERROR_TYPE,  "ERROR.TYPE(reference)", 1, 1, NULL, NULL) // Returns a number corresponding to the error value in a different cell
@@ -268,13 +267,13 @@ __( OP_N,           "N(value)", 1, 1, NULL, NULL) // Returns the argument provid
 __( OP_NA,          "NA()", -1, 0, NULL, NULL) // Returns the 'value not available' error, `#N/A`
 __( OP_NUMBERVALUE, "NUMBERVALUE(text, [decimalseparator, [groupseparator]])", 1, 3, NULL, NULL) // Convert text to number, in a locale-independent way.
 __( OP_ROW,         "ROW([cell_reference])", 0, 1, NULL, NULL) // Returns the row number of a specified cell
-OP( OP_ROWS,        "ROWS(range)", 1, 1, eval_rangeop, NULL) // Returns the number of rows in a specified array or range
+OP( OP_ROWS,        "ROWS(range)", 1, 1, eval_rows_cols, NULL) // Returns the number of rows in a specified array or range
 __( OP_SHEET,       "SHEET([Text|Reference])", 0, 1, NULL, NULL) // Returns the sheet number of the reference or the string representing a sheet name.
 __( OP_SHEETS,      "SHEETS([Reference])", 0, 1, NULL, NULL) // Returns the number of sheets in a reference or current document.
 __( OP_TYPE,        "TYPE(value)", 1, 1, NULL, NULL) // Returns a number associated with the type of data passed into the function
 __( OP_VALUE,       "VALUE(text)", 1, 1, NULL, NULL) // Converts a string in any of the date, time or number formats that Google Sheets understands into a number
 
-XX( OP_COLS,        "@cols", 1, 1, eval_rangeop, NULL)
+XX( OP_COLS,        "@cols", 1, 1, eval_rows_cols, NULL)
 XX( OP_COLTOA,      "@coltoa", 1, 1, eval_coltoa, NULL)
 XX( OP_ERR,         "@err", -1, -1, eval_other, NULL)
 XX( OP_FILENAME,    "@filename", 1, 1, eval_filename, NULL)
@@ -291,20 +290,20 @@ XX( OP_SVAL,        "@sval", 2, 2, eval_sval, NULL)
 __( OP_ADDRESS,     "ADDRESS(row, column, [absolute_relative_mode], [use_a1_notation], [sheet])", 2, 5, NULL, NULL) // Returns a cell reference as a string
 __( OP_CHOOSE,      "CHOOSE(index, choice1, [choice2, ...])", 2, -1, NULL, NULL) // Returns an element from a list of choices based on index
 __( OP_GETPIVOTDATA, "GETPIVOTDATA(value_name, any_pivot_table_cell, [original_column, ...], [pivot_item, ...])", 2, -1, NULL, NULL) // Extracts an aggregated value from a pivot table that corresponds to the specified row and column headings
-OP( OP_HLOOKUP,     "HLOOKUP(search_key, range, index, [is_sorted])", 3, 3, eval_rangeop, NULL) // Horizontal lookup. Searches across the first row of a range for a key and returns the value of a specified cell in the column found
+OP( OP_HLOOKUP,     "HLOOKUP(search_key, range, index, [is_sorted])", 3, 4, eval_lookup, NULL) // Horizontal lookup. Searches across the first row of a range for a key and returns the value of a specified cell in the column found
 OP( OP_INDEX,       "INDEX(reference, [row], [column])", 1, 3, eval_index, NULL) // Returns the content of a cell, specified by row and column offset
 __( OP_INDIRECT,    "INDIRECT(cell_reference_as_string, [is_A1_notation])", 1, 2, NULL, NULL) // Returns a cell reference specified by a string
-OP( OP_LOOKUP,      "LOOKUP(search_key, search_range|search_result_array, [result_range])", 2, 3, eval_rangeop, NULL) // Looks through a row or column for a key and returns the value of the cell in a result range located in the same position as the search row or column
+OP( OP_LOOKUP,      "LOOKUP(search_key, search_range|search_result_array, [result_range])", 2, 3, eval_lookup, NULL) // Looks through a row or column for a key and returns the value of the cell in a result range located in the same position as the search row or column
 __( OP_MATCH,       "MATCH(search_key, range, [search_type])", 2, 3, NULL, NULL) // Returns the relative position of an item in a range that matches a specified value
 __( OP_MULTIPLE_OPERATIONS, "MULTIPLE.OPERATIONS(formulacell, rowcell, rowreplacement, [columncell, columnreplacement])", 3, 5, NULL, NULL) // Executes a formula expression while substituting a row reference and a column reference.
 __( OP_OFFSET,      "OFFSET(cell_reference, offset_rows, offset_columns, [height], [width])", 3, 5, NULL, NULL) // Returns a range reference shifted a specified number of rows and columns from a starting cell reference
-OP( OP_VLOOKUP,     "VLOOKUP(search_key, range, index, [is_sorted])", 3, 3, eval_rangeop, NULL) // Vertical lookup. Searches down the first column of a range for a key and returns the value of a specified cell in the row found
+OP( OP_VLOOKUP,     "VLOOKUP(search_key, range, index, [is_sorted])", 3, 4, eval_lookup, NULL) // Vertical lookup. Searches down the first column of a range for a key and returns the value of a specified cell in the row found
 
 XX( OP_STINDEX,     "@stindex", 1, 3, eval_index, NULL) // Obsolete string version of INDEX(ref,row,column)
 
 /* 6.15 Logical Functions */
 __( OP_AND,         "AND(logical_expression1, [logical_expression2, ...])", 1, -1, NULL, NULL) // Returns true if all of the provided arguments are logically true, and false if any of the provided arguments are logically false
-__( OP_FALSE,       "FALSE()", -1, 0, NULL, NULL) // Returns the logical value `FALSE`
+OP( OP_FALSE,       "FALSE()", -1, 0, eval_other, NULL) // Returns the logical value `FALSE`
 OP( OP_IF,          "IF(logical_expression, [value_if_true, [value_if_false]])", 3, 3, eval_if, NULL) // Returns one value if a logical expression is `TRUE` and another if it is `FALSE`
 __( OP_IFERROR,     "IFERROR(value, [value_if_error])", 1, 2, NULL, NULL) // Returns the first argument if it is not an error value, otherwise returns the second argument if present, or a blank if the second argument is absent
 __( OP_IFNA,        "IFNA(value, value_if_na)", 2, 2, NULL, NULL) // Evaluates a value. If the value is an #N/A error, returns the specified value.
@@ -312,7 +311,7 @@ LO( OP_IFS,         "IFS(condition1, value1, [condition2, value2], ...)", 2, -1,
 __( OP_NOT,         "NOT(logical_expression)", 1, 1, NULL, NULL) // Returns the opposite of a logical value - `NOT(TRUE)` returns `FALSE`; `NOT(FALSE)` returns `TRUE`
 __( OP_OR,          "OR(logical_expression1, [logical_expression2, ...])", 1, -1, NULL, NULL) // Returns true if any of the provided arguments are logically true, and false if all of the provided arguments are logically false
 LO( OP_SWITCH,      "SWITCH(expression, case1, value1, [default or case2, value2], ...)", 1, -1, NULL, NULL) // Tests an expression against a list of cases and returns the corresponding value of the first matching case, with an optional default value if nothing else is met
-__( OP_TRUE,        "TRUE()", -1, 1, NULL, NULL) // Returns the logical value `TRUE`
+OP( OP_TRUE,        "TRUE()", -1, 1, eval_other, NULL) // Returns the logical value `TRUE`
 __( OP_XOR,         "XOR(logical_expression1, [logical_expression2, ...])", 1, -1, NULL, NULL) // The XOR function performs an exclusive or of 2 numbers that returns a 1 if the numbers are different, and a 0 otherwise.
 
 /* 6.16 Mathematical Functions */
@@ -339,13 +338,11 @@ __( OP_COT,         "COT(angle)", 1, 1, NULL, NULL) // Cotangent of an angle pro
 __( OP_COTH,        "COTH(value)", 1, 1, NULL, NULL) // Returns the hyperbolic cotangent of any real number.
 __( OP_CSC,         "CSC(angle)", 1, 1, NULL, NULL) // Returns the cosecant of an angle provided in radians.
 __( OP_CSCH,        "CSCH(value)", 1, 1, NULL, NULL) // The CSCH function returns the hyperbolic cosecant of any real number.
-__( OP_DEGREES,     "DEGREES(angle)", 1, 1, NULL, NULL) // Converts an angle value in radians to degrees
+OP( OP_DEGREES,     "DEGREES(angle)", 1, 1, eval_fn1, degrees) // Converts an angle value in radians to degrees
 __( OP_DELTA,       "DELTA(number1, [number2])", 1, 2, NULL, NULL) // Compare two numeric values, returning 1 if they're equal
 __( OP_ERF,         "ERF(lower_bound, [upper_bound])", 1, 2, NULL, NULL) // The ERF function returns the integral of the Gauss error function over an interval of values.
 __( OP_ERFC,        "ERFC(z)", 1, 1, NULL, NULL) // Returns the complementary Gauss error function of a value
 LO( OP_ERFC_PRECISE, "ERFC.PRECISE(z)", 1, 1, NULL, NULL) // See ERFC
-
-
 __( OP_EUROCONVERT, "EUROCONVERT(n, from, to, [fullprecision=FALSE, [triangulationprecision]])", 3, 5, NULL, NULL) // Converts a Number, representing a value in one European currency, to an equivalent value in another European currency, according to the fixed conversion rates defined by the Council of the European Union.
 __( OP_EVEN,        "EVEN(value)", 1, 1, NULL, NULL) // Rounds a number up to the nearest even integer
 OP( OP_EXP,         "EXP(exponent)", 1, 1, eval_fn1, exp) // Returns Euler's number, e (~2.718) raised to a power
@@ -365,26 +362,26 @@ __( OP_MOD,         "MOD(dividend, divisor)", 2, 2, NULL, NULL) // Returns the r
 __( OP_MULTINOMIAL, "MULTINOMIAL(value1, [value2...])", 1, -1, NULL, NULL) // Returns the factorial of the sum of values divided by the product of the values' factorials
 __( OP_ODD,         "ODD(value)", 1, 1, NULL, NULL) // Rounds a number up to the nearest odd integer
 OP( OP_PI,          "PI()", -1, 0, eval_pi, NULL) // Returns the value of Pi to 14 decimal places
-__( OP_POWER,       "POWER(base, exponent)", 2, 2, NULL, NULL) // Returns a number raised to a power
+OP( OP_POWER,       "POWER(base, exponent)", 2, 2, eval_fn2, pow) // Returns a number raised to a power
 OP( OP_PRODUCT,     "PRODUCT(factor1, [factor2, ...])", 1, -1, eval_product, NULL) // Returns the result of multiplying a series of numbers together
 __( OP_QUOTIENT,    "QUOTIENT(dividend, divisor)", 2, 2, NULL, NULL) // Returns one number divided by another
-__( OP_RADIANS,     "RADIANS(angle)", 1, 1, NULL, NULL) // Converts an angle value in degrees to radians
+OP( OP_RADIANS,     "RADIANS(angle)", 1, 1, eval_fn1, radians) // Converts an angle value in degrees to radians
 OP( OP_RAND,        "RAND()", 0, 0, eval_rand, NULL) // Returns a random number between 0 inclusive and 1 exclusive
 OP( OP_RANDBETWEEN, "RANDBETWEEN(low, high)", 2, 2, eval_fn2, rand_between) // Returns a uniformly random integer between two values, inclusive
 __( OP_SEC,         "SEC(angle)", 1, 1, NULL, NULL) // The SEC function returns the secant of an angle, measured in radians.
 __( OP_SECH,        "SECH(value)", 1, 1, NULL, NULL) // The SECH function returns the hyperbolic secant of an angle
 __( OP_SERIESSUM,   "SERIESSUM(x, n, m, a)", 4, 4, NULL, NULL) // Given parameters x, n, m, and a, returns the power series sum a1xn + a2x(n+m) + ... + aix(n+(i-1)m), where i is the number of entries in range `a`
-__( OP_SIGN,        "SIGN(value)", 1, 1, NULL, NULL) // Given an input number, returns `-1` if it is negative, `1` if positive, and `0` if it is zero
+OP( OP_SIGN,        "SIGN(value)", 1, 1, eval_fn1, sc_sign) // Given an input number, returns `-1` if it is negative, `1` if positive, and `0` if it is zero
 OP( OP_SIN,         "SIN(angle)", 1, 1, eval_fn1, sin) // Returns the sine of an angle provided in radians
 __( OP_SINH,        "SINH(value)", 1, 1, NULL, NULL) // Returns the hyperbolic sine of any real number
 OP( OP_SQRT,        "SQRT(value)", 1, 1, eval_fn1, sqrt) // Returns the positive square root of a positive number
 __( OP_SQRTPI,      "SQRTPI(value)", 1, 1, NULL, NULL) // Returns the positive square root of the product of Pi and the given positive number
 __( OP_SUBTOTAL,    "SUBTOTAL(function_code, range1, [range2, ...])", 2, -1, NULL, NULL) // Returns a subtotal for a vertical range of cells using a specified aggregation function
 OP( OP_SUM,         "SUM(value1, [value2, ...])", 1, -1, eval_sum, NULL) // Returns the sum of a series of numbers and/or cells
-OP( OP_SUMIF,       "SUMIF(range, criterion, [sum_range])", 2, 3, eval_rangeop, NULL) // Returns a conditional sum across a range
+OP( OP_SUMIF,       "SUMIF(range, criterion, [sum_range])", 2, 3, eval_sumif, NULL) // Returns a conditional sum across a range
 __( OP_SUMIFS,      "SUMIFS(sum_range, criteria_range1, criterion1, [criteria_range2, criterion2, ...])", 3, -1, NULL, NULL) // Returns the sum of a range depending on multiple criteria
 __( OP_SUMPRODUCT,  "SUMPRODUCT(arrays)", 1, -1, NULL, NULL) // Returns the sum of the products of the matrix elements.
-__( OP_SUMSQ,       "SUMSQ(value1, [value2, ...])", 1, -1, NULL, NULL) // Returns the sum of the squares of a series of numbers and/or cells
+OP( OP_SUMSQ,       "SUMSQ(value1, [value2, ...])", 1, -1, eval_sumsq, NULL) // Returns the sum of the squares of a series of numbers and/or cells
 __( OP_SUMX2MY2,    "SUMX2MY2(array A, array B)", 2, 2, NULL, NULL) // Returns the sum of the difference between the squares of the matrices A and B.
 __( OP_SUMX2PY2,    "SUMX2PY2(array A, array B)", 2, 2, NULL, NULL) // Returns the total sum of the squares of the matrices A and B
 __( OP_SUMXMY2,     "SUMXMY2(array A, array B)", 2, 2, NULL, NULL) // Returns the sum of the squares of the differences between matrix A and B.
@@ -393,8 +390,8 @@ __( OP_TANH,        "TANH(value)", 1, 1, NULL, NULL) // Returns the hyperbolic t
 
 XX( OP_FABS,        "@fabs", 1, 1, eval_fn1, fabs)
 XX( OP_HYPOT,       "@hypot", 2, 2, eval_fn2, hypot)
-XX( OP_DTR,         "@dtr", 1, 1, eval_fn1, dtr)
-XX( OP_RTD,         "@rtd", 1, 1, eval_fn1, rtd)
+XX( OP_DTR,         "@dtr", 1, 1, eval_fn1, radians)
+XX( OP_RTD,         "@rtd", 1, 1, eval_fn1, degrees)
 XX( OP_POW,         "@pow", 2, 2, eval_fn2, pow)
 
 /* 6.17 Rounding Functions */
@@ -418,8 +415,8 @@ XX( OP_RND,         "@rnd", 1, 1, eval_fn1, dornd)
 __( OP_AVEDEV,      "AVEDEV(value1, [value2, ...])", 1, -1, NULL, NULL) // Calculates the average of the magnitudes of deviations of data from a dataset's mean
 OP( OP_AVERAGE,     "AVERAGE(value1, [value2, ...])", 1, -1, eval_average, NULL) // Returns the numerical average value in a dataset, ignoring text
 __( OP_AVERAGE_WEIGHTED, "AVERAGE.WEIGHTED(values, weights, [additional values], [additional weights])", 1, 1, NULL, NULL) // Finds the weighted average of a set of values, given the values and the corresponding weights.
-__( OP_AVERAGEA,    "AVERAGEA(value1, [value2, ...])", 1, -1, NULL, NULL) // Returns the numerical average value in a dataset
-OP( OP_AVERAGEIF,   "AVERAGEIF(criteria_range, criterion, [average_range])", 2, 3, eval_rangeop, NULL) // Returns the average of a range depending on criteria
+OP( OP_AVERAGEA,    "AVERAGEA(value1, [value2, ...])", 1, -1, eval_average, NULL) // Returns the numerical average value in a dataset
+OP( OP_AVERAGEIF,   "AVERAGEIF(criteria_range, criterion, [average_range])", 2, 3, eval_averageif, NULL) // Returns the average of a range depending on criteria
 __( OP_AVERAGEIFS,  "AVERAGEIFS(average_range, criteria_range1, criterion1, [criteria_range2, criterion2, ...])", 3, -1, NULL, NULL) // Returns the average of a range depending on multiple criteria
 __( OP_BETA_DIST,   "BETA.DIST(value, alpha, beta, cumulative, lower_bound, upper_bound)", 1, 1, NULL, NULL) // Returns the probability of a given value as defined by the beta distribution function.
 __( OP_BETA_INV,    "BETA.INV(probability, alpha, beta, lower_bound, upper_bound)", 1, 1, NULL, NULL) // Returns the value of the inverse beta distribution function for a given probability.
@@ -476,13 +473,13 @@ __( OP_LOGNORM_DIST, "LOGNORM.DIST(x, mean, standard_deviation)", 1, 1, NULL, NU
 __( OP_LOGNORM_INV, "LOGNORM.INV(x, mean, standard_deviation)", 1, 1, NULL, NULL) // See LOGINV
 __( OP_LOGNORMDIST, "LOGNORMDIST(x, mean, standard_deviation)", 1, 1, NULL, NULL) // Returns the value of the log-normal cumulative distribution with given mean and standard deviation at a specified value
 OP( OP_MAX,         "MAX(value1, [value2, ...])", 1, -1, eval_max, NULL) // Returns the maximum value in a numeric dataset
-__( OP_MAXA,        "MAXA(value1, value2)", 2, 2, NULL, NULL) // Returns the maximum numeric value in a dataset
-XX( OP_MAXIF,       "MAXIF(range, criteria_range1)", 2, 2, eval_rangeop, NULL) // Returns the maximum value in a numeric dataset
+OP( OP_MAXA,        "MAXA(value1, [value2, ...])", 1, -1, eval_max, NULL) // Returns the maximum numeric value in a dataset
+XX( OP_MAXIF,       "MAXIF(range, criteria_range1)", 2, 2, eval_maxif, NULL) // Returns the maximum value in a numeric dataset
 __( OP_MAXIFS,      "MAXIFS(range, criteria_range1, criterion1, [criteria_range2, criterion2], ¦)", 1, 1, NULL, NULL) // Returns the maximum value in a range of cells, filtered by a set of criteria.
 __( OP_MEDIAN,      "MEDIAN(value1, [value2, ...])", 1, -1, NULL, NULL) // Returns the median value in a numeric dataset
 OP( OP_MIN,         "MIN(value1, [value2, ...])", 1, -1, eval_min, NULL) // Returns the minimum value in a numeric dataset
-__( OP_MINA,        "MINA(value1, value2)", 2, 2, NULL, NULL) // Returns the minimum numeric value in a dataset
-XX( OP_MINIF,       "MINIF(range, criteria_range1)", 2, 2, eval_rangeop, NULL) // Returns the maximum value in a numeric dataset
+OP( OP_MINA,        "MINA(value1, [value2, ...])", 1, -1, eval_min, NULL) // Returns the minimum numeric value in a dataset
+XX( OP_MINIF,       "MINIF(range, criteria_range1)", 2, 2, eval_minif, NULL) // Returns the maximum value in a numeric dataset
 __( OP_MINIFS,      "MINIFS(range, criteria_range1, criterion1, [criteria_range2, criterion2], ¦)", 1, 1, NULL, NULL) // Returns the minimum value in a range of cells, filtered by a set of criteria.
 __( OP_MODE,        "MODE(value1, [value2, ...])", 1, -1, NULL, NULL) // Returns the most commonly occurring value in a dataset
 __( OP_MODE_MULT,   "MODE.MULT(value1, value2)", 1, 1, NULL, NULL) // Returns the most commonly occurring values in a dataset.
@@ -525,9 +522,9 @@ __( OP_STANDARDIZE, "STANDARDIZE(value, mean, standard_deviation)", 1, 1, NULL, 
 OP( OP_STDEV,       "STDEV(value1, [value2, ...])", 1, -1, eval_stdev, NULL) // Calculates the standard deviation based on a sample
 __( OP_STDEV_P,     "STDEV.P(value1, [value2, ...])", 1, -1, NULL, NULL) // See STDEVP
 __( OP_STDEV_S,     "STDEV.S(value1, [value2, ...])", 1, -1, NULL, NULL) // See STDEV
-__( OP_STDEVA,      "STDEVA(value1, value2)", 2, 2, NULL, NULL) // Calculates the standard deviation based on a sample, setting text to the value `0`
-__( OP_STDEVP,      "STDEVP(value1, value2)", 2, 2, NULL, NULL) // Calculates the standard deviation based on an entire population
-__( OP_STDEVPA,     "STDEVPA(value1, value2)", 2, 2, NULL, NULL) // Calculates the standard deviation based on an entire population, setting text to the value `0`
+OP( OP_STDEVA,      "STDEVA(value1, [value2, ...])", 1, -1, eval_stdev, NULL) // Calculates the standard deviation based on a sample, setting text to the value `0`
+OP( OP_STDEVP,      "STDEVP(value1, [value2, ...])", 1, -1, eval_stdevp, NULL) // Calculates the standard deviation based on an entire population
+OP( OP_STDEVPA,     "STDEVPA(value1, [value2, ...])", 1, -1, eval_stdevp, NULL) // Calculates the standard deviation based on an entire population, setting text to the value `0`
 __( OP_STEYX,       "STEYX(data_y, data_x)", 2, 2, NULL, NULL) // Calculates the standard error of the predicted y-value for each x in the regression of a dataset
 __( OP_T_DIST,      "T.DIST(x, degrees_freedom, cumulative)", 3, 3, NULL, NULL) // Returns the right tailed Student distribution for a value x.
 __( OP_T_DIST_2T,   "T.DIST.2T(x, degrees_freedom)", 2, 2, NULL, NULL) // Returns the two tailed Student distribution for a value x.
@@ -539,12 +536,12 @@ __( OP_TDIST,       "TDIST(x, degrees_freedom, tails)", 3, 3, NULL, NULL) // Cal
 __( OP_TINV,        "TINV(probability, degrees_freedom)", 2, 2, NULL, NULL) // See T.INV.2T
 __( OP_TRIMMEAN,    "TRIMMEAN(data, exclude_proportion)", 2, 2, NULL, NULL) // Calculates the mean of a dataset excluding some proportion of data from the high and low ends of the dataset
 __( OP_TTEST,       "TTEST(range1, range2, tails, type)", 4, 3, NULL, NULL) // See T.TEST.
-__( OP_VAR,         "VAR(value1, [value2, ...])", 1, -1, NULL, NULL) // Calculates the variance based on a sample
+OP( OP_VAR,         "VAR(value1, [value2, ...])", 1, -1, eval_var, NULL) // Calculates the variance based on a sample
 __( OP_VAR_P,       "VAR.P(value1, [value2, ...])", 1, -1, NULL, NULL) // See VARP
 __( OP_VAR_S,       "VAR.S(value1, [value2, ...])", 1, -1, NULL, NULL) // See VAR
-__( OP_VARA,        "VARA(value1, value2)", 2, 2, NULL, NULL) // Calculates an estimate of variance based on a sample, setting text to the value `0`
-__( OP_VARP,        "VARP(value1, value2)", 2, 2, NULL, NULL) // Calculates the variance based on an entire population
-__( OP_VARPA,       "VARPA(value1, value2,...)", 2, -1, NULL, NULL) // Calculates the variance based on an entire population, setting text to the value `0`
+OP( OP_VARA,        "VARA(value1, [value2, ...])", 1, -1, eval_var, NULL) // Calculates an estimate of variance based on a sample, setting text to the value `0`
+OP( OP_VARP,        "VARP(value1, [value2, ...])", 1, -1, eval_varp, NULL) // Calculates the variance based on an entire population
+OP( OP_VARPA,       "VARPA(value1, [value2, ...])", 1, -1, eval_varp, NULL) // Calculates the variance based on an entire population, setting text to the value `0`
 __( OP_WEIBULL,     "WEIBULL(x, shape, scale, cumulative)", 4, 4, NULL, NULL) // Returns the value of the Weibull distribution function (or Weibull cumulative distribution function) for a specified shape and scale
 __( OP_WEIBULL_DIST, "WEIBULL.DIST(x, shape, scale, cumulative)", 4, 4, NULL, NULL) // See WEIBULL
 __( OP_Z_TEST,      "Z.TEST(data, value, [standard_deviation])", 2, 3, NULL, NULL) // Returns the one-tailed P-value of a Z-test with standard distribution.

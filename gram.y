@@ -92,7 +92,7 @@ static SCXMEM string_t *get_strarg(cellref_t cr) {
 %token <cval> VAR
 %token <sval> WORD PLUGIN
 %token <ival> COL
-%token <ival> FUNC0 FUNC01 FUNC1 FUNC12 FUNC13 FUNC1x FUNC2 FUNC23 FUNC3
+%token <ival> FUNC0 FUNC01 FUNC1 FUNC12 FUNC13 FUNC1x FUNC2 FUNC2x FUNC23 FUNC3 FUNC34 FUNC35
 
 /* command names (one per line for automatic generation of tokens.h) */
 
@@ -250,13 +250,13 @@ static SCXMEM string_t *get_strarg(cellref_t cr) {
 %token <ival> '+' '-' '*' '/' '%' '^'
 
 %right ';'
-%left '?' ':'
 %left '|'
 %left '&'
 %nonassoc '<' '=' '>' '!' T_LE T_GE T_NE T_LG
 %left '+' '-' '#'
 %left '*' '/' '%'
 %left '^'
+%left ':'
 
 %%
 
@@ -556,7 +556,11 @@ term:         VAR                       { $$ = new_var($1); }
         | FUNC2 '(' e ',' e ')'         { $$ = new_op2($1, $3, $5); }
         | FUNC23 '(' e ',' e ')'        { $$ = new_op2($1, $3, $5); }
         | FUNC23 '(' e ',' e ',' e ')'  { $$ = new_op3($1, $3, $5, $7); }
+        | FUNC2x '(' e ',' expr_list ')' { $$ = new_op2($1, $3, $5); }
         | FUNC3 '(' e ',' e ',' e ')'   { $$ = new_op3($1, $3, $5, $7); }
+        | FUNC34 '(' e ',' e ',' e ')'  { $$ = new_op3($1, $3, $5, $7); }
+        | FUNC34 '(' e ',' e ',' e ',' e ')' { $$ = new_op3($1, $3, $5, new_op2(OP_COMMA, $7, $9)); }
+        | FUNC35 '(' e ',' e ',' e ')'  { $$ = new_op3($1, $3, $5, $7); } /* XXX: hack for FV, PMT, PV */
         ;
 
 /* expressions */
@@ -566,8 +570,8 @@ e:        e '+' e                   { $$ = new_op2(OP_PLUS, $1, $3); }
         | e '/' e                   { $$ = new_op2(OP_SLASH, $1, $3); }
         | e '%' e                   { $$ = new_op2(OP_PERCENT, $1, $3); }
         | e '^' e                   { $$ = new_op2(OP_CARET, $1, $3); }
+        | e ':' e                   { $$ = new_op2(OP_COLON, $1, $3); }
         | term
-        | e '?' e ':' e             { $$ = new_op3(OP_QMARK, $1, $3, $5); }
         | e ';' e                   { $$ = new_op2(OP_SEMI, $1, $3); }
         | e '<' e                   { $$ = new_op2(OP_LT, $1, $3); }
         | e '=' e                   { $$ = new_op2(OP_EQ, $1, $3); }
@@ -585,8 +589,7 @@ expr_list: e                        { $$ = new_op1(OP_COMMA, $1); } // XXX: shou
         | e ',' expr_list           { $$ = new_op2(OP_COMMA, $1, $3); }
         ;
 
-range:    VAR ':' VAR               { $$.left = $1; $$.right = $3; }
-        | RANGE                     { $$ = $1; }
+range:    RANGE                     { $$ = $1; }
         ;
 
 var:    VAR                         { $$ = $1; }
@@ -606,7 +609,7 @@ num:      NUMBER                    { $$ = (double)$1; }
         ;
 
 strarg:   STRING                    { $$ = $1; }
-        | var                       { $$ = get_strarg($1); }
+        | VAR                       { $$ = get_strarg($1); }
         ;
 
 /* allows >=1 'setitem's to be listed in the same 'set' command */
