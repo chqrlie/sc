@@ -671,7 +671,7 @@ static scvalue_t eval_sumif(eval_ctx_t *cp, enode_t *ep) {
 // XXX: should accept 6 or 7 arguments
 // XXX: should use integral part for day and fraction for time.
 //      which may be incorrect for DST time adjustments.
-static scvalue_t eval_dts(eval_ctx_t *cp, enode_t *e) {
+static scvalue_t eval_date(eval_ctx_t *cp, enode_t *e) {
     int yr = (int)eval_num(cp, e->e.o.left);
     int mo = (int)eval_num(cp, e->e.o.right->e.o.left);
     int day = (int)eval_num(cp, e->e.o.right->e.o.right);
@@ -694,13 +694,13 @@ static scvalue_t eval_dts(eval_ctx_t *cp, enode_t *e) {
      * Dates before 1901/12/31 seem to fail on OS/X.
      */
     if (mo < 1 || day < 1 || (secs = mktime(&t)) == -1) {
-        error("@dts: invalid argument or date out of range");
+        error("@date: invalid argument or date out of range");
         return scvalue_error(cp, CELLERROR);
     }
     return scvalue_number(secs);
 }
 
-static double dotts(double hr, double min, double sec) {
+static double time3(double hr, double min, double sec) {
     int seconds = ((int)floor(sec) + (int)floor(min) * 60 + (int)floor(hr) * 3600) % 86400;
     return seconds < 0 ? 86400 + seconds : seconds;
 }
@@ -710,7 +710,7 @@ static scvalue_t eval_now(eval_ctx_t *cp, enode_t *e) {
     return scvalue_number((double)time(NULL));
 }
 
-static scvalue_t eval_time(eval_ctx_t *cp, enode_t *e) {
+static scvalue_t eval_tc(eval_ctx_t *cp, enode_t *e) {
     static time_t t_cache;
     static struct tm tm_cache;
     struct tm *tp = &tm_cache;
@@ -766,24 +766,19 @@ static scvalue_t eval_ston(eval_ctx_t *cp, enode_t *e) {
     return scvalue_number(v);
 }
 
-#if 0
-static double doeqs(SCXMEM string_t *s1, SCXMEM string_t *s2) {
-    double v;
+static scvalue_t eval_exact(eval_ctx_t *cp, enode_t *e) {
+    SCXMEM string_t *s1 = eval_str(cp, e->e.o.left);
+    SCXMEM string_t *s2 = eval_str(cp, e->e.o.left);
+    int res = -1;
 
-    if (!s1 && !s2)
-        return 1.0;
-
-    if (s1 && s2 && strcmp(s2c(s1), s2c(s2)) == 0)
-        v = 1.0;
-    else
-        v = 0.0;
+    if (s1 && s2)
+        res = !strcmp(s2c(s1), s2c(s2));
 
     free_string(s1);
     free_string(s2);
 
-    return v;
+    return res < 0 ? scvalue_error(cp, CELLERROR) : scvalue_number(res);
 }
-#endif
 
 /*
  * Given a string representing a column name and a value which is a row
@@ -1026,7 +1021,7 @@ static sclong_t makecolor(sclong_t a, sclong_t b) {
  * All returned strings are assumed to be xalloced.
  */
 
-static scvalue_t eval_date(eval_ctx_t *cp, enode_t *e) {
+static scvalue_t eval_datefmt(eval_ctx_t *cp, enode_t *e) {
     char buff[FBUFLEN];
     time_t tloc = (time_t)eval_num(cp, e->e.o.left);
     SCXMEM string_t *fmtstr = e->e.o.right ? eval_str(cp, e->e.o.right) : NULL;
@@ -1199,7 +1194,7 @@ static scvalue_t eval_case(eval_ctx_t *cp, enode_t *e) {
                 *p = tolowerchar(*p);
         }
         break;
-    case OP_CAPITAL: {
+    case OP_PROPER: {
             int skip = 1;
             int AllUpper = 1;
             for (p = s2->s; *p; p++) {
@@ -1227,12 +1222,24 @@ static scvalue_t eval_case(eval_ctx_t *cp, enode_t *e) {
     return scvalue_string(s2);
 }
 
+static scvalue_t eval_left(eval_ctx_t *cp, enode_t *e) {
+    SCXMEM string_t *str = eval_str(cp, e->e.o.left);
+    int n = (int)eval_num(cp, e->e.o.right);
+    return scvalue_string(sub_string(str, 0, n));
+}
+
+static scvalue_t eval_right(eval_ctx_t *cp, enode_t *e) {
+    SCXMEM string_t *str = eval_str(cp, e->e.o.left);
+    int n = (int)eval_num(cp, e->e.o.right);
+    return scvalue_string(sub_string(str, str ? slen(str) - n : 0, n));
+}
+
 static scvalue_t eval_substr(eval_ctx_t *cp, enode_t *e) {
     /* Substring: Note that v1 and v2 are one-based and v2 is included */
     SCXMEM string_t *str = eval_str(cp, e->e.o.left);
     int v1 = (int)eval_num(cp, e->e.o.right->e.o.left);
     int v2 = (int)eval_num(cp, e->e.o.right->e.o.right);
-    return scvalue_string(sub_string(str, v1 - 1, v2));
+    return scvalue_string(sub_string(str, v1 - 1, e->op == OP_MID ? v2 : v2 - v1 + 1));
 }
 
 static scvalue_t eval_concat(eval_ctx_t *cp, enode_t *e) {
@@ -1291,7 +1298,7 @@ static scvalue_t eval_cmp(eval_ctx_t *cp, enode_t *e) {
     //  number < string < logical < error < empty
     // XXX: should stop error propagation
     if (a.type == SC_ERROR || b.type == SC_ERROR) {
-        if (op == OP_EQ || op == OP_EQS)
+        if (op == OP_EQ)
             cmp = 1;  /* return false */
         else
             op = 0;  /* return error */
@@ -1330,7 +1337,6 @@ static scvalue_t eval_cmp(eval_ctx_t *cp, enode_t *e) {
     switch (op) {
     case OP_LT:     return scvalue_bool(cmp <  0);
     case OP_LE:     return scvalue_bool(cmp <= 0);
-    case OP_EQS:
     case OP_EQ:     return scvalue_bool(cmp == 0);
     case OP_LG:
     case OP_NE:     return scvalue_bool(cmp != 0);
@@ -1380,7 +1386,7 @@ static scvalue_t eval_other(eval_ctx_t *cp, enode_t *e) {
 /* opcode definitions, used for evaluator and decompiler */
 // XXX: should use for parser and constant_node() too.
 struct opdef const opdefs[] = {
-#define OP(op,str,min,max,efun,arg)  { str, min, max, 0, 0, efun, (scarg_t)(arg) },
+#define OP(op,min,max,efun,arg,str,desc)  { str, min, max, 0, 0, efun, (scarg_t)(arg) },
 #include "opcodes.h"
 #undef OP
 };

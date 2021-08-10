@@ -228,8 +228,9 @@ SCXMEM string_t *cat_strings(SCXMEM string_t *s1, SCXMEM string_t *s2) {
 }
 
 // XXX: should handle UTF-8
-/* v1 and v2 are zero based offsets, v1 is incuded, v2 is excluded */
-SCXMEM string_t *sub_string(SCXMEM string_t *s, int v1, int v2) {
+/* pos is a zero base offset of the first character,
+   n is the number of characters */
+SCXMEM string_t *sub_string(SCXMEM string_t *s, int pos, int n) {
     SCXMEM string_t *p;
     int len;
 
@@ -237,15 +238,17 @@ SCXMEM string_t *sub_string(SCXMEM string_t *s, int v1, int v2) {
         return NULL;
 
     len = slen(s);
-    if (v2 >= len) {                /* past end */
-        v2 = len;                   /* to end */
-        if (v1 == 0)
-            return dup_string(s);
-    }
-    if (v1 < 0 || v1 >= v2) {       /* out of range, return empty string */
+    if (pos < 0 || pos >= len)
+        pos = len;
+    if (n > len - pos)
+        n = len - pos;
+    if (n <= 0) {
         p = dup_string(empty_string);
+    } else
+    if (n == len) {
+        return dup_string(s);
     } else {
-        p = new_string_len(&s->s[v1], v2 - v1);
+        p = new_string_len(&s->s[pos], n);
     }
     free_string(s);
     return p;

@@ -6,623 +6,611 @@
  */
 
 #ifndef __
-#define __(op,str,min,max,efun,arg)
+#define __(op,min,max,efun,arg,str,desc)
 #endif
 #ifndef LO  /* Libre Office specific */
-#define LO(op,str,min,max,efun,arg)
+#define LO(op,min,max,efun,arg,str,desc)
 #endif
 #ifndef XX
-#define XX(op,str,min,max,efun,arg)  OP(op,str,min,max,efun,arg)
+#define XX(op,min,max,efun,arg,str,desc)  OP(op,min,max,efun,arg,str,desc)
 #endif
 
 /* dummy nodes for ancillary use (@EXT) */
-OP( OP_DUMMY,       NULL, -2, 2, NULL, NULL)
+OP( OP_DUMMY,           -2, 2, NULL, NULL, NULL, NULL)
 
 /* constants and references */
-OP( OP_CONST,       NULL, -2, 2, eval_const, NULL)
-OP( OP_SCONST,      NULL, -2, 2, eval_sconst, NULL)
-OP( OP_VARARG,      NULL, -2, 2, eval_vararg, NULL)
-OP( OP_RANGEARG,    NULL, -2, 1, eval_range, NULL)
+OP( OP_CONST,           -2, 2, eval_const, NULL, NULL, NULL)
+OP( OP_SCONST,          -2, 2, eval_sconst, NULL, NULL, NULL)
+OP( OP_VARARG,          -2, 2, eval_vararg, NULL, NULL, NULL)
+OP( OP_RANGEARG,        -2, 1, eval_range, NULL, NULL, NULL)
 
 /* unary operators */
-OP( OP_UMINUS,      "-", -3, 2, eval_neg, NULL)
-OP( OP_UPLUS,       "+", -3, 2, NULL, NULL)
-XX( OP_BANG,        "!", -3, 2, eval_not, NULL)
+OP( OP_UMINUS,          -3, 2, eval_neg, NULL, "-", NULL)
+OP( OP_UPLUS,           -3, 2, NULL, NULL, "+", NULL)
+XX( OP_BANG,            -3, 2, eval_not, NULL, "!", NULL)
 
 /* binary operators */
-__( OP_ADD,         "ADD(value1, value2)", 2, 2, NULL, NULL) // Returns the sum of two numbers. Equivalent to the `+` operator
-__( OP_CONCAT,      "CONCAT(value1, value2)", 2, 2, NULL, NULL) // Returns the concatenation of two values. Equivalent to the `&` operator
-__( OP_DIVIDE,      "DIVIDE(dividend, divisor)", 2, 2, NULL, NULL) // Returns one number divided by another. Equivalent to the `/` operator
-__( OP_EQ,          "EQ(value1, value2)", 2, 2, NULL, NULL) // Returns `TRUE` if two specified values are equal and `FALSE` otherwise. Equivalent to the `=` operator
-__( OP_GT,          "GT(value1, value2)", 2, 2, NULL, NULL) // Returns `TRUE` if the first argument is strictly greater than the second, and `FALSE` otherwise. Equivalent to the `>` operator
-__( OP_GTE,         "GTE(value1, value2)", 2, 2, NULL, NULL) // Returns `TRUE` if the first argument is greater than or equal to the second, and `FALSE` otherwise. Equivalent to the `>=` operator
-__( OP_ISBETWEEN,   "ISBETWEEN(value_to_compare, lower_value, upper_value, lower_value_is_inclusive, upper_value_is_inclusive)", 5, 5, NULL, NULL) // Checks whether a provided number is between two other numbers either inclusively or exclusively
-__( OP_LT,          "LT(value1, value2)", 2, 2, NULL, NULL) // Returns `TRUE` if the first argument is strictly less than the second, and `FALSE` otherwise. Equivalent to the `<` operator
-__( OP_LTE,         "LTE(value1, value2)", 2, 2, NULL, NULL) // Returns `TRUE` if the first argument is less than or equal to the second, and `FALSE` otherwise. Equivalent to the `<=` operator
-__( OP_MINUS,       "MINUS(value1, value2)", 2, 2, NULL, NULL) // Returns the difference of two numbers. Equivalent to the `-` operator
-__( OP_MULTIPLY,    "MULTIPLY(factor1, factor2)", 2, 2, NULL, NULL) // Returns the product of two numbers. Equivalent to the `*` operator
-__( OP_NE,          "NE(value1, value2)", 2, 2, NULL, NULL) // Returns `TRUE` if two specified values are not equal and `FALSE` otherwise. Equivalent to the `<>` operator
-__( OP_POW,         "POW(base, exponent)", 2, 2, NULL, NULL) // Returns a number raised to a power
-__( OP_UMINUS,      "UMINUS(value)", 1, 1, NULL, NULL) // Returns a number with the sign reversed
-__( OP_UNARY_PERCENT, "UNARY_PERCENT(percentage)", 1, 1, NULL, NULL) // Returns a value interpreted as a percentage; that is, `UNARY_PERCENT(100)` equals `1`
-__( OP_UNIQUE,      "UNIQUE(range, by_column, exactly_once)", 3, 3, NULL, NULL) // Returns unique rows in the provided source range, discarding duplicates. Rows are returned in the order in which they first appear in the source range
-__( OP_UPLUS,       "UPLUS(value)", 1, 1, NULL, NULL) // Returns a specified number, unchanged
+__( OP_ADD,             2, 2, NULL, NULL, "ADD(value1, value2)", "Returns the sum of two numbers. Equivalent to the `+` operator")
+__( OP_CONCAT,          2, 2, NULL, NULL, "CONCAT(value1, value2)", "Returns the concatenation of two values. Equivalent to the `&` operator")
+__( OP_DIVIDE,          2, 2, NULL, NULL, "DIVIDE(dividend, divisor)", "Returns one number divided by another. Equivalent to the `/` operator")
+__( OP_EQ,              2, 2, NULL, NULL, "EQ(value1, value2)", "Returns `TRUE` if two specified values are equal and `FALSE` otherwise. Equivalent to the `=` operator")
+__( OP_GT,              2, 2, NULL, NULL, "GT(value1, value2)", "Returns `TRUE` if the first argument is strictly greater than the second, and `FALSE` otherwise. Equivalent to the `>` operator")
+__( OP_GTE,             2, 2, NULL, NULL, "GTE(value1, value2)", "Returns `TRUE` if the first argument is greater than or equal to the second, and `FALSE` otherwise. Equivalent to the `>=` operator")
+__( OP_ISBETWEEN,       5, 5, NULL, NULL, "ISBETWEEN(value_to_compare, lower_value, upper_value, lower_value_is_inclusive, upper_value_is_inclusive)", "Checks whether a provided number is between two other numbers either inclusively or exclusively")
+__( OP_LT,              2, 2, NULL, NULL, "LT(value1, value2)", "Returns `TRUE` if the first argument is strictly less than the second, and `FALSE` otherwise. Equivalent to the `<` operator")
+__( OP_LTE,             2, 2, NULL, NULL, "LTE(value1, value2)", "Returns `TRUE` if the first argument is less than or equal to the second, and `FALSE` otherwise. Equivalent to the `<=` operator")
+__( OP_MINUS,           2, 2, NULL, NULL, "MINUS(value1, value2)", "Returns the difference of two numbers. Equivalent to the `-` operator")
+__( OP_MULTIPLY,        2, 2, NULL, NULL, "MULTIPLY(factor1, factor2)", "Returns the product of two numbers. Equivalent to the `*` operator")
+__( OP_NE,              2, 2, NULL, NULL, "NE(value1, value2)", "Returns `TRUE` if two specified values are not equal and `FALSE` otherwise. Equivalent to the `<>` operator")
+__( OP_POW,             2, 2, NULL, NULL, "POW(base, exponent)", "Returns a number raised to a power")
+__( OP_UMINUS,          1, 1, NULL, NULL, "UMINUS(value)", "Returns a number with the sign reversed")
+__( OP_UNARY_PERCENT,   1, 1, NULL, NULL, "UNARY_PERCENT(percentage)", "Returns a value interpreted as a percentage; that is, `UNARY_PERCENT(100)` equals `1`")
+__( OP_UNIQUE,          3, 3, NULL, NULL, "UNIQUE(range, by_column, exactly_once)", "Returns unique rows in the provided source range, discarding duplicates. Rows are returned in the order in which they first appear in the source range")
+__( OP_UPLUS,           1, 1, NULL, NULL, "UPLUS(value)", "Returns a specified number, unchanged")
 
-OP( OP_PLUS,        "+", -3, 2, eval_add, NULL)
-OP( OP_MINUS,       "-", -3, 2, eval_sub, NULL)
-OP( OP_STAR,        "*", -3, 2, eval_mul, NULL)
-OP( OP_SLASH,       "/", -3, 2, eval_div, NULL)
-XX( OP_PERCENT,     "%", -3, 2, eval_mod, NULL)// XXX: should be postfix %
-OP( OP_CARET,       "^", -3, 2, eval_fn2, pow)
-OP( OP_COLON,       ":", -3, 2, eval_colon, NULL)
-XX( OP_SEMI,        ";", -3, 2, eval_fl2, makecolor)
-OP( OP_EQ,          "=", -3, 2, eval_cmp, NULL)
-OP( OP_LG,          "<>", -3, 2, eval_cmp, NULL)
-XX( OP_NE,          "!=", -3, 2, eval_cmp, NULL)
-OP( OP_LT,          "<", -3, 2, eval_cmp, NULL)
-OP( OP_LE,          "<=", -3, 2, eval_cmp, NULL)
-OP( OP_GE,          ">=", -3, 2, eval_cmp, NULL)
-OP( OP_GT,          ">", -3, 2, eval_cmp, NULL)
+OP( OP_PLUS,            -3, 2, eval_add, NULL, "+", NULL)
+OP( OP_MINUS,           -3, 2, eval_sub, NULL, "-", NULL)
+OP( OP_STAR,            -3, 2, eval_mul, NULL, "*", NULL)
+OP( OP_SLASH,           -3, 2, eval_div, NULL, "/", NULL)
+XX( OP_PERCENT,         -3, 2, eval_mod, NULL, "%", NULL)// XXX: should be postfix %
+OP( OP_CARET,           -3, 2, eval_fn2, pow, "^", NULL)
+OP( OP_COLON,           -3, 2, eval_colon, NULL, ":", NULL)
+XX( OP_SEMI,            -3, 2, eval_fl2, makecolor, ";", NULL)
+OP( OP_EQ,              -3, 2, eval_cmp, NULL, "=", NULL)
+OP( OP_LG,              -3, 2, eval_cmp, NULL, "<>", NULL)
+XX( OP_NE,              -3, 2, eval_cmp, NULL, "!=", NULL)
+OP( OP_LT,              -3, 2, eval_cmp, NULL, "<", NULL)
+OP( OP_LE,              -3, 2, eval_cmp, NULL, "<=", NULL)
+OP( OP_GE,              -3, 2, eval_cmp, NULL, ">=", NULL)
+OP( OP_GT,              -3, 2, eval_cmp, NULL, ">", NULL)
     /* should have : ! ~ */
-XX( OP_AMPERSAND,   "&", -3, 2, eval_and, NULL)
-XX( OP_VBAR,        "|", -3, 2, eval_or, NULL)
-XX( OP_SHARP,       "#", -3, 2, eval_concat, NULL)
-OP( OP_COMMA,       ",", -3, 2, NULL, NULL)
+XX( OP_AMPERSAND,       -3, 2, eval_and, NULL, "&", NULL)
+XX( OP_VBAR,            -3, 2, eval_or, NULL, "|", NULL)
+XX( OP_SHARP,           -3, 2, eval_concat, NULL, "#", NULL)
+OP( OP_COMMA,           -3, 2, NULL, NULL, ",", NULL)
 
 /* 6.5 Matrix functions */
-__( OP_MDETERM,     "MDETERM(matrix)", 1, 1, NULL, NULL) // Calculates the determinant of a matrix.
-__( OP_MINVERSE,    "MINVERSE(matrix)", 1, 1, NULL, NULL) // Returns the inverse of a matrix.
-__( OP_MMULT,       "MMULT(matrix, matrix)", 2, 2, NULL, NULL) // Multiplies two matrices
-__( OP_MUNIT,       "MUNIT(dimension)", 1, 1, NULL, NULL) // Returns a unit matrix of a specified dimension.
-LO( OP_RANDARRAY,   "RANDARRAY(rows, columns)", 2, 2, NULL, NULL) // Generates an array of random numbers between 0 and 1.
-LO( OP_SEQUENCE,    "SEQUENCE(rows, columns, start, step)", 4, 4, NULL, NULL) // Returns an array of sequential numbers, such as 1, 2, 3, 4.
-__( OP_TRANSPOSE,   "TRANSPOSE(matrix)", 1, 1, NULL, NULL) // Returns the transpose of a matrix.
+__( OP_MDETERM,         1, 1, NULL, NULL, "MDETERM(matrix)", "Calculates the determinant of a matrix.")
+__( OP_MINVERSE,        1, 1, NULL, NULL, "MINVERSE(matrix)", "Returns the inverse of a matrix.")
+__( OP_MMULT,           2, 2, NULL, NULL, "MMULT(matrix, matrix)", "Multiplies two matrices")
+__( OP_MUNIT,           1, 1, NULL, NULL, "MUNIT(dimension)", "Returns a unit matrix of a specified dimension.")
+LO( OP_RANDARRAY,       2, 2, NULL, NULL, "RANDARRAY(rows, columns)", "Generates an array of random numbers between 0 and 1.")
+LO( OP_SEQUENCE,        4, 4, NULL, NULL, "SEQUENCE(rows, columns, start, step)", "Returns an array of sequential numbers, such as 1, 2, 3, 4.")
+__( OP_TRANSPOSE,       1, 1, NULL, NULL, "TRANSPOSE(matrix)", "Returns the transpose of a matrix.")
 
 /* 6.6 Bit operand functions */
-OP( OP_BITAND,      "BITAND(value1, value2)", 2, 2, eval_fl2, bitand) // Bitwise boolean AND of two numbers.
-OP( OP_BITLSHIFT,   "BITLSHIFT(value, shift_amount)", 2, 2, eval_fl2, bitlshift) // Shifts the bits of the input a certain number of places to the left.
-OP( OP_BITOR,       "BITOR(value1, value2)", 2, 2, eval_fl2, bitor) // Bitwise boolean OR of 2 numbers.
-OP( OP_BITRSHIFT,   "BITRSHIFT(value, shift_amount)", 2, 2, eval_fl2, bitrshift) // Shifts the bits of the input a certain number of places to the right.
-OP( OP_BITXOR,      "BITXOR(value1, value2)", 2, 2, eval_fl2, bitxor) // Bitwise XOR (exclusive OR) of 2 numbers.
+OP( OP_BITAND,          2, 2, eval_fl2, bitand, "BITAND(value1, value2)", "Bitwise boolean AND of two numbers.")
+OP( OP_BITLSHIFT,       2, 2, eval_fl2, bitlshift, "BITLSHIFT(value, shift_amount)", "Shifts the bits of the input a certain number of places to the left.")
+OP( OP_BITOR,           2, 2, eval_fl2, bitor, "BITOR(value1, value2)", "Bitwise boolean OR of 2 numbers.")
+OP( OP_BITRSHIFT,       2, 2, eval_fl2, bitrshift, "BITRSHIFT(value, shift_amount)", "Shifts the bits of the input a certain number of places to the right.")
+OP( OP_BITXOR,          2, 2, eval_fl2, bitxor, "BITXOR(value1, value2)", "Bitwise XOR (exclusive OR) of 2 numbers.")
 
 /* 6.7 Byte-position text functions */
-__( OP_FINDB,       "FINDB(search_for, text_to_search, [starting_at])", 2, 3, NULL, NULL) // Returns the position at which a string is first found within text counting each double-character as 2
-__( OP_LEFTB,       "LEFTB(string, num_of_bytes)", 1, 1, NULL, NULL) // Returns the left portion of a string up to a certain number of bytes.
-__( OP_LENB,        "LENB(string)", 1, 1, NULL, NULL) // Returns the length of a string in bytes.
-__( OP_MIDB,        "MIDB(string)", 1, 1, NULL, NULL) // Returns a section of a string starting at a given character and up to a specified number of bytes.
-__( OP_REPLACEB,    "REPLACEB(text, position, num_bytes, new_text)", 3, 3, NULL, NULL) // Replaces part of a text string, based on a number of bytes, with a different text string.
-__( OP_RIGHTB,      "RIGHTB(string, num_of_bytes)", 2, 2, NULL, NULL) // Returns the right portion of a string up to a certain number of bytes.
-__( OP_SEARCHB,     "SEARCHB(search_for, text_to_search, [starting_at])", 2, 3, NULL, NULL) // Returns the position at which a string is first found within text counting each double-character as 2
+__( OP_FINDB,           2, 3, NULL, NULL, "FINDB(search_for, text_to_search, [starting_at])", "Returns the position at which a string is first found within text counting each double-character as 2")
+__( OP_LEFTB,           1, 1, NULL, NULL, "LEFTB(string, num_of_bytes)", "Returns the left portion of a string up to a certain number of bytes.")
+__( OP_LENB,            1, 1, NULL, NULL, "LENB(string)", "Returns the length of a string in bytes.")
+__( OP_MIDB,            1, 1, NULL, NULL, "MIDB(string)", "Returns a section of a string starting at a given character and up to a specified number of bytes.")
+__( OP_REPLACEB,        3, 3, NULL, NULL, "REPLACEB(text, position, num_bytes, new_text)", "Replaces part of a text string, based on a number of bytes, with a different text string.")
+__( OP_RIGHTB,          2, 2, NULL, NULL, "RIGHTB(string, num_of_bytes)", "Returns the right portion of a string up to a certain number of bytes.")
+__( OP_SEARCHB,         2, 3, NULL, NULL, "SEARCHB(search_for, text_to_search, [starting_at])", "Returns the position at which a string is first found within text counting each double-character as 2")
 
 /* 6.8 Complex Number Functions */
-__( OP_COMPLEX,     "COMPLEX(real_part, imaginary_part, [suffix])", 2, 3, NULL, NULL) // Creates a complex number given real and imaginary coefficients
-__( OP_IMABS,       "IMABS(number)", 1, 1, NULL, NULL) // Returns absolute value of a complex number
-__( OP_IMAGINARY,   "IMAGINARY(complex_number)", 1, 1, NULL, NULL) // Returns the imaginary coefficient of a complex number
-__( OP_IMARGUMENT,  "IMARGUMENT(number)", 1, 1, NULL, NULL) // The IMARGUMENT function returns the angle (also known as the argument or \theta) of the given complex number in radians.
-__( OP_IMCONJUGATE, "IMCONJUGATE(number)", 1, 1, NULL, NULL) // Returns the complex conjugate of a number
-__( OP_IMCOS,       "IMCOS(number)", 1, 1, NULL, NULL) // The IMCOS function returns the cosine of the given complex number.
-__( OP_IMCOSH,      "IMCOSH(number)", 1, 1, NULL, NULL) // Returns the hyperbolic cosine of the given complex number. For example, a given complex number 'x+yi' returns 'cosh(x+yi)'.
-__( OP_IMCOT,       "IMCOT(number)", 1, 1, NULL, NULL) // Returns the cotangent of the given complex number. For example, a given complex number 'x+yi' returns 'cot(x+yi)'.
-__( OP_IMCOTH,      "IMCOTH(number)", 1, 1, NULL, NULL) // Returns the hyperbolic cotangent of the given complex number. For example, a given complex number 'x+yi' returns 'coth(x+yi)'.
-__( OP_IMCSC,       "IMCSC(number)", 1, 1, NULL, NULL) // Returns the cosecant of the given complex number.
-__( OP_IMCSCH,      "IMCSCH(number)", 1, 1, NULL, NULL) // Returns the hyperbolic cosecant of the given complex number. For example, a given complex number 'x+yi' returns 'csch(x+yi)'.
-__( OP_IMDIV,       "IMDIV(dividend, divisor)", 2, 2, NULL, NULL) // Returns one complex number divided by another
-__( OP_IMEXP,       "IMEXP(exponent)", 1, 1, NULL, NULL) // Returns Euler's number, e (~2.718) raised to a complex power.
-__( OP_IMLN,        "IMLN(complex_value)", 1, 1, NULL, NULL) // Returns the logarithm of a complex number, base e (Euler's number)
-__( OP_IMLOG,       "IMLOG(value, base)", 2, 2, NULL, NULL) // Returns the logarithm of a complex number for a specified base.
-__( OP_IMLOG10,     "IMLOG10(value)", 1, 1, NULL, NULL) // Returns the logarithm of a complex number with base 10.
-__( OP_IMLOG2,      "IMLOG2(value)", 1, 1, NULL, NULL) // Returns the logarithm of a complex number with base 2.
-__( OP_IMPOWER,     "IMPOWER(complex_base, exponent)", 2, 2, NULL, NULL) // Returns a complex number raised to a power
-__( OP_IMPRODUCT,   "IMPRODUCT(factor1, [factor2, ...])", 1, -1, NULL, NULL) // Returns the result of multiplying a series of complex numbers together
-__( OP_IMREAL,      "IMREAL(complex_number)", 1, 1, NULL, NULL) // Returns the real coefficient of a complex number
-__( OP_IMSEC,       "IMSEC(number)", 1, 1, NULL, NULL) // Returns the secant of the given complex number. For example, a given complex number 'x+yi' returns 'sec(x+yi)'.
-__( OP_IMSECH,      "IMSECH(number)", 1, 1, NULL, NULL) // Returns the hyperbolic secant of the given complex number. For example, a given complex number 'x+yi' returns 'sech(x+yi)'.
-__( OP_IMSIN,       "IMSIN (number)", 1, 1, NULL, NULL) // Returns the sine of the given complex number.
-__( OP_IMSINH,      "IMSINH(number)", 1, 1, NULL, NULL) // Returns the hyperbolic sine of the given complex number. For example, a given complex number 'x+yi' returns 'sinh(x+yi)'.
-__( OP_IMSQRT,      "IMSQRT(complex_number)", 1, 1, NULL, NULL) // Computes the square root of a complex number
-__( OP_IMSUB,       "IMSUB(first_number, second_number)", 2, 2, NULL, NULL) // Returns the difference between two complex numbers
-__( OP_IMSUM,       "IMSUM(value1, [value2, ...])", 1, -1, NULL, NULL) // Returns the sum of a series of complex numbers
-__( OP_IMTAN,       "IMTAN(number)", 1, 1, NULL, NULL) // Returns the tangent of the given complex number.
-__( OP_IMTANH,      "IMTANH(number)", 1, 1, NULL, NULL) // Returns the hyperbolic tangent of the given complex number. For example, a given complex number 'x+yi' returns 'tanh(x+yi)'.
+__( OP_COMPLEX,         2, 3, NULL, NULL, "COMPLEX(real_part, imaginary_part, [suffix])", "Creates a complex number given real and imaginary coefficients")
+__( OP_IMABS,           1, 1, NULL, NULL, "IMABS(number)", "Returns absolute value of a complex number")
+__( OP_IMAGINARY,       1, 1, NULL, NULL, "IMAGINARY(complex_number)", "Returns the imaginary coefficient of a complex number")
+__( OP_IMARGUMENT,      1, 1, NULL, NULL, "IMARGUMENT(number)", "The IMARGUMENT function returns the angle (also known as the argument or \theta) of the given complex number in radians.")
+__( OP_IMCONJUGATE,     1, 1, NULL, NULL, "IMCONJUGATE(number)", "Returns the complex conjugate of a number")
+__( OP_IMCOS,           1, 1, NULL, NULL, "IMCOS(number)", "The IMCOS function returns the cosine of the given complex number.")
+__( OP_IMCOSH,          1, 1, NULL, NULL, "IMCOSH(number)", "Returns the hyperbolic cosine of the given complex number. For example, a given complex number 'x+yi' returns 'cosh(x+yi)'.")
+__( OP_IMCOT,           1, 1, NULL, NULL, "IMCOT(number)", "Returns the cotangent of the given complex number. For example, a given complex number 'x+yi' returns 'cot(x+yi)'.")
+__( OP_IMCOTH,          1, 1, NULL, NULL, "IMCOTH(number)", "Returns the hyperbolic cotangent of the given complex number. For example, a given complex number 'x+yi' returns 'coth(x+yi)'.")
+__( OP_IMCSC,           1, 1, NULL, NULL, "IMCSC(number)", "Returns the cosecant of the given complex number.")
+__( OP_IMCSCH,          1, 1, NULL, NULL, "IMCSCH(number)", "Returns the hyperbolic cosecant of the given complex number. For example, a given complex number 'x+yi' returns 'csch(x+yi)'.")
+__( OP_IMDIV,           2, 2, NULL, NULL, "IMDIV(dividend, divisor)", "Returns one complex number divided by another")
+__( OP_IMEXP,           1, 1, NULL, NULL, "IMEXP(exponent)", "Returns Euler's number, e (~2.718) raised to a complex power.")
+__( OP_IMLN,            1, 1, NULL, NULL, "IMLN(complex_value)", "Returns the logarithm of a complex number, base e (Euler's number)")
+__( OP_IMLOG,           2, 2, NULL, NULL, "IMLOG(value, base)", "Returns the logarithm of a complex number for a specified base.")
+__( OP_IMLOG10,         1, 1, NULL, NULL, "IMLOG10(value)", "Returns the logarithm of a complex number with base 10.")
+__( OP_IMLOG2,          1, 1, NULL, NULL, "IMLOG2(value)", "Returns the logarithm of a complex number with base 2.")
+__( OP_IMPOWER,         2, 2, NULL, NULL, "IMPOWER(complex_base, exponent)", "Returns a complex number raised to a power")
+__( OP_IMPRODUCT,       1, -1, NULL, NULL, "IMPRODUCT(factor1, [factor2, ...])", "Returns the result of multiplying a series of complex numbers together")
+__( OP_IMREAL,          1, 1, NULL, NULL, "IMREAL(complex_number)", "Returns the real coefficient of a complex number")
+__( OP_IMSEC,           1, 1, NULL, NULL, "IMSEC(number)", "Returns the secant of the given complex number. For example, a given complex number 'x+yi' returns 'sec(x+yi)'.")
+__( OP_IMSECH,          1, 1, NULL, NULL, "IMSECH(number)", "Returns the hyperbolic secant of the given complex number. For example, a given complex number 'x+yi' returns 'sech(x+yi)'.")
+__( OP_IMSIN,           1, 1, NULL, NULL, "IMSIN (number)", "Returns the sine of the given complex number.")
+__( OP_IMSINH,          1, 1, NULL, NULL, "IMSINH(number)", "Returns the hyperbolic sine of the given complex number. For example, a given complex number 'x+yi' returns 'sinh(x+yi)'.")
+__( OP_IMSQRT,          1, 1, NULL, NULL, "IMSQRT(complex_number)", "Computes the square root of a complex number")
+__( OP_IMSUB,           2, 2, NULL, NULL, "IMSUB(first_number, second_number)", "Returns the difference between two complex numbers")
+__( OP_IMSUM,           1, -1, NULL, NULL, "IMSUM(value1, [value2, ...])", "Returns the sum of a series of complex numbers")
+__( OP_IMTAN,           1, 1, NULL, NULL, "IMTAN(number)", "Returns the tangent of the given complex number.")
+__( OP_IMTANH,          1, 1, NULL, NULL, "IMTANH(number)", "Returns the hyperbolic tangent of the given complex number. For example, a given complex number 'x+yi' returns 'tanh(x+yi)'.")
 
-/* 6.9 Database Functions */
-__( OP_DAVERAGE,    "DAVERAGE(database, field, criteria)", 3, 3, NULL, NULL) // Returns the average of a set of values selected from a database table-like array or range using a SQL-like query
-__( OP_DCOUNT,      "DCOUNT(database, field, criteria)", 3, 3, NULL, NULL) // Counts numeric values selected from a database table-like array or range using a SQL-like query
-__( OP_DCOUNTA,     "DCOUNTA(database, field, criteria)", 3, 3, NULL, NULL) // Counts values, including text, selected from a database table-like array or range using a SQL-like query
-__( OP_DGET,        "DGET(database, field, criteria)", 3, 3, NULL, NULL) // Returns a single value from a database table-like array or range using a SQL-like query
-__( OP_DMAX,        "DMAX(database, field, criteria)", 3, 3, NULL, NULL) // Returns the maximum value selected from a database table-like array or range using a SQL-like query
-__( OP_DMIN,        "DMIN(database, field, criteria)", 3, 3, NULL, NULL) // Returns the minimum value selected from a database table-like array or range using a SQL-like query
-__( OP_DPRODUCT,    "DPRODUCT(database, field, criteria)", 3, 3, NULL, NULL) // Returns the product of values selected from a database table-like array or range using a SQL-like query
-__( OP_DSTDEV,      "DSTDEV(database, field, criteria)", 3, 3, NULL, NULL) // Returns the standard deviation of a population sample selected from a database table-like array or range using a SQL-like query
-__( OP_DSTDEVP,     "DSTDEVP(database, field, criteria)", 3, 3, NULL, NULL) // Returns the standard deviation of an entire population selected from a database table-like array or range using a SQL-like query
-__( OP_DSUM,        "DSUM(database, field, criteria)", 3, 3, NULL, NULL) // Returns the sum of values selected from a database table-like array or range using a SQL-like query
-__( OP_DVAR,        "DVAR(database, field, criteria)", 3, 3, NULL, NULL) // Returns the variance of a population sample selected from a database table-like array or range using a SQL-like query
-__( OP_DVARP,       "DVARP(database, field, criteria)", 3, 3, NULL, NULL) // Returns the variance of an entire population selected from a database table-like array or range using a SQL-like query
+/* 6.9 Database Funions */
+__( OP_DAVERAGE,        3, 3, NULL, NULL, "DAVERAGE(database, field, criteria)", "Returns the average of a set of values selected from a database table-like array or range using a SQL-like query")
+__( OP_DCOUNT,          3, 3, NULL, NULL, "DCOUNT(database, field, criteria)", "Counts numeric values selected from a database table-like array or range using a SQL-like query")
+__( OP_DCOUNTA,         3, 3, NULL, NULL, "DCOUNTA(database, field, criteria)", "Counts values, including text, selected from a database table-like array or range using a SQL-like query")
+__( OP_DGET,            3, 3, NULL, NULL, "DGET(database, field, criteria)", "Returns a single value from a database table-like array or range using a SQL-like query")
+__( OP_DMAX,            3, 3, NULL, NULL, "DMAX(database, field, criteria)", "Returns the maximum value selected from a database table-like array or range using a SQL-like query")
+__( OP_DMIN,            3, 3, NULL, NULL, "DMIN(database, field, criteria)", "Returns the minimum value selected from a database table-like array or range using a SQL-like query")
+__( OP_DPRODUCT,        3, 3, NULL, NULL, "DPRODUCT(database, field, criteria)", "Returns the product of values selected from a database table-like array or range using a SQL-like query")
+__( OP_DSTDEV,          3, 3, NULL, NULL, "DSTDEV(database, field, criteria)", "Returns the standard deviation of a population sample selected from a database table-like array or range using a SQL-like query")
+__( OP_DSTDEVP,         3, 3, NULL, NULL, "DSTDEVP(database, field, criteria)", "Returns the standard deviation of an entire population selected from a database table-like array or range using a SQL-like query")
+__( OP_DSUM,            3, 3, NULL, NULL, "DSUM(database, field, criteria)", "Returns the sum of values selected from a database table-like array or range using a SQL-like query")
+__( OP_DVAR,            3, 3, NULL, NULL, "DVAR(database, field, criteria)", "Returns the variance of a population sample selected from a database table-like array or range using a SQL-like query")
+__( OP_DVARP,           3, 3, NULL, NULL, "DVARP(database, field, criteria)", "Returns the variance of an entire population selected from a database table-like array or range using a SQL-like query")
 
-/* 6.10 Date and Time Functions */
-__( OP_DATE,        "DATE(year, month, day)", 3, 3, eval_dts, NULL) // Converts a year, month, and day triplet into a date
-XX( OP_DATE,        "DATE(date, [format])", 1, 2, eval_date, NULL) // Converts a date into a formated string
-__( OP_DATEDIF,     "DATEDIF(start_date, end_date, unit)", 3, 3, NULL, NULL) // Calculates the number of days, months, or years between two dates
-__( OP_DATEVALUE,   "DATEVALUE(date_string)", 1, 1, NULL, NULL) // Converts a provided date string in a known format to a date value
-OP( OP_DAY,         "DAY(date)", 1, 1, eval_time, NULL) // Returns the day of the month that a specific date falls on, in numeric format
-__( OP_DAYS,        "DAYS(end_date, start_date)", 2, 2, NULL, NULL) // Returns the number of days between two dates.
-__( OP_DAYS360,     "DAYS360(start_date, end_date, [method])", 2, 3, NULL, NULL) // Returns the difference between two days based on the 360 day year used in some financial interest calculations
-__( OP_EDATE,       "EDATE(start_date, months)", 2, 2, NULL, NULL) // Returns a date a specified number of months before or after another date
-__( OP_EOMONTH,     "EOMONTH(start_date, months)", 2, 2, NULL, NULL) // Returns a date representing the last day of a month which falls a specified number of months before or after another date
-OP( OP_HOUR,        "HOUR(time)", 1, 1, eval_time, NULL) // Returns the hour component of a specific time, in numeric format
-__( OP_ISOWEEKNUM,  "ISOWEEKNUM(date)", 1, 1, NULL, NULL) // Returns the number of the ISO week of the year where the provided date falls
-OP( OP_MINUTE,      "MINUTE(time)", 1, 1, eval_time, NULL) // Returns the minute component of a specific time, in numeric format
-OP( OP_MONTH,       "MONTH(date)", 1, 1, eval_time, NULL) // Returns the month of the year a specific date falls in, in numeric format
-__( OP_NETWORKDAYS, "NETWORKDAYS(start_date, end_date, [holidays])", 2, 3, NULL, NULL) // Returns the number of net working days between two provided days
-__( OP_NETWORKDAYS_INTL, "NETWORKDAYS.INTL(start_date, end_date, [weekend], [holidays])", 2, 4, NULL, NULL) //  Returns the number of net working days between two provided days excluding specified weekend days and holidays
-OP( OP_NOW,         "NOW()", -1, 0, eval_now, NULL) // Returns the current date and time as a date value
-OP( OP_SECOND,      "SECOND(time)", 1, 1, eval_time, NULL) // Returns the second component of a specific time, in numeric format
-__( OP_TIME,        "TIME(hour, minute, second)", 3, 3, NULL, NULL) // Converts a provided hour, minute, and second into a time
-__( OP_TIMEVALUE,   "TIMEVALUE(time_string)", 1, 1, NULL, NULL) // Returns the fraction of a 24-hour day the time represents
-__( OP_TODAY,       "TODAY()", -1, 0, NULL, NULL) // Returns the current date as a date value
-__( OP_WEEKDAY,     "WEEKDAY(date, [type])", 1, 2, NULL, NULL) // Returns a number representing the day of the week of the date provided
-__( OP_WEEKNUM,     "WEEKNUM(date, [type])", 1, 2, NULL, NULL) // Returns a number representing the week of the year where the provided date falls
-__( OP_WORKDAY,     "WORKDAY(start_date, num_days, [holidays])", 2, 3, NULL, NULL) // Calculates the end date after a specified number of working days
-__( OP_WORKDAY_INTL, "WORKDAY.INTL(start_date, num_days, [weekend], [holidays])", 2, 4, NULL, NULL) // Calculates the date after a specified number of workdays excluding specified weekend days and holidays
-OP( OP_YEAR,        "YEAR(date)", 1, 1, eval_time, NULL) // Returns the year specified by a given date
-__( OP_YEARFRAC,    "YEARFRAC(start_date, end_date, [day_count_convention])", 2, 3, NULL, NULL) // Returns the number of years, including fractional years, between two dates using a specified day count convention
-
-XX( OP_DTS,         "@dts", 3, 3, eval_dts, NULL)
-XX( OP_TTS,         "@tts", 3, 3, eval_fn3, dotts)
+/* 6.10 Date and Ti Functions */
+OP( OP_DATE,            3, 3, eval_date, NULL, "DATE(year, month, day)", "Converts a year, month, and day triplet into a date")
+XX( OP_DATEFMT,         1, 2, eval_datefmt, NULL, "DATEFMT(date, [format])", "Converts a date into a formated string")
+__( OP_DATEDIF,         3, 3, NULL, NULL, "DATEDIF(start_date, end_date, unit)", "Calculates the number of days, months, or years between two dates")
+__( OP_DATEVALUE,       1, 1, NULL, NULL, "DATEVALUE(date_string)", "Converts a provided date string in a known format to a date value")
+OP( OP_DAY,             1, 1, eval_tc, NULL, "DAY(date)", "Returns the day of the month that a specific date falls on, in numeric format")
+__( OP_DAYS,            2, 2, NULL, NULL, "DAYS(end_date, start_date)", "Returns the number of days between two dates.")
+__( OP_DAYS360,         2, 3, NULL, NULL, "DAYS360(start_date, end_date, [method])", "Returns the difference between two days based on the 360 day year used in some financial interest calculations")
+__( OP_EDATE,           2, 2, NULL, NULL, "EDATE(start_date, months)", "Returns a date a specified number of months before or after another date")
+__( OP_EOMONTH,         2, 2, NULL, NULL, "EOMONTH(start_date, months)", "Returns a date representing the last day of a month which falls a specified number of months before or after another date")
+OP( OP_HOUR,            1, 1, eval_tc, NULL, "HOUR(time)", "Returns the hour component of a specific time, in numeric format")
+__( OP_ISOWEEKNUM,      1, 1, NULL, NULL, "ISOWEEKNUM(date)", "Returns the number of the ISO week of the year where the provided date falls")
+OP( OP_MINUTE,          1, 1, eval_tc, NULL, "MINUTE(time)", "Returns the minute component of a specific time, in numeric format")
+OP( OP_MONTH,           1, 1, eval_tc, NULL, "MONTH(date)", "Returns the month of the year a specific date falls in, in numeric format")
+__( OP_NETWORKDAYS,     2, 3, NULL, NULL, "NETWORKDAYS(start_date, end_date, [holidays])", "Returns the number of net working days between two provided days")
+__( OP_NETWORKDAYS_INTL, 2, 4, NULL, NULL, "NETWORKDAYS.INTL(start_date, end_date, [weekend], [holidays])", " Returns the number of net working days between two provided days excluding specified weekend days and holidays")
+OP( OP_NOW,             -1, 0, eval_now, NULL, "NOW()", "Returns the current date and time as a date value")
+OP( OP_SECOND,          1, 1, eval_tc, NULL, "SECOND(time)", "Returns the second component of a specific time, in numeric format")
+OP( OP_TIME,            3, 3, eval_fn3, time3, "TIME(hour, minute, second)", "Converts a provided hour, minute, and second into a time")
+__( OP_TIMEVALUE,       1, 1, NULL, NULL, "TIMEVALUE(time_string)", "Returns the fraction of a 24-hour day the time represents")
+__( OP_TODAY,           -1, 0, NULL, NULL, "TODAY()", "Returns the current date as a date value")
+__( OP_WEEKDAY,         1, 2, NULL, NULL, "WEEKDAY(date, [type])", "Returns a number representing the day of the week of the date provided")
+__( OP_WEEKNUM,         1, 2, NULL, NULL, "WEEKNUM(date, [type])", "Returns a number representing the week of the year where the provided date falls")
+__( OP_WORKDAY,         2, 3, NULL, NULL, "WORKDAY(start_date, num_days, [holidays])", "Calculates the end date after a specified number of working days")
+__( OP_WORKDAY_INTL,    2, 4, NULL, NULL, "WORKDAY.INTL(start_date, num_days, [weekend], [holidays])", "Calculates the date after a specified number of workdays excluding specified weekend days and holidays")
+OP( OP_YEAR,            1, 1, eval_tc, NULL, "YEAR(date)", "Returns the year specified by a given date")
+__( OP_YEARFRAC,        2, 3, NULL, NULL, "YEARFRAC(start_date, end_date, [day_count_convention])", "Returns the number of years, including fractional years, between two dates using a specified day count convention")
 
 /* 6.11 External Access Functions */
-__( OP_DDE,         "DDE(server, topic, item, [mode=0])", 3, 4, NULL, NULL) // Returns data from a DDE request
-LO( OP_ENCODEURL,   "ENCODEURL(text)", 1, 1, NULL, NULL) // Encodes a string of text for the purpose of using in a URL query.
-XX( OP_EXT,         "EXT(command, arg)", 2, 2, eval_ext, NULL) // Run an external process, return first line of output
-__( OP_HYPERLINK,   "HYPERLINK(url, [link_label])", 1, 2, NULL, NULL) // Creates a hyperlink inside a cell
-LO( OP_IMPORTDATA,  "IMPORTDATA(url)", 1, 1, NULL, NULL) // Imports data at a given url in .csv (comma-separated value) or .tsv (tab-separated value) format
-LO( OP_IMPORTFEED,  "IMPORTFEED(url, [query], [headers], [num_items])", 1, 4, NULL, NULL) // Imports a RSS or ATOM feed
-LO( OP_IMPORTHTML,  "IMPORTHTML(url, query, index)", 3, 3, NULL, NULL) // Imports data from a table or list within an HTML page
-LO( OP_IMPORTRANGE, "IMPORTRANGE(spreadsheet_url, range_string)", 2, 2, NULL, NULL) // Imports a range of cells from a specified spreadsheet
-LO( OP_IMPORTXML,   "IMPORTXML(url, xpath_query)", 2, 2, NULL, NULL) // Imports data from any of various structured data types including XML, HTML, CSV, TSV, and RSS and ATOM XML feeds
-LO( OP_ISURL,       "ISURL(value)", 1, 1, NULL, NULL) // Checks whether a value is a valid URL
+__( OP_DDE,             3, 4, NULL, NULL, "DDE(server, topic, item, [mode=0])", "Returns data from a DDE request")
+LO( OP_ENCODEURL,       1, 1, NULL, NULL, "ENCODEURL(text)", "Encodes a string of text for the purpose of using in a URL query.")
+XX( OP_EXT,             2, 2, eval_ext, NULL, "EXT(command, arg)", "Run an external process, return first line of output")
+__( OP_HYPERLINK,       1, 2, NULL, NULL, "HYPERLINK(url, [link_label])", "Creates a hyperlink inside a cell")
+LO( OP_IMPORTDATA,      1, 1, NULL, NULL, "IMPORTDATA(url)", "Imports data at a given url in .csv (comma-separated value) or .tsv (tab-separated value) format")
+LO( OP_IMPORTFEED,      1, 4, NULL, NULL, "IMPORTFEED(url, [query], [headers], [num_items])", "Imports a RSS or ATOM feed")
+LO( OP_IMPORTHTML,      3, 3, NULL, NULL, "IMPORTHTML(url, query, index)", "Imports data from a table or list within an HTML page")
+LO( OP_IMPORTRANGE,     2, 2, NULL, NULL, "IMPORTRANGE(spreadsheet_url, range_string)", "Imports a range of cells from a specified spreadsheet")
+LO( OP_IMPORTXML,       2, 2, NULL, NULL, "IMPORTXML(url, xpath_query)", "Imports data from any of various structured data types including XML, HTML, CSV, TSV, and RSS and ATOM XML feeds")
+LO( OP_ISURL,           1, 1, NULL, NULL, "ISURL(value)", "Checks whether a value is a valid URL")
 
 /* 6.12 Financial Functions */
-__( OP_ACCRINT,     "ACCRINT(issue, first_payment, settlement, rate, redemption, frequency, [day_count_convention])", 6, 7, NULL, NULL) // Calculates the accrued interest of a security that has periodic payments
-__( OP_ACCRINTM,    "ACCRINTM(issue, maturity, rate, [redemption], [day_count_convention])", 3, 5, NULL, NULL) // Calculates the accrued interest of a security that pays interest at maturity
-__( OP_AMORLINC,    "AMORLINC(cost, purchase_date, first_period_end, salvage, period, rate, [basis])", 6, 7, NULL, NULL) // Returns the depreciation for an accounting period, or the prorated depreciation if the asset was purchased in the middle of a period.
-__( OP_COUPDAYBS,   "COUPDAYBS(settlement, maturity, frequency, [day_count_convention])", 3, 4, NULL, NULL) // Calculates the number of days from the first coupon, or interest payment, until settlement
-__( OP_COUPDAYS,    "COUPDAYS(settlement, maturity, frequency, [day_count_convention])", 3, 4, NULL, NULL) // Calculates the number of days in the coupon, or interest payment, period that contains the specified settlement date
-__( OP_COUPDAYSNC,  "COUPDAYSNC(settlement, maturity, frequency, [day_count_convention])", 3, 4, NULL, NULL) //  Calculates the number of days from the settlement date until the next coupon, or interest payment
-__( OP_COUPNCD,     "COUPNCD(settlement, maturity, frequency, [day_count_convention])", 3, 4, NULL, NULL) // Calculates next coupon, or interest payment, date after the settlement date
-__( OP_COUPNUM,     "COUPNUM(settlement, maturity, frequency, [day_count_convention])", 3, 4, NULL, NULL) // Calculates the number of coupons, or interest payments, between the settlement date and the maturity date of the investment
-__( OP_COUPPCD,     "COUPPCD(settlement, maturity, frequency, [day_count_convention])", 3, 4, NULL, NULL) // Calculates last coupon, or interest payment, date before the settlement date
-__( OP_CUMIPMT,     "CUMIPMT(rate, number_of_periods, present_value, first_period, last_period, end_or_beginning)", 6, 6, NULL, NULL) // Calculates the cumulative interest over a range of payment periods for an investment based on constant-amount periodic payments and a constant interest rate
-__( OP_CUMPRINC,    "CUMPRINC(rate, number_of_periods, present_value, first_period, last_period, end_or_beginning)", 6, 6, NULL, NULL) // Calculates the cumulative principal paid over a range of payment periods for an investment based on constant-amount periodic payments and a constant interest rate
-__( OP_DB,          "DB(cost, salvage, life, period, [month])", 4, 5, NULL, NULL) // Calculates the depreciation of an asset for a specified period using the arithmetic declining balance method
-__( OP_DDB,         "DDB(cost, salvage, life, period, [factor])", 4, 5, NULL, NULL) // Calculates the depreciation of an asset for a specified period using the double-declining balance method
-__( OP_DISC,        "DISC(settlement, maturity, price, redemption, [day_count_convention])", 4, 5, NULL, NULL) // Calculates the discount rate of a security based on price
-__( OP_DOLLARDE,    "DOLLARDE(fractional_price, unit)", 2, 2, NULL, NULL) // Converts a price quotation given as a decimal fraction into a decimal value
-__( OP_DOLLARFR,    "DOLLARFR(decimal_price, unit)", 2, 2, NULL, NULL) // Converts a price quotation given as a decimal value into a decimal fraction
-__( OP_DURATION,    "DURATION(settlement, maturity, rate, yield, frequency, [day_count_convention])", 5, 6, NULL, NULL) // ,"Calculates the number of compounding periods required for an investment of a specified present value appreciating at a given rate to reach a target value
-__( OP_EFFECT,      "EFFECT(nominal_rate, periods_per_year)", 2, 2, NULL, NULL) // Calculates the annual effective interest rate given the nominal rate and number of compounding periods per year
-OP( OP_FV,          "FV(rate, number_of_periods, payment_amount, [present_value], [end_or_beginning])", 3, 5, eval_fn3, fin_fv) // Calculates the future value of an annuity investment based on constant-amount periodic payments and a constant interest rate
-__( OP_FVSCHEDULE,  "FVSCHEDULE(principal, rate_schedule)", 2, 2, NULL, NULL) // Calculates the future value of some principal based on a specified series of potentially varying interest rates
-__( OP_INTRATE,     "INTRATE(buy_date, sell_date, buy_price, sell_price, [day_count_convention])", 4, 5, NULL, NULL) //  Calculates the effective interest rate generated when an investment is purchased at one price and sold at another with no interest or dividends generated by the investment itself
-__( OP_IPMT,        "IPMT(rate, period, number_of_periods, present_value, [future_value], [end_or_beginning])", 4, 6, NULL, NULL) // Calculates the payment on interest for an investment based on constant-amount periodic payments and a constant interest rate
-__( OP_IRR,         "IRR(cashflow_amounts, [rate_guess])", 1, 2, NULL, NULL) // Calculates the internal rate of return on an investment based on a series of periodic cash flows
-__( OP_ISPMT,       "ISPMT(rate, period, number_of_periods, present_value)", 4, 4, NULL, NULL) // The ISPMT function calculates the interest paid during a particular period of an investment.
-__( OP_MDURATION,   "MDURATION(settlement, maturity, rate, yield, frequency, [day_count_convention])", 5, 6, NULL, NULL) // Calculates the modified Macaulay duration of a security paying periodic interest, such as a US Treasury Bond, based on expected yield
-__( OP_MIRR,        "MIRR(cashflow_amounts, financing_rate, reinvestment_return_rate)", 3, 3, NULL, NULL) // Calculates the modified internal rate of return on an investment based on a series of periodic cash flows and the difference between the interest rate paid on financing versus the return received on reinvested income
-__( OP_NOMINAL,     "NOMINAL(effective_rate, periods_per_year)", 2, 3, NULL, NULL) // Calculates the annual nominal interest rate given the effective rate and number of compounding periods per year
-__( OP_NPER,        "NPER(rate, payment_amount, present_value, [future_value], [end_or_beginning])", 3, 5, NULL, NULL) //  Calculates the number of payment periods for an investment based on constant-amount periodic payments and a constant interest rate
-__( OP_NPV,         "NPV(discount, cashflow1, [cashflow2, ...])", 2, -1, NULL, NULL) // Calculates the net present value of an investment based on a series of periodic cash flows and a discount rate
-__( OP_PDURATION,   "PDURATION(rate, present_value, future_value)", 3, 3, NULL, NULL) // Returns the number of periods for an investment to reach a specific value at a given rate.
-OP( OP_PMT,         "PMT(rate, number_of_periods, present_value, [future_value], [end_or_beginning])", 3, 5, eval_fn3, fin_pmt) // Calculates the periodic payment for an annuity investment based on constant-amount periodic payments and a constant interest rate
-__( OP_PPMT,        "PPMT(rate, period, number_of_periods, present_value, [future_value], [end_or_beginning])", 4, 6, NULL, NULL) // Calculates the payment on the principal of an investment based on constant-amount periodic payments and a constant interest rate
-__( OP_PRICE,       "PRICE(settlement, maturity, rate, yield, redemption, frequency, [day_count_convention])", 6, 7, NULL, NULL) // Calculates the price of a security paying periodic interest, such as a US Treasury Bond, based on expected yield
-__( OP_PRICEDISC,   "PRICEDISC(settlement, maturity, discount, redemption, [day_count_convention])", 4, 5, NULL, NULL) // Calculates the price of a discount (non-interest-bearing) security, based on expected yield
-__( OP_PRICEMAT,    "PRICEMAT(settlement, maturity, issue, rate, yield, [day_count_convention])", 5, 6, NULL, NULL) //  Calculates the price of a security paying interest at maturity, based on expected yield
-OP( OP_PV,          "PV(rate, number_of_periods, payment_amount, [future_value], [end_or_beginning])", 3, 5, eval_fn3, fin_pv) // Calculates the present value of an annuity investment based on constant-amount periodic payments and a constant interest rate
-__( OP_RATE,        "RATE(number_of_periods, payment_per_period, present_value, [future_value], [end_or_beginning], [rate_guess])", 3, 6, NULL, NULL) // Calculates the interest rate of an annuity investment based on constant-amount periodic payments and the assumption of a constant interest rate
-__( OP_RECEIVED,    "RECEIVED(settlement, maturity, investment, discount, [day_count_convention])", 4, 5, NULL, NULL) //  Calculates the amount received at maturity for an investment in fixed-income securities purchased on a given date
-__( OP_RRI,         "RRI(number_of_periods, present_value, future_value)", 3, 3, NULL, NULL) // Returns the interest rate needed for an investment to reach a specific value within a given number of periods.
-__( OP_SLN,         "SLN(cost, salvage, life)", 3, 3, NULL, NULL) // Calculates the depreciation of an asset for one period using the straight-line method
-__( OP_SYD,         "SYD(cost, salvage, life, period)", 4, 4, NULL, NULL) // Calculates the depreciation of an asset for a specified period using the sum of years digits method
-__( OP_TBILLEQ,     "TBILLEQ(settlement, maturity, discount)", 3, 3, NULL, NULL) // Calculates the equivalent annualized rate of return of a US Treasury Bill based on discount rate
-__( OP_TBILLPRICE,  "TBILLPRICE(settlement, maturity, discount)", 3, 3, NULL, NULL) // Calculates the price of a US Treasury Bill based on discount rate
-__( OP_TBILLYIELD,  "TBILLYIELD(settlement, maturity, price)", 3, 3, NULL, NULL) // Calculates the yield of a US Treasury Bill based on price
-__( OP_VDB,         "VDB(cost, salvage, life, start_period, end_period, [factor], [no_switch])", 5, 7, NULL, NULL) // Returns the depreciation of an asset for a particular period (or partial period).
-__( OP_XIRR,        "XIRR(cashflow_amounts, cashflow_dates, [rate_guess])", 2, 3, NULL, NULL) // Calculates the internal rate of return of an investment based on a specified series of potentially irregularly spaced cash flows
-__( OP_XNPV,        "XNPV(discount, cashflow_amounts, cashflow_dates)", 3, 3, NULL, NULL) // Calculates the net present value of an investment based on a specified series of potentially irregularly spaced cash flows and a discount rate
-__( OP_YIELD,       "YIELD(settlement, maturity, rate, price, redemption, frequency, [day_count_convention])", 6, 7, NULL, NULL) // Calculates the annual yield of a security paying periodic interest, such as a US Treasury Bond, based on price
-__( OP_YIELDDISC,   "YIELDDISC(settlement, maturity, price, redemption, [day_count_convention])", 4, 5, NULL, NULL) //  Calculates the annual yield of a discount (non-interest-bearing) security, based on price
-__( OP_YIELDMAT,    "YIELDMAT(settlement, maturity, issue, rate, price, [day_count_convention])", 4, 5, NULL, NULL) // Calculates the annual yield of a security paying interest at maturity, based on price
+__( OP_ACCRINT,         6, 7, NULL, NULL, "ACCRINT(issue, first_payment, settlement, rate, redemption, frequency, [day_count_convention])", "Calculates the accrued interest of a security that has periodic payments")
+__( OP_ACCRINTM,        3, 5, NULL, NULL, "ACCRINTM(issue, maturity, rate, [redemption], [day_count_convention])", "Calculates the accrued interest of a security that pays interest at maturity")
+__( OP_AMORLINC,        6, 7, NULL, NULL, "AMORLINC(cost, purchase_date, first_period_end, salvage, period, rate, [basis])", "Returns the depreciation for an accounting period, or the prorated depreciation if the asset was purchased in the middle of a period.")
+__( OP_COUPDAYBS,       3, 4, NULL, NULL, "COUPDAYBS(settlement, maturity, frequency, [day_count_convention])", "Calculates the number of days from the first coupon, or interest payment, until settlement")
+__( OP_COUPDAYS,        3, 4, NULL, NULL, "COUPDAYS(settlement, maturity, frequency, [day_count_convention])", "Calculates the number of days in the coupon, or interest payment, period that contains the specified settlement date")
+__( OP_COUPDAYSNC,      3, 4, NULL, NULL, "COUPDAYSNC(settlement, maturity, frequency, [day_count_convention])", " Calculates the number of days from the settlement date until the next coupon, or interest payment")
+__( OP_COUPNCD,         3, 4, NULL, NULL, "COUPNCD(settlement, maturity, frequency, [day_count_convention])", "Calculates next coupon, or interest payment, date after the settlement date")
+__( OP_COUPNUM,         3, 4, NULL, NULL, "COUPNUM(settlement, maturity, frequency, [day_count_convention])", "Calculates the number of coupons, or interest payments, between the settlement date and the maturity date of the investment")
+__( OP_COUPPCD,         3, 4, NULL, NULL, "COUPPCD(settlement, maturity, frequency, [day_count_convention])", "Calculates last coupon, or interest payment, date before the settlement date")
+__( OP_CUMIPMT,         6, 6, NULL, NULL, "CUMIPMT(rate, number_of_periods, present_value, first_period, last_period, end_or_beginning)", "Calculates the cumulative interest over a range of payment periods for an investment based on constant-amount periodic payments and a constant interest rate")
+__( OP_CUMPRINC,        6, 6, NULL, NULL, "CUMPRINC(rate, number_of_periods, present_value, first_period, last_period, end_or_beginning)", "Calculates the cumulative principal paid over a range of payment periods for an investment based on constant-amount periodic payments and a constant interest rate")
+__( OP_DB,              4, 5, NULL, NULL, "DB(cost, salvage, life, period, [month])", "Calculates the depreciation of an asset for a specified period using the arithmetic declining balance method")
+__( OP_DDB,             4, 5, NULL, NULL, "DDB(cost, salvage, life, period, [factor])", "Calculates the depreciation of an asset for a specified period using the double-declining balance method")
+__( OP_DISC,            4, 5, NULL, NULL, "DISC(settlement, maturity, price, redemption, [day_count_convention])", "Calculates the discount rate of a security based on price")
+__( OP_DOLLARDE,        2, 2, NULL, NULL, "DOLLARDE(fractional_price, unit)", "Converts a price quotation given as a decimal fraction into a decimal value")
+__( OP_DOLLARFR,        2, 2, NULL, NULL, "DOLLARFR(decimal_price, unit)", "Converts a price quotation given as a decimal value into a decimal fraction")
+__( OP_DURATION,        5, 6, NULL, NULL, "DURATION(settlement, maturity, rate, yield, frequency, [day_count_convention])", "Calculates the number of compounding periods required for an investment of a specified present value appreciating at a given rate to reach a target value")
+__( OP_EFFECT,          2, 2, NULL, NULL, "EFFECT(nominal_rate, periods_per_year)", "Calculates the annual effective interest rate given the nominal rate and number of compounding periods per year")
+OP( OP_FV,              3, 5, eval_fn3, fin_fv, "FV(rate, number_of_periods, payment_amount, [present_value], [end_or_beginning])", "Calculates the future value of an annuity investment based on constant-amount periodic payments and a constant interest rate")
+__( OP_FVSCHEDULE,      2, 2, NULL, NULL, "FVSCHEDULE(principal, rate_schedule)", "Calculates the future value of some principal based on a specified series of potentially varying interest rates")
+__( OP_INTRATE,         4, 5, NULL, NULL, "INTRATE(buy_date, sell_date, buy_price, sell_price, [day_count_convention])", " Calculates the effective interest rate generated when an investment is purchased at one price and sold at another with no interest or dividends generated by the investment itself")
+__( OP_IPMT,            4, 6, NULL, NULL, "IPMT(rate, period, number_of_periods, present_value, [future_value], [end_or_beginning])", "Calculates the payment on interest for an investment based on constant-amount periodic payments and a constant interest rate")
+__( OP_IRR,             1, 2, NULL, NULL, "IRR(cashflow_amounts, [rate_guess])", "Calculates the internal rate of return on an investment based on a series of periodic cash flows")
+__( OP_ISPMT,           4, 4, NULL, NULL, "ISPMT(rate, period, number_of_periods, present_value)", "The ISPMT function calculates the interest paid during a particular period of an investment.")
+__( OP_MDURATION,       5, 6, NULL, NULL, "MDURATION(settlement, maturity, rate, yield, frequency, [day_count_convention])", "Calculates the modified Macaulay duration of a security paying periodic interest, such as a US Treasury Bond, based on expected yield")
+__( OP_MIRR,            3, 3, NULL, NULL, "MIRR(cashflow_amounts, financing_rate, reinvestment_return_rate)", "Calculates the modified internal rate of return on an investment based on a series of periodic cash flows and the difference between the interest rate paid on financing versus the return received on reinvested income")
+__( OP_NOMINAL,         2, 3, NULL, NULL, "NOMINAL(effective_rate, periods_per_year)", "Calculates the annual nominal interest rate given the effective rate and number of compounding periods per year")
+__( OP_NPER,            3, 5, NULL, NULL, "NPER(rate, payment_amount, present_value, [future_value], [end_or_beginning])", " Calculates the number of payment periods for an investment based on constant-amount periodic payments and a constant interest rate")
+__( OP_NPV,             2, -1, NULL, NULL, "NPV(discount, cashflow1, [cashflow2, ...])", "Calculates the net present value of an investment based on a series of periodic cash flows and a discount rate")
+__( OP_PDURATION,       3, 3, NULL, NULL, "PDURATION(rate, present_value, future_value)", "Returns the number of periods for an investment to reach a specific value at a given rate.")
+OP( OP_PMT,             3, 5, eval_fn3, fin_pmt, "PMT(rate, number_of_periods, present_value, [future_value], [end_or_beginning])", "Calculates the periodic payment for an annuity investment based on constant-amount periodic payments and a constant interest rate")
+__( OP_PPMT,            4, 6, NULL, NULL, "PPMT(rate, period, number_of_periods, present_value, [future_value], [end_or_beginning])", "Calculates the payment on the principal of an investment based on constant-amount periodic payments and a constant interest rate")
+__( OP_PRICE,           6, 7, NULL, NULL, "PRICE(settlement, maturity, rate, yield, redemption, frequency, [day_count_convention])", "Calculates the price of a security paying periodic interest, such as a US Treasury Bond, based on expected yield")
+__( OP_PRICEDISC,       4, 5, NULL, NULL, "PRICEDISC(settlement, maturity, discount, redemption, [day_count_convention])", "Calculates the price of a discount (non-interest-bearing) security, based on expected yield")
+__( OP_PRICEMAT,        5, 6, NULL, NULL, "PRICEMAT(settlement, maturity, issue, rate, yield, [day_count_convention])", " Calculates the price of a security paying interest at maturity, based on expected yield")
+OP( OP_PV,              3, 5, eval_fn3, fin_pv, "PV(rate, number_of_periods, payment_amount, [future_value], [end_or_beginning])", "Calculates the present value of an annuity investment based on constant-amount periodic payments and a constant interest rate")
+__( OP_RATE,            3, 6, NULL, NULL, "RATE(number_of_periods, payment_per_period, present_value, [future_value], [end_or_beginning], [rate_guess])", "Calculates the interest rate of an annuity investment based on constant-amount periodic payments and the assumption of a constant interest rate")
+__( OP_RECEIVED,        4, 5, NULL, NULL, "RECEIVED(settlement, maturity, investment, discount, [day_count_convention])", " Calculates the amount received at maturity for an investment in fixed-income securities purchased on a given date")
+__( OP_RRI,             3, 3, NULL, NULL, "RRI(number_of_periods, present_value, future_value)", "Returns the interest rate needed for an investment to reach a specific value within a given number of periods.")
+__( OP_SLN,             3, 3, NULL, NULL, "SLN(cost, salvage, life)", "Calculates the depreciation of an asset for one period using the straight-line method")
+__( OP_SYD,             4, 4, NULL, NULL, "SYD(cost, salvage, life, period)", "Calculates the depreciation of an asset for a specified period using the sum of years digits method")
+__( OP_TBILLEQ,         3, 3, NULL, NULL, "TBILLEQ(settlement, maturity, discount)", "Calculates the equivalent annualized rate of return of a US Treasury Bill based on discount rate")
+__( OP_TBILLPRICE,      3, 3, NULL, NULL, "TBILLPRICE(settlement, maturity, discount)", "Calculates the price of a US Treasury Bill based on discount rate")
+__( OP_TBILLYIELD,      3, 3, NULL, NULL, "TBILLYIELD(settlement, maturity, price)", "Calculates the yield of a US Treasury Bill based on price")
+__( OP_VDB,             5, 7, NULL, NULL, "VDB(cost, salvage, life, start_period, end_period, [factor], [no_switch])", "Returns the depreciation of an asset for a particular period (or partial period).")
+__( OP_XIRR,            2, 3, NULL, NULL, "XIRR(cashflow_amounts, cashflow_dates, [rate_guess])", "Calculates the internal rate of return of an investment based on a specified series of potentially irregularly spaced cash flows")
+__( OP_XNPV,            3, 3, NULL, NULL, "XNPV(discount, cashflow_amounts, cashflow_dates)", "Calculates the net present value of an investment based on a specified series of potentially irregularly spaced cash flows and a discount rate")
+__( OP_YIELD,           6, 7, NULL, NULL, "YIELD(settlement, maturity, rate, price, redemption, frequency, [day_count_convention])", "Calculates the annual yield of a security paying periodic interest, such as a US Treasury Bond, based on price")
+__( OP_YIELDDISC,       4, 5, NULL, NULL, "YIELDDISC(settlement, maturity, price, redemption, [day_count_convention])", " Calculates the annual yield of a discount (non-interest-bearing) security, based on price")
+__( OP_YIELDMAT,        4, 5, NULL, NULL, "YIELDMAT(settlement, maturity, issue, rate, price, [day_count_convention])", "Calculates the annual yield of a security paying interest at maturity, based on price")
 
 /* 6.13 Information Functions */
-__( OP_AREAS,       "AREAS(reference list)", 1, -1, NULL, NULL) // Returns the number of areas in a given list of references.
-__( OP_CELL,        "CELL(info_type, [reference])", 1, 2, NULL, NULL) // Returns the requested information about the specified cell
-__( OP_COLUMN,      "COLUMN([cell_reference])", 0, 1, NULL, NULL) // Returns the column number of a specified cell, with `A=1`
-OP( OP_COLUMNS,     "COLUMNS(range)", 1, 1, eval_rows_cols, NULL) // Returns the number of columns in a specified array or range
-OP( OP_COUNT,       "COUNT(value1, [value2, ...])", 1, -1, eval_count, NULL) // Returns a count of the number of numeric values in a dataset
-OP( OP_COUNTA,      "COUNTA(value1, [value2, ...])", 1, -1, eval_count, NULL) // Returns a count of the number of values in a dataset
-__( OP_COUNTBLANK,  "COUNTBLANK(range)", 1, -1, NULL, NULL) // Returns the number of empty cells in a given range
-OP( OP_COUNTIF,     "COUNTIF(range, criterion)", 2, 2, eval_countif, NULL) // Returns a conditional count across a range
-__( OP_COUNTIFS,    "COUNTIFS(criteria_range1, criterion1, [criteria_range2, criterion2, ...])", 2, -1, NULL, NULL) // Returns the count of a range depending on multiple criteria
-LO( OP_COUNTUNIQUE, "COUNTUNIQUE(value1, [value2, ...])", 1, -1, NULL, NULL) // Counts the number of unique values in a list of specified values and ranges
-__( OP_ERROR_TYPE,  "ERROR.TYPE(reference)", 1, 1, NULL, NULL) // Returns a number corresponding to the error value in a different cell
-__( OP_FORMULA,     "FORMULA(cell)", 1, 1, NULL, NULL) // Checks cell formula as text
-LO( OP_FORMULATEXT, "FORMULATEXT(cell)", 1, 1, NULL, NULL) // Returns the formula as a string.
-__( OP_INFO,        "INFO(category)", 1, 1, NULL, NULL) // Returns system information
-__( OP_ISBLANK,     "ISBLANK(value)", 1, 1, NULL, NULL) // Checks whether the referenced cell is empty
-LO( OP_ISDATE,      "ISDATE(value)", 1, 1, NULL, NULL) // Returns whether a value is a date.
-LO( OP_ISEMAIL,     "ISEMAIL(value)", 1, 1, NULL, NULL) // Checks whether a value is a valid email address
-__( OP_ISERR,       "ISERR(value)", 1, 1, NULL, NULL) // Checks whether a value is an error other than `#N/A`
-__( OP_ISERROR,     "ISERROR(value)", 1, 1, NULL, NULL) // Checks whether a value is an error
-__( OP_ISEVEN,      "ISEVEN(value)", 1, 1, NULL, NULL) // Checks whether the provided value is even
-__( OP_ISFORMULA,   "ISFORMULA(cell)", 1, 1, NULL, NULL) // Checks whether a formula is in the referenced cell
-__( OP_ISLOGICAL,   "ISLOGICAL(value)", 1, 1, NULL, NULL) // Checks whether a value is `TRUE` or `FALSE`
-__( OP_ISNA,        "ISNA(value)", 1, 1, NULL, NULL) // Checks whether a value is the error `#N/A`
-__( OP_ISNONTEXT,   "ISNONTEXT(value)", 1, 1, NULL, NULL) // Checks whether a value is non-textual
-__( OP_ISNUMBER,    "ISNUMBER(value)", 1, 1, NULL, NULL) // Checks whether a value is a number
-__( OP_ISODD,       "ISODD(value)", 1, 1, NULL, NULL) // Checks whether the provided value is odd
-__( OP_ISREF,       "ISREF(value)", 1, 1, NULL, NULL) // Checks whether a value is a valid cell reference
-__( OP_ISTEXT,      "ISTEXT(value)", 1, 1, NULL, NULL) // Checks whether a value is text
-__( OP_N,           "N(value)", 1, 1, NULL, NULL) // Returns the argument provided as a number
-__( OP_NA,          "NA()", -1, 0, NULL, NULL) // Returns the 'value not available' error, `#N/A`
-__( OP_NUMBERVALUE, "NUMBERVALUE(text, [decimalseparator, [groupseparator]])", 1, 3, NULL, NULL) // Convert text to number, in a locale-independent way.
-__( OP_ROW,         "ROW([cell_reference])", 0, 1, NULL, NULL) // Returns the row number of a specified cell
-OP( OP_ROWS,        "ROWS(range)", 1, 1, eval_rows_cols, NULL) // Returns the number of rows in a specified array or range
-__( OP_SHEET,       "SHEET([Text|Reference])", 0, 1, NULL, NULL) // Returns the sheet number of the reference or the string representing a sheet name.
-__( OP_SHEETS,      "SHEETS([Reference])", 0, 1, NULL, NULL) // Returns the number of sheets in a reference or current document.
-__( OP_TYPE,        "TYPE(value)", 1, 1, NULL, NULL) // Returns a number associated with the type of data passed into the function
-__( OP_VALUE,       "VALUE(text)", 1, 1, NULL, NULL) // Converts a string in any of the date, time or number formats that Google Sheets understands into a number
+__( OP_AREAS,           1, -1, NULL, NULL, "AREAS(reference list)", "Returns the number of areas in a given list of references.")
+__( OP_CELL,            1, 2, NULL, NULL, "CELL(info_type, [reference])", "Returns the requested information about the specified cell")
+__( OP_COLUMN,          0, 1, NULL, NULL, "COLUMN([cell_reference])", "Returns the column number of a specified cell, with `A=1`")
+OP( OP_COLUMNS,         1, 1, eval_rows_cols, NULL, "COLUMNS(range)", "Returns the number of columns in a specified array or range")
+OP( OP_COUNT,           1, -1, eval_count, NULL, "COUNT(value1, [value2, ...])", "Returns a count of the number of numeric values in a dataset")
+OP( OP_COUNTA,          1, -1, eval_count, NULL, "COUNTA(value1, [value2, ...])", "Returns a count of the number of values in a dataset")
+__( OP_COUNTBLANK,      1, -1, NULL, NULL, "COUNTBLANK(range)", "Returns the number of empty cells in a given range")
+OP( OP_COUNTIF,         2, 2, eval_countif, NULL, "COUNTIF(range, criterion)", "Returns a conditional count across a range")
+__( OP_COUNTIFS,        2, -1, NULL, NULL, "COUNTIFS(criteria_range1, criterion1, [criteria_range2, criterion2, ...])", "Returns the count of a range depending on multiple criteria")
+LO( OP_COUNTUNIQUE,     1, -1, NULL, NULL, "COUNTUNIQUE(value1, [value2, ...])", "Counts the number of unique values in a list of specified values and ranges")
+__( OP_ERROR_TYPE,      1, 1, NULL, NULL, "ERROR.TYPE(reference)", "Returns a number corresponding to the error value in a different cell")
+__( OP_FORMULA,         1, 1, NULL, NULL, "FORMULA(cell)", "Checks cell formula as text")
+LO( OP_FORMULATEXT,     1, 1, NULL, NULL, "FORMULATEXT(cell)", "Returns the formula as a string.")
+__( OP_INFO,            1, 1, NULL, NULL, "INFO(category)", "Returns system information")
+__( OP_ISBLANK,         1, 1, NULL, NULL, "ISBLANK(value)", "Checks whether the referenced cell is empty")
+LO( OP_ISDATE,          1, 1, NULL, NULL, "ISDATE(value)", "Returns whether a value is a date.")
+LO( OP_ISEMAIL,         1, 1, NULL, NULL, "ISEMAIL(value)", "Checks whether a value is a valid email address")
+__( OP_ISERR,           1, 1, NULL, NULL, "ISERR(value)", "Checks whether a value is an error other than `#N/A`")
+__( OP_ISERROR,         1, 1, NULL, NULL, "ISERROR(value)", "Checks whether a value is an error")
+__( OP_ISEVEN,          1, 1, NULL, NULL, "ISEVEN(value)", "Checks whether the provided value is even")
+__( OP_ISFORMULA,       1, 1, NULL, NULL, "ISFORMULA(cell)", "Checks whether a formula is in the referenced cell")
+__( OP_ISLOGICAL,       1, 1, NULL, NULL, "ISLOGICAL(value)", "Checks whether a value is `TRUE` or `FALSE`")
+__( OP_ISNA,            1, 1, NULL, NULL, "ISNA(value)", "Checks whether a value is the error `#N/A`")
+__( OP_ISNONTEXT,       1, 1, NULL, NULL, "ISNONTEXT(value)", "Checks whether a value is non-textual")
+__( OP_ISNUMBER,        1, 1, NULL, NULL, "ISNUMBER(value)", "Checks whether a value is a number")
+__( OP_ISODD,           1, 1, NULL, NULL, "ISODD(value)", "Checks whether the provided value is odd")
+__( OP_ISREF,           1, 1, NULL, NULL, "ISREF(value)", "Checks whether a value is a valid cell reference")
+__( OP_ISTEXT,          1, 1, NULL, NULL, "ISTEXT(value)", "Checks whether a value is text")
+__( OP_N,               1, 1, NULL, NULL, "N(value)", "Returns the argument provided as a number")
+__( OP_NA,              -1, 0, NULL, NULL, "NA()", "Returns the 'value not available' error, `#N/A`")
+__( OP_NUMBERVALUE,     1, 3, NULL, NULL, "NUMBERVALUE(text, [decimalseparator, [groupseparator]])", "Convert text to number, in a locale-independent way.")
+__( OP_ROW,             0, 1, NULL, NULL, "ROW([cell_reference])", "Returns the row number of a specified cell")
+OP( OP_ROWS,            1, 1, eval_rows_cols, NULL, "ROWS(range)", "Returns the number of rows in a specified array or range")
+__( OP_SHEET,           0, 1, NULL, NULL, "SHEET([Text|Reference])", "Returns the sheet number of the reference or the string representing a sheet name.")
+__( OP_SHEETS,          0, 1, NULL, NULL, "SHEETS([Reference])", "Returns the number of sheets in a reference or current document.")
+__( OP_TYPE,            1, 1, NULL, NULL, "TYPE(value)", "Returns a number associated with the type of data passed into the function")
+__( OP_VALUE,           1, 1, NULL, NULL, "VALUE(text)", "Converts a string in any of the date, time or number formats that Google Sheets understands into a number")
 
-XX( OP_COLS,        "@cols", 1, 1, eval_rows_cols, NULL)
-XX( OP_COLTOA,      "@coltoa", 1, 1, eval_coltoa, NULL)
-XX( OP_ERR,         "@err", -1, -1, eval_other, NULL)
-XX( OP_FILENAME,    "@filename", 1, 1, eval_filename, NULL)
-XX( OP_LASTCOL,     "@lastcol", -1, -1, eval_other, NULL)
-XX( OP_LASTROW,     "@lastrow", -1, -1, eval_other, NULL)
-XX( OP_MYCOL,       "@mycol", -1, -1, eval_other, NULL)
-XX( OP_MYROW,       "@myrow", -1, -1, eval_other, NULL)
-XX( OP_NUMITER,     "@numiter", -1, -1, eval_other, NULL)
-XX( OP_NVAL,        "@nval", 2, 2, eval_nval, NULL)
-XX( OP_STON,        "@ston", 1, 1, eval_ston, NULL)
-XX( OP_SVAL,        "@sval", 2, 2, eval_sval, NULL)
+XX( OP_COLS,            1, 1, eval_rows_cols, NULL, "@cols", NULL)
+XX( OP_COLTOA,          1, 1, eval_coltoa, NULL, "@coltoa", NULL)
+XX( OP_ERR,             -1, -1, eval_other, NULL, "@err", NULL)
+XX( OP_FILENAME,        1, 1, eval_filename, NULL, "@filename", NULL)
+XX( OP_LASTCOL,         -1, -1, eval_other, NULL, "@lastcol", NULL)
+XX( OP_LASTROW,         -1, -1, eval_other, NULL, "@lastrow", NULL)
+XX( OP_MYCOL,           -1, -1, eval_other, NULL, "@mycol", NULL)
+XX( OP_MYROW,           -1, -1, eval_other, NULL, "@myrow", NULL)
+XX( OP_NUMITER,         -1, -1, eval_other, NULL, "@numiter", NULL)
+XX( OP_NVAL,            2, 2, eval_nval, NULL, "@nval", NULL)
+XX( OP_STON,            1, 1, eval_ston, NULL, "@ston", NULL)
+XX( OP_SVAL,            2, 2, eval_sval, NULL, "@sval", NULL)
 
 /* 6.14 Lookup Functions */
-__( OP_ADDRESS,     "ADDRESS(row, column, [absolute_relative_mode], [use_a1_notation], [sheet])", 2, 5, NULL, NULL) // Returns a cell reference as a string
-__( OP_CHOOSE,      "CHOOSE(index, choice1, [choice2, ...])", 2, -1, NULL, NULL) // Returns an element from a list of choices based on index
-__( OP_GETPIVOTDATA, "GETPIVOTDATA(value_name, any_pivot_table_cell, [original_column, ...], [pivot_item, ...])", 2, -1, NULL, NULL) // Extracts an aggregated value from a pivot table that corresponds to the specified row and column headings
-OP( OP_HLOOKUP,     "HLOOKUP(search_key, range, index, [is_sorted])", 3, 4, eval_lookup, NULL) // Horizontal lookup. Searches across the first row of a range for a key and returns the value of a specified cell in the column found
-OP( OP_INDEX,       "INDEX(reference, [row], [column])", 1, 3, eval_index, NULL) // Returns the content of a cell, specified by row and column offset
-__( OP_INDIRECT,    "INDIRECT(cell_reference_as_string, [is_A1_notation])", 1, 2, NULL, NULL) // Returns a cell reference specified by a string
-OP( OP_LOOKUP,      "LOOKUP(search_key, search_range|search_result_array, [result_range])", 2, 3, eval_lookup, NULL) // Looks through a row or column for a key and returns the value of the cell in a result range located in the same position as the search row or column
-__( OP_MATCH,       "MATCH(search_key, range, [search_type])", 2, 3, NULL, NULL) // Returns the relative position of an item in a range that matches a specified value
-__( OP_MULTIPLE_OPERATIONS, "MULTIPLE.OPERATIONS(formulacell, rowcell, rowreplacement, [columncell, columnreplacement])", 3, 5, NULL, NULL) // Executes a formula expression while substituting a row reference and a column reference.
-__( OP_OFFSET,      "OFFSET(cell_reference, offset_rows, offset_columns, [height], [width])", 3, 5, NULL, NULL) // Returns a range reference shifted a specified number of rows and columns from a starting cell reference
-OP( OP_VLOOKUP,     "VLOOKUP(search_key, range, index, [is_sorted])", 3, 4, eval_lookup, NULL) // Vertical lookup. Searches down the first column of a range for a key and returns the value of a specified cell in the row found
-
-XX( OP_STINDEX,     "@stindex", 1, 3, eval_index, NULL) // Obsolete string version of INDEX(ref,row,column)
+__( OP_ADDRESS,         2, 5, NULL, NULL, "ADDRESS(row, column, [absolute_relative_mode], [use_a1_notation], [sheet])", "Returns a cell reference as a string")
+__( OP_CHOOSE,          2, -1, NULL, NULL, "CHOOSE(index, choice1, [choice2, ...])", "Returns an element from a list of choices based on index")
+__( OP_GETPIVOTDATA,    2, -1, NULL, NULL, "GETPIVOTDATA(value_name, any_pivot_table_cell, [original_column, ...], [pivot_item, ...])", "Extracts an aggregated value from a pivot table that corresponds to the specified row and column headings")
+OP( OP_HLOOKUP,         3, 4, eval_lookup, NULL, "HLOOKUP(search_key, range, index, [is_sorted])", "Horizontal lookup. Searches across the first row of a range for a key and returns the value of a specified cell in the column found")
+OP( OP_INDEX,           1, 3, eval_index, NULL, "INDEX(reference, [row], [column])", "Returns the content of a cell, specified by row and column offset")
+__( OP_INDIRECT,        1, 2, NULL, NULL, "INDIRECT(cell_reference_as_string, [is_A1_notation])", "Returns a cell reference specified by a string")
+OP( OP_LOOKUP,          2, 3, eval_lookup, NULL, "LOOKUP(search_key, search_range|search_result_array, [result_range])", "Looks through a row or column for a key and returns the value of the cell in a result range located in the same position as the search row or column")
+__( OP_MATCH,           2, 3, NULL, NULL, "MATCH(search_key, range, [search_type])", "Returns the relative position of an item in a range that matches a specified value")
+__( OP_MULTIPLE_OPERATIONS, 3, 5, NULL, NULL, "MULTIPLE.OPERATIONS(formulacell, rowcell, rowreplacement, [columncell, columnreplacement])", "Executes a formula expression while substituting a row reference and a column reference.")
+__( OP_OFFSET,          3, 5, NULL, NULL, "OFFSET(cell_reference, offset_rows, offset_columns, [height], [width])", "Returns a range reference shifted a specified number of rows and columns from a starting cell reference")
+OP( OP_VLOOKUP,         3, 4, eval_lookup, NULL, "VLOOKUP(search_key, range, index, [is_sorted])", "Vertical lookup. Searches down the first column of a range for a key and returns the value of a specified cell in the row found")
 
 /* 6.15 Logical Functions */
-__( OP_AND,         "AND(logical_expression1, [logical_expression2, ...])", 1, -1, NULL, NULL) // Returns true if all of the provided arguments are logically true, and false if any of the provided arguments are logically false
-OP( OP_FALSE,       "FALSE()", -1, 0, eval_other, NULL) // Returns the logical value `FALSE`
-OP( OP_IF,          "IF(logical_expression, [value_if_true, [value_if_false]])", 3, 3, eval_if, NULL) // Returns one value if a logical expression is `TRUE` and another if it is `FALSE`
-__( OP_IFERROR,     "IFERROR(value, [value_if_error])", 1, 2, NULL, NULL) // Returns the first argument if it is not an error value, otherwise returns the second argument if present, or a blank if the second argument is absent
-__( OP_IFNA,        "IFNA(value, value_if_na)", 2, 2, NULL, NULL) // Evaluates a value. If the value is an #N/A error, returns the specified value.
-LO( OP_IFS,         "IFS(condition1, value1, [condition2, value2], ...)", 2, -1, NULL, NULL) // Evaluates multiple conditions and returns a value that corresponds to the first true condition.
-__( OP_NOT,         "NOT(logical_expression)", 1, 1, NULL, NULL) // Returns the opposite of a logical value - `NOT(TRUE)` returns `FALSE`; `NOT(FALSE)` returns `TRUE`
-__( OP_OR,          "OR(logical_expression1, [logical_expression2, ...])", 1, -1, NULL, NULL) // Returns true if any of the provided arguments are logically true, and false if all of the provided arguments are logically false
-LO( OP_SWITCH,      "SWITCH(expression, case1, value1, [default or case2, value2], ...)", 1, -1, NULL, NULL) // Tests an expression against a list of cases and returns the corresponding value of the first matching case, with an optional default value if nothing else is met
-OP( OP_TRUE,        "TRUE()", -1, 1, eval_other, NULL) // Returns the logical value `TRUE`
-__( OP_XOR,         "XOR(logical_expression1, [logical_expression2, ...])", 1, -1, NULL, NULL) // The XOR function performs an exclusive or of 2 numbers that returns a 1 if the numbers are different, and a 0 otherwise.
+__( OP_AND,             1, -1, NULL, NULL, "AND(logical_expression1, [logical_expression2, ...])", "Returns true if all of the provided arguments are logically true, and false if any of the provided arguments are logically false")
+OP( OP_FALSE,           -1, 0, eval_other, NULL, "FALSE()", "Returns the logical value `FALSE`")
+OP( OP_IF,              3, 3, eval_if, NULL, "IF(logical_expression, [value_if_true, [value_if_false]])", "Returns one value if a logical expression is `TRUE` and another if it is `FALSE`")
+__( OP_IFERROR,         1, 2, NULL, NULL, "IFERROR(value, [value_if_error])", "Returns the first argument if it is not an error value, otherwise returns the second argument if present, or a blank if the second argument is absent")
+__( OP_IFNA,            2, 2, NULL, NULL, "IFNA(value, value_if_na)", "Evaluates a value. If the value is an #N/A error, returns the specified value.")
+LO( OP_IFS,             2, -1, NULL, NULL, "IFS(condition1, value1, [condition2, value2], ...)", "Evaluates multiple conditions and returns a value that corresponds to the first true condition.")
+__( OP_NOT,             1, 1, NULL, NULL, "NOT(logical_expression)", "Returns the opposite of a logical value - `NOT(TRUE)` returns `FALSE`; `NOT(FALSE)` returns `TRUE`")
+__( OP_OR,              1, -1, NULL, NULL, "OR(logical_expression1, [logical_expression2, ...])", "Returns true if any of the provided arguments are logically true, and false if all of the provided arguments are logically false")
+LO( OP_SWITCH,          1, -1, NULL, NULL, "SWITCH(expression, case1, value1, [default or case2, value2], ...)", "Tests an expression against a list of cases and returns the corresponding value of the first matching case, with an optional default value if nothing else is met")
+OP( OP_TRUE,            -1, 1, eval_other, NULL, "TRUE()", "Returns the logical value `TRUE`")
+__( OP_XOR,             1, -1, NULL, NULL, "XOR(logical_expression1, [logical_expression2, ...])", "The XOR function performs an exclusive or of 2 numbers that returns a 1 if the numbers are different, and a 0 otherwise.")
 
 /* 6.16 Mathematical Functions */
-OP( OP_ABS,         "ABS(value)", 1, 1, eval_fn1, fabs) // Returns the absolute value of a number
-OP( OP_ACOS,        "ACOS(value)", 1, 1, eval_fn1, acos) // Returns the inverse cosine of a value, in radians
-__( OP_ACOSH,       "ACOSH(value)", 1, 1, NULL, NULL) // Returns the inverse hyperbolic cosine of a number
-__( OP_ACOT,        "ACOT(value)", 1, 1, NULL, NULL) // Returns the inverse cotangent of a value, in radians.
-__( OP_ACOTH,       "ACOTH(value)", 1, 1, NULL, NULL) // Returns the inverse hyperbolic cotangent of a value, in radians. Must not be between -1 and 1, inclusive.
-OP( OP_ASIN,        "ASIN(value)", 1, 1, eval_fn1, asin) // Returns the inverse sine of a value, in radians
-__( OP_ASINH,       "ASINH(value)", 1, 1, NULL, NULL) // Returns the inverse hyperbolic sine of a number
-OP( OP_ATAN,        "ATAN(value)", 1, 1, eval_fn1, atan) // Returns the inverse tangent of a value, in radians
-OP( OP_ATAN2,       "ATAN2(x, y)", 2, 2, eval_fn2, atan2) // Returns the angle between the x-axis and a line segment from the origin (0,0) to specified coordinate pair (`x`,`y`), in radians
-__( OP_ATANH,       "ATANH(value)", 1, 1, NULL, NULL) // Returns the inverse hyperbolic tangent of a number
-__( OP_BESSELI,     "BESSELI(x, n)", 2, 2, NULL, NULL) // Returns the modified Bessel function of integer order In(X).
-__( OP_BESSELJ,     "BESSELJ(x, n)", 2, 2, NULL, NULL) // Returns the Bessel function of integer order Jn(X) (cylinder function)
-__( OP_BESSELK,     "BESSELK(x, n)", 2, 2, NULL, NULL) // Returns the modified Bessel function of integer order Kn(x).
-__( OP_BESSELY,     "BESSELY(x, n)", 2, 2, NULL, NULL) // Returns the Bessel function of integer order Yn(X), also known as the Neumann function.
-__( OP_COMBIN,      "COMBIN(n, k)", 2, 2, NULL, NULL) // Returns the number of ways to choose some number of objects from a pool of a given size of objects
-__( OP_COMBINA,     "COMBINA(n, k)", 2, 2, NULL, NULL) // Returns the number of ways to choose some number of objects from a pool of a given size of objects, including ways that choose the same object multiple times.
-__( OP_CONVERT,     "CONVERT(value, start_unit, end_unit)", 3, 3, NULL, NULL) // Converts a numeric value to a different unit of measure
-OP( OP_COS,         "COS(angle)", 1, 1, eval_fn1, cos) // Returns the cosine of an angle provided in radians
-__( OP_COSH,        "COSH(value)", 1, 1, NULL, NULL) // Returns the hyperbolic cosine of any real number
-__( OP_COT,         "COT(angle)", 1, 1, NULL, NULL) // Cotangent of an angle provided in radians.
-__( OP_COTH,        "COTH(value)", 1, 1, NULL, NULL) // Returns the hyperbolic cotangent of any real number.
-__( OP_CSC,         "CSC(angle)", 1, 1, NULL, NULL) // Returns the cosecant of an angle provided in radians.
-__( OP_CSCH,        "CSCH(value)", 1, 1, NULL, NULL) // The CSCH function returns the hyperbolic cosecant of any real number.
-OP( OP_DEGREES,     "DEGREES(angle)", 1, 1, eval_fn1, degrees) // Converts an angle value in radians to degrees
-__( OP_DELTA,       "DELTA(number1, [number2])", 1, 2, NULL, NULL) // Compare two numeric values, returning 1 if they're equal
-__( OP_ERF,         "ERF(lower_bound, [upper_bound])", 1, 2, NULL, NULL) // The ERF function returns the integral of the Gauss error function over an interval of values.
-__( OP_ERFC,        "ERFC(z)", 1, 1, NULL, NULL) // Returns the complementary Gauss error function of a value
-LO( OP_ERFC_PRECISE, "ERFC.PRECISE(z)", 1, 1, NULL, NULL) // See ERFC
-__( OP_EUROCONVERT, "EUROCONVERT(n, from, to, [fullprecision=FALSE, [triangulationprecision]])", 3, 5, NULL, NULL) // Converts a Number, representing a value in one European currency, to an equivalent value in another European currency, according to the fixed conversion rates defined by the Council of the European Union.
-__( OP_EVEN,        "EVEN(value)", 1, 1, NULL, NULL) // Rounds a number up to the nearest even integer
-OP( OP_EXP,         "EXP(exponent)", 1, 1, eval_fn1, exp) // Returns Euler's number, e (~2.718) raised to a power
-__( OP_FACT,        "FACT(value)", 1, 1, NULL, NULL) // Returns the factorial of a number
-__( OP_FACTDOUBLE,  "FACTDOUBLE(value)", 1, 1, NULL, NULL) // Returns the 'double factorial' of a number
-__( OP_GAMMA,       "GAMMA(number)", 1, 1, NULL, NULL) // Returns the Gamma function evaluated at the specified value.
-__( OP_GAMMALN,     "GAMMALN(value)", 1, 1, NULL, NULL) // Returns the the logarithm of a specified Gamma function, base e (Euler's number)
-LO( OP_GAMMALN_PRECISE, "GAMMALN.PRECISE(value)", 1, 1, NULL, NULL) // See GAMMALN
-__( OP_GCD,         "GCD(value1, [value2...])", 1, -1, NULL, NULL) // Returns the greatest common divisor of one or more integers
-__( OP_GESTEP,      "GESTEP(value, [step])", 1, 2, NULL, NULL) // Returns 1 if the rate is strictly greater than or equal to the provided step value or 0 otherwise. If no step value is provided then the default value of 0 will be used.
-__( OP_ISO_CEILING, "ISO.CEILING(number, [significance])", 1, 2, NULL, NULL) // See CEILING.PRECISE
-__( OP_LCM,         "LCM(value1, [value2 ...])", 1, -1, NULL, NULL) // Returns the least common multiple of one or more integers
-OP( OP_LN,          "LN(value)", 1, 1, eval_fn1, log) // Returns the the logarithm of a number, base e (Euler's number)
-OP( OP_LOG,         "LOG(value, [base])", 1, 2, eval_fn1, log10) // Returns the the logarithm of a number given a base
-OP( OP_LOG10,       "LOG10(value)", 1, 1, eval_fn1, log10) // Returns the the logarithm of a number, base 10
-__( OP_MOD,         "MOD(dividend, divisor)", 2, 2, NULL, NULL) // Returns the result of the modulo operator, the remainder after a division operation
-__( OP_MULTINOMIAL, "MULTINOMIAL(value1, [value2...])", 1, -1, NULL, NULL) // Returns the factorial of the sum of values divided by the product of the values' factorials
-__( OP_ODD,         "ODD(value)", 1, 1, NULL, NULL) // Rounds a number up to the nearest odd integer
-OP( OP_PI,          "PI()", -1, 0, eval_pi, NULL) // Returns the value of Pi to 14 decimal places
-OP( OP_POWER,       "POWER(base, exponent)", 2, 2, eval_fn2, pow) // Returns a number raised to a power
-OP( OP_PRODUCT,     "PRODUCT(factor1, [factor2, ...])", 1, -1, eval_product, NULL) // Returns the result of multiplying a series of numbers together
-__( OP_QUOTIENT,    "QUOTIENT(dividend, divisor)", 2, 2, NULL, NULL) // Returns one number divided by another
-OP( OP_RADIANS,     "RADIANS(angle)", 1, 1, eval_fn1, radians) // Converts an angle value in degrees to radians
-OP( OP_RAND,        "RAND()", 0, 0, eval_rand, NULL) // Returns a random number between 0 inclusive and 1 exclusive
-OP( OP_RANDBETWEEN, "RANDBETWEEN(low, high)", 2, 2, eval_fn2, rand_between) // Returns a uniformly random integer between two values, inclusive
-__( OP_SEC,         "SEC(angle)", 1, 1, NULL, NULL) // The SEC function returns the secant of an angle, measured in radians.
-__( OP_SECH,        "SECH(value)", 1, 1, NULL, NULL) // The SECH function returns the hyperbolic secant of an angle
-__( OP_SERIESSUM,   "SERIESSUM(x, n, m, a)", 4, 4, NULL, NULL) // Given parameters x, n, m, and a, returns the power series sum a1xn + a2x(n+m) + ... + aix(n+(i-1)m), where i is the number of entries in range `a`
-OP( OP_SIGN,        "SIGN(value)", 1, 1, eval_fn1, sc_sign) // Given an input number, returns `-1` if it is negative, `1` if positive, and `0` if it is zero
-OP( OP_SIN,         "SIN(angle)", 1, 1, eval_fn1, sin) // Returns the sine of an angle provided in radians
-__( OP_SINH,        "SINH(value)", 1, 1, NULL, NULL) // Returns the hyperbolic sine of any real number
-OP( OP_SQRT,        "SQRT(value)", 1, 1, eval_fn1, sqrt) // Returns the positive square root of a positive number
-__( OP_SQRTPI,      "SQRTPI(value)", 1, 1, NULL, NULL) // Returns the positive square root of the product of Pi and the given positive number
-__( OP_SUBTOTAL,    "SUBTOTAL(function_code, range1, [range2, ...])", 2, -1, NULL, NULL) // Returns a subtotal for a vertical range of cells using a specified aggregation function
-OP( OP_SUM,         "SUM(value1, [value2, ...])", 1, -1, eval_sum, NULL) // Returns the sum of a series of numbers and/or cells
-OP( OP_SUMIF,       "SUMIF(range, criterion, [sum_range])", 2, 3, eval_sumif, NULL) // Returns a conditional sum across a range
-__( OP_SUMIFS,      "SUMIFS(sum_range, criteria_range1, criterion1, [criteria_range2, criterion2, ...])", 3, -1, NULL, NULL) // Returns the sum of a range depending on multiple criteria
-__( OP_SUMPRODUCT,  "SUMPRODUCT(arrays)", 1, -1, NULL, NULL) // Returns the sum of the products of the matrix elements.
-OP( OP_SUMSQ,       "SUMSQ(value1, [value2, ...])", 1, -1, eval_sumsq, NULL) // Returns the sum of the squares of a series of numbers and/or cells
-__( OP_SUMX2MY2,    "SUMX2MY2(array A, array B)", 2, 2, NULL, NULL) // Returns the sum of the difference between the squares of the matrices A and B.
-__( OP_SUMX2PY2,    "SUMX2PY2(array A, array B)", 2, 2, NULL, NULL) // Returns the total sum of the squares of the matrices A and B
-__( OP_SUMXMY2,     "SUMXMY2(array A, array B)", 2, 2, NULL, NULL) // Returns the sum of the squares of the differences between matrix A and B.
-OP( OP_TAN,         "TAN(angle)", 1, 1, eval_fn1, tan) // Returns the tangent of an angle provided in radians
-__( OP_TANH,        "TANH(value)", 1, 1, NULL, NULL) // Returns the hyperbolic tangent of any real number
+OP( OP_ABS,             1, 1, eval_fn1, fabs, "ABS(value)", "Returns the absolute value of a number")
+OP( OP_ACOS,            1, 1, eval_fn1, acos, "ACOS(value)", "Returns the inverse cosine of a value, in radians")
+__( OP_ACOSH,           1, 1, NULL, NULL, "ACOSH(value)", "Returns the inverse hyperbolic cosine of a number")
+__( OP_ACOT,            1, 1, NULL, NULL, "ACOT(value)", "Returns the inverse cotangent of a value, in radians.")
+__( OP_ACOTH,           1, 1, NULL, NULL, "ACOTH(value)", "Returns the inverse hyperbolic cotangent of a value, in radians. Must not be between -1 and 1, inclusive.")
+OP( OP_ASIN,            1, 1, eval_fn1, asin, "ASIN(value)", "Returns the inverse sine of a value, in radians")
+__( OP_ASINH,           1, 1, NULL, NULL, "ASINH(value)", "Returns the inverse hyperbolic sine of a number")
+OP( OP_ATAN,            1, 1, eval_fn1, atan, "ATAN(value)", "Returns the inverse tangent of a value, in radians")
+OP( OP_ATAN2,           2, 2, eval_fn2, atan2, "ATAN2(x, y)", "Returns the angle between the x-axis and a line segment from the origin (0,0) to specified coordinate pair (`x`,`y`), in radians")
+__( OP_ATANH,           1, 1, NULL, NULL, "ATANH(value)", "Returns the inverse hyperbolic tangent of a number")
+__( OP_BESSELI,         2, 2, NULL, NULL, "BESSELI(x, n)", "Returns the modified Bessel function of integer order In(X).")
+__( OP_BESSELJ,         2, 2, NULL, NULL, "BESSELJ(x, n)", "Returns the Bessel function of integer order Jn(X) (cylinder function)")
+__( OP_BESSELK,         2, 2, NULL, NULL, "BESSELK(x, n)", "Returns the modified Bessel function of integer order Kn(x).")
+__( OP_BESSELY,         2, 2, NULL, NULL, "BESSELY(x, n)", "Returns the Bessel function of integer order Yn(X), also known as the Neumann function.")
+__( OP_COMBIN,          2, 2, NULL, NULL, "COMBIN(n, k)", "Returns the number of ways to choose some number of objects from a pool of a given size of objects")
+__( OP_COMBINA,         2, 2, NULL, NULL, "COMBINA(n, k)", "Returns the number of ways to choose some number of objects from a pool of a given size of objects, including ways that choose the same object multiple times.")
+__( OP_CONVERT,         3, 3, NULL, NULL, "CONVERT(value, start_unit, end_unit)", "Converts a numeric value to a different unit of measure")
+OP( OP_COS,             1, 1, eval_fn1, cos, "COS(angle)", "Returns the cosine of an angle provided in radians")
+__( OP_COSH,            1, 1, NULL, NULL, "COSH(value)", "Returns the hyperbolic cosine of any real number")
+__( OP_COT,             1, 1, NULL, NULL, "COT(angle)", "Cotangent of an angle provided in radians.")
+__( OP_COTH,            1, 1, NULL, NULL, "COTH(value)", "Returns the hyperbolic cotangent of any real number.")
+__( OP_CSC,             1, 1, NULL, NULL, "CSC(angle)", "Returns the cosecant of an angle provided in radians.")
+__( OP_CSCH,            1, 1, NULL, NULL, "CSCH(value)", "The CSCH function returns the hyperbolic cosecant of any real number.")
+OP( OP_DEGREES,         1, 1, eval_fn1, degrees, "DEGREES(angle)", "Converts an angle value in radians to degrees")
+__( OP_DELTA,           1, 2, NULL, NULL, "DELTA(number1, [number2])", "Compare two numeric values, returning 1 if they're equal")
+__( OP_ERF,             1, 2, NULL, NULL, "ERF(lower_bound, [upper_bound])", "The ERF function returns the integral of the Gauss error function over an interval of values.")
+__( OP_ERFC,            1, 1, NULL, NULL, "ERFC(z)", "Returns the complementary Gauss error function of a value")
+LO( OP_ERFC_PRECISE,    1, 1, NULL, NULL, "ERFC.PRECISE(z)", "See ERFC")
+__( OP_EUROCONVERT,     3, 5, NULL, NULL, "EUROCONVERT(n, from, to, [fullprecision=FALSE, [triangulationprecision]])", "Converts a Number, representing a value in one European currency, to an equivalent value in another European currency, according to the fixed conversion rates defined by the Council of the European Union.")
+__( OP_EVEN,            1, 1, NULL, NULL, "EVEN(value)", "Rounds a number up to the nearest even integer")
+OP( OP_EXP,             1, 1, eval_fn1, exp, "EXP(exponent)", "Returns Euler's number, e (~2.718) raised to a power")
+__( OP_FACT,            1, 1, NULL, NULL, "FACT(value)", "Returns the factorial of a number")
+__( OP_FACTDOUBLE,      1, 1, NULL, NULL, "FACTDOUBLE(value)", "Returns the 'double factorial' of a number")
+__( OP_GAMMA,           1, 1, NULL, NULL, "GAMMA(number)", "Returns the Gamma function evaluated at the specified value.")
+__( OP_GAMMALN,         1, 1, NULL, NULL, "GAMMALN(value)", "Returns the the logarithm of a specified Gamma function, base e (Euler's number)")
+LO( OP_GAMMALN_PRECISE, 1, 1, NULL, NULL, "GAMMALN.PRECISE(value)", "See GAMMALN")
+__( OP_GCD,             1, -1, NULL, NULL, "GCD(value1, [value2...])", "Returns the greatest common divisor of one or more integers")
+__( OP_GESTEP,          1, 2, NULL, NULL, "GESTEP(value, [step])", "Returns 1 if the rate is strictly greater than or equal to the provided step value or 0 otherwise. If no step value is provided then the default value of 0 will be used.")
+__( OP_ISO_CEILING,     1, 2, NULL, NULL, "ISO.CEILING(number, [significance])", "See CEILING.PRECISE")
+__( OP_LCM,             1, -1, NULL, NULL, "LCM(value1, [value2 ...])", "Returns the least common multiple of one or more integers")
+OP( OP_LN,              1, 1, eval_fn1, log, "LN(value)", "Returns the the logarithm of a number, base e (Euler's number)")
+OP( OP_LOG,             1, 2, eval_fn1, log10, "LOG(value, [base])", "Returns the the logarithm of a number given a base")
+OP( OP_LOG10,           1, 1, eval_fn1, log10, "LOG10(value)", "Returns the the logarithm of a number, base 10")
+__( OP_MOD,             2, 2, NULL, NULL, "MOD(dividend, divisor)", "Returns the result of the modulo operator, the remainder after a division operation")
+__( OP_MULTINOMIAL,     1, -1, NULL, NULL, "MULTINOMIAL(value1, [value2...])", "Returns the factorial of the sum of values divided by the product of the values' factorials")
+__( OP_ODD,             1, 1, NULL, NULL, "ODD(value)", "Rounds a number up to the nearest odd integer")
+OP( OP_PI,              -1, 0, eval_pi, NULL, "PI()", "Returns the value of Pi to 14 decimal places")
+OP( OP_POWER,           2, 2, eval_fn2, pow, "POWER(base, exponent)", "Returns a number raised to a power")
+OP( OP_PRODUCT,         1, -1, eval_product, NULL, "PRODUCT(factor1, [factor2, ...])", "Returns the result of multiplying a series of numbers together")
+__( OP_QUOTIENT,        2, 2, NULL, NULL, "QUOTIENT(dividend, divisor)", "Returns one number divided by another")
+OP( OP_RADIANS,         1, 1, eval_fn1, radians, "RADIANS(angle)", "Converts an angle value in degrees to radians")
+OP( OP_RAND,            0, 0, eval_rand, NULL, "RAND()", "Returns a random number between 0 inclusive and 1 exclusive")
+OP( OP_RANDBETWEEN,     2, 2, eval_fn2, rand_between, "RANDBETWEEN(low, high)", "Returns a uniformly random integer between two values, inclusive")
+__( OP_SEC,             1, 1, NULL, NULL, "SEC(angle)", "The SEC function returns the secant of an angle, measured in radians.")
+__( OP_SECH,            1, 1, NULL, NULL, "SECH(value)", "The SECH function returns the hyperbolic secant of an angle")
+__( OP_SERIESSUM,       4, 4, NULL, NULL, "SERIESSUM(x, n, m, a)", "Given parameters x, n, m, and a, returns the power series sum a1xn + a2x(n+m) + ... + aix(n+(i-1)m), where i is the number of entries in range `a`")
+OP( OP_SIGN,            1, 1, eval_fn1, sc_sign, "SIGN(value)", "Given an input number, returns `-1` if it is negative, `1` if positive, and `0` if it is zero")
+OP( OP_SIN,             1, 1, eval_fn1, sin, "SIN(angle)", "Returns the sine of an angle provided in radians")
+__( OP_SINH,            1, 1, NULL, NULL, "SINH(value)", "Returns the hyperbolic sine of any real number")
+OP( OP_SQRT,            1, 1, eval_fn1, sqrt, "SQRT(value)", "Returns the positive square root of a positive number")
+__( OP_SQRTPI,          1, 1, NULL, NULL, "SQRTPI(value)", "Returns the positive square root of the product of Pi and the given positive number")
+__( OP_SUBTOTAL,        2, -1, NULL, NULL, "SUBTOTAL(function_code, range1, [range2, ...])", "Returns a subtotal for a vertical range of cells using a specified aggregation function")
+OP( OP_SUM,             1, -1, eval_sum, NULL, "SUM(value1, [value2, ...])", "Returns the sum of a series of numbers and/or cells")
+OP( OP_SUMIF,           2, 3, eval_sumif, NULL, "SUMIF(range, criterion, [sum_range])", "Returns a conditional sum across a range")
+__( OP_SUMIFS,          3, -1, NULL, NULL, "SUMIFS(sum_range, criteria_range1, criterion1, [criteria_range2, criterion2, ...])", "Returns the sum of a range depending on multiple criteria")
+__( OP_SUMPRODUCT,      1, -1, NULL, NULL, "SUMPRODUCT(arrays)", "Returns the sum of the products of the matrix elements.")
+OP( OP_SUMSQ,           1, -1, eval_sumsq, NULL, "SUMSQ(value1, [value2, ...])", "Returns the sum of the squares of a series of numbers and/or cells")
+__( OP_SUMX2MY2,        2, 2, NULL, NULL, "SUMX2MY2(array A, array B)", "Returns the sum of the difference between the squares of the matrices A and B.")
+__( OP_SUMX2PY2,        2, 2, NULL, NULL, "SUMX2PY2(array A, array B)", "Returns the total sum of the squares of the matrices A and B")
+__( OP_SUMXMY2,         2, 2, NULL, NULL, "SUMXMY2(array A, array B)", "Returns the sum of the squares of the differences between matrix A and B.")
+OP( OP_TAN,             1, 1, eval_fn1, tan, "TAN(angle)", "Returns the tangent of an angle provided in radians")
+__( OP_TANH,            1, 1, NULL, NULL, "TANH(value)", "Returns the hyperbolic tangent of any real number")
 
-XX( OP_FABS,        "@fabs", 1, 1, eval_fn1, fabs)
-XX( OP_HYPOT,       "@hypot", 2, 2, eval_fn2, hypot)
-XX( OP_DTR,         "@dtr", 1, 1, eval_fn1, radians)
-XX( OP_RTD,         "@rtd", 1, 1, eval_fn1, degrees)
-XX( OP_POW,         "@pow", 2, 2, eval_fn2, pow)
+XX( OP_HYPOT,           2, 2, eval_fn2, hypot, "HYPOT(x, y)", "Compute the length of the hypotenuse: SQRT(X*X+Y*Y)")
 
 /* 6.17 Rounding Functions */
-__( OP_CEILING,     "CEILING(value, [factor], [mode])", 1, 3, NULL, NULL) // Rounds a number up to the nearest integer multiple of specified significance
-LO( OP_CEILING_MATH, "CEILING.MATH(number, [significance], [mode])", 1, 3, NULL, NULL) // Rounds a number up to the nearest integer multiple of specified significance, with negative numbers rounding toward or away from 0 depending on the mode.
-LO( OP_CEILING_PRECISE, "CEILING.PRECISE(number, [significance])", 1, 2, NULL, NULL) // Rounds a number up to the nearest integer multiple of specified significance. If the number is positive or negative, it is rounded up.
-__( OP_INT,         "INT(value)", 1, 1, NULL, NULL) // Rounds a number down to the nearest integer that is less than or equal to it
-OP( OP_FLOOR,       "FLOOR(value, [factor])", 1, 2, eval_fn1, floor) // Rounds a number down to the nearest integer multiple of specified significance
-LO( OP_FLOOR_MATH,  "FLOOR.MATH(number, [significance], [mode])", 1, 3, NULL, NULL) // Rounds a number down to the nearest integer multiple of specified significance, with negative numbers rounding toward or away from 0 depending on the mode.
-LO( OP_FLOOR_PRECISE, "FLOOR.PRECISE(number, [significance])", 1, 2, NULL, NULL) // The FLOOR.PRECISE function rounds a number down to the nearest integer or multiple of specified significance.
-__( OP_MROUND,      "MROUND(value, factor)", 2, 2, NULL, NULL) // Rounds one number to the nearest integer multiple of another
-OP( OP_ROUND,       "ROUND(value, [places])", 1, 2, eval_fn2, doround) // Rounds a number to a certain number of decimal places according to standard rules
-__( OP_ROUNDDOWN,   "ROUNDDOWN(value, [places])", 1, 2, NULL, NULL) // Rounds a number to a certain number of decimal places, always rounding down to the next valid increment
-__( OP_ROUNDUP,     "ROUNDUP(value, [places])", 1, 2, NULL, NULL) // Rounds a number to a certain number of decimal places, always rounding up to the next valid increment
-__( OP_TRUNC,       "TRUNC(value, [places])", 1, 2, NULL, NULL) // Truncates a number to a certain number of significant digits by omitting less significant digits
+__( OP_CEILING,         1, 3, NULL, NULL, "CEILING(value, [factor], [mode])", "Rounds a number up to the nearest integer multiple of specified significance")
+LO( OP_CEILING_MATH,    1, 3, NULL, NULL, "CEILING.MATH(number, [significance], [mode])", "Rounds a number up to the nearest integer multiple of specified significance, with negative numbers rounding toward or away from 0 depending on the mode.")
+LO( OP_CEILING_PRECISE, 1, 2, NULL, NULL, "CEILING.PRECISE(number, [significance])", "Rounds a number up to the nearest integer multiple of specified significance. If the number is positive or negative, it is rounded up.")
+__( OP_INT,             1, 1, NULL, NULL, "INT(value)", "Rounds a number down to the nearest integer that is less than or equal to it")
+OP( OP_FLOOR,           1, 2, eval_fn1, floor, "FLOOR(value, [factor])", "Rounds a number down to the nearest integer multiple of specified significance")
+LO( OP_FLOOR_MATH,      1, 3, NULL, NULL, "FLOOR.MATH(number, [significance], [mode])", "Rounds a number down to the nearest integer multiple of specified significance, with negative numbers rounding toward or away from 0 depending on the mode.")
+LO( OP_FLOOR_PRECISE,   1, 2, NULL, NULL, "FLOOR.PRECISE(number, [significance])", "The FLOOR.PRECISE function rounds a number down to the nearest integer or multiple of specified significance.")
+__( OP_MROUND,          2, 2, NULL, NULL, "MROUND(value, factor)", "Rounds one number to the nearest integer multiple of another")
+OP( OP_ROUND,           1, 2, eval_fn2, doround, "ROUND(value, [places])", "Rounds a number to a certain number of decimal places according to standard rules")
+__( OP_ROUNDDOWN,       1, 2, NULL, NULL, "ROUNDDOWN(value, [places])", "Rounds a number to a certain number of decimal places, always rounding down to the next valid increment")
+__( OP_ROUNDUP,         1, 2, NULL, NULL, "ROUNDUP(value, [places])", "Rounds a number to a certain number of decimal places, always rounding up to the next valid increment")
+__( OP_TRUNC,           1, 2, NULL, NULL, "TRUNC(value, [places])", "Truncates a number to a certain number of significant digits by omitting less significant digits")
 
-XX( OP_CEIL,        "@ceil", 1, 1, eval_fn1, ceil)
-XX( OP_RND,         "@rnd", 1, 1, eval_fn1, dornd)
+XX( OP_RND,             1, 1, eval_fn1, dornd, "RND(value)", NULL)
 
 /* 6.18 Statistical Functions */
-__( OP_AVEDEV,      "AVEDEV(value1, [value2, ...])", 1, -1, NULL, NULL) // Calculates the average of the magnitudes of deviations of data from a dataset's mean
-OP( OP_AVERAGE,     "AVERAGE(value1, [value2, ...])", 1, -1, eval_average, NULL) // Returns the numerical average value in a dataset, ignoring text
-__( OP_AVERAGE_WEIGHTED, "AVERAGE.WEIGHTED(values, weights, [additional values], [additional weights])", 1, 1, NULL, NULL) // Finds the weighted average of a set of values, given the values and the corresponding weights.
-OP( OP_AVERAGEA,    "AVERAGEA(value1, [value2, ...])", 1, -1, eval_average, NULL) // Returns the numerical average value in a dataset
-OP( OP_AVERAGEIF,   "AVERAGEIF(criteria_range, criterion, [average_range])", 2, 3, eval_averageif, NULL) // Returns the average of a range depending on criteria
-__( OP_AVERAGEIFS,  "AVERAGEIFS(average_range, criteria_range1, criterion1, [criteria_range2, criterion2, ...])", 3, -1, NULL, NULL) // Returns the average of a range depending on multiple criteria
-__( OP_BETA_DIST,   "BETA.DIST(value, alpha, beta, cumulative, lower_bound, upper_bound)", 1, 1, NULL, NULL) // Returns the probability of a given value as defined by the beta distribution function.
-__( OP_BETA_INV,    "BETA.INV(probability, alpha, beta, lower_bound, upper_bound)", 1, 1, NULL, NULL) // Returns the value of the inverse beta distribution function for a given probability.
-__( OP_BETADIST,    "BETADIST(value, alpha, beta, lower_bound, upper_bound)", 1, 1, NULL, NULL) // See BETA.DIST.
-__( OP_BETAINV,     "BETAINV(probability, alpha, beta, lower_bound, upper_bound)", 1, 1, NULL, NULL) //  See BETA.INV
-__( OP_BINOM_DIST,  "BINOM.DIST(num_successes, num_trials, prob_success, cumulative)", 1, 1, NULL, NULL) // See BINOMDIST
-__( OP_BINOM_INV,   "BINOM.INV(num_trials, prob_success, target_prob)", 1, 1, NULL, NULL) // See CRITBINOM
-__( OP_BINOMDIST,   "BINOMDIST(num_successes, num_trials, prob_success, cumulative)", 1, 1, NULL, NULL) // Calculates the probability of drawing a certain number of successes (or a maximum number of successes) in a certain number of tries given a population of a certain size containing a certain number of successes, with replacement of draws
-__( OP_CHIDIST,     "CHIDIST(x, degrees_freedom)", 1, 1, NULL, NULL) // Calculates the right-tailed chi-squared distribution, often used in hypothesis testing
-__( OP_CHIINV,      "CHIINV(probability, degrees_freedom)", 1, 1, NULL, NULL) // Calculates the inverse of the right-tailed chi-squared distribution
-__( OP_CHISQ_DIST,  "CHISQ.DIST(x, degrees_freedom, cumulative)", 1, 1, NULL, NULL) // Calculates the left-tailed chi-squared distribution, often used in hypothesis testing
-__( OP_CHISQ_DIST_RT, "CHISQ.DIST.RT(x, degrees_freedom)", 1, 1, NULL, NULL) // Calculates the right-tailed chi-squared distribution, which is commonly used in hypothesis testing
-__( OP_CHISQ_INV,   "CHISQ.INV(probability, degrees_freedom)", 1, 1, NULL, NULL) // Calculates the inverse of the left-tailed chi-squared distribution
-__( OP_CHISQ_INV_RT, "CHISQ.INV.RT(probability, degrees_freedom)", 1, 1, NULL, NULL) // Calculates the inverse of the right-tailed chi-squared distribution
-__( OP_CHISQ_TEST,  "CHISQ.TEST(observed_range, expected_range)", 1, 1, NULL, NULL) // See CHITEST
-__( OP_CHITEST,     "CHITEST(observed_range, expected_range)", 1, 1, NULL, NULL) // Returns the probability associated with a Pearsons chi-squared test on the two ranges of data. Determines the likelihood that the observed categorical data is drawn from an expected distribution
-__( OP_CONFIDENCE,  "CONFIDENCE(alpha, standard_deviation, pop_size)", 1, 1, NULL, NULL) // See CONFIDENCE.NORM
-__( OP_CONFIDENCE_NORM, "CONFIDENCE.NORM(alpha, standard_deviation, pop_size)", 1, 1, NULL, NULL) // Calculates the width of half the confidence interval for a normal distribution.
-__( OP_CONFIDENCE_T, "CONFIDENCE.T(alpha, standard_deviation, size)", 1, 1, NULL, NULL) // Calculates the width of half the confidence interval for a Students t-distribution.
-__( OP_CORREL,      "CORREL(data_y, data_x)", 1, 1, NULL, NULL) // Calculates r, the Pearson product-moment correlation coefficient of a dataset
-__( OP_COVAR,       "COVAR(data_y, data_x)", 1, 1, NULL, NULL) // Calculates the covariance of a dataset
-__( OP_COVARIANCE_P, "COVARIANCE.P(data_y, data_x)", 1, 1, NULL, NULL) // See COVAR
-__( OP_COVARIANCE_S, "COVARIANCE.S(data_y, data_x)", 1, 1, NULL, NULL) // Calculates the covariance of a dataset, where the dataset is a sample of the total population.
-__( OP_CRITBINOM,   "CRITBINOM(num_trials, prob_success, target_prob)", 1, 1, NULL, NULL) // Calculates the smallest value for which the cumulative binomial distribution is greater than or equal to a specified criteria
-__( OP_DEVSQ,       "DEVSQ(value1, value2)", 1, 1, NULL, NULL) // Calculates the sum of squares of deviations based on a sample
-__( OP_EXPON_DIST,  "EXPON.DIST(x, lambda, cumulative)", 1, 1, NULL, NULL) // Returns the value of the exponential distribution function with a specified lambda at a specified value.
-__( OP_EXPONDIST,   "EXPONDIST(x, lambda, cumulative)", 1, 1, NULL, NULL) // See EXPON.DIST
-__( OP_F_DIST,      "F.DIST(x, degrees_freedom1, degrees_freedom2, cumulative)", 1, 1, NULL, NULL) // Calculates the left-tailed F probability distribution (degree of diversity) for two data sets with given input x. Alternately called Fisher-Snedecor distribution or Snedecor's F distribution
-__( OP_F_DIST_RT,   "F.DIST.RT(x, degrees_freedom1, degrees_freedom2)", 1, 1, NULL, NULL) // Calculates the right-tailed F probability distribution (degree of diversity) for two data sets with given input x. Alternately called Fisher-Snedecor distribution or Snedecor's F distribution
-__( OP_F_INV,       "F.INV(probability, degrees_freedom1, degrees_freedom2)", 1, 1, NULL, NULL) // Calculates the inverse of the left-tailed F probability distribution. Also called the Fisher-Snedecor distribution or Snedecors F distribution
-__( OP_F_INV_RT,    "F.INV.RT(probability, degrees_freedom1, degrees_freedom2)", 1, 1, NULL, NULL) // Calculates the inverse of the right-tailed F probability distribution. Also called the Fisher-Snedecor distribution or Snedecors F distribution
-__( OP_F_TEST,      "F.TEST(range1, range2)", 1, 1, NULL, NULL) // See FTEST.
-__( OP_FDIST,       "FDIST(x, degrees_freedom1, degrees_freedom2)", 1, 1, NULL, NULL) // See F.DIST.RT.
-__( OP_FINV,        "FINV(probability, degrees_freedom1, degrees_freedom2)", 1, 1, NULL, NULL) // See F.INV.RT
-__( OP_FISHER,      "FISHER(value)", 1, 1, NULL, NULL) // Returns the Fisher transformation of a specified value
-__( OP_FISHERINV,   "FISHERINV(value)", 1, 1, NULL, NULL) // Returns the inverse Fisher transformation of a specified value
-__( OP_FORECAST,    "FORECAST(x, data_y, data_x)", 1, 1, NULL, NULL) // Calculates the expected y-value for a specified x based on a linear regression of a dataset
-__( OP_FORECAST_LINEAR, "FORECAST.LINEAR(x, data_y, data_x)", 1, 1, NULL, NULL) // See FORECAST
-__( OP_FTEST,       "FTEST(range1, range2)", 1, 1, NULL, NULL) // Returns the probability associated with an F-test for equality of variances. Determines whether two samples are likely to have come from populations with the same variance
-__( OP_GAMMA_DIST,  "GAMMA.DIST(x, alpha, beta, cumulative)", 1, 1, NULL, NULL) // Calculates the gamma distribution, a two-parameter continuous probability distribution
-__( OP_GAMMA_INV,   "GAMMA.INV(probability, alpha, beta)", 1, 1, NULL, NULL) // The GAMMA.INV function returns the value of the inverse gamma cumulative distribution function for the specified probability and alpha and beta parameters.
-__( OP_GAMMADIST,   "GAMMADIST(x, alpha, beta, cumulative)", 1, 1, NULL, NULL) // See GAMMA.DIST
-__( OP_GAMMAINV,    "GAMMAINV(probability, alpha, beta)", 1, 1, NULL, NULL) // See GAMMA.INV.
-__( OP_GAUSS,       "GAUSS(z)", 1, 1, NULL, NULL) // The GAUSS function returns the probability that a random variable, drawn from a normal distribution, will be between the mean and z standard deviations above (or below) the mean.
-__( OP_GEOMEAN,     "GEOMEAN(value1, value2)", 1, 1, NULL, NULL) // Calculates the geometric mean of a dataset
-__( OP_HARMEAN,     "HARMEAN(value1, value2)", 1, 1, NULL, NULL) // Calculates the harmonic mean of a dataset
-__( OP_HYPGEOM.DIST, "HYPGEOM.DIST(num_successes, num_draws, successes_in_pop, pop_size)", 1, 1, NULL, NULL) // See HYPGEOMDIST
-__( OP_HYPGEOMDIST, "HYPGEOMDIST(num_successes, num_draws, successes_in_pop, pop_size)", 1, 1, NULL, NULL) //  Calculates the probability of drawing a certain number of successes in a certain number of tries given a population of a certain size containing a certain number of successes, without replacement of draws
-__( OP_INTERCEPT,   "INTERCEPT(data_y, data_x)", 1, 1, NULL, NULL) // Calculates the y-value at which the line resulting from linear regression of a dataset will intersect the y-axis (x=0)
-__( OP_KURT,        "KURT(value1, value2)", 1, 1, NULL, NULL) // Calculates the kurtosis of a dataset, which describes the shape, and in particular the 'peakedness' of that dataset
-__( OP_LARGE,       "LARGE(data, n)", 2, 2, NULL, NULL) // Returns the nth largest element from a data set, where n is user-defined
-__( OP_LOGINV,      "LOGINV(x, mean, standard_deviation)", 1, 1, NULL, NULL) // Returns the value of the inverse log-normal cumulative distribution with given mean and standard deviation at a specified value
-__( OP_LOGNORM_DIST, "LOGNORM.DIST(x, mean, standard_deviation)", 1, 1, NULL, NULL) // See LOGNORMDIST
-__( OP_LOGNORM_INV, "LOGNORM.INV(x, mean, standard_deviation)", 1, 1, NULL, NULL) // See LOGINV
-__( OP_LOGNORMDIST, "LOGNORMDIST(x, mean, standard_deviation)", 1, 1, NULL, NULL) // Returns the value of the log-normal cumulative distribution with given mean and standard deviation at a specified value
-OP( OP_MAX,         "MAX(value1, [value2, ...])", 1, -1, eval_max, NULL) // Returns the maximum value in a numeric dataset
-OP( OP_MAXA,        "MAXA(value1, [value2, ...])", 1, -1, eval_max, NULL) // Returns the maximum numeric value in a dataset
-XX( OP_MAXIF,       "MAXIF(range, criteria_range1)", 2, 2, eval_maxif, NULL) // Returns the maximum value in a numeric dataset
-__( OP_MAXIFS,      "MAXIFS(range, criteria_range1, criterion1, [criteria_range2, criterion2], ¦)", 1, 1, NULL, NULL) // Returns the maximum value in a range of cells, filtered by a set of criteria.
-__( OP_MEDIAN,      "MEDIAN(value1, [value2, ...])", 1, -1, NULL, NULL) // Returns the median value in a numeric dataset
-OP( OP_MIN,         "MIN(value1, [value2, ...])", 1, -1, eval_min, NULL) // Returns the minimum value in a numeric dataset
-OP( OP_MINA,        "MINA(value1, [value2, ...])", 1, -1, eval_min, NULL) // Returns the minimum numeric value in a dataset
-XX( OP_MINIF,       "MINIF(range, criteria_range1)", 2, 2, eval_minif, NULL) // Returns the maximum value in a numeric dataset
-__( OP_MINIFS,      "MINIFS(range, criteria_range1, criterion1, [criteria_range2, criterion2], ¦)", 1, 1, NULL, NULL) // Returns the minimum value in a range of cells, filtered by a set of criteria.
-__( OP_MODE,        "MODE(value1, [value2, ...])", 1, -1, NULL, NULL) // Returns the most commonly occurring value in a dataset
-__( OP_MODE_MULT,   "MODE.MULT(value1, value2)", 1, 1, NULL, NULL) // Returns the most commonly occurring values in a dataset.
-__( OP_MODE_SNGL,   "MODE.SNGL(value1, [value2, ...])", 1, 1, NULL, NULL) // See MODE
-__( OP_NEGBINOM_DIST, "NEGBINOM.DIST(num_failures, num_successes, prob_success)", 1, 1, NULL, NULL) // See NEGBINOMDIST
-__( OP_NEGBINOMDIST, "NEGBINOMDIST(num_failures, num_successes, prob_success)", 1, 1, NULL, NULL) // Calculates the probability of drawing a certain number of failures before a certain number of successes given a probability of success in independent trials
-__( OP_NORM_DIST,   "NORM.DIST(x, mean, standard_deviation, cumulative)", 1, 1, NULL, NULL) // See NORMDIST
-__( OP_NORM_INV,    "NORM.INV(x, mean, standard_deviation)", 1, 1, NULL, NULL) // See NORMINV
-__( OP_NORM_S_DIST, "NORM.S.DIST(x)", 1, 1, NULL, NULL) // See NORMSDIST
-__( OP_NORM_S_INV,  "NORM.S.INV(x)", 1, 1, NULL, NULL) // See NORMSINV
-__( OP_NORMDIST,    "NORMDIST(x, mean, standard_deviation, cumulative)", 1, 1, NULL, NULL) // Returns the value of the normal distribution function (or normal cumulative distribution function) for a specified value, mean, and standard deviation
-__( OP_NORMINV,     "NORMINV(x, mean, standard_deviation)", 1, 1, NULL, NULL) // Returns the value of the inverse normal distribution function for a specified value, mean, and standard deviation
-__( OP_NORMSDIST,   "NORMSDIST(x)", 1, 1, NULL, NULL) // Returns the value of the standard normal cumulative distribution function for a specified value
-__( OP_NORMSINV,    "NORMSINV(x)", 1, 1, NULL, NULL) // Returns the value of the inverse standard normal distribution function for a specified value
-__( OP_PEARSON,     "PEARSON(data_y, data_x)", 1, 1, NULL, NULL) // Calculates r, the Pearson product-moment correlation coefficient of a dataset
-__( OP_PERCENTILE,  "PERCENTILE(data, percentile)", 1, 1, NULL, NULL) // Returns the value at a given percentile of a dataset
-__( OP_PERCENTILE_EXC, "PERCENTILE.EXC(data, percentile)", 1, 1, NULL, NULL) // Returns the value at a given percentile of a dataset, exclusive of 0 and 1.
-__( OP_PERCENTILE_INC, "PERCENTILE.INC(data, percentile)", 1, 1, NULL, NULL) // See PERCENTILE
-__( OP_PERCENTRANK, "PERCENTRANK(data, value, [significant_digits])", 1, 1, NULL, NULL) // Returns the percentage rank (percentile) of a specified value in a dataset
-__( OP_PERCENTRANK_EXC, "PERCENTRANK.EXC(data, value, [significant_digits])", 1, 1, NULL, NULL) // Returns the percentage rank (percentile) from 0 to 1 exclusive of a specified value in a dataset
-__( OP_PERCENTRANK_INC, "PERCENTRANK.INC(data, value, [significant_digits])", 1, 1, NULL, NULL) // Returns the percentage rank (percentile) from 0 to 1 inclusive of a specified value in a dataset
-__( OP_PERMUT,      "PERMUT(n, k)", 2, 2, NULL, NULL) // Returns the number of ways to choose some number of objects from a pool of a given size of objects, considering order
-__( OP_PERMUTATIONA, "PERMUTATIONA(number, number_chosen)", 2, 2, NULL, NULL) // Returns the number of permutations for selecting a group of objects (with replacement) from a total number of objects.
-__( OP_PHI,         "PHI(x)", 1, 1, NULL, NULL) // The PHI function returns the value of the normal distribution with mean 0 and standard deviation 1.
-__( OP_POISSON,     "POISSON(x, mean, cumulative)", 1, 1, NULL, NULL) // See POISSON.DIST
-__( OP_POISSON_DIST, "POISSON.DIST(x, mean, [cumulative])", 1, 1, NULL, NULL) // Returns the value of the Poisson distribution function (or Poisson cumulative distribution function) for a specified value and mean.
-__( OP_PROB,        "PROB(data, probabilities, low_limit, [high_limit])", 1, 1, NULL, NULL) // Given a set of values and corresponding probabilities, calculates the probability that a value chosen at random falls between two limits
-__( OP_QUARTILE,    "QUARTILE(data, quartile_number)", 1, 1, NULL, NULL) // Returns a value nearest to a specified quartile of a dataset
-__( OP_QUARTILE_EXC, "QUARTILE.EXC(data, quartile_number)", 1, 1, NULL, NULL) // Returns value nearest to a given quartile of a dataset, exclusive of 0 and 4.
-__( OP_QUARTILE_INC, "QUARTILE.INC(data, quartile_number)", 1, 1, NULL, NULL) // See QUARTILE
-__( OP_RANK,        "RANK(value, data, [is_ascending])", 2, 3, NULL, NULL) // Returns the rank of a specified value in a dataset
-__( OP_RANK_AVG,    "RANK.AVG(value, data, [is_ascending])", 1, 1, NULL, NULL) // Returns the rank of a specified value in a dataset. If there is more than one entry of the same value in the dataset, the average rank of the entries will be returned
-__( OP_RANK_EQ,     "RANK.EQ(value, data, [is_ascending])", 1, 1, NULL, NULL) // Returns the rank of a specified value in a dataset. If there is more than one entry of the same value in the dataset, the top rank of the entries will be returned
-__( OP_RSQ,         "RSQ(data_y, data_x)", 1, 1, NULL, NULL) // Calculates the square of r, the Pearson product-moment correlation coefficient of a dataset
-__( OP_SKEW,        "SKEW(value1, value2)", 1, 1, NULL, NULL) // Calculates the skewness of a dataset, which describes the symmetry of that dataset about the mean
-__( OP_SKEW_P,      "SKEW.P(value1, value2)", 1, 1, NULL, NULL) // Calculates the skewness of a dataset that represents the entire population.
-__( OP_SLOPE,       "SLOPE(data_y, data_x)", 1, 1, NULL, NULL) // Calculates the slope of the line resulting from linear regression of a dataset
-__( OP_SMALL,       "SMALL(data, n)", 2, 2, NULL, NULL) // Returns the nth smallest element from a data set, where n is user-defined
-__( OP_STANDARDIZE, "STANDARDIZE(value, mean, standard_deviation)", 1, 1, NULL, NULL) // Calculates the normalized equivalent of a random variable given mean and standard deviation of the distribution
-OP( OP_STDEV,       "STDEV(value1, [value2, ...])", 1, -1, eval_stdev, NULL) // Calculates the standard deviation based on a sample
-__( OP_STDEV_P,     "STDEV.P(value1, [value2, ...])", 1, -1, NULL, NULL) // See STDEVP
-__( OP_STDEV_S,     "STDEV.S(value1, [value2, ...])", 1, -1, NULL, NULL) // See STDEV
-OP( OP_STDEVA,      "STDEVA(value1, [value2, ...])", 1, -1, eval_stdev, NULL) // Calculates the standard deviation based on a sample, setting text to the value `0`
-OP( OP_STDEVP,      "STDEVP(value1, [value2, ...])", 1, -1, eval_stdevp, NULL) // Calculates the standard deviation based on an entire population
-OP( OP_STDEVPA,     "STDEVPA(value1, [value2, ...])", 1, -1, eval_stdevp, NULL) // Calculates the standard deviation based on an entire population, setting text to the value `0`
-__( OP_STEYX,       "STEYX(data_y, data_x)", 2, 2, NULL, NULL) // Calculates the standard error of the predicted y-value for each x in the regression of a dataset
-__( OP_T_DIST,      "T.DIST(x, degrees_freedom, cumulative)", 3, 3, NULL, NULL) // Returns the right tailed Student distribution for a value x.
-__( OP_T_DIST_2T,   "T.DIST.2T(x, degrees_freedom)", 2, 2, NULL, NULL) // Returns the two tailed Student distribution for a value x.
-__( OP_T_DIST_RT,   "T.DIST.RT(x, degrees_freedom)", 2, 2, NULL, NULL) // Returns the right tailed Student distribution for a value x.
-__( OP_T_INV,       "T.INV(probability, degrees_freedom)", 2, 2, NULL, NULL) // Calculates the negative inverse of the one-tailed TDIST function
-__( OP_T_INV_2T,    "T.INV.2T(probability, degrees_freedom)", 2, 2, NULL, NULL) // Calculates the inverse of the two-tailed TDIST function
-__( OP_T_TEST,      "T.TEST(range1, range2, tails, type)", 4, 4, NULL, NULL) // Returns the probability associated with Student's t-test. Determines whether two samples are likely to have come from the same two underlying populations that have the same mean.
-__( OP_TDIST,       "TDIST(x, degrees_freedom, tails)", 3, 3, NULL, NULL) // Calculates the probability for Student's t-distribution with a given input (x)
-__( OP_TINV,        "TINV(probability, degrees_freedom)", 2, 2, NULL, NULL) // See T.INV.2T
-__( OP_TRIMMEAN,    "TRIMMEAN(data, exclude_proportion)", 2, 2, NULL, NULL) // Calculates the mean of a dataset excluding some proportion of data from the high and low ends of the dataset
-__( OP_TTEST,       "TTEST(range1, range2, tails, type)", 4, 3, NULL, NULL) // See T.TEST.
-OP( OP_VAR,         "VAR(value1, [value2, ...])", 1, -1, eval_var, NULL) // Calculates the variance based on a sample
-__( OP_VAR_P,       "VAR.P(value1, [value2, ...])", 1, -1, NULL, NULL) // See VARP
-__( OP_VAR_S,       "VAR.S(value1, [value2, ...])", 1, -1, NULL, NULL) // See VAR
-OP( OP_VARA,        "VARA(value1, [value2, ...])", 1, -1, eval_var, NULL) // Calculates an estimate of variance based on a sample, setting text to the value `0`
-OP( OP_VARP,        "VARP(value1, [value2, ...])", 1, -1, eval_varp, NULL) // Calculates the variance based on an entire population
-OP( OP_VARPA,       "VARPA(value1, [value2, ...])", 1, -1, eval_varp, NULL) // Calculates the variance based on an entire population, setting text to the value `0`
-__( OP_WEIBULL,     "WEIBULL(x, shape, scale, cumulative)", 4, 4, NULL, NULL) // Returns the value of the Weibull distribution function (or Weibull cumulative distribution function) for a specified shape and scale
-__( OP_WEIBULL_DIST, "WEIBULL.DIST(x, shape, scale, cumulative)", 4, 4, NULL, NULL) // See WEIBULL
-__( OP_Z_TEST,      "Z.TEST(data, value, [standard_deviation])", 2, 3, NULL, NULL) // Returns the one-tailed P-value of a Z-test with standard distribution.
-__( OP_ZTEST,       "ZTEST(data, value, [standard_deviation])", 2, 3, NULL, NULL) // See Z.TEST.
+__( OP_AVEDEV,          1, -1, NULL, NULL, "AVEDEV(value1, [value2, ...])", "Calculates the average of the magnitudes of deviations of data from a dataset's mean")
+OP( OP_AVERAGE,         1, -1, eval_average, NULL, "AVERAGE(value1, [value2, ...])", "Returns the numerical average value in a dataset, ignoring text")
+__( OP_AVERAGE_WEIGHTED, 1, 1, NULL, NULL, "AVERAGE.WEIGHTED(values, weights, [additional values], [additional weights])", "Finds the weighted average of a set of values, given the values and the corresponding weights.")
+OP( OP_AVERAGEA,        1, -1, eval_average, NULL, "AVERAGEA(value1, [value2, ...])", "Returns the numerical average value in a dataset")
+OP( OP_AVERAGEIF,       2, 3, eval_averageif, NULL, "AVERAGEIF(criteria_range, criterion, [average_range])", "Returns the average of a range depending on criteria")
+__( OP_AVERAGEIFS,      3, -1, NULL, NULL, "AVERAGEIFS(average_range, criteria_range1, criterion1, [criteria_range2, criterion2, ...])", "Returns the average of a range depending on multiple criteria")
+__( OP_BETA_DIST,       1, 1, NULL, NULL, "BETA.DIST(value, alpha, beta, cumulative, lower_bound, upper_bound)", "Returns the probability of a given value as defined by the beta distribution function.")
+__( OP_BETA_INV,        1, 1, NULL, NULL, "BETA.INV(probability, alpha, beta, lower_bound, upper_bound)", "Returns the value of the inverse beta distribution function for a given probability.")
+__( OP_BETADIST,        1, 1, NULL, NULL, "BETADIST(value, alpha, beta, lower_bound, upper_bound)", "See BETA.DIST.")
+__( OP_BETAINV,         1, 1, NULL, NULL, "BETAINV(probability, alpha, beta, lower_bound, upper_bound)", " See BETA.INV")
+__( OP_BINOM_DIST,      1, 1, NULL, NULL, "BINOM.DIST(num_successes, num_trials, prob_success, cumulative)", "See BINOMDIST")
+__( OP_BINOM_INV,       1, 1, NULL, NULL, "BINOM.INV(num_trials, prob_success, target_prob)", "See CRITBINOM")
+__( OP_BINOMDIST,       1, 1, NULL, NULL, "BINOMDIST(num_successes, num_trials, prob_success, cumulative)", "Calculates the probability of drawing a certain number of successes (or a maximum number of successes) in a certain number of tries given a population of a certain size containing a certain number of successes, with replacement of draws")
+__( OP_CHIDIST,         1, 1, NULL, NULL, "CHIDIST(x, degrees_freedom)", "Calculates the right-tailed chi-squared distribution, often used in hypothesis testing")
+__( OP_CHIINV,          1, 1, NULL, NULL, "CHIINV(probability, degrees_freedom)", "Calculates the inverse of the right-tailed chi-squared distribution")
+__( OP_CHISQ_DIST,      1, 1, NULL, NULL, "CHISQ.DIST(x, degrees_freedom, cumulative)", "Calculates the left-tailed chi-squared distribution, often used in hypothesis testing")
+__( OP_CHISQ_DIST_RT,   1, 1, NULL, NULL, "CHISQ.DIST.RT(x, degrees_freedom)", "Calculates the right-tailed chi-squared distribution, which is commonly used in hypothesis testing")
+__( OP_CHISQ_INV,       1, 1, NULL, NULL, "CHISQ.INV(probability, degrees_freedom)", "Calculates the inverse of the left-tailed chi-squared distribution")
+__( OP_CHISQ_INV_RT,    1, 1, NULL, NULL, "CHISQ.INV.RT(probability, degrees_freedom)", "Calculates the inverse of the right-tailed chi-squared distribution")
+__( OP_CHISQ_TEST,      1, 1, NULL, NULL, "CHISQ.TEST(observed_range, expected_range)", "See CHITEST")
+__( OP_CHITEST,         1, 1, NULL, NULL, "CHITEST(observed_range, expected_range)", "Returns the probability associated with a Pearsons chi-squared test on the two ranges of data. Determines the likelihood that the observed categorical data is drawn from an expected distribution")
+__( OP_CONFIDENCE,      1, 1, NULL, NULL, "CONFIDENCE(alpha, standard_deviation, pop_size)", "See CONFIDENCE.NORM")
+__( OP_CONFIDENCE_NORM, 1, 1, NULL, NULL, "CONFIDENCE.NORM(alpha, standard_deviation, pop_size)", "Calculates the width of half the confidence interval for a normal distribution.")
+__( OP_CONFIDENCE_T,    1, 1, NULL, NULL, "CONFIDENCE.T(alpha, standard_deviation, size)", "Calculates the width of half the confidence interval for a Students t-distribution.")
+__( OP_CORREL,          1, 1, NULL, NULL, "CORREL(data_y, data_x)", "Calculates r, the Pearson product-moment correlation coefficient of a dataset")
+__( OP_COVAR,           1, 1, NULL, NULL, "COVAR(data_y, data_x)", "Calculates the covariance of a dataset")
+__( OP_COVARIANCE_P,    1, 1, NULL, NULL, "COVARIANCE.P(data_y, data_x)", "See COVAR")
+__( OP_COVARIANCE_S,    1, 1, NULL, NULL, "COVARIANCE.S(data_y, data_x)", "Calculates the covariance of a dataset, where the dataset is a sample of the total population.")
+__( OP_CRITBINOM,       1, 1, NULL, NULL, "CRITBINOM(num_trials, prob_success, target_prob)", "Calculates the smallest value for which the cumulative binomial distribution is greater than or equal to a specified criteria")
+__( OP_DEVSQ,           1, 1, NULL, NULL, "DEVSQ(value1, value2)", "Calculates the sum of squares of deviations based on a sample")
+__( OP_EXPON_DIST,      1, 1, NULL, NULL, "EXPON.DIST(x, lambda, cumulative)", "Returns the value of the exponential distribution function with a specified lambda at a specified value.")
+__( OP_EXPONDIST,       1, 1, NULL, NULL, "EXPONDIST(x, lambda, cumulative)", "See EXPON.DIST")
+__( OP_F_DIST,          1, 1, NULL, NULL, "F.DIST(x, degrees_freedom1, degrees_freedom2, cumulative)", "Calculates the left-tailed F probability distribution (degree of diversity) for two data sets with given input x. Alternately called Fisher-Snedecor distribution or Snedecor's F distribution")
+__( OP_F_DIST_RT,       1, 1, NULL, NULL, "F.DIST.RT(x, degrees_freedom1, degrees_freedom2)", "Calculates the right-tailed F probability distribution (degree of diversity) for two data sets with given input x. Alternately called Fisher-Snedecor distribution or Snedecor's F distribution")
+__( OP_F_INV,           1, 1, NULL, NULL, "F.INV(probability, degrees_freedom1, degrees_freedom2)", "Calculates the inverse of the left-tailed F probability distribution. Also called the Fisher-Snedecor distribution or Snedecors F distribution")
+__( OP_F_INV_RT,        1, 1, NULL, NULL, "F.INV.RT(probability, degrees_freedom1, degrees_freedom2)", "Calculates the inverse of the right-tailed F probability distribution. Also called the Fisher-Snedecor distribution or Snedecors F distribution")
+__( OP_F_TEST,          1, 1, NULL, NULL, "F.TEST(range1, range2)", "See FTEST.")
+__( OP_FDIST,           1, 1, NULL, NULL, "FDIST(x, degrees_freedom1, degrees_freedom2)", "See F.DIST.RT.")
+__( OP_FINV,            1, 1, NULL, NULL, "FINV(probability, degrees_freedom1, degrees_freedom2)", "See F.INV.RT")
+__( OP_FISHER,          1, 1, NULL, NULL, "FISHER(value)", "Returns the Fisher transformation of a specified value")
+__( OP_FISHERINV,       1, 1, NULL, NULL, "FISHERINV(value)", "Returns the inverse Fisher transformation of a specified value")
+__( OP_FORECAST,        1, 1, NULL, NULL, "FORECAST(x, data_y, data_x)", "Calculates the expected y-value for a specified x based on a linear regression of a dataset")
+__( OP_FORECAST_LINEAR, 1, 1, NULL, NULL, "FORECAST.LINEAR(x, data_y, data_x)", "See FORECAST")
+__( OP_FTEST,           1, 1, NULL, NULL, "FTEST(range1, range2)", "Returns the probability associated with an F-test for equality of variances. Determines whether two samples are likely to have come from populations with the same variance")
+__( OP_GAMMA_DIST,      1, 1, NULL, NULL, "GAMMA.DIST(x, alpha, beta, cumulative)", "Calculates the gamma distribution, a two-parameter continuous probability distribution")
+__( OP_GAMMA_INV,       1, 1, NULL, NULL, "GAMMA.INV(probability, alpha, beta)", "The GAMMA.INV function returns the value of the inverse gamma cumulative distribution function for the specified probability and alpha and beta parameters.")
+__( OP_GAMMADIST,       1, 1, NULL, NULL, "GAMMADIST(x, alpha, beta, cumulative)", "See GAMMA.DIST")
+__( OP_GAMMAINV,        1, 1, NULL, NULL, "GAMMAINV(probability, alpha, beta)", "See GAMMA.INV.")
+__( OP_GAUSS,           1, 1, NULL, NULL, "GAUSS(z)", "The GAUSS function returns the probability that a random variable, drawn from a normal distribution, will be between the mean and z standard deviations above (or below) the mean.")
+__( OP_GEOMEAN,         1, 1, NULL, NULL, "GEOMEAN(value1, value2)", "Calculates the geometric mean of a dataset")
+__( OP_HARMEAN,         1, 1, NULL, NULL, "HARMEAN(value1, value2)", "Calculates the harmonic mean of a dataset")
+__( OP_HYPGEOM_DIST,    1, 1, NULL, NULL, "HYPGEOM.DIST(num_successes, num_draws, successes_in_pop, pop_size)", "See HYPGEOMDIST")
+__( OP_HYPGEOMDIST,     1, 1, NULL, NULL, "HYPGEOMDIST(num_successes, num_draws, successes_in_pop, pop_size)", " Calculates the probability of drawing a certain number of successes in a certain number of tries given a population of a certain size containing a certain number of successes, without replacement of draws")
+__( OP_INTERCEPT,       1, 1, NULL, NULL, "INTERCEPT(data_y, data_x)", "Calculates the y-value at which the line resulting from linear regression of a dataset will intersect the y-axis (x=0)")
+__( OP_KURT,            1, 1, NULL, NULL, "KURT(value1, value2)", "Calculates the kurtosis of a dataset, which describes the shape, and in particular the 'peakedness' of that dataset")
+__( OP_LARGE,           2, 2, NULL, NULL, "LARGE(data, n)", "Returns the nth largest element from a data set, where n is user-defined")
+__( OP_LOGINV,          1, 1, NULL, NULL, "LOGINV(x, mean, standard_deviation)", "Returns the value of the inverse log-normal cumulative distribution with given mean and standard deviation at a specified value")
+__( OP_LOGNORM_DIST,    1, 1, NULL, NULL, "LOGNORM.DIST(x, mean, standard_deviation)", "See LOGNORMDIST")
+__( OP_LOGNORM_INV,     1, 1, NULL, NULL, "LOGNORM.INV(x, mean, standard_deviation)", "See LOGINV")
+__( OP_LOGNORMDIST,     1, 1, NULL, NULL, "LOGNORMDIST(x, mean, standard_deviation)", "Returns the value of the log-normal cumulative distribution with given mean and standard deviation at a specified value")
+OP( OP_MAX,             1, -1, eval_max, NULL, "MAX(value1, [value2, ...])", "Returns the maximum value in a numeric dataset")
+OP( OP_MAXA,            1, -1, eval_max, NULL, "MAXA(value1, [value2, ...])", "Returns the maximum numeric value in a dataset")
+XX( OP_MAXIF,           2, 2, eval_maxif, NULL, "MAXIF(range, criteria_range1)", "Returns the maximum value in a numeric dataset")
+__( OP_MAXIFS,          1, 1, NULL, NULL, "MAXIFS(range, criteria_range1, criterion1, [criteria_range2, criterion2], ¦)", "Returns the maximum value in a range of cells, filtered by a set of criteria.")
+__( OP_MEDIAN,          1, -1, NULL, NULL, "MEDIAN(value1, [value2, ...])", "Returns the median value in a numeric dataset")
+OP( OP_MIN,             1, -1, eval_min, NULL, "MIN(value1, [value2, ...])", "Returns the minimum value in a numeric dataset")
+OP( OP_MINA,            1, -1, eval_min, NULL, "MINA(value1, [value2, ...])", "Returns the minimum numeric value in a dataset")
+XX( OP_MINIF,           2, 2, eval_minif, NULL, "MINIF(range, criteria_range1)", "Returns the maximum value in a numeric dataset")
+__( OP_MINIFS,          1, 1, NULL, NULL, "MINIFS(range, criteria_range1, criterion1, [criteria_range2, criterion2], ¦)", "Returns the minimum value in a range of cells, filtered by a set of criteria.")
+__( OP_MODE,            1, -1, NULL, NULL, "MODE(value1, [value2, ...])", "Returns the most commonly occurring value in a dataset")
+__( OP_MODE_MULT,       1, 1, NULL, NULL, "MODE.MULT(value1, value2)", "Returns the most commonly occurring values in a dataset.")
+__( OP_MODE_SNGL,       1, 1, NULL, NULL, "MODE.SNGL(value1, [value2, ...])", "See MODE")
+__( OP_NEGBINOM_DIST,   1, 1, NULL, NULL, "NEGBINOM.DIST(num_failures, num_successes, prob_success)", "See NEGBINOMDIST")
+__( OP_NEGBINOMDIST,    1, 1, NULL, NULL, "NEGBINOMDIST(num_failures, num_successes, prob_success)", "Calculates the probability of drawing a certain number of failures before a certain number of successes given a probability of success in independent trials")
+__( OP_NORM_DIST,       1, 1, NULL, NULL, "NORM.DIST(x, mean, standard_deviation, cumulative)", "See NORMDIST")
+__( OP_NORM_INV,        1, 1, NULL, NULL, "NORM.INV(x, mean, standard_deviation)", "See NORMINV")
+__( OP_NORM_S_DIST,     1, 1, NULL, NULL, "NORM.S.DIST(x)", "See NORMSDIST")
+__( OP_NORM_S_INV,      1, 1, NULL, NULL, "NORM.S.INV(x)", "See NORMSINV")
+__( OP_NORMDIST,        1, 1, NULL, NULL, "NORMDIST(x, mean, standard_deviation, cumulative)", "Returns the value of the normal distribution function (or normal cumulative distribution function) for a specified value, mean, and standard deviation")
+__( OP_NORMINV,         1, 1, NULL, NULL, "NORMINV(x, mean, standard_deviation)", "Returns the value of the inverse normal distribution function for a specified value, mean, and standard deviation")
+__( OP_NORMSDIST,       1, 1, NULL, NULL, "NORMSDIST(x)", "Returns the value of the standard normal cumulative distribution function for a specified value")
+__( OP_NORMSINV,        1, 1, NULL, NULL, "NORMSINV(x)", "Returns the value of the inverse standard normal distribution function for a specified value")
+__( OP_PEARSON,         1, 1, NULL, NULL, "PEARSON(data_y, data_x)", "Calculates r, the Pearson product-moment correlation coefficient of a dataset")
+__( OP_PERCENTILE,      1, 1, NULL, NULL, "PERCENTILE(data, percentile)", "Returns the value at a given percentile of a dataset")
+__( OP_PERCENTILE_EXC,  1, 1, NULL, NULL, "PERCENTILE.EXC(data, percentile)", "Returns the value at a given percentile of a dataset, exclusive of 0 and 1.")
+__( OP_PERCENTILE_INC,  1, 1, NULL, NULL, "PERCENTILE.INC(data, percentile)", "See PERCENTILE")
+__( OP_PERCENTRANK,     1, 1, NULL, NULL, "PERCENTRANK(data, value, [significant_digits])", "Returns the percentage rank (percentile) of a specified value in a dataset")
+__( OP_PERCENTRANK_EXC, 1, 1, NULL, NULL, "PERCENTRANK.EXC(data, value, [significant_digits])", "Returns the percentage rank (percentile) from 0 to 1 exclusive of a specified value in a dataset")
+__( OP_PERCENTRANK_INC, 1, 1, NULL, NULL, "PERCENTRANK.INC(data, value, [significant_digits])", "Returns the percentage rank (percentile) from 0 to 1 inclusive of a specified value in a dataset")
+__( OP_PERMUT,          2, 2, NULL, NULL, "PERMUT(n, k)", "Returns the number of ways to choose some number of objects from a pool of a given size of objects, considering order")
+__( OP_PERMUTATIONA,    2, 2, NULL, NULL, "PERMUTATIONA(number, number_chosen)", "Returns the number of permutations for selecting a group of objects (with replacement) from a total number of objects.")
+__( OP_PHI,             1, 1, NULL, NULL, "PHI(x)", "The PHI function returns the value of the normal distribution with mean 0 and standard deviation 1.")
+__( OP_POISSON,         1, 1, NULL, NULL, "POISSON(x, mean, cumulative)", "See POISSON.DIST")
+__( OP_POISSON_DIST,    1, 1, NULL, NULL, "POISSON.DIST(x, mean, [cumulative])", "Returns the value of the Poisson distribution function (or Poisson cumulative distribution function) for a specified value and mean.")
+__( OP_PROB,            1, 1, NULL, NULL, "PROB(data, probabilities, low_limit, [high_limit])", "Given a set of values and corresponding probabilities, calculates the probability that a value chosen at random falls between two limits")
+__( OP_QUARTILE,        1, 1, NULL, NULL, "QUARTILE(data, quartile_number)", "Returns a value nearest to a specified quartile of a dataset")
+__( OP_QUARTILE_EXC,    1, 1, NULL, NULL, "QUARTILE.EXC(data, quartile_number)", "Returns value nearest to a given quartile of a dataset, exclusive of 0 and 4.")
+__( OP_QUARTILE_INC,    1, 1, NULL, NULL, "QUARTILE.INC(data, quartile_number)", "See QUARTILE")
+__( OP_RANK,            2, 3, NULL, NULL, "RANK(value, data, [is_ascending])", "Returns the rank of a specified value in a dataset")
+__( OP_RANK_AVG,        1, 1, NULL, NULL, "RANK.AVG(value, data, [is_ascending])", "Returns the rank of a specified value in a dataset. If there is more than one entry of the same value in the dataset, the average rank of the entries will be returned")
+__( OP_RANK_EQ,         1, 1, NULL, NULL, "RANK.EQ(value, data, [is_ascending])", "Returns the rank of a specified value in a dataset. If there is more than one entry of the same value in the dataset, the top rank of the entries will be returned")
+__( OP_RSQ,             1, 1, NULL, NULL, "RSQ(data_y, data_x)", "Calculates the square of r, the Pearson product-moment correlation coefficient of a dataset")
+__( OP_SKEW,            1, 1, NULL, NULL, "SKEW(value1, value2)", "Calculates the skewness of a dataset, which describes the symmetry of that dataset about the mean")
+__( OP_SKEW_P,          1, 1, NULL, NULL, "SKEW.P(value1, value2)", "Calculates the skewness of a dataset that represents the entire population.")
+__( OP_SLOPE,           1, 1, NULL, NULL, "SLOPE(data_y, data_x)", "Calculates the slope of the line resulting from linear regression of a dataset")
+__( OP_SMALL,           2, 2, NULL, NULL, "SMALL(data, n)", "Returns the nth smallest element from a data set, where n is user-defined")
+__( OP_STANDARDIZE,     1, 1, NULL, NULL, "STANDARDIZE(value, mean, standard_deviation)", "Calculates the normalized equivalent of a random variable given mean and standard deviation of the distribution")
+OP( OP_STDEV,           1, -1, eval_stdev, NULL, "STDEV(value1, [value2, ...])", "Calculates the standard deviation based on a sample")
+__( OP_STDEV_P,         1, -1, NULL, NULL, "STDEV.P(value1, [value2, ...])", "See STDEVP")
+__( OP_STDEV_S,         1, -1, NULL, NULL, "STDEV.S(value1, [value2, ...])", "See STDEV")
+OP( OP_STDEVA,          1, -1, eval_stdev, NULL, "STDEVA(value1, [value2, ...])", "Calculates the standard deviation based on a sample, setting text to the value `0`")
+OP( OP_STDEVP,          1, -1, eval_stdevp, NULL, "STDEVP(value1, [value2, ...])", "Calculates the standard deviation based on an entire population")
+OP( OP_STDEVPA,         1, -1, eval_stdevp, NULL, "STDEVPA(value1, [value2, ...])", "Calculates the standard deviation based on an entire population, setting text to the value `0`")
+__( OP_STEYX,           2, 2, NULL, NULL, "STEYX(data_y, data_x)", "Calculates the standard error of the predicted y-value for each x in the regression of a dataset")
+__( OP_T_DIST,          3, 3, NULL, NULL, "T.DIST(x, degrees_freedom, cumulative)", "Returns the right tailed Student distribution for a value x.")
+__( OP_T_DIST_2T,       2, 2, NULL, NULL, "T.DIST.2T(x, degrees_freedom)", "Returns the two tailed Student distribution for a value x.")
+__( OP_T_DIST_RT,       2, 2, NULL, NULL, "T.DIST.RT(x, degrees_freedom)", "Returns the right tailed Student distribution for a value x.")
+__( OP_T_INV,           2, 2, NULL, NULL, "T.INV(probability, degrees_freedom)", "Calculates the negative inverse of the one-tailed TDIST function")
+__( OP_T_INV_2T,        2, 2, NULL, NULL, "T.INV.2T(probability, degrees_freedom)", "Calculates the inverse of the two-tailed TDIST function")
+__( OP_T_TEST,          4, 4, NULL, NULL, "T.TEST(range1, range2, tails, type)", "Returns the probability associated with Student's t-test. Determines whether two samples are likely to have come from the same two underlying populations that have the same mean.")
+__( OP_TDIST,           3, 3, NULL, NULL, "TDIST(x, degrees_freedom, tails)", "Calculates the probability for Student's t-distribution with a given input (x)")
+__( OP_TINV,            2, 2, NULL, NULL, "TINV(probability, degrees_freedom)", "See T.INV.2T")
+__( OP_TRIMMEAN,        2, 2, NULL, NULL, "TRIMMEAN(data, exclude_proportion)", "Calculates the mean of a dataset excluding some proportion of data from the high and low ends of the dataset")
+__( OP_TTEST,           4, 3, NULL, NULL, "TTEST(range1, range2, tails, type)", "See T.TEST.")
+OP( OP_VAR,             1, -1, eval_var, NULL, "VAR(value1, [value2, ...])", "Calculates the variance based on a sample")
+__( OP_VAR_P,           1, -1, NULL, NULL, "VAR.P(value1, [value2, ...])", "See VARP")
+__( OP_VAR_S,           1, -1, NULL, NULL, "VAR.S(value1, [value2, ...])", "See VAR")
+OP( OP_VARA,            1, -1, eval_var, NULL, "VARA(value1, [value2, ...])", "Calculates an estimate of variance based on a sample, setting text to the value `0`")
+OP( OP_VARP,            1, -1, eval_varp, NULL, "VARP(value1, [value2, ...])", "Calculates the variance based on an entire population")
+OP( OP_VARPA,           1, -1, eval_varp, NULL, "VARPA(value1, [value2, ...])", "Calculates the variance based on an entire population, setting text to the value `0`")
+__( OP_WEIBULL,         4, 4, NULL, NULL, "WEIBULL(x, shape, scale, cumulative)", "Returns the value of the Weibull distribution function (or Weibull cumulative distribution function) for a specified shape and scale")
+__( OP_WEIBULL_DIST,    4, 4, NULL, NULL, "WEIBULL.DIST(x, shape, scale, cumulative)", "See WEIBULL")
+__( OP_Z_TEST,          2, 3, NULL, NULL, "Z.TEST(data, value, [standard_deviation])", "Returns the one-tailed P-value of a Z-test with standard distribution.")
+__( OP_ZTEST,           2, 3, NULL, NULL, "ZTEST(data, value, [standard_deviation])", "See Z.TEST.")
 
-XX( OP_AVG,         "AVG(value1, [value2, ...])", 1, -1, eval_average, NULL) // Equivalent to AVERAGE()
+XX( OP_AVG,             1, -1, eval_average, NULL, "AVG(value1, [value2, ...])", "Equivalent to AVERAGE()")
 
 /* 6.19 Number Representation Conversion Functions */
-__( OP_TO_DATE,     "TO_DATE(value)", 1, 1, NULL, NULL) // Converts a provided number to a date
-__( OP_TO_DOLLARS,  "TO_DOLLARS(value)", 1, 1, NULL, NULL) // Converts a provided number to a dollar value
-__( OP_TO_PERCENT,  "TO_PERCENT(value)", 1, 1, NULL, NULL) // Converts a provided number to a percentage
-__( OP_TO_PURE_NUMBER, "TO_PURE_NUMBER(value)", 1, 1, NULL, NULL) // Converts a provided date/time, percentage, currency or other formatted numeric value to a pure number without formatting
-__( OP_TO_TEXT,     "TO_TEXT(value)", 1, 1, NULL, NULL) // Converts a provided numeric value to a text value
+__( OP_TO_DATE,         1, 1, NULL, NULL, "TO_DATE(value)", "Converts a provided number to a date")
+__( OP_TO_DOLLARS,      1, 1, NULL, NULL, "TO_DOLLARS(value)", "Converts a provided number to a dollar value")
+__( OP_TO_PERCENT,      1, 1, NULL, NULL, "TO_PERCENT(value)", "Converts a provided number to a percentage")
+__( OP_TO_PURE_NUMBER,  1, 1, NULL, NULL, "TO_PURE_NUMBER(value)", "Converts a provided date/time, percentage, currency or other formatted numeric value to a pure number without formatting")
+__( OP_TO_TEXT,         1, 1, NULL, NULL, "TO_TEXT(value)", "Converts a provided numeric value to a text value")
 
-__( OP_ARABIC,      "ARABIC(roman_numeral)", 1, 1, NULL, NULL) // Computes the value of a Roman numeral
-__( OP_BASE,        "BASE(value, base, [min_length])", 2, 3, NULL, NULL) // Converts a number into a text representation in another base, for example, base 2 for binary.
-__( OP_BIN2DEC,     "BIN2DEC(signed_binary_number)", 1, 1, NULL, NULL) // Converts a signed binary number to decimal format
-__( OP_BIN2HEX,     "BIN2HEX(signed_binary_number, [significant_digits])", 1, 2, NULL, NULL) // Converts a signed binary number to signed hexadecimal format
-__( OP_BIN2OCT,     "BIN2OCT(signed_binary_number, [significant_digits])", 1, 2, NULL, NULL) // Converts a signed binary number to signed octal format
-__( OP_DEC2BIN,     "DEC2BIN(decimal_number, [significant_digits])", 1, 2, NULL, NULL) // Converts a decimal number to signed binary format
-__( OP_DEC2HEX,     "DEC2HEX(decimal_number, [significant_digits])", 1, 2, NULL, NULL) // Converts a decimal number to signed hexadecimal format
-__( OP_DEC2OCT,     "DEC2OCT(decimal_number, [significant_digits])", 1, 2, NULL, NULL) // Converts a decimal number to signed octal format
-__( OP_DECIMAL,     "DECIMAL(value, base)", 2, 2, NULL, NULL) // The DECIMAL function converts the text representation of a number in another base, to base 10 (decimal).
-__( OP_HEX2BIN,     "HEX2BIN(signed_hexadecimal_number, [significant_digits])", 1, 2, NULL, NULL) // Converts a signed hexadecimal number to signed binary format
-__( OP_HEX2DEC,     "HEX2DEC(signed_hexadecimal_number)", 1, 1, NULL, NULL) // Converts a signed hexadecimal number to decimal format
-__( OP_HEX2OCT,     "HEX2OCT(signed_hexadecimal_number, significant_digits)", 1, 2, NULL, NULL) // Converts a signed hexadecimal number to signed octal format
-__( OP_OCT2BIN,     "OCT2BIN(signed_octal_number, [significant_digits])", 1, 1, NULL, NULL) // Converts a signed octal number to signed binary format
-__( OP_OCT2DEC,     "OCT2DEC(signed_octal_number)", 1, 1, NULL, NULL) // Converts a signed octal number to decimal format
-__( OP_OCT2HEX,     "OCT2HEX(signed_octal_number, [significant_digits])", 1, 2, NULL, NULL) // Converts a signed octal number to signed hexadecimal format
-__( OP_ROMAN,       "ROMAN(number, [rule_relaxation])", 1, 2, NULL, NULL) // Formats a number in Roman numerals
+__( OP_ARABIC,          1, 1, NULL, NULL, "ARABIC(roman_numeral)", "Computes the value of a Roman numeral")
+__( OP_BASE,            2, 3, NULL, NULL, "BASE(value, base, [min_length])", "Converts a number into a text representation in another base, for example, base 2 for binary.")
+__( OP_BIN2DEC,         1, 1, NULL, NULL, "BIN2DEC(signed_binary_number)", "Converts a signed binary number to decimal format")
+__( OP_BIN2HEX,         1, 2, NULL, NULL, "BIN2HEX(signed_binary_number, [significant_digits])", "Converts a signed binary number to signed hexadecimal format")
+__( OP_BIN2OCT,         1, 2, NULL, NULL, "BIN2OCT(signed_binary_number, [significant_digits])", "Converts a signed binary number to signed octal format")
+__( OP_DEC2BIN,         1, 2, NULL, NULL, "DEC2BIN(decimal_number, [significant_digits])", "Converts a decimal number to signed binary format")
+__( OP_DEC2HEX,         1, 2, NULL, NULL, "DEC2HEX(decimal_number, [significant_digits])", "Converts a decimal number to signed hexadecimal format")
+__( OP_DEC2OCT,         1, 2, NULL, NULL, "DEC2OCT(decimal_number, [significant_digits])", "Converts a decimal number to signed octal format")
+__( OP_DECIMAL,         2, 2, NULL, NULL, "DECIMAL(value, base)", "The DECIMAL function converts the text representation of a number in another base, to base 10 (decimal).")
+__( OP_HEX2BIN,         1, 2, NULL, NULL, "HEX2BIN(signed_hexadecimal_number, [significant_digits])", "Converts a signed hexadecimal number to signed binary format")
+__( OP_HEX2DEC,         1, 1, NULL, NULL, "HEX2DEC(signed_hexadecimal_number)", "Converts a signed hexadecimal number to decimal format")
+__( OP_HEX2OCT,         1, 2, NULL, NULL, "HEX2OCT(signed_hexadecimal_number, significant_digits)", "Converts a signed hexadecimal number to signed octal format")
+__( OP_OCT2BIN,         1, 1, NULL, NULL, "OCT2BIN(signed_octal_number, [significant_digits])", "Converts a signed octal number to signed binary format")
+__( OP_OCT2DEC,         1, 1, NULL, NULL, "OCT2DEC(signed_octal_number)", "Converts a signed octal number to decimal format")
+__( OP_OCT2HEX,         1, 2, NULL, NULL, "OCT2HEX(signed_octal_number, [significant_digits])", "Converts a signed octal number to signed hexadecimal format")
+__( OP_ROMAN,           1, 2, NULL, NULL, "ROMAN(number, [rule_relaxation])", "Formats a number in Roman numerals")
 
-XX( OP_FMT,         "@fmt", 2, 2, eval_fmt, NULL)
+XX( OP_FMT,             2, 2, eval_fmt, NULL, "FMT(format_string, value)", NULL)
 
 /* 6.20 Text Functions */
-__( OP_ASC,         "ASC(text)", 1, 1, NULL, NULL) // Converts full-width ASCII and katakana characters to their half-width counterparts. All standard-width characters will remain unchanged.
-__( OP_CHAR,        "CHAR(table_number)", 1, 1, NULL, NULL) // Convert a number into a character according to the current Unicode table
-__( OP_CLEAN,       "CLEAN(text)", 1, 1, NULL, NULL) // Returns the text with the non-printable ASCII characters removed
-__( OP_CODE,        "CODE(string)", 1, 1, NULL, NULL) // Returns the numeric Unicode map value of the first character in the string provided
-__( OP_CONCATENATE, "CONCATENATE(string1, [string2, ...])", 1, -1, NULL, NULL) // Appends strings to one another
-__( OP_DOLLAR,      "DOLLAR(number, [number_of_places])", 1, 2, NULL, NULL) // Formats a number into the locale-specific currency format
-__( OP_EXACT,       "EXACT(string1, string2)", 2, 2, NULL, NULL) // Tests whether two strings are identical
-__( OP_FIND,        "FIND(search_for, text_to_search, [starting_at])", 2, 3, NULL, NULL) // Returns the position at which a string is first found within text
-__( OP_FIXED,       "FIXED(number, [number_of_places], [suppress_separator])", 1, 3, NULL, NULL) // Formats a number with a fixed number of decimal places
-__( OP_JIS,         "JIS(text)", 1, 1, NULL, NULL) // Converts half-width to full-width ASCII and katakana characters.
-LO( OP_JOIN,        "JOIN(delimiter, value_or_array1, [value_or_array2, ...])", 2, -1, NULL, NULL) // Concatenates the elements of one or more one-dimensional arrays using a specified delimiter
-__( OP_LEFT,        "LEFT(string, [number_of_characters])", 1, 2, NULL, NULL) // Returns a substring from the beginning of a specified string
-__( OP_LEN,         "LEN(text)", 1, 1, NULL, NULL) // Returns the length of a string
-OP( OP_LOWER,       "LOWER(text)", 1, 1, eval_case, NULL) // Converts a specified string to lowercase
-__( OP_MID,         "MID(string, starting_at, extract_length)", 3, 3, NULL, NULL) // Returns a segment of a string
-__( OP_PROPER,      "PROPER(text_to_capitalize)", 1, 1, NULL, NULL) // Capitalizes each word in a specified string
-LO( OP_REGEXEXTRACT, "REGEXEXTRACT(text, regular_expression)", 2, 2, NULL, NULL) // Extracts matching substrings according to a regular expression
-LO( OP_REGEXMATCH,  "REGEXMATCH(text, regular_expression)", 1, 1, NULL, NULL) // Whether a piece of text matches a regular expression
-LO( OP_REGEXREPLACE, "REGEXREPLACE(text, regular_expression, replacement)", 3, 3, NULL, NULL) // Replaces part of a text string with a different text string using regular expressions
-__( OP_REPLACE,     "REPLACE(text, position, length, new_text)", 4, 4, NULL, NULL) // Replaces part of a text string with a different text string
-__( OP_REPT,        "REPT(text_to_repeat, number_of_repetitions)", 2, 2, NULL, NULL) // Returns specified text repeated a number of times
-__( OP_RIGHT,       "RIGHT(string, [number_of_characters])", 1, 2, NULL, NULL) // Returns a substring from the end of a specified string
-__( OP_SEARCH,      "SEARCH(search_for, text_to_search, [starting_at])", 2, 3, NULL, NULL) // Returns the position at which a string is first found within text
-LO( OP_SPLIT,       "SPLIT(text, delimiter, [split_by_each], [remove_empty_text])", 2, 4, NULL, NULL) // Divides text around a specified character or string, and puts each fragment into a separate cell in the row
-__( OP_SUBSTITUTE,  "SUBSTITUTE(text_to_search, search_for, replace_with, [occurrence_number])", 3, 4, NULL, NULL) // Replaces existing text with new text in a string
-__( OP_T,           "T(value)", 1, 1, NULL, NULL) // Returns string arguments as text
-__( OP_TEXT,        "TEXT(number, format)", 2, 2, NULL, NULL) // Converts a number into text according to a specified format
-LO( OP_TEXTJOIN,    "TEXTJOIN(delimiter, ignore_empty, text1, [text2], ...)", 3, -1, NULL, NULL) // Combines the text from multiple strings and/or arrays, with a specifiable delimiter separating the different texts.
-__( OP_TRIM,        "TRIM(text)", 1, 1, NULL, NULL) // Removes leading and trailing spaces in a specified string
-__( OP_UNICHAR,     "UNICHAR(number)", 1, 1, NULL, NULL) // Returns the Unicode character for a number.
-__( OP_UNICODE,     "UNICODE(text)", 1, 1, NULL, NULL) // Returns the decimal Unicode value of the first character of the text.
-OP( OP_UPPER,       "UPPER(text)", 1, 1, eval_case, NULL) // Converts a specified string to uppercase
+__( OP_ASC,             1, 1, NULL, NULL, "ASC(text)", "Converts full-width ASCII and katakana characters to their half-width counterparts. All standard-width characters will remain unchanged.")
+__( OP_CHAR,            1, 1, NULL, NULL, "CHAR(table_number)", "Convert a number into a character according to the current Unicode table")
+__( OP_CLEAN,           1, 1, NULL, NULL, "CLEAN(text)", "Returns the text with the non-printable ASCII characters removed")
+__( OP_CODE,            1, 1, NULL, NULL, "CODE(string)", "Returns the numeric Unicode map value of the first character in the string provided")
+__( OP_CONCATENATE,     1, -1, NULL, NULL, "CONCATENATE(string1, [string2, ...])", "Appends strings to one another")
+__( OP_DOLLAR,          1, 2, NULL, NULL, "DOLLAR(number, [number_of_places])", "Formats a number into the locale-specific currency format")
+OP( OP_EXACT,           2, 2, eval_exact, NULL, "EXACT(string1, string2)", "Tests whether two strings are identical")
+__( OP_FIND,            2, 3, NULL, NULL, "FIND(search_for, text_to_search, [starting_at])", "Returns the position at which a string is first found within text")
+__( OP_FIXED,           1, 3, NULL, NULL, "FIXED(number, [number_of_places], [suppress_separator])", "Formats a number with a fixed number of decimal places")
+__( OP_JIS,             1, 1, NULL, NULL, "JIS(text)", "Converts half-width to full-width ASCII and katakana characters.")
+LO( OP_JOIN,            2, -1, NULL, NULL, "JOIN(delimiter, value_or_array1, [value_or_array2, ...])", "Concatenates the elements of one or more one-dimensional arrays using a specified delimiter")
+OP( OP_LEFT,            1, 2, eval_left, NULL, "LEFT(string, [number_of_characters])", "Returns a substring from the beginning of a specified string")
+__( OP_LEN,             1, 1, NULL, NULL, "LEN(text)", "Returns the length of a string")
+OP( OP_LOWER,           1, 1, eval_case, NULL, "LOWER(text)", "Converts a specified string to lowercase")
+OP( OP_MID,             3, 3, eval_substr, NULL, "MID(string, starting_at, extract_length)", "Returns a segment of a string")
+OP( OP_PROPER,          1, 1, eval_case, NULL, "PROPER(text_to_capitalize)", "Capitalizes each word in a specified string")
+LO( OP_REGEXEXTRACT,    2, 2, NULL, NULL, "REGEXEXTRACT(text, regular_expression)", "Extracts matching substrings according to a regular expression")
+LO( OP_REGEXMATCH,      1, 1, NULL, NULL, "REGEXMATCH(text, regular_expression)", "Whether a piece of text matches a regular expression")
+LO( OP_REGEXREPLACE,    3, 3, NULL, NULL, "REGEXREPLACE(text, regular_expression, replacement)", "Replaces part of a text string with a different text string using regular expressions")
+__( OP_REPLACE,         4, 4, NULL, NULL, "REPLACE(text, position, length, new_text)", "Replaces part of a text string with a different text string")
+__( OP_REPT,            2, 2, NULL, NULL, "REPT(text_to_repeat, number_of_repetitions)", "Returns specified text repeated a number of times")
+OP( OP_RIGHT,           1, 2, eval_right, NULL, "RIGHT(string, [number_of_characters])", "Returns a substring from the end of a specified string")
+__( OP_SEARCH,          2, 3, NULL, NULL, "SEARCH(search_for, text_to_search, [starting_at])", "Returns the position at which a string is first found within text")
+LO( OP_SPLIT,           2, 4, NULL, NULL, "SPLIT(text, delimiter, [split_by_each], [remove_empty_text])", "Divides text around a specified character or string, and puts each fragment into a separate cell in the row")
+__( OP_SUBSTITUTE,      3, 4, NULL, NULL, "SUBSTITUTE(text_to_search, search_for, replace_with, [occurrence_number])", "Replaces existing text with new text in a string")
+__( OP_T,               1, 1, NULL, NULL, "T(value)", "Returns string arguments as text")
+__( OP_TEXT,            2, 2, NULL, NULL, "TEXT(number, format)", "Converts a number into text according to a specified format")
+LO( OP_TEXTJOIN,        3, -1, NULL, NULL, "TEXTJOIN(delimiter, ignore_empty, text1, [text2], ...)", "Combines the text from multiple strings and/or arrays, with a specifiable delimiter separating the different texts.")
+__( OP_TRIM,            1, 1, NULL, NULL, "TRIM(text)", "Removes leading and trailing spaces in a specified string")
+__( OP_UNICHAR,         1, 1, NULL, NULL, "UNICHAR(number)", "Returns the Unicode character for a number.")
+__( OP_UNICODE,         1, 1, NULL, NULL, "UNICODE(text)", "Returns the decimal Unicode value of the first character of the text.")
+OP( OP_UPPER,           1, 1, eval_case, NULL, "UPPER(text)", "Converts a specified string to uppercase")
 
-XX( OP_SUBSTR,      "@substr", 3, 3, eval_substr, NULL)
-XX( OP_CAPITAL,     "@capital", 1, 1, eval_case, NULL)
-XX( OP_EQS,         "@eqs", 2, 2, eval_cmp, NULL)
+XX( OP_SUBSTR,          3, 3, eval_substr, NULL, "SUBSTR(string, start_char, end_char)", "Extract a portion of a string")
 
 /* SC specific functions */
 
-XX( OP_BLACK,       "@black", -1, -1, NULL, NULL)
-XX( OP_BLUE,        "@blue", -1, -1, NULL, NULL)
-XX( OP_CYAN,        "@cyan", -1, -1, NULL, NULL)
-XX( OP_GREEN,       "@green", -1, -1, NULL, NULL)
-XX( OP_MAGENTA,     "@magenta", -1, -1, NULL, NULL)
-XX( OP_RED,         "@red", -1, -1, NULL, NULL)
-XX( OP_WHITE,       "@white", -1, -1, NULL, NULL)
-XX( OP_YELLOW,      "@yellow", -1, -1, NULL, NULL)
+XX( OP_BLACK,           -1, -1, NULL, NULL, "@black", NULL)
+XX( OP_BLUE,            -1, -1, NULL, NULL, "@blue", NULL)
+XX( OP_CYAN,            -1, -1, NULL, NULL, "@cyan", NULL)
+XX( OP_GREEN,           -1, -1, NULL, NULL, "@green", NULL)
+XX( OP_MAGENTA,         -1, -1, NULL, NULL, "@magenta", NULL)
+XX( OP_RED,             -1, -1, NULL, NULL, "@red", NULL)
+XX( OP_WHITE,           -1, -1, NULL, NULL, "@white", NULL)
+XX( OP_YELLOW,          -1, -1, NULL, NULL, "@yellow", NULL)
 
 #undef OP
 #undef XX

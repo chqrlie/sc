@@ -354,7 +354,7 @@ int yylex(void) {
                 // XXX: should accept unknown function name and create node
                 //      for later re-editing the formula and/or saving it.
                 yylval.ival = ret = '@'; // unknown function name, return single '@'
-                p = p0;
+                p = p0 + 1;
                 break;
             }
             if (parse_cellref(p0, &yylval.cval, &len) && len == p - p0) {
