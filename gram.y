@@ -537,6 +537,7 @@ term:         VAR                       { $$ = new_var($1); }
         |     '+' term                  { $$ = new_op1(OP_UPLUS, $2); }
         |     '-' term                  { $$ = new_op1(OP_UMINUS, $2); }
         |     '!' term                  { $$ = new_op1(OP_BANG, $2); }
+        |     term '%'                  { $$ = new_op1(OP_PERCENT, $1); }
         |     NUMBER                    { $$ = new_const((double)$1); }
         |     FNUMBER                   { $$ = new_const($1); }
         |     STRING                    { $$ = new_str($1); }
@@ -568,7 +569,6 @@ e:        e '+' e                   { $$ = new_op2(OP_PLUS, $1, $3); }
         | e '-' e                   { $$ = new_op2(OP_MINUS, $1, $3); }
         | e '*' e                   { $$ = new_op2(OP_STAR, $1, $3); }
         | e '/' e                   { $$ = new_op2(OP_SLASH, $1, $3); }
-        | e '%' e                   { $$ = new_op2(OP_PERCENT, $1, $3); }
         | e '^' e                   { $$ = new_op2(OP_CARET, $1, $3); }
         | e ':' e                   { $$ = new_op2(OP_COLON, $1, $3); }
         | term

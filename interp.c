@@ -191,17 +191,29 @@ static scvalue_t eval_div(eval_ctx_t *cp, enode_t *e) {
         return scvalue_error(cp, CELLERROR);
 }
 
-static scvalue_t eval_mod(eval_ctx_t *cp, enode_t *e) {
-    // XXX: this API is incorrect
-    double num = floor(eval_num(cp, e->e.o.left));
-    double denom = floor(eval_num(cp, e->e.o.right));
+static scvalue_t eval_quotient(eval_ctx_t *cp, enode_t *e) {
+    double num = eval_num(cp, e->e.o.left);
+    double denom = eval_num(cp, e->e.o.right);
+    double q;
     if (cp->cellerror)
         return scvalue_error(cp, CELLINVALID);
-    else
-    if (denom)
-        return scvalue_number(num - floor(num / denom) * denom);
-    else
+    if (!denom)
         return scvalue_error(cp, CELLERROR);
+    q = num / denom;
+    return scvalue_number(q < 0 ? ceil(q) : floor(q));
+}
+
+static scvalue_t eval_mod(eval_ctx_t *cp, enode_t *e) {
+    double num = eval_num(cp, e->e.o.left);
+    double denom = eval_num(cp, e->e.o.right);
+    double q;
+    if (cp->cellerror)
+        return scvalue_error(cp, CELLINVALID);
+    if (!denom)
+        return scvalue_error(cp, CELLERROR);
+    q = num / denom;
+    q = q < 0 ? ceil(q) : floor(q);
+    return scvalue_number(num - q * denom);
 }
 
 static scvalue_t eval_pi(eval_ctx_t *cp, enode_t *e) {
@@ -522,8 +534,7 @@ static scvalue_t aggregate_varp_ret(eval_ctx_t *cp, struct agregatedata_t *ap) {
 static scvalue_t eval_aggregate(eval_ctx_t *cp, enode_t *ep,
                                 void (*fun)(struct agregatedata_t *sp, double v),
                                 scvalue_t (*retfun)(eval_ctx_t *cp, struct agregatedata_t *sp),
-                                struct agregatedata_t *ap,
-                                int allvalues)
+                                struct agregatedata_t *ap, int allvalues)
 {
     enode_t *e;
 
@@ -561,11 +572,10 @@ static scvalue_t eval_aggregate(eval_ctx_t *cp, enode_t *ep,
 static scvalue_t eval_aggregateif(eval_ctx_t *cp, enode_t *ep,
                                   void (*fun)(struct agregatedata_t *sp, double v),
                                   scvalue_t (*retfun)(eval_ctx_t *cp, struct agregatedata_t *sp),
-                                  struct agregatedata_t *ap,
-                                  int allvalues)
+                                  struct agregatedata_t *ap, int ifs)
 {
     scvalue_t res = eval_node(cp, ep->e.o.left);
-    enode_t *test = ep->e.o.left;
+    enode_t *test = ep->e.o.right;
     int r, c;
     struct ent *p;
 
@@ -573,6 +583,7 @@ static scvalue_t eval_aggregateif(eval_ctx_t *cp, enode_t *ep,
         scvalue_free(res);
         return scvalue_error(cp, CELLERROR);
     }
+    // XXX: should implement IFS
     // XXX: should implement simple comparisons as a string
     for (r = res.u.rr.left.row; r <= res.u.rr.right.row; r++) {
         for (c = res.u.rr.left.col; c <= res.u.rr.right.col; c++) {
@@ -643,27 +654,27 @@ static scvalue_t eval_varp(eval_ctx_t *cp, enode_t *ep) {
 
 static scvalue_t eval_averageif(eval_ctx_t *cp, enode_t *ep) {
     struct agregatedata_t pack = { 0, 0, 0 };
-    return eval_aggregateif(cp, ep, aggregate_sum, aggregate_average_ret, &pack, ep->op == OP_AVERAGEA);
+    return eval_aggregateif(cp, ep, aggregate_sum, aggregate_average_ret, &pack, ep->op == OP_AVERAGEIFS);
 }
 
 static scvalue_t eval_countif(eval_ctx_t *cp, enode_t *ep) {
     struct agregatedata_t pack = { 0, 0, 0 };
-    return eval_aggregateif(cp, ep, aggregate_count, aggregate_count_ret, &pack, ep->op == OP_COUNTA);
+    return eval_aggregateif(cp, ep, aggregate_count, aggregate_count_ret, &pack, ep->op == OP_COUNTIFS);
 }
 
 static scvalue_t eval_maxif(eval_ctx_t *cp, enode_t *ep) {
     struct agregatedata_t pack = { 0, 0, 0 };
-    return eval_aggregateif(cp, ep, aggregate_max, aggregate_v_ret, &pack, ep->op == OP_MAXA);
+    return eval_aggregateif(cp, ep, aggregate_max, aggregate_v_ret, &pack, ep->op == OP_MAXIFS);
 }
 
 static scvalue_t eval_minif(eval_ctx_t *cp, enode_t *ep) {
     struct agregatedata_t pack = { 0, 0, 0 };
-    return eval_aggregateif(cp, ep, aggregate_min, aggregate_v_ret, &pack, ep->op == OP_MINA);
+    return eval_aggregateif(cp, ep, aggregate_min, aggregate_v_ret, &pack, ep->op == OP_MINIFS);
 }
 
 static scvalue_t eval_sumif(eval_ctx_t *cp, enode_t *ep) {
     struct agregatedata_t pack = { 0, 0, 0 };
-    return eval_aggregateif(cp, ep, aggregate_sum, aggregate_v_ret, &pack, FALSE);
+    return eval_aggregateif(cp, ep, aggregate_sum, aggregate_v_ret, &pack, ep->op == OP_SUMIFS);
 }
 
 /*---------------- date and time functions ----------------*/
@@ -707,6 +718,7 @@ static double time3(double hr, double min, double sec) {
 
 static scvalue_t eval_now(eval_ctx_t *cp, enode_t *e) {
     // XXX: should use a more precise time value
+    // XXX: this is completely incorrect. Should return composite time
     return scvalue_number((double)time(NULL));
 }
 
@@ -848,6 +860,7 @@ static sigret_t eval_fpe(int i) { /* Trap for FPE errors in eval */
 static double radians(double x) { return x * (M_PI / 180.0); }
 static double degrees(double x) { return x * (180.0 / M_PI); }
 static double sc_sign(double x) { return x < 0 ? -1 : x > 0; }
+static double sc_percent(double x) { return x / 100; }
 
 static scvalue_t eval_fn1(eval_ctx_t *cp, enode_t *e) {
     scarg_t fun = opdefs[e->op].arg;
@@ -1967,9 +1980,14 @@ static void out_range(decomp_t *dcp, enode_t *e) {
     }
 }
 
-static void out_unary(decomp_t *dcp, const char *s, enode_t *e) {
+static void out_prefix(decomp_t *dcp, const char *s, enode_t *e) {
     buf_puts(dcp->buf, s);
     decompile_node(dcp, e->e.o.left, 30);
+}
+
+static void out_postfix(decomp_t *dcp, const char *s, enode_t *e) {
+    decompile_node(dcp, e->e.o.left, 30);
+    buf_puts(dcp->buf, s);
 }
 
 static void decompile_list(decomp_t *dcp, enode_t *p) {
@@ -2032,7 +2050,7 @@ static void decompile_node(decomp_t *dcp, enode_t *e, int priority) {
     case OP_RANGEARG:   out_range(dcp, e);              break;
     case OP_UMINUS:
     case OP_UPLUS:
-    case OP_BANG:       out_unary(dcp, opp->name, e); break;
+    case OP_BANG:       out_prefix(dcp, opp->name, e); break;
     case OP_SEMI:       out_infix(dcp, opp->name, e, priority, 1); break;
     case OP_VBAR:       out_infix(dcp, opp->name, e, priority, 4); break;
     case OP_AMPERSAND:  out_infix(dcp, opp->name, e, priority, 5); break;
@@ -2047,8 +2065,8 @@ static void decompile_node(decomp_t *dcp, enode_t *e, int priority) {
     case OP_PLUS:
     case OP_MINUS:      out_infix(dcp, opp->name, e, priority, 8); break;
     case OP_STAR:
-    case OP_SLASH:
-    case OP_PERCENT:    out_infix(dcp, opp->name, e, priority, 10); break;
+    case OP_SLASH:      out_infix(dcp, opp->name, e, priority, 10); break;
+    case OP_PERCENT:    out_postfix(dcp, opp->name, e); break;
     case OP_CARET:      out_infix(dcp, opp->name, e, priority, 12); break;
     case OP_COLON:      out_infix(dcp, opp->name, e, priority, 13); break;
     default:            if (e->op >= 0 && e->op < OP_count) {
