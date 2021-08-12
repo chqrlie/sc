@@ -57,14 +57,12 @@ OP( OP_LT,              -3, 2, eval_cmp, NULL, "<", NULL)
 OP( OP_LE,              -3, 2, eval_cmp, NULL, "<=", NULL)
 OP( OP_GE,              -3, 2, eval_cmp, NULL, ">=", NULL)
 OP( OP_GT,              -3, 2, eval_cmp, NULL, ">", NULL)
+OP( OP_AMPERSAND,       -3, 2, eval_concat, NULL, "&", NULL)
     /* should have : ! ~ */
 OP( OP_UMINUS,          -3, 0, eval_neg, NULL, "-", NULL)
 OP( OP_UPLUS,           -3, 0, eval_other, NULL, "+", NULL)
 OP( OP_PERCENT,         -4, 1, eval_fn1, sc_percent, "%", NULL)
 
-XX( OP_BANG,            -3, 0, eval_not, NULL, "!", NULL)
-XX( OP_AMPERSAND,       -3, 2, eval_and, NULL, "&", NULL)
-XX( OP_VBAR,            -3, 2, eval_or, NULL, "|", NULL)
 XX( OP_SHARP,           -3, 2, eval_concat, NULL, "#", NULL)
 XX( OP_COMMA,           -3, 2, NULL, NULL, ",", NULL)
 
@@ -296,17 +294,17 @@ __( OP_OFFSET,          3, 5, NULL, NULL, "OFFSET(cell_reference, offset_rows, o
 OP( OP_VLOOKUP,         3, 4, eval_lookup, NULL, "VLOOKUP(search_key, range, index, [is_sorted])", "Vertical lookup. Searches down the first column of a range for a key and returns the value of a specified cell in the row found")
 
 /* 6.15 Logical Functions */
-__( OP_AND,             1, -1, NULL, NULL, "AND(logical_expression1, [logical_expression2, ...])", "Returns true if all of the provided arguments are logically true, and false if any of the provided arguments are logically false")
+OP( OP_AND,             1, -1, eval_and, NULL, "AND(logical_expression1, [logical_expression2, ...])", "Returns true if all of the provided arguments are logically true, and false if any of the provided arguments are logically false")
 OP( OP_FALSE,           -1, 0, eval_other, NULL, "FALSE()", "Returns the logical value `FALSE`")
 OP( OP_IF,              3, 3, eval_if, NULL, "IF(logical_expression, [value_if_true, [value_if_false]])", "Returns one value if a logical expression is `TRUE` and another if it is `FALSE`")
 __( OP_IFERROR,         1, 2, NULL, NULL, "IFERROR(value, [value_if_error])", "Returns the first argument if it is not an error value, otherwise returns the second argument if present, or a blank if the second argument is absent")
 __( OP_IFNA,            2, 2, NULL, NULL, "IFNA(value, value_if_na)", "Evaluates a value. If the value is an #N/A error, returns the specified value.")
 LO( OP_IFS,             2, -1, NULL, NULL, "IFS(condition1, value1, [condition2, value2], ...)", "Evaluates multiple conditions and returns a value that corresponds to the first true condition.")
-__( OP_NOT,             1, 1, NULL, NULL, "NOT(logical_expression)", "Returns the opposite of a logical value - `NOT(TRUE)` returns `FALSE`; `NOT(FALSE)` returns `TRUE`")
-__( OP_OR,              1, -1, NULL, NULL, "OR(logical_expression1, [logical_expression2, ...])", "Returns true if any of the provided arguments are logically true, and false if all of the provided arguments are logically false")
+OP( OP_NOT,             1, 1, eval_not, NULL, "NOT(logical_expression)", "Returns the opposite of a logical value - `NOT(TRUE)` returns `FALSE`; `NOT(FALSE)` returns `TRUE`")
+OP( OP_OR,              1, -1, eval_or, NULL, "OR(logical_expression1, [logical_expression2, ...])", "Returns true if any of the provided arguments are logically true, and false if all of the provided arguments are logically false")
 LO( OP_SWITCH,          1, -1, NULL, NULL, "SWITCH(expression, case1, value1, [default or case2, value2], ...)", "Tests an expression against a list of cases and returns the corresponding value of the first matching case, with an optional default value if nothing else is met")
 OP( OP_TRUE,            -1, 1, eval_other, NULL, "TRUE()", "Returns the logical value `TRUE`")
-__( OP_XOR,             1, -1, NULL, NULL, "XOR(logical_expression1, [logical_expression2, ...])", "The XOR function performs an exclusive or of 2 numbers that returns a 1 if the numbers are different, and a 0 otherwise.")
+OP( OP_XOR,             1, -1, eval_xor, NULL, "XOR(logical_expression1, [logical_expression2, ...])", "The XOR function performs an exclusive or of 2 numbers that returns a 1 if the numbers are different, and a 0 otherwise.")
 
 /* 6.16 Mathematical Functions */
 OP( OP_ABS,             1, 1, eval_fn1, fabs, "ABS(value)", "Returns the absolute value of a number")

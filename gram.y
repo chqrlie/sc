@@ -536,7 +536,6 @@ term:         VAR                       { $$ = new_var($1); }
         |     '(' e ')'                 { $$ = $2; }
         |     '+' term                  { $$ = new_op1(OP_UPLUS, $2); }
         |     '-' term                  { $$ = new_op1(OP_UMINUS, $2); }
-        |     '!' term                  { $$ = new_op1(OP_BANG, $2); }
         |     term '%'                  { $$ = new_op1(OP_PERCENT, $1); }
         |     NUMBER                    { $$ = new_const((double)$1); }
         |     FNUMBER                   { $$ = new_const($1); }
@@ -572,17 +571,16 @@ e:        e '+' e                   { $$ = new_op2(OP_PLUS, $1, $3); }
         | e '^' e                   { $$ = new_op2(OP_CARET, $1, $3); }
         | e ':' e                   { $$ = new_op2(OP_COLON, $1, $3); }
         | term
+        | e '&' e                   { $$ = new_op2(OP_AMPERSAND, $1, $3); }
+        | e '#' e                   { $$ = new_op2(OP_SHARP, $1, $3); }
         | e ';' e                   { $$ = new_op2(OP_SEMI, $1, $3); }
         | e '<' e                   { $$ = new_op2(OP_LT, $1, $3); }
         | e '=' e                   { $$ = new_op2(OP_EQ, $1, $3); }
         | e '>' e                   { $$ = new_op2(OP_GT, $1, $3); }
-        | e '&' e                   { $$ = new_op2(OP_AMPERSAND, $1, $3); }
-        | e '|' e                   { $$ = new_op2(OP_VBAR, $1, $3); }
         | e T_GE e                  { $$ = new_op2(OP_GE, $1, $3); }
         | e T_LE e                  { $$ = new_op2(OP_LE, $1, $3); }
         | e T_LG e                  { $$ = new_op2(OP_LG, $1, $3); }
         | e T_NE e                  { $$ = new_op2(OP_NE, $1, $3); }
-        | e '#' e                   { $$ = new_op2(OP_SHARP, $1, $3); }
         ;
 
 expr_list: e                        { $$ = new_op1(OP_COMMA, $1); } // XXX: should omit ELIST node

@@ -1267,30 +1267,77 @@ static scvalue_t eval_filename(eval_ctx_t *cp, enode_t *e) {
 }
 
 static scvalue_t eval_coltoa(eval_ctx_t *cp, enode_t *e) {
-    return scvalue_string(new_string(coltoa((int)eval_num(cp, e->e.o.left))));
+    int col = (int)eval_num(cp, e->e.o.left);
+    if (cp->cellerror)
+        return scvalue_error(cp, cp->cellerror);
+    return scvalue_string(new_string(coltoa(col)));
 }
 
 static scvalue_t eval_not(eval_ctx_t *cp, enode_t *e) {
-    // XXX: handle errors?
-    return scvalue_bool(!eval_test(cp, e->e.o.left));
+    int res = !eval_test(cp, e->e.o.left);
+    if (cp->cellerror)
+        return scvalue_error(cp, cp->cellerror);
+    return scvalue_bool(res);
 }
 
 static scvalue_t eval_and(eval_ctx_t *cp, enode_t *e) {
-    return eval_test(cp, e->e.o.left) ? eval_node_value(cp, e->e.o.right) : scvalue_bool(0);
+    int res = TRUE;
+    enode_t *node, *next = e;
+    for (;;) {
+        if (next->op == OP_COMMA || next->op == OP_AND) {
+            node = next->e.o.left;
+            next = next->e.o.right;
+        } else {
+            node = next;
+            next = NULL;
+        }
+        res &= eval_test(cp, node);
+        if (cp->cellerror)
+            return scvalue_error(cp, cp->cellerror);
+        if (!res || !next)
+            break;
+    }
+    return scvalue_bool(res);
 }
 
 static scvalue_t eval_or(eval_ctx_t *cp, enode_t *e) {
-    scvalue_t a = eval_node_value(cp, e->e.o.left);
-    if (a.type == SC_NUMBER || a.type == SC_BOOLEAN) {
-        if (a.u.v != 0)
-            return a;
-    } else
-    if (a.type == SC_STRING) {
-        if (s2str(a.u.str)[0] != '\0')
-            return a;
-        free_string(a.u.str);
+    int res = FALSE;
+    enode_t *node, *next = e;
+    for (;;) {
+        if (next->op == OP_COMMA || next->op == OP_OR) {
+            node = next->e.o.left;
+            next = next->e.o.right;
+        } else {
+            node = next;
+            next = NULL;
+        }
+        res |= eval_test(cp, node);
+        if (cp->cellerror)
+            return scvalue_error(cp, cp->cellerror);
+        if (res || !next)
+            break;
     }
-    return eval_node_value(cp, e->e.o.right);
+    return scvalue_bool(res);
+}
+
+static scvalue_t eval_xor(eval_ctx_t *cp, enode_t *e) {
+    int res = FALSE;
+    enode_t *node, *next = e;
+    for (;;) {
+        if (next->op == OP_COMMA || next->op == OP_XOR) {
+            node = next->e.o.left;
+            next = next->e.o.right;
+        } else {
+            node = next;
+            next = NULL;
+        }
+        res ^= eval_test(cp, node);
+        if (cp->cellerror)
+            return scvalue_error(cp, cp->cellerror);
+        if (!next)
+            break;
+    }
+    return scvalue_bool(res);
 }
 
 static scvalue_t eval_if(eval_ctx_t *cp, enode_t *e) {
@@ -2049,11 +2096,8 @@ static void decompile_node(decomp_t *dcp, enode_t *e, int priority) {
     case OP_VARARG:     out_var(dcp, e->e.v, 1);        break;
     case OP_RANGEARG:   out_range(dcp, e);              break;
     case OP_UMINUS:
-    case OP_UPLUS:
-    case OP_BANG:       out_prefix(dcp, opp->name, e); break;
+    case OP_UPLUS:      out_prefix(dcp, opp->name, e); break;
     case OP_SEMI:       out_infix(dcp, opp->name, e, priority, 1); break;
-    case OP_VBAR:       out_infix(dcp, opp->name, e, priority, 4); break;
-    case OP_AMPERSAND:  out_infix(dcp, opp->name, e, priority, 5); break;
     case OP_EQ:
     case OP_NE:
     case OP_LG:
@@ -2061,7 +2105,8 @@ static void decompile_node(decomp_t *dcp, enode_t *e, int priority) {
     case OP_LE:
     case OP_GE:
     case OP_GT:         out_infix(dcp, opp->name, e, priority, 6); break;
-    case OP_SHARP:      out_infix(dcp, opp->name, e, priority, 7); break;
+    case OP_SHARP:
+    case OP_AMPERSAND:  out_infix(dcp, opp->name, e, priority, 7); break;
     case OP_PLUS:
     case OP_MINUS:      out_infix(dcp, opp->name, e, priority, 8); break;
     case OP_STAR:

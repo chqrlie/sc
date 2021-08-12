@@ -1,19 +1,15 @@
 # TODO
 
 [ ] fix operator priorities
-[ ] fix postfix percent operator
-[ ] remove | and & operators, use & for string concatenation
-[ ] change OP_TYPE_NODES nodes to array of arguments
-[ ] factorize xxxIFS aggregate functions
 [ ] only support simple string expressions for xxxIF functions
 [ ] fix API for @date, @row...
+[ ] change OP_TYPE_NODES nodes to array of arguments
 [ ] use left/right for last pair of arguments in expression lists
 [ ] use hash table to match function names
 [ ] fix seg fault when running `./sc tutorial.sc > t`
 [ ] add VF_FULL_ROW and VF_FULL_COL
 [ ] parse num:num and col:col as ranges
 [ ] fix error propagation scheme
-[/] group functions by theme
 [ ] use infix operators from OASIS spec
 [ ] preserve spaces and parentheses from expression source using a pattern
 [ ] use expression pattern to preserve syntax errors and unknown functions
@@ -113,3 +109,7 @@
 [X] remove obsolete APIs for @hlookup, @vlookup, @lookup, @index, @stindex, @col
 [X] merge rnode and term
 [X] simplify grammar rules
+[X] fix postfix percent operator
+[X] factorize xxxIFS aggregate functions
+[X] remove | and & operators, use & for string concatenation
+[X] group functions by theme
