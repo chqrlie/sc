@@ -1569,24 +1569,25 @@ static void sync_expr(enode_t *e) {
     if (e == NULL)
         return;
 
-    if (e->type == OP_TYPE_RANGE) {
+    switch (e->type) {
+    case OP_TYPE_RANGE:
         e->e.r.left.vp = lookat(e->e.r.left.vp->row, e->e.r.left.vp->col);
         e->e.r.right.vp = lookat(e->e.r.right.vp->row, e->e.r.right.vp->col);
-    } else
-    if (e->type == OP_TYPE_VAR) {
+        break;
+    case OP_TYPE_VAR:
         if (e->e.v.vp->flags & IS_CLEARED) {
             e->op = OP_ERR;
-            e->e.o.left = NULL;
-            e->e.o.right = NULL;
         } else
         if (e->e.v.vp->flags & MAY_SYNC) {
             e->e.v.vp = lookat(e->e.v.vp->row, e->e.v.vp->col);
         }
-    } else
-    if (e->type == OP_TYPE_NODES) {
-        // XXX: why not left then right?
-        sync_expr(e->e.o.right);
-        sync_expr(e->e.o.left);
+        break;
+    case OP_TYPE_NODES: {
+            int i;
+            for (i = 0; i < e->nargs; i++)
+                sync_expr(e->e.args[i]);
+        }
+        break;
     }
 }
 

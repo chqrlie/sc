@@ -97,7 +97,7 @@ gen_mk () {
 	echo "LDFLAGS=" >> $OUTMK
 	echo "O:=.obj" >> $OUTMK
 	echo "WARNINGS := -Wall -Wextra -Werror" >> $OUTMK
-	[ "$CC" = "clang" ] && echo "WARNINGS += -Weverything" >> $OUTMK
+	[ "$CC" = "clang" ] && echo "WARNINGS += -Weverything -Wno-array-bounds" >> $OUTMK
 	echo "WARNINGS += -Wno-padded -Wno-missing-prototypes" >> $OUTMK
 	echo "WARNINGS += -Wno-vla -Wno-missing-noreturn -Wno-conversion" >> $OUTMK
 	[ 1 = 1 ] && echo "WARNINGS += -Wno-sign-conversion" >> $OUTMK

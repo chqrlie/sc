@@ -209,8 +209,9 @@ static void sync_enode(struct enode *e) {
             e->e.r.right.vp = lookat(e->e.r.right.vp->row, e->e.r.right.vp->col);
         } else
         if (e->type == OP_TYPE_NODES) {
-            sync_enode(e->e.o.left);
-            sync_enode(e->e.o.right);
+            int i;
+            for (i = 0; i < e->nargs; i++)
+                sync_enode(e->e.args[i]);
         }
     }
 }
@@ -398,8 +399,9 @@ static void fix_enode(struct enode *e, int row1, int col1, int row2, int col2,
             e->e.r.right.vp = lookat(r2, c2);
         } else
         if (e->type == OP_TYPE_NODES) {
-            fix_enode(e->e.o.left, row1, col1, row2, col2, delta1, delta2, fr);
-            fix_enode(e->e.o.right, row1, col1, row2, col2, delta1, delta2, fr);
+            int i;
+            for (i = 0; i < e->nargs; i++)
+                fix_enode(e->e.args[i], row1, col1, row2, col2, delta1, delta2, fr);
         }
     }
 }

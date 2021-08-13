@@ -1,84 +1,89 @@
 # TODO
 
+Tests:
+[ ] fix seg fault when running `./sc tutorial.sc > t`
+[ ] write test cases for all commands and corner cases
+[ ] handle memory allocation failure everywhere
+
+Evaluator:
 [ ] fix operator priorities
 [ ] only support simple string expressions for xxxIF functions
 [ ] fix API for @date, @row...
-[ ] change OP_TYPE_NODES nodes to array of arguments
-[ ] use left/right for last pair of arguments in expression lists
-[ ] use hash table to match function names
-[ ] fix seg fault when running `./sc tutorial.sc > t`
-[ ] add VF_FULL_ROW and VF_FULL_COL
-[ ] parse num:num and col:col as ranges
 [ ] fix error propagation scheme
 [ ] use infix operators from OASIS spec
+[ ] add inline vectors, columns and matrices in expressions
+[ ] add reference operators: union (~) and intersection (!)
+[ ] improve date/time representation and formatting
+[ ] introduce new functions for conditional aggregation
+[ ] stack based dynamic type interpreter
+[ ] change the expression evaluator: use a stack of dynamically typed values
+[ ] change expression functions for API compatibility
+[ ] chain cells with formulas into a linked list or dependency tree
+
+Parser:
+[ ] define precise semantics for words in lexer (ie: `3rdrow`)
+[ ] compile to bytecode
+[ ] use hash table to match function names
+[ ] add VF_FULL_ROW and VF_FULL_COL
+[ ] parse num:num and col:col as ranges
 [ ] preserve spaces and parentheses from expression source using a pattern
 [ ] use expression pattern to preserve syntax errors and unknown functions
-[ ] add inline vectors, columns and matrices in expressions
-[ ] fix replicated cell alignment as alignment type and use whole parts
-[ ] add reference operators: union (~) and intersection (!)
-[ ] add format info in scvalue_t
-[ ] improve date/time representation and formatting
-[ ] save expression values in .sc files
-[ ] add ':' range constructor from cell references
-[ ] make cell notes separate structures
-[ ] pattern directed input in vi.c
-[ ] sparse matrix database
 [ ] remove yacc based parser
-[ ] stack based dynamic type interpreter
+[ ] fix replicated cell alignment as alignment type and use whole parts
+[ ] add format info in scvalue_t
+[ ] save expression values in .sc files
+
+Database:
+[ ] make cell notes separate structures
+[ ] sparse matrix database
 [ ] remove cell pointers
-[ ] rewrite update()
-[ ] update() should not have a side effect on currow/curcol
-[ ] update() should not have a side effect on the database
-[ ] handle memory allocation failure everywhere
-[ ] generalize aggregate functions for multiple arguments
-[ ] introduce new functions for conditional aggregation
-[ ] define precise semantics for words in lexer (ie: `3rdrow`)
-[ ] write test cases for all commands and corner cases
-[ ] fix modflg, FullUpdate, modified, IS_CHANGED handling
-[ ] hash sc_string_t in a dictionary?
-[ ] all LISTABBREV instead of ABBREV hack?
-[ ] same for DEFINE with one or no arguments?
-[ ] validate and clip all ranges in commands
 [ ] add sheet number in cell references
 [ ] group sheet data in sheet_t structures
 [ ] make delbufs sheet_t instances
 [ ] make delbufs point to sheet_t instances, handle duplicates
-[ ] ignore unknown commands (keep them in a list?)
-[ ] pass count to duprow() and dupcol() ???
+[ ] hash sc_string_t in a dictionary?
 [ ] use rangeref_t for find_range_coords() ?
 [ ] change representation for ranges: abs/rel coords instead of pointers
-[ ] change the expression evaluator: use a stack of dynamically typed values
 [ ] use an array of format strings, store an index in the cell struct
-[ ] compile to bytecode
 [ ] implement virtual space: jagged 2D matrix
-[ ] add emacs keybinding stuff
-[ ] add emacs macro language
-[ ] add emacs command completion
-[ ] use command templates for 1-2-3 menu driven commands and vi interaction
-[/] add 1-2-3 menus and connect them
-[ ] change expression functions for API compatibility
 [ ] more efficient cell structure
-[ ] convert help to markdown
-[ ] built-in hyperlinked help system
-[ ] chain cells with formulas into a linked list or dependency tree
+[/] generic formats
 [ ] add undo / autobackup of things typed in.
 	idea: each cell change output to a stdio open file
 		in the save format, fflush() every so often...
 		(diffs w/r to the original file)
-[ ] make sure ISVALID should <not> be used in place of checkbounds
-	in interp.c
-[/] generic formats
-[ ] hide range
-[ ] block moving into range
-[ ] an option to go into a ^R like <mode>
-	++data entry fields (highlight entry cells)....
-	++only allow entry in these cells....
+Update:
+[ ] rewrite update()
+[ ] update() should not have a side effect on currow/curcol
+[ ] update() should not have a side effect on the database
 [ ] don't redraw the whole screen all the time
 	(only cells that change, (in addition to what is in 'fixed #9'))
 	(Note: there was no #9 when I took this over, and I've renumbered
 	things since then, so I'm not sure what this is referring to - CRM)
 [ ] rewrite update() function in screen.c from scratch in a more sane manner
 	(the current one is buggy and a headache to debug)
+
+Commands:
+[ ] pattern directed input in vi.c
+[ ] fix modflg, FullUpdate, modified, IS_CHANGED handling
+[ ] all LISTABBREV instead of ABBREV hack?
+[ ] same for DEFINE with one or no arguments?
+[ ] validate and clip all ranges in commands
+[ ] ignore unknown commands (keep them in a list?)
+[ ] pass count to duprow() and dupcol() ???
+[ ] add emacs keybinding stuff
+[ ] add emacs macro language
+[ ] add emacs command completion
+[ ] use command templates for 1-2-3 menu driven commands and vi interaction
+[/] add 1-2-3 menus and connect them
+[ ] convert help to markdown
+[ ] built-in hyperlinked help system
+[ ] make sure ISVALID should <not> be used in place of checkbounds in interp.c
+[ ] hide range
+[ ] block moving into range
+[ ] an option to go into a ^R like <mode>
+	++data entry fields (highlight entry cells)....
+	++only allow entry in these cells....
 [ ] add a command line option (possibly -g) to use sc as a sort of grep for
 	formatted or unformatted data in a file or list of files which will
 	output the whole row in which a given number or string is found,
@@ -113,3 +118,7 @@
 [X] factorize xxxIFS aggregate functions
 [X] remove | and & operators, use & for string concatenation
 [X] group functions by theme
+[X] add ':' range constructor from cell references
+[X] change OP_TYPE_NODES nodes to array of arguments
+[X] use left/right for last pair of arguments in expression lists
+[X] generalize aggregate functions for multiple arguments

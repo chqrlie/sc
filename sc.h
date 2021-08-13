@@ -161,22 +161,21 @@ struct ent {
 
 /* stores type of operation this cell will perform */
 struct enode {
-    short op;
-    short type;
+    unsigned char op;
+    unsigned char type;
 #define OP_TYPE_NODES   0
 #define OP_TYPE_VAR     1
 #define OP_TYPE_RANGE   2
 #define OP_TYPE_DOUBLE  3
 #define OP_TYPE_STRING  4
+    unsigned short nargs;
     union {
         int gram_match;         /* some compilers (hp9000ipc) need this */
         double k;               /* constant # */
         struct ent_ptr v;       /* ref. another cell */
         struct range_s r;       /* op is on a range */
         SCXMEM string_t *s;     /* op is a string constant */
-        struct {                /* other cells use to eval()/seval() */
-            SCXMEM enode_t *left, *right;
-        } o;                    /*      external functions are turned off */
+        SCXMEM enode_t *args[1];    /* flexible array */
     } e;
 };
 
@@ -551,10 +550,11 @@ extern enode_t *copye(enode_t *e, int Rdelta, int Cdelta,
 
 extern SCXMEM enode_t *new_op0(int op);
 extern SCXMEM enode_t *new_op1(int op, SCXMEM enode_t *a1);
+extern SCXMEM enode_t *new_op1x(int op, SCXMEM enode_t *a1, SCXMEM enode_t *a2);
 extern SCXMEM enode_t *new_op2(int op, SCXMEM enode_t *a1, SCXMEM enode_t *a2);
 extern SCXMEM enode_t *new_op3(int op, SCXMEM enode_t *a1,
                                SCXMEM enode_t *a2, SCXMEM enode_t *a3);
-extern SCXMEM enode_t *new_const(double a1);
+extern SCXMEM enode_t *new_const(double v);
 extern SCXMEM enode_t *new_range(rangeref_t rr);
 extern SCXMEM enode_t *new_str(SCXMEM string_t *s);
 extern SCXMEM enode_t *new_var(cellref_t cr);

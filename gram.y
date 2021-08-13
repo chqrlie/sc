@@ -552,14 +552,14 @@ term:         VAR                       { $$ = new_var($1); }
         | FUNC13 '(' e ',' e ')'        { $$ = new_op2($1, $3, $5); }
         | FUNC13 '(' e ',' e ',' e ')'  { $$ = new_op3($1, $3, $5, $7); }
         | FUNC1x '(' e ')'              { $$ = new_op1($1, $3); }
-        | FUNC1x '(' e ',' expr_list ')' { $$ = new_op2($1, $3, $5); }
+        | FUNC1x '(' e ',' expr_list ')' { $$ = new_op1x($1, $3, $5); }
         | FUNC2 '(' e ',' e ')'         { $$ = new_op2($1, $3, $5); }
         | FUNC23 '(' e ',' e ')'        { $$ = new_op2($1, $3, $5); }
         | FUNC23 '(' e ',' e ',' e ')'  { $$ = new_op3($1, $3, $5, $7); }
-        | FUNC2x '(' e ',' expr_list ')' { $$ = new_op2($1, $3, $5); }
+        | FUNC2x '(' e ',' expr_list ')' { $$ = new_op1x($1, $3, $5); }
         | FUNC3 '(' e ',' e ',' e ')'   { $$ = new_op3($1, $3, $5, $7); }
         | FUNC34 '(' e ',' e ',' e ')'  { $$ = new_op3($1, $3, $5, $7); }
-        | FUNC34 '(' e ',' e ',' e ',' e ')' { $$ = new_op3($1, $3, $5, new_op2(OP_COMMA, $7, $9)); }
+        | FUNC34 '(' e ',' e ',' e ',' e ')' { $$ = new_op1x($1, $3, new_op3(OP_COMMA, $5, $7, $9)); }
         | FUNC35 '(' e ',' e ',' e ')'  { $$ = new_op3($1, $3, $5, $7); } /* XXX: hack for FV, PMT, PV */
         ;
 
@@ -583,7 +583,7 @@ e:        e '+' e                   { $$ = new_op2(OP_PLUS, $1, $3); }
         | e T_NE e                  { $$ = new_op2(OP_NE, $1, $3); }
         ;
 
-expr_list: e                        { $$ = new_op1(OP_COMMA, $1); } // XXX: should omit ELIST node
+expr_list: e                        { $$ = $1; }
         | e ',' expr_list           { $$ = new_op2(OP_COMMA, $1, $3); }
         ;
 
