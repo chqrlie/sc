@@ -1847,26 +1847,35 @@ enode_t *copye(enode_t *e, int Rdelta, int Cdelta,
  * Say if an expression is a constant (return 1) or not.
  */
 static int constant_expr(enode_t *e, int full) {
-    return (e == NULL
-        ||  e->op == OP_CONST
-        ||  e->op == OP_SCONST
-        ||  (e->op == OP_UMINUS && constant_expr(e->e.args[0], 0)) /* unary minus */
-        ||  (full
-        &&   e->type == OP_TYPE_NODES
-        &&   constant_expr(e->e.args[0], full)
-        &&   constant_expr(e->e.args[1], full)
-        &&   e->op != OP_RAND     /* non pure functions */
-        &&   e->op != OP_RANDBETWEEN
-        &&   e->op != OP_EXT
-        &&   e->op != OP_NVAL
-        &&   e->op != OP_SVAL
-        &&   e->op != OP_NOW
-        &&   e->op != OP_MYROW
-        &&   e->op != OP_MYCOL
-        &&   e->op != OP_LASTROW
-        &&   e->op != OP_LASTCOL
-        &&   e->op != OP_NUMITER
-        &&   e->op != OP_FILENAME));
+    int i;
+
+    if (e == NULL
+    ||  e->op == OP_CONST
+    ||  e->op == OP_SCONST
+    ||  (e->op == OP_UMINUS && constant_expr(e->e.args[0], 0))) /* unary minus */
+        return TRUE;
+
+    if (!full
+    ||  e->type != OP_TYPE_NODES
+    ||  e->op == OP_RAND     /* non pure functions */
+    ||  e->op == OP_RANDBETWEEN
+    ||  e->op == OP_EXT
+    ||  e->op == OP_NVAL
+    ||  e->op == OP_SVAL
+    ||  e->op == OP_NOW
+    ||  e->op == OP_MYROW
+    ||  e->op == OP_MYCOL
+    ||  e->op == OP_LASTROW
+    ||  e->op == OP_LASTCOL
+    ||  e->op == OP_NUMITER
+    ||  e->op == OP_FILENAME)
+        return FALSE;
+
+    for (i = 0; i < e->nargs; i++) {
+        if (!constant_expr(e->e.args[i], full))
+            return FALSE;
+    }
+    return TRUE;
 }
 
 // XXX: all these should go to cmds.c
@@ -1954,8 +1963,9 @@ void let(cellref_t cr, SCXMEM enode_t *e, int align) {
 void efree(SCXMEM enode_t *e) {
     if (e) {
         if (e->type == OP_TYPE_NODES) {
-            efree(e->e.args[0]);
-            efree(e->e.args[1]);
+            int i;
+            for (i = 0; i < e->nargs; i++)
+                efree(e->e.args[i]);
         } else
         if (e->type == OP_TYPE_STRING) {
             free_string(e->e.s);
