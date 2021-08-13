@@ -1420,7 +1420,7 @@ scvalue_t eval_node(eval_ctx_t *cp, enode_t *e) {
     if (e == NULL)
         return scvalue_empty();
 
-    if (e->op >= 0 && e->op < OP_count) {
+    if (e->op < OP_count) {
         const struct opdef *opp = &opdefs[e->op];
         if (opp->efun)
             return opp->efun(cp, e);
@@ -2106,7 +2106,7 @@ static void decompile_node(decomp_t *dcp, enode_t *e, int priority) {
     case OP_PERCENT:    out_postfix(dcp, opp->name, e); break;
     case OP_CARET:      out_infix(dcp, opp->name, e, priority, 12); break;
     case OP_COLON:      out_infix(dcp, opp->name, e, priority, 13); break;
-    default:            if (e->op >= 0 && e->op < OP_count) {
+    default:            if (e->op < OP_count) {
                             out_func(dcp, opp->name, (opp->min < 0) ? NULL : e);
                         } else {
                             buf_printf(dcp->buf, "@errnode(%d)", e->op);
