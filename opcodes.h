@@ -543,8 +543,8 @@ __( OP_TO_PERCENT,      1, 1, NULL, NULL, "TO_PERCENT(value)", "Converts a provi
 __( OP_TO_PURE_NUMBER,  1, 1, NULL, NULL, "TO_PURE_NUMBER(value)", "Converts a provided date/time, percentage, currency or other formatted numeric value to a pure number without formatting")
 __( OP_TO_TEXT,         1, 1, NULL, NULL, "TO_TEXT(value)", "Converts a provided numeric value to a text value")
 
-__( OP_ARABIC,          1, 1, NULL, NULL, "ARABIC(roman_numeral)", "Computes the value of a Roman numeral")
-__( OP_BASE,            2, 3, NULL, NULL, "BASE(value, base, [min_length])", "Converts a number into a text representation in another base, for example, base 2 for binary.")
+OP( OP_ARABIC,          1, 1, eval_arabic, NULL, "ARABIC(roman_numeral)", "Computes the value of a Roman numeral")
+OP( OP_BASE,            2, 3, eval_base, NULL, "BASE(value, base, [min_length])", "Converts a number into a text representation in another base, for example, base 2 for binary.")
 __( OP_BIN2DEC,         1, 1, NULL, NULL, "BIN2DEC(signed_binary_number)", "Converts a signed binary number to decimal format")
 __( OP_BIN2HEX,         1, 2, NULL, NULL, "BIN2HEX(signed_binary_number, [significant_digits])", "Converts a signed binary number to signed hexadecimal format")
 __( OP_BIN2OCT,         1, 2, NULL, NULL, "BIN2OCT(signed_binary_number, [significant_digits])", "Converts a signed binary number to signed octal format")
@@ -558,7 +558,7 @@ __( OP_HEX2OCT,         1, 2, NULL, NULL, "HEX2OCT(signed_hexadecimal_number, si
 __( OP_OCT2BIN,         1, 1, NULL, NULL, "OCT2BIN(signed_octal_number, [significant_digits])", "Converts a signed octal number to signed binary format")
 __( OP_OCT2DEC,         1, 1, NULL, NULL, "OCT2DEC(signed_octal_number)", "Converts a signed octal number to decimal format")
 __( OP_OCT2HEX,         1, 2, NULL, NULL, "OCT2HEX(signed_octal_number, [significant_digits])", "Converts a signed octal number to signed hexadecimal format")
-__( OP_ROMAN,           1, 2, NULL, NULL, "ROMAN(number, [rule_relaxation])", "Formats a number in Roman numerals")
+OP( OP_ROMAN,           1, 2, eval_roman, NULL, "ROMAN(number, [rule_relaxation])", "Formats a number in Roman numerals")
 
 XX( OP_FMT,             2, 2, eval_fmt, NULL, "FMT(format_string, value)", NULL)
 

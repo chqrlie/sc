@@ -774,7 +774,7 @@ static scvalue_t eval_ston(eval_ctx_t *cp, enode_t *e) {
 
 static scvalue_t eval_exact(eval_ctx_t *cp, enode_t *e) {
     SCXMEM string_t *s1 = eval_str(cp, e->e.args[0]);
-    SCXMEM string_t *s2 = eval_str(cp, e->e.args[0]);
+    SCXMEM string_t *s2 = eval_str(cp, e->e.args[1]);
     int res = -1;
 
     if (s1 && s2)
@@ -1377,6 +1377,114 @@ static scvalue_t eval_const(eval_ctx_t *cp, enode_t *e) {
 
 static scvalue_t eval_sconst(eval_ctx_t *cp, enode_t *e) {
     return scvalue_string(dup_string(e->e.s));
+}
+
+static scvalue_t eval_base(eval_ctx_t *cp, enode_t *e) {
+    long n0 = (int)eval_num(cp, e->e.args[0]);
+    unsigned long n = n0 < 0 ? 0UL - n0 : n0;
+    int base = (int)eval_num(cp, e->e.args[1]);
+    int mindigits = e->nargs > 2 ? (int)eval_num(cp, e->e.args[2]) : 0;
+    char buf[300];
+    char *p = buf + sizeof(buf);
+
+    if (cp->cellerror)
+        return scvalue_error(cp, cp->cellerror);
+
+    if (base < 2 || base > 36)
+        return scvalue_error(cp, CELLERROR);
+
+    do {
+        unsigned int d = n % base;
+        n /= base;
+        /* Assuming ASCII where all letters are consecutive */
+        *--p = d + (d < 10 ? '0' : 'A' - 10);
+    } while (n > 0);
+    while (p > buf + 1 && mindigits > buf + sizeof(buf) - p)
+        *--p = '0';
+    if (n0 < 0)
+        *--p = '-';
+    return scvalue_string(new_string_len(p, buf + sizeof(buf) - p));
+}
+
+static int roman_value(char c) {
+    switch (toupperchar(c)) {
+    case '\0':  return 0;
+    case 'I':   return 1;
+    case 'V':   return 5;
+    case 'X':   return 10;
+    case 'L':   return 50;
+    case 'C':   return 100;
+    case 'D':   return 500;
+    case 'M':   return 1000;
+    default:    return -1;
+    }
+}
+
+static scvalue_t eval_arabic(eval_ctx_t *cp, enode_t *e) {
+    SCXMEM string_t *str = eval_str(cp, e->e.args[0]);
+    int v, n = 0;
+    int err = cp->cellerror;
+
+    if (!err) {
+        if (!str) {
+            err = CELLERROR;
+        } else {
+            const char *s = s2c(str);
+            while (*s) {
+                v = roman_value(*s++);
+                if (v < 0) {
+                    err = CELLERROR;
+                    break;
+                }
+                n += (v < roman_value(*s)) ? -v : v;
+            }
+        }
+    }
+    free_string(str);
+    return err ? scvalue_error(cp, err) : scvalue_number(n);
+}
+
+static scvalue_t eval_roman(eval_ctx_t *cp, enode_t *e) {
+    char buf[16];
+    char *q = buf + countof(buf);
+    char const digits[] = "IVXLCDM";
+    const char *p = digits;
+    int n = (int)eval_num(cp, e->e.args[0]);
+
+    if (cp->cellerror || n <= 0 || n >= 4000) {
+        return scvalue_error(cp, CELLINVALID);
+    }
+
+    // XXX: incorrect algorithms, should support 2nd argument
+    while (n > 0) {
+#if 1
+        /* Potentially shorter code :-) */
+#define R(a,b,c,d)  (((a)<<6)|((b)<<4)|((c)<<2)|((d)<<0))
+        int n10;
+        unsigned char const pat[10] = { /* 0, 1, 5, 21, 6, 2, 9, 37, 85, 7 */
+            R(0,0,0,0), R(0,0,0,1), R(0,0,1,1), R(0,1,1,1), R(0,0,1,2),
+            R(0,0,0,2), R(0,0,2,1), R(0,2,1,1), R(2,1,1,1), R(0,0,1,3),
+        };
+        for (n10 = pat[n % 10]; n10; n10 >>= 2) {
+            *--q = p[(n10 & 3) - 1];
+        }
+#else
+        int n10 = n % 10;
+        int n1 = n10 % 5;
+        if (n1 == 4) {
+            *--q = p[1 + (n10 == 9)];
+            *--q = p[0];
+        } else {
+            while (n1--)
+                *--q = p[0];
+            if (n10 >= 5)
+                *--q = p[1];
+        }
+#endif
+        n /= 10;
+        p += 2;
+    }
+    return scvalue_string(new_string_len(q, buf + sizeof(buf) - q));
 }
 
 static scvalue_t eval_other(eval_ctx_t *cp, enode_t *e) {
