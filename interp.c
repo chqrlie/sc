@@ -1381,7 +1381,7 @@ static scvalue_t eval_sconst(eval_ctx_t *cp, enode_t *e) {
 
 static scvalue_t eval_base(eval_ctx_t *cp, enode_t *e) {
     long n0 = (int)eval_num(cp, e->e.args[0]);
-    unsigned long n = n0 < 0 ? 0UL - n0 : n0;
+    unsigned long n = n0 < 0 ? 0UL - n0 : 0UL + n0;
     int base = (int)eval_num(cp, e->e.args[1]);
     int mindigits = e->nargs > 2 ? (int)eval_num(cp, e->e.args[2]) : 0;
     char buf[300];
