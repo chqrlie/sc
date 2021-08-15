@@ -3813,7 +3813,7 @@ int editv(buf_t buf, int row, int col, struct ent *p, int dcp_flags) {
             decompile_expr(buf, p->expr, row - p->row, col - p->col, dcp_flags);
         } else
         if (p->type == SC_NUMBER) {
-            // XXX: should convert to locale: use out_const()?
+            // XXX: should convert to locale: use out_number()?
             buf_printf(buf, "%.15g", p->v);
         } else
         if (p->type == SC_BOOLEAN) {
@@ -3845,7 +3845,7 @@ int edits(buf_t buf, int row, int col, struct ent *p, int dcp_flags) {
             len = decompile_expr(buf, p->expr, row - p->row, col - p->col, dcp_flags);
         } else
         if (p->type == SC_NUMBER) {
-            // XXX: should convert to locale: use out_const()?
+            // XXX: should convert to locale: use out_number()?
             len = buf_printf(buf, "%.15g", p->v);
         } else
         if (p->type == SC_BOOLEAN) {

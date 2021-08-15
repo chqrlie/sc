@@ -88,17 +88,19 @@ void initcolor(int colornum) {
 }
 
 void change_color(int pair, enode_t *e) {
-    int v;
+    int v, err = 0;
 
     if (pair < 1 || pair > CPAIRS) {
         error("Invalid color number %d", pair);
         return;
     }
 
-    v = (int)neval_at(e, 0, 0);
-    init_style(pair, v & 7, (v >> 3) & 7, e);
-    modflg++;
-    FullUpdate++;
+    v = (int)neval_at(e, 0, 0, &err);
+    if (!err) {
+        init_style(pair, v & 7, (v >> 3) & 7, e);
+        modflg++;
+        FullUpdate++;
+    }
 }
 
 void del_crange(struct crange *r) {

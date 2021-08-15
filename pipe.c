@@ -189,12 +189,14 @@ void getrange(SCXMEM string_t *name, int fd) {
 
 void cmd_eval(SCXMEM enode_t *e, SCXMEM string_t *fmt, int row, int col, int fd) {
     char buf[FBUFLEN];
-    int align = ALIGN_DEFAULT;
-    int len;
+    int align = ALIGN_DEFAULT, len, err = 0;
     double v;
 
     // XXX: should output parseable value: number or string
-    v = neval_at(e, row, col);
+    v = neval_at(e, row, col, &err);
+    if (err) {
+        snprintf(buf, sizeof buf - 1, "ERROR");
+    } else
     if (!sempty(fmt)) {
         /* convert cell contents, do not test width, should not align */
         format(buf, sizeof buf - 1, s2c(fmt), precision[col], v, &align);
@@ -208,11 +210,11 @@ void cmd_eval(SCXMEM enode_t *e, SCXMEM string_t *fmt, int row, int col, int fd)
 }
 
 void cmd_seval(SCXMEM enode_t *e, int row, int col, int fd) {
+    int err = 0;
     SCXMEM string_t *str;
 
-    str = seval_at(e, row, col);
-    if (str)
-        write(fd, s2c(str), slen(str));
+    str = seval_at(e, row, col, &err);
+    if (!err) write(fd, s2c(str), slen(str));
     write(fd, "\n", 1);
     free_string(str);
     efree(e);

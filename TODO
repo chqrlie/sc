@@ -7,22 +7,22 @@ Tests:
 
 Evaluator:
 [ ] fix operator priorities
-[ ] only support simple string expressions for xxxIF functions
-[ ] fix API for @date, @row...
-[ ] fix error propagation scheme
+[ ] clean OP_ERR mess
 [ ] use infix operators from OASIS spec
+[ ] only support simple string expressions for xxxIF functions
+[ ] improve date/time representation and formatting
+[ ] fix API for @date, @row...
+[/] change expression functions for API compatibility
 [ ] add inline vectors, columns and matrices in expressions
 [ ] add reference operators: union (~) and intersection (!)
-[ ] improve date/time representation and formatting
-[ ] introduce new functions for conditional aggregation
-[ ] stack based dynamic type interpreter
-[ ] change the expression evaluator: use a stack of dynamically typed values
-[ ] change expression functions for API compatibility
+[ ] change cell references to relative and absolute coordinates
+[ ] add refcounted formula objects
 [ ] chain cells with formulas into a linked list or dependency tree
+[?] stack based dynamic type interpreter
 
 Parser:
 [ ] define precise semantics for words in lexer (ie: `3rdrow`)
-[ ] compile to bytecode
+[?] compile to bytecode
 [ ] use hash table to match function names
 [ ] add VF_FULL_ROW and VF_FULL_COL
 [ ] parse num:num and col:col as ranges
@@ -31,9 +31,10 @@ Parser:
 [ ] remove yacc based parser
 [ ] fix replicated cell alignment as alignment type and use whole parts
 [ ] add format info in scvalue_t
-[ ] save expression values in .sc files
+[ ] save formula values in .sc files
 
 Database:
+[ ] start column and row numbers at 1
 [ ] make cell notes separate structures
 [ ] sparse matrix database
 [ ] remove cell pointers
@@ -48,20 +49,17 @@ Database:
 [ ] implement virtual space: jagged 2D matrix
 [ ] more efficient cell structure
 [/] generic formats
-[ ] add undo / autobackup of things typed in.
-	idea: each cell change output to a stdio open file
-		in the save format, fflush() every so often...
-		(diffs w/r to the original file)
+[ ] add undo / autobackup of things typed in. (use command log)
+
 Update:
-[ ] rewrite update()
+[ ] rewrite update() function in screen.c from scratch in a more sane manner
+	(the current one is buggy and a headache to debug)
 [ ] update() should not have a side effect on currow/curcol
 [ ] update() should not have a side effect on the database
 [ ] don't redraw the whole screen all the time
 	(only cells that change, (in addition to what is in 'fixed #9'))
 	(Note: there was no #9 when I took this over, and I've renumbered
 	things since then, so I'm not sure what this is referring to - CRM)
-[ ] rewrite update() function in screen.c from scratch in a more sane manner
-	(the current one is buggy and a headache to debug)
 
 Commands:
 [ ] pattern directed input in vi.c
@@ -122,3 +120,7 @@ Commands:
 [X] change OP_TYPE_NODES nodes to array of arguments
 [X] use left/right for last pair of arguments in expression lists
 [X] generalize aggregate functions for multiple arguments
+[X] introduce new functions for conditional aggregation
+[X] fix error propagation scheme
+[X] fix error values
+[?] change the expression evaluator: use a stack of dynamically typed values

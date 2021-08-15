@@ -140,7 +140,6 @@ typedef struct eval_context eval_ctx_t;
 struct eval_context {
     int gmyrow, gmycol;  /* globals used to implement @myrow, @mycol cmds */
     int rowoffset, coloffset;   /* row & col offsets for range functions */
-    int cellerror;
 };
 
 /* info for each cell, only alloc'd when something is stored in a cell */
@@ -155,7 +154,7 @@ struct ent {
     int row;
     short col;                  /* the cell col/row */
     short flags;
-    rangeref_t nrr;             /* nrr: link to note */
+    rangeref_t nrr;             /* nrr: link to note */ // XXX: should just use flag
     struct ent *next;           /* next deleted ent (pulled, deleted cells) */
 };
 
@@ -175,7 +174,7 @@ struct enode {
         struct ent_ptr v;       /* ref. another cell */
         struct range_s r;       /* op is on a range */
         SCXMEM string_t *s;     /* op is a string constant */
-        SCXMEM enode_t *args[1];    /* flexible array */
+        SCXMEM enode_t *args[1];    /* flexible array of arguments */
     } e;
 };
 
@@ -283,6 +282,13 @@ extern struct opdef const opdefs[];
 #define CELLOK          0
 #define CELLERROR       1
 #define CELLINVALID     2
+#define ERROR_NULL      1
+#define ERROR_DIV0      2
+#define ERROR_VALUE     3
+#define ERROR_REF       4
+#define ERROR_NAME      5
+#define ERROR_NUM       6
+#define ERROR_NA        7
 
 /* calculation order */
 #define BYCOLS 1
@@ -526,8 +532,8 @@ extern const char *coltoa(int col);
 extern const char *v_name(int row, int col);
 extern const char *r_name(int r1, int c1, int r2, int c2);
 extern scvalue_t eval_at(enode_t *e, int row, int col);
-extern SCXMEM string_t *seval_at(enode_t *se, int row, int col);
-extern double neval_at(enode_t *e, int row, int col);
+extern SCXMEM string_t *seval_at(enode_t *se, int row, int col, int *errp);
+extern double neval_at(enode_t *e, int row, int col, int *errp);
 extern int are_frames(void);
 extern int are_nranges(void);
 extern int atocol(const char *s, int *lenp);
