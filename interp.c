@@ -1585,7 +1585,7 @@ static scvalue_t eval_to_base(eval_ctx_t *cp, enode_t *e, int err, int from_base
             if (err) break;
 
             errno = 0;
-            n0 = strtol(s = s2c(str), from_base, &endp);
+            n0 = strtol(s = s2c(str), &endp, from_base);
             if (errno || endp == s) {
                 err = ERROR_VALUE;
                 break;
