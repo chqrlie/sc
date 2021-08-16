@@ -40,6 +40,7 @@ extern const char *progname;
 
 #define MINROWS 100     /* minimum size at startup */
 #define MINCOLS 30
+#define ABSMAXROWS 0xFFFFFF  /* maximum number of rows */
 #define ABSMAXCOLS 702  /* maximum number of columns for A-ZZ (base 26) */
 
 #define CRROWS 1
@@ -161,7 +162,7 @@ struct ent {
 struct enode {
     unsigned char op;
     unsigned char type;
-#define OP_TYPE_NODES   0
+#define OP_TYPE_FUNC    0
 #define OP_TYPE_VAR     1
 #define OP_TYPE_RANGE   2
 #define OP_TYPE_DOUBLE  3
@@ -277,17 +278,14 @@ extern struct opdef const opdefs[];
 #define ALIGN_RIGHT     0300
 #define ALIGN_CLIP      0400  /* clip contents if longer than colwidth instead of displaying '*' */
 
-/* cell error (1st generation (ERROR) or 2nd+ (INVALID)) */
-#define CELLOK          0
-#define CELLERROR       1
-#define CELLINVALID     2
-#define ERROR_NULL      1
-#define ERROR_DIV0      2
-#define ERROR_VALUE     3
-#define ERROR_REF       4
-#define ERROR_NAME      5
-#define ERROR_NUM       6
-#define ERROR_NA        7
+/* error values */
+#define ERROR_NULL  1  // #NULL!  Intersection of ranges produced zero cells.
+#define ERROR_DIV0  2  // #DIV/0! Attempt to divide by zero, including division by an empty cell. 6.13.11
+#define ERROR_VALUE 3  // #VALUE! Parameter is wrong type.
+#define ERROR_REF   4  // #REF!   Reference to invalid cell (e.g., beyond the application's abilities).
+#define ERROR_NAME  5  // #NAME?  Unrecognized/deleted name.
+#define ERROR_NUM   6  // #NUM!   Failed to meet domain constraints (e.g., input was too large or too small).
+#define ERROR_NA    7  // #N/A    Not available. ISNA() returns TRUE for this value. Used for Lookup functions which fail.
 
 /* calculation order */
 #define BYCOLS 1
@@ -449,6 +447,7 @@ extern SCXMEM string_t *latexext;
 extern SCXMEM string_t *slatexext;
 extern SCXMEM string_t *texext;
 extern struct go_save gs;
+extern const char * const error_name[];
 
 static inline cellref_t cellref(int row, int col) {
     cellref_t cell = { row, col, 0, 0 };
@@ -709,6 +708,8 @@ extern void yank_area(rangeref_t rr);
 extern int parse_line(const char *buf);
 extern void parse_error(const char *err, const char *src, int pos);
 extern void yyerror(const char *err);
+extern int parse_cellref(const char *p, cellref_t *cp, int *lenp);
+extern int parse_rangeref(const char *p0, rangeref_t *rp, int *lenp);
 extern int yylex(void);
 extern int backup_file(const char *path);
 extern void sc_set_locale(int set);

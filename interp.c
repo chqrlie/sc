@@ -37,6 +37,17 @@ int propagation = 10;   /* max number of times to try calculation */
 static int repct = 1;   /* Make repct a global variable so that the
                            function @numiter can access it */
 
+const char * const error_name[] = {
+    NULL,
+    "#NULL!",   // ERROR_NULL: Intersection of ranges produced zero cells.
+    "#DIV/0!",  // ERROR_DIV0: Attempt to divide by zero, including division by an empty cell. 6.13.11
+    "VALUE!",   // ERROR_VALUE: Parameter is wrong type.
+    "#REF!",    // ERROR_REF: Reference to invalid cell (e.g., beyond the application's abilities).
+    "#NAME?",   // ERROR_NAME: Unrecognized/deleted name.
+    "#NUM!",    // ERROR_NUM: Failed to meet domain constraints (e.g., input was too large or too small).
+    "#N/A",     // ERROR_NA: Not available. ISNA() returns TRUE for this value. Used for Lookup functions which fail.
+};
+
 static SCXMEM enode_t *new_node(int op, int nargs);
 extern scvalue_t eval_node(eval_ctx_t *cp, enode_t *e);
 extern scvalue_t eval_node_value(eval_ctx_t *cp, enode_t *e);
@@ -332,6 +343,55 @@ static scvalue_t eval__range(eval_ctx_t *cp, enode_t *e) {
     return scvalue_error(ERROR_REF);
 }
 
+static scvalue_t eval_address(eval_ctx_t *cp, enode_t *e) {
+    char buff[32];
+    int err = 0;
+    int row = (int)eval_num(cp, e->e.args[0], &err);
+    int col = (int)eval_num(cp, e->e.args[1], &err);
+    int rel = e->nargs > 2 ? (int)eval_num(cp, e->e.args[2], &err) : 1;
+    if (err) return scvalue_error(err);
+    if (row < 0 || row > ABSMAXCOLS || col < 0 || col > ABSMAXCOLS || rel < 1 || rel > 4)
+        return scvalue_error(ERROR_NUM);
+    snprintf(buff, sizeof buff, "%s%s%s%d", &"$"[(rel & 1) ^ 1], coltoa(col), &"$"[rel > 2], row);
+    return scvalue_string(new_string(buff));
+}
+
+static scvalue_t eval_indirect(eval_ctx_t *cp, enode_t *e) {
+    int err = 0, len;
+    SCXMEM string_t *str = eval_str(cp, e->e.args[0], &err);
+    const char *s;
+    struct nrange *r;
+    rangeref_t rr;
+    int minc = 0, minr = 0, maxc = 0, maxr = 0;
+
+    if (!err) {
+        s = s2c(str);
+        len = slen(str);
+        if (parse_rangeref(s, &rr, NULL)) {
+            minr = rr.left.row;
+            minc = rr.left.col;
+            maxr = rr.right.row;
+            maxc = rr.right.col;
+        } else
+        if (find_nrange_name(s, len, &r)) {
+            minr = r->r_left.vp->row;
+            minc = r->r_left.vp->col;
+            maxr = r->r_right.vp->row;
+            maxc = r->r_right.vp->col;
+        } else {
+            err = ERROR_REF;
+        }
+        free_string(str);
+    }
+    if (err) {
+        return scvalue_error(err);
+    } else {
+        if (minr > maxr) SWAPINT(minr, maxr);
+        if (minc > maxc) SWAPINT(minc, maxc);
+        return scvalue_range(rangeref(minr, minc, maxr, maxc));
+    }
+}
+
 static scvalue_t eval_choose(eval_ctx_t *cp, enode_t *e) {
     int err = 0;
     int index = (int)eval_num(cp, e->e.args[0], &err);
@@ -467,6 +527,50 @@ static int eval_test_offset(eval_ctx_t *cp, enode_t *e, int roffset, int coffset
     cp->rowoffset = save_rowoffset;
     cp->coloffset = save_coloffset;
     return res;
+}
+
+static scvalue_t eval_error_type(eval_ctx_t *cp, enode_t *e) {
+    scvalue_t res = eval_node_value(cp, e->e.args[0]);
+    if (res.type == SC_ERROR) return scvalue_number(res.u.error);
+    scvalue_free(res);
+    return scvalue_error(ERROR_VALUE);
+}
+
+static scvalue_t eval_isformula(eval_ctx_t *cp, enode_t *e) {
+    int t = FALSE;
+    scvalue_t res = eval_node(cp, e->e.args[0]);
+    if (res.type == SC_RANGE) {
+        /* reduce dimensions by intersecting with cell row and column */
+        int row = res.u.rr.left.row;
+        int col = res.u.rr.left.col;
+        if ((row == res.u.rr.right.row || ((row = cp->gmyrow) >= res.u.rr.left.row && row <= res.u.rr.right.row))
+        &&  (col == res.u.rr.right.col || ((col = cp->gmycol) >= res.u.rr.left.col && col <= res.u.rr.right.col))) {
+            struct ent *p = lookat_nc(row, col);
+            t = (p && p->expr);
+        }
+    }
+    scvalue_free(res);
+    return scvalue_bool(t);
+}
+
+static scvalue_t eval_formula(eval_ctx_t *cp, enode_t *e) {
+    char buff[FBUFLEN];
+    scvalue_t res = eval_node(cp, e->e.args[0]);
+    if (res.type == SC_RANGE) {
+        /* reduce dimensions by intersecting with cell row and column */
+        int row = res.u.rr.left.row;
+        int col = res.u.rr.left.col;
+        if ((row == res.u.rr.right.row || ((row = cp->gmyrow) >= res.u.rr.left.row && row <= res.u.rr.right.row))
+        &&  (col == res.u.rr.right.col || ((col = cp->gmycol) >= res.u.rr.left.col && col <= res.u.rr.right.col))) {
+            struct ent *p = lookat_nc(row, col);
+            if (p && p->expr) {
+                decompile(buff, sizeof buff, p->expr, 0, 0, DCP_DEFAULT);
+                return scvalue_string(new_string(buff));
+            }
+        }
+    }
+    scvalue_free(res);
+    return scvalue_error(ERROR_VALUE);
 }
 
 static scvalue_t eval_iseven_odd(eval_ctx_t *cp, enode_t *e) {
@@ -1815,10 +1919,12 @@ static scvalue_t eval_other(eval_ctx_t *cp, enode_t *e) {
     case OP_FALSE:      return scvalue_bool(0); break;
     case OP_TRUE:       return scvalue_bool(1); break;
     case OP_UPLUS:      return eval_node_value(cp, e->e.args[0]);
+    case OP_ERR:
+    case OP_ERRNUM:     return scvalue_error(ERROR_NUM);
+    case OP_ERRREF:     return scvalue_error(ERROR_REF);
     default:            error("Illegal expression");
                         exprerr = 1;
-                        FALLTHROUGH;
-    case OP_ERR:        return scvalue_error(ERROR_NAME);
+                        return scvalue_error(ERROR_NULL);
     }
     return scvalue_number(val);
 }
@@ -1854,7 +1960,7 @@ scvalue_t eval_node_value(eval_ctx_t *cp, enode_t *e) {
         int row = res.u.rr.left.row;
         int col = res.u.rr.left.col;
         if ((row == res.u.rr.right.row || ((row = cp->gmyrow) >= res.u.rr.left.row && row <= res.u.rr.right.row))
-        &&  (col == res.u.rr.right.col || ((col = cp->gmycol) >= res.u.rr.left.col && row <= res.u.rr.right.col))) {
+        &&  (col == res.u.rr.right.col || ((col = cp->gmycol) >= res.u.rr.left.col && col <= res.u.rr.right.col))) {
             return scvalue_getcell(cp, row, col);
         }
         return scvalue_error(ERROR_REF);
@@ -2038,7 +2144,7 @@ static SCXMEM enode_t *new_node(int op, int nargs) {
     p = scxmalloc(size > sizeof(enode_t) ? size : sizeof(enode_t));
     if (p) {
         p->op = op;
-        p->type = OP_TYPE_NODES;
+        p->type = OP_TYPE_FUNC;
         p->nargs = nargs;
         for (i = 0; i < nargs; i++) {
             p->e.args[i] = NULL;
@@ -2158,8 +2264,10 @@ SCXMEM enode_t *new_const(double v) {
         p->type = OP_TYPE_DOUBLE;
         p->nargs = 0;
         p->e.k = v;
-        if (!isfinite(v))
-            p->op = OP_ERR;
+        if (!isfinite(v)) {
+            p->op = OP_ERRNUM;
+            p->type = OP_TYPE_FUNC;
+        }
     }
     return p;
 }
@@ -2233,7 +2341,7 @@ enode_t *copye(enode_t *e, int Rdelta, int Cdelta,
         ret->type = OP_TYPE_STRING;
         ret->e.s = dup_string(e->e.s);
     } else
-    if (e->type == OP_TYPE_NODES) {
+    if (e->type == OP_TYPE_FUNC) {
         int i;
         for (i = 0; i < e->nargs; i++) {
             if (!(ret->e.args[i] = copye(e->e.args[i], Rdelta, Cdelta, r1, c1, r2, c2, transpose))) {
@@ -2258,7 +2366,7 @@ static int constant_expr(enode_t *e, int full) {
         return TRUE;
 
     if (!full
-    ||  e->type != OP_TYPE_NODES
+    ||  e->type != OP_TYPE_FUNC
     ||  e->op == OP_RAND     /* non pure functions */
     ||  e->op == OP_RANDBETWEEN
     ||  e->op == OP_EXT
@@ -2364,7 +2472,7 @@ void let(cellref_t cr, SCXMEM enode_t *e, int align) {
 
 void efree(SCXMEM enode_t *e) {
     if (e) {
-        if (e->type == OP_TYPE_NODES) {
+        if (e->type == OP_TYPE_FUNC) {
             int i;
             for (i = 0; i < e->nargs; i++)
                 efree(e->e.args[i]);

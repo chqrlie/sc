@@ -765,8 +765,7 @@ void update(int anychanged) {          /* did any cell really change in value? *
                         // XXX: right alignment is ignored
                         if (colorerr)
                             select_style(STYLE_ERROR, 0);
-                        printw("%*.*s", fieldlen, fieldlen,
-                               p->cellerror == CELLERROR ? "ERROR" : "INVALID");
+                        printw("%*.*s", fieldlen, fieldlen, error_name[p->cellerror]);
                     } else
                     if (p->expr && showexpr) {
                         /* Show expression; takes priority over other displays */

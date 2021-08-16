@@ -112,7 +112,7 @@ void yyerror(const char *err) {
     parse_error(err, src_line, src_pos - src_line);
 }
 
-static int parse_cellref(const char *p, cellref_t *cp, int *lenp) {
+int parse_cellref(const char *p, cellref_t *cp, int *lenp) {
     int i = 0, len, row, col, vf = 0;
     if (p[i] == '$') {
         i++;
@@ -137,6 +137,26 @@ static int parse_cellref(const char *p, cellref_t *cp, int *lenp) {
         *lenp = i;
     // XXX: should reject if isalnumchar_(p[i]) ?
     return 1;
+}
+
+int parse_rangeref(const char *p, rangeref_t *rp, int *lenp) {
+    int len, len2, res = 1;
+    if (parse_cellref(p, &rp->left, &len)) {
+        rp->right = rp->left;
+        if (p[len] == ':'
+        &&  parse_cellref(p + len + 1, &rp->right, &len2)
+        &&  !isalnumchar_(p[len += 1 + len2])) {
+            res = 2;
+        }
+        if (lenp) {
+            *lenp = len;
+            return res;
+        } else
+        if (p[len] == '\0') {
+            return res;
+        }
+    }
+    return 0;
 }
 
 static int parse_int(const char *p, const char **endp, int *vp) {
@@ -329,7 +349,7 @@ int yylex(void) {
         src_pos = p0 = p;
         if (isalphachar_(*p) || *p == '$') {
             // XXX: should only accept '$' in cell references
-            for (p += 1; isalnumchar_(*p) || *p == '$'; p++)
+            for (p += 1; isalnumchar_(*p) || *p == '$' || *p == '.'; p++)
                 continue;
 
             if (p0 == src_line) {
@@ -480,7 +500,7 @@ int yylex(void) {
                     yylval.fval = strtod(nstart, &endp);
                     p = endp;
                     if (!isfinite(yylval.fval)) {
-                        yylval.ival = OP_ERR;
+                        yylval.ival = OP_ERRNUM;
                         ret = FUNC0;
                     } else {
                         sc_decimal = TRUE;

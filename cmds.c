@@ -1576,13 +1576,15 @@ static void sync_expr(enode_t *e) {
         break;
     case OP_TYPE_VAR:
         if (e->e.v.vp->flags & IS_CLEARED) {
-            e->op = OP_ERR;
+            e->op = OP_ERRREF;
+            e->type = OP_TYPE_FUNC;
+            e->nargs = 0;
         } else
         if (e->e.v.vp->flags & MAY_SYNC) {
             e->e.v.vp = lookat(e->e.v.vp->row, e->e.v.vp->col);
         }
         break;
-    case OP_TYPE_NODES: {
+    case OP_TYPE_FUNC: {
             int i;
             for (i = 0; i < e->nargs; i++)
                 sync_expr(e->e.args[i]);

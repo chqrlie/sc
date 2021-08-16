@@ -29,8 +29,7 @@ void getnum(rangeref_t rr, int fd) {
                     snprintf(buf, sizeof buf - 1, "%s", p->v ? "TRUE" : "FALSE");
                     break;
                 case SC_ERROR:
-                    snprintf(buf, sizeof buf - 1, "%s",
-                             p->cellerror == CELLERROR ? "ERROR" : "INVALID");
+                    snprintf(buf, sizeof buf - 1, "%s", error_name[p->cellerror]);
                     break;
                 }
             }
@@ -66,8 +65,7 @@ void fgetnum(rangeref_t rr, int fd) {
                     snprintf(buf, sizeof buf - 1, "%s", p->v ? "TRUE" : "FALSE");
                     break;
                 case SC_ERROR:
-                    snprintf(buf, sizeof buf - 1, "%s",
-                             p->cellerror == CELLERROR ? "ERROR" : "INVALID");
+                    snprintf(buf, sizeof buf - 1, "%s", error_name[p->cellerror]);
                     break;
                 }
             }

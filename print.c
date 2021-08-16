@@ -90,8 +90,7 @@ void printfile(SCXMEM string_t *str, rangeref_t rr) {
             if (p->type == SC_NUMBER || p->type == SC_ERROR || p->type == SC_BOOLEAN) {
                 if (p->type == SC_ERROR) {
                     // XXX: append a space for cell alignment
-                    len = pstrcpy(field, sizeof field,
-                                  (p->cellerror == CELLERROR) ? "ERROR " : "INVALID ");
+                    len = pstrcpy(field, sizeof field, error_name[p->cellerror]);
                     align |= ALIGN_CLIP;
                 } else
                 if (p->type == SC_BOOLEAN) {
@@ -360,8 +359,7 @@ void tblprintfile(SCXMEM string_t *str, rangeref_t rr) {
                     /* convert cell contents, do not test width, do not align with spaces */
                     // XXX: should implement alignment in output format
                     if (p->type == SC_ERROR) {
-                        pstrcpy(field, sizeof field,
-                                (p->cellerror == CELLERROR) ? "ERROR" : "INVALID");
+                        pstrcpy(field, sizeof field, error_name[p->cellerror]);
                         align |= ALIGN_CLIP;
                     } else
                     if (p->type == SC_BOOLEAN) {

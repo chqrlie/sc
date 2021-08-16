@@ -212,7 +212,6 @@ int str_search(int g_type, rangeref_t rr, SCXMEM string_t *str) {
     }
 #elif defined REGCMP
     if ((tmp = regcmp(s, NULL)) == NULL) {
-        cellerror = CELLERROR;
         error("Invalid search string");
         free_string(str);
         return -1;
@@ -233,8 +232,7 @@ int str_search(int g_type, rangeref_t rr, SCXMEM string_t *str) {
     lastrow = rr.right.row;
     lastcol = rr.right.col;
 
-    if (currow >= firstrow && currow <= lastrow &&
-            curcol >= firstcol && curcol <= lastcol) {
+    if (currow >= firstrow && currow <= lastrow && curcol >= firstcol && curcol <= lastcol) {
         endr = currow;
         endc = curcol;
     } else {
@@ -264,7 +262,7 @@ int str_search(int g_type, rangeref_t rr, SCXMEM string_t *str) {
             *field = '\0';
             if (gs.g_type == G_NSTR) {
                 if (p->cellerror) {
-                    s1 = (p->cellerror == CELLERROR) ? "ERROR" : "INVALID";
+                    s1 = "ERROR";  // s1 = error_name[p->cellerror];
                 } else
                 if (p->type == SC_NUMBER) {
                     if (p->format) {
