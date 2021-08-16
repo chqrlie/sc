@@ -105,10 +105,11 @@ int num_search(int g_type, rangeref_t rr, double n) {
     if (!loading)
         remember(0);
 
+    // XXX: refine this, find all errors for now
     if (g_type == G_ERROR)
-        errsearch = CELLERROR;
+        errsearch = -1;
     if (g_type == G_INVALID)
-        errsearch = CELLINVALID;
+        errsearch = -1;
 
     g_free();
     gs.g_type = g_type;
@@ -143,9 +144,8 @@ int num_search(int g_type, rangeref_t rr, double n) {
             }
         }
         if (!col_hidden[col] && (p = *ATBL(tbl, row, col))) {
-            if ((p->type == SC_NUMBER) &&
-                ((!errsearch && (p->v == n)) ||
-                 (errsearch && (p->cellerror == errsearch)))) {   /* CELLERROR vs CELLINVALID */
+            if ((!errsearch && p->type == SC_NUMBER && p->v == n)
+            ||  (errsearch & (1 << p->cellerror))) {
                 found = 1;
                 break;
             }
@@ -165,7 +165,7 @@ int num_search(int g_type, rangeref_t rr, double n) {
         }
     } else {
         if (errsearch) {
-            error("no %s cell found", errsearch == CELLERROR ? "ERROR" : "INVALID");
+            error("no ERROR cell found");
         } else {
             error("Number not found");
         }

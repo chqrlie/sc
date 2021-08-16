@@ -75,7 +75,7 @@ static inline scvalue_t scvalue_empty(void) {
 static inline scvalue_t scvalue_error(int error) {
     scvalue_t res;
     res.type = SC_ERROR;
-    res.u.cellerror = error;
+    res.u.error = error;
     return res;
 }
 
@@ -100,7 +100,7 @@ static inline scvalue_t scvalue_string(SCXMEM string_t *str) {
         res.u.str = str;
     } else {
         res.type = SC_ERROR;
-        res.u.cellerror = ERROR_NULL;
+        res.u.error = ERROR_NULL;
     }
     return res;
 }
@@ -137,7 +137,7 @@ static double eval_num(eval_ctx_t *cp, enode_t *e, int *errp) {
         *errp = ERROR_VALUE; /* invalid conversion */
     } else {
         /* type is SC_ERROR */
-        *errp = res.u.cellerror;
+        *errp = res.u.error;
     }
     return 0.0;
 }
@@ -162,7 +162,7 @@ static SCXMEM string_t *eval_str(eval_ctx_t *cp, enode_t *e, int *errp) {
     if (res.type == SC_EMPTY)
         return dup_string(empty_string);
     /* type is SC_ERROR */
-    *errp = res.u.cellerror;
+    *errp = res.u.error;
     return NULL;
 }
 
@@ -453,7 +453,7 @@ static int eval_test(eval_ctx_t *cp, enode_t *e, int *errp) {
         free_string(a.u.str);
         return res;
     }
-    *errp = a.u.cellerror;
+    *errp = a.u.error;
     return 0;
 }
 
@@ -487,8 +487,8 @@ static scvalue_t eval_iserr(eval_ctx_t *cp, enode_t *e) {
     scvalue_t res = eval_node_value(cp, e->e.args[0]);
     int t = FALSE;
     if (res.type == SC_ERROR) {
-        if (e->op == OP_ISERR) t = (res.u.cellerror != ERROR_NA);
-        else if (e->op == OP_ISNA) t = (res.u.cellerror == ERROR_NA);
+        if (e->op == OP_ISERR) t = (res.u.error != ERROR_NA);
+        else if (e->op == OP_ISNA) t = (res.u.error == ERROR_NA);
         else t = TRUE;
     }
     scvalue_free(res);
@@ -671,8 +671,8 @@ static scvalue_t eval_aggregate(eval_ctx_t *cp, enode_t *ep,
                             switch (p->type) {
                             case SC_NUMBER:  fun(ap, p->v); break;
                             case SC_BOOLEAN: if (allvalues) fun(ap, p->v); break;
-                            case SC_ERROR:
-                            case SC_STRING:  if (allvalues) fun(ap, 0); break;
+                            case SC_STRING:
+                            case SC_ERROR:   if (allvalues) fun(ap, 0); break;
                             }
                         }
                     }
@@ -681,10 +681,8 @@ static scvalue_t eval_aggregate(eval_ctx_t *cp, enode_t *ep,
             }
         case SC_NUMBER:     fun(ap, res.u.v); break;
         case SC_BOOLEAN:    if (allvalues) fun(ap, res.u.v); break;
-        case SC_ERROR:
-        case SC_STRING:     if (allvalues) fun(ap, 0);
-                            scvalue_free(res);
-                            break;
+        case SC_STRING:     free_string(res.u.str); FALLTHROUGH;
+        case SC_ERROR:      if (allvalues) fun(ap, 0); break;
         }
     }
     return retfun(cp, ap);
@@ -717,6 +715,31 @@ static scvalue_t eval_aggregateif(eval_ctx_t *cp, enode_t *ep,
         }
     }
     return retfun(cp, ap);
+}
+
+static scvalue_t eval_countblank(eval_ctx_t *cp, enode_t *ep) {
+    sclong_t count = 0;
+    int i;
+
+    for (i = 0; i < ep->nargs; i++) {
+        scvalue_t res = eval_node(cp, ep->e.args[i]);
+        switch (res.type) {
+        case SC_RANGE: {
+                int r, c;
+                struct ent *p;
+                for (r = res.u.rr.left.row; r <= res.u.rr.right.row; r++) {
+                    for (c = res.u.rr.left.col; c <= res.u.rr.right.col; c++) {
+                        if (!(p = *ATBL(tbl, r, c)) || p->type == SC_EMPTY)
+                            count++;
+                    }
+                }
+                break;
+            }
+        case SC_EMPTY:      count++; break;
+        case SC_STRING:     free_string(res.u.str); break;
+        }
+    }
+    return scvalue_number(count);
 }
 
 static scvalue_t eval_average(eval_ctx_t *cp, enode_t *ep) {
@@ -1212,45 +1235,52 @@ static scvalue_t eval_fmt(eval_ctx_t *cp, enode_t *e) {
  * this as a third argument of @ext().
  */
 
-static scvalue_t eval_ext(eval_ctx_t *cp, enode_t *se) {
-    char buff[FBUFLEN];     /* command line/output */
-    SCXMEM string_t *command = NULL;
-    SCXMEM string_t *s = NULL;
-    enode_t *right = se->e.args[1];
-    enode_t *args = right;
-    enode_t *prev = NULL;
+static scvalue_t eval_ext(eval_ctx_t *cp, enode_t *e) {
     int err = 0;
-    FILE *pf;
-
-    if (right && right->op == 0) {
-        prev = right->e.args[0];
-        args = right->e.args[1];
-    }
-    *buff = '\0';
 
 #ifdef NOEXTFUNCS
     error("Warning: External functions unavailable");
-    err = ERROR_NA;      /* not sure if this should be a cellerror */
+    err = ERROR_NA;      /* not sure if this should be an error */
 #else
     for (;;) {
-        if (!extfunc) {
-            error("Warning: external functions disabled; using %s value",
-                  prev ? "null" : "previous");
-            break;
+        char buff[FBUFLEN];
+        buf_t buf;
+        enode_t *left = e->e.args[0];
+        enode_t *cmd = left;
+        enode_t *prev = NULL;
+        SCXMEM string_t *str;
+        int len, i;
+        FILE *pf;
+
+        if (left && left->op == OP_DUMMY) {
+            prev = left->e.args[0];
+            cmd = left->e.args[1];
         }
-        command = eval_str(cp, se->e.args[0], &err);
+
+        if (!extfunc) {
+            // XXX: should probably be N/A if no previous value
+            error("Warning: external functions disabled; using %s value",
+                  prev ? "previous" : "null");
+            if (prev) return eval_node(cp, prev);
+            return scvalue_string(dup_string(empty_string));
+        }
+        str = eval_str(cp, cmd, &err);
         if (err) break;
-        if (sempty(command)) {
+        buf_init(buf, buff, sizeof buff);
+        len = buf_puts(buf, s2c(str));
+        free_string(str);
+        if (len == 0) {
             error("Warning: external function given null command name");
             err = ERROR_VALUE;
             break;
         }
-        s = eval_str(cp, args, &err);
+        for (i = 1; i < e->nargs; i++) {
+            str = eval_str(cp, e->e.args[i], &err);
+            if (err) break;
+            buf_printf(buf, " %s", s2c(str));
+            free_string(str);
+        }
         if (err) break;
-
-        /* build cmd line */
-        // XXX: should accept argument list
-        snprintf(buff, sizeof buff, "%s %s", s2c(command), s2str(s));
 
         error("Running external function...");
         refresh();
@@ -1260,33 +1290,34 @@ static scvalue_t eval_ext(eval_ctx_t *cp, enode_t *se) {
             err = ERROR_NA;
             break;
         }
-        if (fgets(buff, sizeof(buff), pf) == NULL) {  /* one line */
+        if (fgets(buff, sizeof buff, pf) == NULL) {  /* one line */
             // XXX: should use the empty string?
             error("Warning: external function returned nothing");
             *buff = '\0';
         } else {
-            // XXX: should strip initial and triling spaces
-            size_t len = strlen(buff);
-            if (len && buff[len - 1] == '\n')   /* contains newline */
-                buff[--len] = '\0';             /* end string there */
+            strtrim(buff);
             error(" "); /* erase notice */
         }
         pclose(pf);
-        if (args == right) {
-            prev = new_str(new_string(buff));
+        str = new_string(buff);
+        if (!str) {
+            err = ERROR_NULL;
+            break;
+        }
+        if (cmd == left) {
+            prev = new_str(dup_string(str));
             /* create dummy node to store previous value */
-            se->e.args[1] = right = new_op2(0, prev, args);
+            // XXX: potential memory leak on malloc failure
+            e->e.args[0] = left = new_op2(OP_DUMMY, prev, cmd);
         } else
-        if (prev && prev->op == OP__STRING)
-            set_string(&prev->e.s, new_string(buff));
-        break;
+        if (prev && prev->op == OP__STRING) {
+            /* set updated previous value in dummy node */
+            set_string(&prev->e.s, dup_string(str));
+        }
+        return scvalue_string(str);
     }
 #endif  /* NOEXTFUNCS */
-    free_string(s);
-    free_string(command);
-    if (err) return scvalue_error(err);
-    if (prev) return eval_node(cp, prev);
-    return scvalue_string(new_string(buff));
+    return scvalue_error(err);
 }
 
 /*
@@ -1411,6 +1442,13 @@ static scvalue_t eval_substr(eval_ctx_t *cp, enode_t *e) {
     return scvalue_string(sub_string(str, v1 - 1, e->op == OP_MID ? v2 : v2 - v1 + 1));
 }
 
+static scvalue_t eval_trim(eval_ctx_t *cp, enode_t *e) {
+    int err = 0;
+    SCXMEM string_t *str = eval_str(cp, e->e.args[0], &err);
+    if (err) return scvalue_error(err);
+    return scvalue_string(trim_string(str));
+}
+
 static scvalue_t eval_concat(eval_ctx_t *cp, enode_t *e) {
     int i, err = 0;
     SCXMEM string_t *str = NULL;
@@ -1488,7 +1526,7 @@ static scvalue_t eval_if(eval_ctx_t *cp, enode_t *e) {
 static scvalue_t eval_iferror(eval_ctx_t *cp, enode_t *e) {
     scvalue_t res = eval_node_value(cp, e->e.args[0]);
     if (res.type == SC_ERROR) {
-        if (e->op == OP_IFERROR || res.u.cellerror == ERROR_NA) {
+        if (e->op == OP_IFERROR || res.u.error == ERROR_NA) {
             if (e->nargs > 1)
                 return eval_node(cp, e->e.args[1]);
             else
@@ -1927,7 +1965,6 @@ static int RealEvalAll(void) {
     return chgct;
 }
 
-
 static void RealEvalOne(struct ent *p, enode_t *e, int row, int col, int *chgct) {
     eval_ctx_t cp[1] = {{ row, col, 0, 0 }};
     scvalue_t res;
@@ -1938,62 +1975,46 @@ static void RealEvalOne(struct ent *p, enode_t *e, int row, int col, int *chgct)
     } else {
         res = eval_node_value(cp, e);
     }
-    if ((res.type == SC_STRING && !res.u.str)
-    ||  (res.type == SC_NUMBER && !isfinite(res.u.v))) {
+    if (res.type == SC_NUMBER && !isfinite(res.u.v)) {
         res = scvalue_error(ERROR_NUM);
     }
-    if (p->type == SC_STRING) {
-        if (res.type == SC_STRING && !strcmp(s2c(res.u.str), s2c(p->label))) {
-            free_string(res.u.str);
-            p->cellerror = 0;
-            return;
+    if (p->type == res.type) {
+        if (res.type == SC_STRING) {
+            if (!strcmp(s2c(res.u.str), s2c(p->label))) {
+                free_string(res.u.str);
+                return;
+            }
+        } else
+        if (res.type == SC_NUMBER || res.type == SC_BOOLEAN) {
+            if (res.u.v == p->v)
+                return;
+        } else
+        if (res.type == SC_ERROR) {
+            if (res.u.error == p->cellerror)
+                return;
         } else {
-            set_string(&p->label, NULL);
+            /* res.type is SC_EMPTY */
+            return;
         }
     }
+    // XXX: cell value changes, should store undo record?
+    if (p->type == SC_STRING) {
+        set_string(&p->label, NULL); /* free the previous label */
+    }
+    p->type = res.type;
+    p->cellerror = 0;
+    p->flags |= IS_CHANGED;
+    p->v = 0;
+    changed++;
+    (*chgct)++;
     if (res.type == SC_STRING) {
-        (*chgct)++;
-        p->flags |= IS_CHANGED;
-        p->type = SC_STRING;
-        changed++;
         set_string(&p->label, res.u.str);
-        p->cellerror = 0;
     } else
-    if (res.type == SC_NUMBER) {
-        if (p->type != SC_NUMBER || p->v != res.u.v) {
-            (*chgct)++;
-            p->flags |= IS_CHANGED;
-            p->type = SC_NUMBER;
-            changed++;
-        }
+    if (res.type == SC_NUMBER || res.type == SC_BOOLEAN) {
         p->v = res.u.v;
-        p->cellerror = 0;
-    } else
-    if (res.type == SC_BOOLEAN) {
-        if (p->type != SC_BOOLEAN || p->v != res.u.v) {
-            (*chgct)++;
-            p->flags |= IS_CHANGED;
-            p->type = SC_BOOLEAN;
-            changed++;
-        }
-        p->v = res.u.v;
-        p->cellerror = 0;
     } else
     if (res.type == SC_ERROR) {
-        if (p->type != SC_ERROR || p->cellerror != res.u.cellerror) {
-            p->flags |= IS_CHANGED;
-            p->type = SC_ERROR;
-        }
-        p->v = 0;
-        p->cellerror = res.u.cellerror;
-    } else
-    if (res.type == SC_EMPTY) {
-        if (p->type != SC_EMPTY) {
-            p->flags |= IS_CHANGED;
-            p->type = SC_EMPTY;
-        }
-        p->v = 0;
-        p->cellerror = 0;
+        p->cellerror = res.u.error;
     }
 }
 
@@ -2263,16 +2284,16 @@ static int constant_expr(enode_t *e, int full) {
 
 /* clear the value and expression of a cell */
 void unlet(cellref_t cr) {
-    struct ent *v = lookat_nc(cr.row, cr.col);
-    if (v && v->type != SC_EMPTY) {
+    struct ent *p = lookat_nc(cr.row, cr.col);
+    if (p && p->type != SC_EMPTY) {
         // XXX: what if the cell is locked?
-        v->v = 0.0;
-        efree(v->expr);
-        v->expr = NULL;
-        set_string(&v->label, NULL);
-        v->cellerror = CELLOK;
-        v->type = SC_EMPTY;
-        v->flags |= IS_CHANGED;
+        set_string(&p->label, NULL);
+        efree(p->expr);
+        p->expr = NULL;
+        p->type = SC_EMPTY;
+        p->cellerror = 0;
+        p->v = 0.0;
+        p->flags |= IS_CHANGED;
         FullUpdate++;
         changed++;
         modflg++;

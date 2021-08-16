@@ -194,17 +194,17 @@ int flush_saved(int idx) {
     return 1;
 }
 
-void clearent(struct ent *v) {
-    if (v) {
-        set_string(&v->label, NULL);
-        efree(v->expr);
-        v->expr = NULL;
-        set_string(&v->format, NULL);
-        v->v = 0.0;
-        v->cellerror = CELLOK;
-        v->type = SC_EMPTY;
-        v->flags = IS_CHANGED | IS_CLEARED;
-        v->nrr = rangeref_empty();
+void clearent(struct ent *p) {
+    if (p) {
+        set_string(&p->label, NULL);
+        efree(p->expr);
+        p->expr = NULL;
+        set_string(&p->format, NULL);
+        p->v = 0.0;
+        p->cellerror = 0;
+        p->type = SC_EMPTY;
+        p->flags = IS_CHANGED | IS_CLEARED;
+        p->nrr = rangeref_empty();
         // XXX: should clear other fields?
         //      next
         FullUpdate++;  // XXX: really?
@@ -239,7 +239,7 @@ struct ent *lookat(int row, int col) {
         p->label = NULL;
         p->expr = NULL;
         p->format = NULL;
-        p->cellerror = CELLOK;
+        p->cellerror = 0;
         p->type = SC_EMPTY;
         p->row = row;
         p->col = col;
@@ -1727,10 +1727,10 @@ void copyent(struct ent *n, struct ent *p, int dr, int dc,
     if (special != 'f') {
         /* transfer value unless merging and no value */
         if (special != 'm' || p->type != SC_EMPTY) {
-            set_string(&n->label, dup_string(p->label));
-            n->v = p->v;
             n->type = p->type;
             n->cellerror = p->cellerror;
+            n->v = p->v;
+            set_string(&n->label, dup_string(p->label));
         }
         if (special != 'm' || p->expr) {
             efree(n->expr);

@@ -54,6 +54,7 @@ extern size_t pstrncpy(char *dst, size_t dstsize, const char *src, size_t len);
 extern size_t pstrcat(char *dst, size_t dstsize, const char *src);
 extern size_t strsplice(char *dst, size_t size, size_t from, size_t len1,
                         const char *src, size_t len2);
+extern size_t strtrim(char *s);
 extern char *get_basename(const char *filename);
 extern char *get_extension(const char *filename);
 
@@ -110,7 +111,8 @@ static inline void set_string(SCXMEM string_t **sp, SCXMEM string_t *str) {
 }
 
 SCXMEM string_t *cat_strings(SCXMEM string_t *s1, SCXMEM string_t *s2);
-SCXMEM string_t *sub_string(SCXMEM string_t *, int v1_included, int v2_excluded);
+SCXMEM string_t *sub_string(SCXMEM string_t *s, int pos, int n);
+SCXMEM string_t *trim_string(SCXMEM string_t *s);
 
 /*---------------- char buffer utilities ----------------*/
 

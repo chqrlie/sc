@@ -228,16 +228,16 @@ SCXMEM string_t *cat_strings(SCXMEM string_t *s1, SCXMEM string_t *s2) {
 }
 
 // XXX: should handle UTF-8
-/* pos is a zero base offset of the first character,
-   n is the number of characters */
-SCXMEM string_t *sub_string(SCXMEM string_t *s, int pos, int n) {
+/* pos is a zero base offset of the first byte,
+   n is the number of bytes */
+SCXMEM string_t *sub_string(SCXMEM string_t *str, int pos, int n) {
     SCXMEM string_t *p;
     int len;
 
-    if (!s)
+    if (!str)
         return NULL;
 
-    len = slen(s);
+    len = slen(str);
     if (pos < 0 || pos >= len)
         pos = len;
     if (n > len - pos)
@@ -246,12 +246,27 @@ SCXMEM string_t *sub_string(SCXMEM string_t *s, int pos, int n) {
         p = dup_string(empty_string);
     } else
     if (n == len) {
-        return dup_string(s);
+        return str;
     } else {
-        p = new_string_len(&s->s[pos], n);
+        p = new_string_len(&str->s[pos], n);
     }
-    free_string(s);
+    free_string(str);
     return p;
+}
+
+SCXMEM string_t *trim_string(SCXMEM string_t *str) {
+    if (str) {
+        const char *s = s2c(str);
+        int len, left;
+        for (len = slen(str); len > 0 && isspacechar(s[len - 1]); len--)
+            continue;
+        for (left = 0; left < len && isspacechar(s[left]); left++)
+            continue;
+        if (left > 0 || len < slen(str)) {
+            str = sub_string(str, left, len - left);
+        }
+    }
+    return str;
 }
 
 /*---------------- string utilities ----------------*/
@@ -314,6 +329,19 @@ size_t strsplice(char *dst, size_t size, size_t from, size_t len1,
     memmove(dst + from + len2, dst + from + len1, len3);
     memcpy(dst + from, src, len2);
     dst[from + len2 + len3] = '\0';
+    return len;
+}
+
+size_t strtrim(char *s) {
+    size_t i, len = strlen(s);
+    while (len > 0 && isspacechar(s[len - 1]))
+        s[--len] = '\0';
+    if (isspacechar(*s)) {
+        for (i = 1; isspacechar(s[i]); i++)
+            continue;
+        len -= i;
+        memmove(s, s + i, len + 1);
+    }
     return len;
 }
 

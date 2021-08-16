@@ -130,8 +130,7 @@ struct scvalue {
         double v;
         SCXMEM string_t *str;
         rangeref_t rr;
-        int cellerror;
-        int b;
+        int error;
     } u;
     int type;
 };
