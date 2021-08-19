@@ -29,7 +29,6 @@
 #define ISVALID(r,c)    ((r)>=0 && (r)<maxrows && (c)>=0 && (c)<maxcols)
 
 static jmp_buf fpe_save;
-static int exprerr;     /* Set by eval() and seval() if expression errors */
 double prescale = 1.0;  /* Prescale for constants in let() */
 int extfunc = 0;        /* Enable/disable external functions */
 int loading = 0;        /* Set when readfile() is active */
@@ -53,7 +52,7 @@ extern scvalue_t eval_node(eval_ctx_t *cp, enode_t *e);
 extern scvalue_t eval_node_value(eval_ctx_t *cp, enode_t *e);
 static scvalue_t scvalue_getcell(eval_ctx_t *cp, int row, int col);
 static int RealEvalAll(void);
-static void RealEvalOne(struct ent *p, enode_t *e, int i, int j, int *chgct);
+static int RealEvalOne(struct ent *p, enode_t *e, int i, int j);
 
 #ifdef RINT
 double rint(double d);
@@ -64,11 +63,23 @@ static sigret_t eval_fpe(int);
 #define M_PI (double)3.14159265358979323846
 #endif
 
-#undef trunc
-#define trunc sc_trunc
-static double trunc(double v) {
-    return v < 0 ? ceil(v) : floor(v);
-}
+static double math_acot(double x) { return atan(1 / x); }
+static double math_acoth(double x) { return log((x + 1) / (x - 1)) / 2; }
+static double math_cot(double x) { return 1 / tan(x); }
+static double math_coth(double x) { return 1 / tanh(x); }
+static double math_csc(double x) { return 1 / sin(x); }
+static double math_csch(double x) { return 1 / sinh(x); }
+static double math_sec(double x) { return 1 / cos(x); }
+static double math_sech(double x) { return 1 / cosh(x); }
+static double math_sqrtpi(double x) { return sqrt(x * M_PI); }
+static double math_trunc(double x) { return x < 0 ? ceil(x) : floor(x); }
+static double math_grow(double x) { return x < 0 ? floor(x) : ceil(x); }
+static double math_even(double v) { return 2 * math_grow(v / 2); }
+static double math_odd(double v) { return v < 0 ? 2 * floor((v + 1) / 2) - 1 : 2 * ceil((v - 1) / 2) + 1; }
+static double math_radians(double x) { return x * (M_PI / 180.0); }
+static double math_degrees(double x) { return x * (180.0 / M_PI); }
+static double math_sign(double x) { return x < 0 ? -1 : x > 0; }
+static double math_percent(double x) { return x / 100; }
 
 /*---------------- utility functions ----------------*/
 
@@ -235,7 +246,7 @@ static scvalue_t eval_quotient(eval_ctx_t *cp, enode_t *e) {
 
     if (err) return scvalue_error(err);
     if (!denom) return scvalue_error(ERROR_DIV0);
-    return scvalue_number(trunc(num / denom));
+    return scvalue_number(math_trunc(num / denom));
 }
 
 static scvalue_t eval_mod(eval_ctx_t *cp, enode_t *e) {
@@ -246,11 +257,156 @@ static scvalue_t eval_mod(eval_ctx_t *cp, enode_t *e) {
 
     if (err) return scvalue_error(err);
     if (!denom) return scvalue_error(ERROR_DIV0);
-    return scvalue_number(num - trunc(num / denom) * denom);
+    return scvalue_number(num - math_trunc(num / denom) * denom);
 }
 
 static scvalue_t eval_pi(eval_ctx_t *cp, enode_t *e) {
     return scvalue_number(M_PI);
+}
+
+static scvalue_t eval_fact(eval_ctx_t *cp, enode_t *e) {
+    int err = 0;
+    int num = (int)eval_num(cp, e->e.args[0], &err);
+    double res;
+    if (err) return scvalue_error(err);
+    if (num < 0 || num > 200)
+        return scvalue_error(ERROR_NUM);
+    for (res = 1.0; num > 1; num -= 1 + (e->op == OP_FACTDOUBLE))
+        res *= num;
+    return scvalue_number(res);
+}
+
+static scvalue_t eval_combin(eval_ctx_t *cp, enode_t *e) {
+    int err = 0;
+    int n = (int)eval_num(cp, e->e.args[0], &err);
+    int r = (int)eval_num(cp, e->e.args[1], &err);
+    double res;
+    if (err) return scvalue_error(err);
+    if (n >= 0 && r >= 0 && n >= r) {
+        if (e->op == OP_COMBINA) {
+            n = n + r - 1;
+            r = n - r;
+        }
+        if (r > n - r) {
+            r = n - r;
+        }
+        res = 1;
+        while (r > 0) {
+            res = res * n-- / r--;
+        }
+        return scvalue_number(floor(res + 0.5));
+    }
+    return scvalue_error(ERROR_NUM);
+}
+
+static scvalue_t eval_permut(eval_ctx_t *cp, enode_t *e) {
+    int err = 0;
+    int n = (int)eval_num(cp, e->e.args[0], &err);
+    int k = (int)eval_num(cp, e->e.args[1], &err);
+    double res;
+    if (err) return scvalue_error(err);
+    if (e->op == OP_PERMUTATIONA) {
+        if (n >= 0 && k >= 0) {
+            scvalue_number(pow(n, k));
+        }
+    } else {
+        if (n >= 0 && k >= 0 && n >= k) {
+            for (res = 1; n > k; n--)
+                res *= n;
+            return scvalue_number(res);
+        }
+    }
+    return scvalue_error(ERROR_NUM);
+}
+
+static sculong_t gcd_ulong(sculong_t u, sculong_t v) {
+    int d = 0, ub, vb;
+    while (u != v) {
+        if (u < v) {
+            sculong_t t = u;
+            u = v;
+            v = t;
+        }
+        if (u & v & 1) { // u and v are both odd
+            u = (u - v) >> 1;
+        } else {
+            if (v == 0) break;
+            ub = (u & 1) ^ 1;
+            vb = (v & 1) ^ 1;
+            u >>= ub;
+            v >>= vb;
+            d += ub & vb;
+        }
+    }
+    return u << d;
+}
+
+static scvalue_t eval_gcd_lcm(eval_ctx_t *cp, enode_t *e) {
+    int i, err = 0;
+    sclong_t gcd = 0;
+    double lcm = 1;
+    for (i = 0; i < e->nargs; i++) {
+        sclong_t b = (sclong_t)eval_num(cp, e->e.args[i], &err);
+        if (err) return scvalue_error(err);
+        if (b < 0) return scvalue_error(ERROR_NUM);
+        if (b > 0) {
+            gcd = gcd_ulong(gcd, b);
+            b = b / gcd;
+        }
+        lcm = lcm * b;
+    }
+    return scvalue_number(e->op == OP_LCM ? lcm : (double)gcd);
+}
+
+static scvalue_t eval_mround(eval_ctx_t *cp, enode_t *e) {
+    int err = 0;
+    double n = eval_num(cp, e->e.args[0], &err);
+    double significance = 1;
+    double mode = 0;
+    double adjust = (e->op == OP_MROUND) ? 0.5 : 0;
+    double res = 0;
+    /* silently accept significance and n with opposite signs */
+    if (e->nargs > 1)
+        significance = fabs(eval_num(cp, e->e.args[1], &err));
+    if (e->nargs > 2)
+        mode = eval_num(cp, e->e.args[2], &err);
+    if (err) return scvalue_error(err);
+    if (n != 0 && significance != 0) {
+        if (mode) {
+            significance = math_sign(n) * significance;
+        }
+        if (e->op == OP_CEILING)
+            res = ceil(n / significance) * significance;
+        else
+            res = (floor(n / significance) + adjust) * significance;
+    }
+    return scvalue_number(res);
+}
+
+static scvalue_t eval_round(eval_ctx_t *cp, enode_t *e) {
+    int err = 0;
+    double x = eval_num(cp, e->e.args[0], &err);
+    int digits = 0;
+    double scale = 1.0;
+    double adjust = (e->op == OP_ROUND) ? 0.5 : 0;
+    double res = 0;
+    if (e->nargs > 1)
+        digits = (int)eval_num(cp, e->e.args[1], &err);
+    if (err) return scvalue_error(err);
+    while (digits > 0) {
+        scale /= 10.0;
+        digits--;
+    }
+    while (digits < 0) {
+        scale *= 10.0;
+        digits++;
+    }
+    if (e->op == OP_ROUNDUP) {
+        res = math_grow(x / scale) * scale;
+    } else {
+        res = math_trunc(x / scale + adjust) * scale;
+    }
+    return scvalue_number(res);
 }
 
 /*---------------- financial functions ----------------*/
@@ -432,74 +588,112 @@ static scvalue_t eval_index(eval_ctx_t *cp, enode_t *e) {
 static scvalue_t eval_lookup(eval_ctx_t *cp, enode_t *e) {
     scvalue_t a = eval_node_value(cp, e->e.args[0]);
     scvalue_t rr, dest;
-    int r, c, incc = 0, incr = 0, dr = 0, dc = 0, offset, found = -1, err = 0;
+    int r, c, incc = 0, incr = 0, dr = 0, dc = 0, ncols, nrows;
+    int i, count, found = -1, sorted = 1, offset = 0, err = 0;
 
     if (a.type == SC_ERROR)
         return a;
 
-    rr = eval_node_value(cp, e->e.args[1]);
-    if (rr.type != SC_RANGE) {
-        scvalue_free(a);
-        scvalue_free(rr);
-        return scvalue_error(ERROR_VALUE);
-    }
-
-    if (e->op == OP_LOOKUP) {
-        if (rr.u.rr.right.row - rr.u.rr.left.row >= rr.u.rr.right.col - rr.u.rr.left.col) {
-            incr = 1;
-            offset = rr.u.rr.right.col - rr.u.rr.left.col;
-        } else {
-            incc = 1;
-            offset = rr.u.rr.right.row - rr.u.rr.left.row;
+    for (;;) {
+        rr = eval_node(cp, e->e.args[1]);
+        if (rr.type != SC_RANGE) {
+            scvalue_free(rr);
+            err = ERROR_VALUE;
+            break;
         }
-        if (e->nargs > 2) {
-            offset = 0;
-            dest = eval_node(cp, e->e.args[2]);
-            if (dest.type != SC_RANGE
-            ||  ((dr = dest.u.rr.right.row == dest.u.rr.left.row) != 0 &&
-                 (dc = dest.u.rr.right.col == dest.u.rr.left.col) != 0)) {
-                scvalue_free(a);
-                scvalue_free(dest);
-                return scvalue_error(ERROR_VALUE);
+        ncols = rr.u.rr.right.col - rr.u.rr.left.col + 1;
+        nrows = rr.u.rr.right.row - rr.u.rr.left.row + 1;
+        if (e->op == OP_MATCH) {
+            sorted = (int)eval_num(cp, e->e.args[2], &err);
+            if (err) break;
+            if (sorted < -1 || sorted > 1) {
+                err = ERROR_NUM;
+                break;
             }
-        }
-    } else {
-        offset = (int)eval_num(cp, e->e.args[2], &err) - 1;
-        if (err) return scvalue_error(err);
-        if (e->op == OP_VLOOKUP) {
-            dr = incr = 1;
-        } else {
-            dc = incc = 1;
-        }
-        dest = rr;
-    }
-
-    // XXX: should implement binary search unless 4th argument is provided and false
-    for (r = rr.u.rr.left.row, c = rr.u.rr.left.col; r <= rr.u.rr.right.row && c <= rr.u.rr.right.col; r += incr, c += incc) {
-        struct ent *p = *ATBL(tbl, r, c);
-        if (!p)
-            continue;
-        if (p->type == SC_NUMBER) {
-            if (a.type == SC_NUMBER) {
-                if (p->v > a.u.v) break;
-                found = (r - dest.u.rr.left.row) + (c - dest.u.rr.left.col);
+            if (ncols == 1) {
+                incr = 1;
+            } else
+            if (nrows == 1) {
+                incc = 1;
+            } else {
+                err = ERROR_VALUE;
+                break;
             }
         } else
-        if (p->type == SC_STRING) {
-            if (a.type == SC_STRING) {
-                int cmp = strcmp(s2str(p->label), s2str(a.u.str));
-                if (cmp > 0) break;
-                found = (r - dest.u.rr.left.row) + (c - dest.u.rr.left.col);
+        if (e->op == OP_LOOKUP) {
+            if (nrows >= ncols) {
+                incr = 1;
+                offset = ncols - 1;
+            } else {
+                incc = 1;
+                offset = nrows - 1;
+            }
+            if (e->nargs > 2) {
+                dest = eval_node(cp, e->e.args[2]);
+                if (dest.type != SC_RANGE) {
+                    scvalue_free(dest);
+                    err = ERROR_VALUE;
+                    break;
+                }
+                dr = (dest.u.rr.left.row == dest.u.rr.right.row);
+                dc = (dest.u.rr.left.col == dest.u.rr.right.col);
+            }
+        } else {
+            /* op is OP_HLOOKUP or OP_VLOOKUP */
+            dest = rr;
+            offset = (int)eval_num(cp, e->e.args[2], &err) - 1;
+            if (e->nargs > 3 && !eval_num(cp, e->e.args[3], &err))
+                sorted = 0;
+            if (err) break;
+            if (e->op == OP_VLOOKUP) {
+                dr = incr = 1;
+            } else {
+                dc = incc = 1;
             }
         }
+
+        // XXX: should implement binary search if sorted
+        count = ncols * incc + nrows * incr;
+        for (i = 0; i < count; i++) {
+            struct ent *p;
+            int cmp;
+
+            r = rr.u.rr.left.row + i * incr;
+            c = rr.u.rr.left.col + i * incc;
+            p = *ATBL(tbl, r, c);
+            if (!p || p->type == SC_EMPTY) {
+                cmp = (a.type == SC_EMPTY) ? 0 : 1;
+            } else
+            if (p->type == a.type) {
+                if (a.type == SC_NUMBER || a.type == SC_BOOLEAN) {
+                    cmp = (p->v > a.u.v) - (p->v < a.u.v);
+                } else
+                if (a.type == SC_STRING) {
+                    cmp = strcmp(s2str(p->label), s2str(a.u.str));
+                } else {
+                    cmp = p->cellerror - a.u.error;
+                }
+            } else {
+                cmp = p->type - a.type;
+            }
+            if (sorted > 0 && cmp > 0) break;
+            if (sorted < 0 && cmp < 0) break;
+            if (sorted || cmp == 0) {
+                found = i;
+            }
+        }
+        if (found >= 0) {
+            scvalue_free(a);
+            if (e->op == OP_MATCH) return scvalue_number(found + 1);
+            r = dest.u.rr.left.row + (dr ? found : offset);
+            c = dest.u.rr.left.col + (dc ? found : offset);
+            return scvalue_range(rangeref(r, c, r, c));
+        }
+        err = ERROR_NA;
+        break;
     }
     scvalue_free(a);
-    if (found >= 0) {
-        r = dest.u.rr.left.row + (dr ? found : offset);
-        c = dest.u.rr.left.col + (dc ? found : offset);
-        return scvalue_range(rangeref(r, c, r, c));
-    }
-    return scvalue_error(ERROR_NA);
+    return scvalue_error(err);
 }
 
 /*---------------- aggregate functions ----------------*/
@@ -577,7 +771,7 @@ static scvalue_t eval_iseven_odd(eval_ctx_t *cp, enode_t *e) {
     int err = 0;
     double v = eval_num(cp, e->e.args[0], &err);
     if (err) return scvalue_error(err);
-    return scvalue_bool(((long)trunc(v) & 1) == (e->op == OP_ISODD));
+    return scvalue_bool(((long)math_trunc(v) & 1) == (e->op == OP_ISODD));
 }
 
 static scvalue_t eval_isblank(eval_ctx_t *cp, enode_t *e) {
@@ -1115,11 +1309,6 @@ static sigret_t eval_fpe(int i) { /* Trap for FPE errors in eval */
     longjmp(fpe_save, 1);
 }
 
-static double radians(double x) { return x * (M_PI / 180.0); }
-static double degrees(double x) { return x * (180.0 / M_PI); }
-static double sc_sign(double x) { return x < 0 ? -1 : x > 0; }
-static double sc_percent(double x) { return x / 100; }
-
 static scvalue_t eval_fn1(eval_ctx_t *cp, enode_t *e) {
     scarg_t fun = opdefs[e->op].arg;
     int err = 0;
@@ -1204,21 +1393,6 @@ static double dornd(double d) {
     } else {
         return (d - floor(d) < 0.5 ? floor(d) : ceil(d));
     }
-}
-
-static double doround(double a, double b) {
-    int prec = (int)b;
-    double scale = 1.0;
-
-    while (prec > 0) {
-        scale *= 10.0;
-        prec--;
-    }
-    while (prec < 0) {
-        scale /= 10.0;
-        prec++;
-    }
-    return dornd(a * scale) / scale;
 }
 
 #if 0
@@ -1923,7 +2097,6 @@ static scvalue_t eval_other(eval_ctx_t *cp, enode_t *e) {
     case OP_ERRNUM:     return scvalue_error(ERROR_NUM);
     case OP_ERRREF:     return scvalue_error(ERROR_REF);
     default:            error("Illegal expression");
-                        exprerr = 1;
                         return scvalue_error(ERROR_NULL);
     }
     return scvalue_number(val);
@@ -2053,7 +2226,7 @@ static int RealEvalAll(void) {
         for (i = 0; i <= maxrow; i++) {
             for (j = 0; j <= maxcol; j++) {
                 if ((p = *ATBL(tbl, i, j)) && p->expr)
-                    RealEvalOne(p, p->expr, i, j, &chgct);
+                    chgct += RealEvalOne(p, p->expr, i, j);
             }
         }
     } else
@@ -2061,7 +2234,7 @@ static int RealEvalAll(void) {
         for (j = 0; j <= maxcol; j++) {
             for (i = 0; i <= maxrow; i++) {
                 if ((p = *ATBL(tbl,i,j)) && p->expr)
-                    RealEvalOne(p, p->expr, i, j, &chgct);
+                    chgct += RealEvalOne(p, p->expr, i, j);
             }
         }
     } else {
@@ -2071,7 +2244,7 @@ static int RealEvalAll(void) {
     return chgct;
 }
 
-static void RealEvalOne(struct ent *p, enode_t *e, int row, int col, int *chgct) {
+static int RealEvalOne(struct ent *p, enode_t *e, int row, int col) {
     eval_ctx_t cp[1] = {{ row, col, 0, 0 }};
     scvalue_t res;
 
@@ -2088,19 +2261,19 @@ static void RealEvalOne(struct ent *p, enode_t *e, int row, int col, int *chgct)
         if (res.type == SC_STRING) {
             if (!strcmp(s2c(res.u.str), s2c(p->label))) {
                 free_string(res.u.str);
-                return;
+                return 0;
             }
         } else
         if (res.type == SC_NUMBER || res.type == SC_BOOLEAN) {
             if (res.u.v == p->v)
-                return;
+                return 0;
         } else
         if (res.type == SC_ERROR) {
             if (res.u.error == p->cellerror)
-                return;
+                return 0;
         } else {
             /* res.type is SC_EMPTY */
-            return;
+            return 0;
         }
     }
     // XXX: cell value changes, should store undo record?
@@ -2112,7 +2285,6 @@ static void RealEvalOne(struct ent *p, enode_t *e, int row, int col, int *chgct)
     p->flags |= IS_CHANGED;
     p->v = 0;
     changed++;
-    (*chgct)++;
     if (res.type == SC_STRING) {
         set_string(&p->label, res.u.str);
     } else
@@ -2122,6 +2294,7 @@ static void RealEvalOne(struct ent *p, enode_t *e, int row, int col, int *chgct)
     if (res.type == SC_ERROR) {
         p->cellerror = res.u.error;
     }
+    return 1;
 }
 
 /* set the calculation order */
@@ -2444,10 +2617,8 @@ void let(cellref_t cr, SCXMEM enode_t *e, int align) {
 
     // XXX: test for constant expression is potentially incorrect
     if (!loading || isconstant) {
-        int chgcnt = 0;
-        exprerr = 0;
         signal(SIGFPE, eval_fpe);
-        RealEvalOne(v, e, cr.row, cr.col, &chgcnt);
+        RealEvalOne(v, e, cr.row, cr.col);
         signal(SIGFPE, doquit);
     }
 

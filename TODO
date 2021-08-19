@@ -7,7 +7,6 @@ Tests:
 
 Evaluator:
 [ ] fix operator priorities
-[ ] clean OP_ERR mess
 [ ] use infix operators from OASIS spec
 [ ] only support simple string expressions for xxxIF functions
 [ ] improve date/time representation and formatting
@@ -35,8 +34,10 @@ Parser:
 
 Database:
 [ ] start column and row numbers at 1
-[ ] make cell notes separate structures
+[ ] set maximum rows and cols > 702
 [ ] sparse matrix database
+[ ] implement virtual space: jagged 2D matrix
+[ ] make cell notes separate structures
 [ ] remove cell pointers
 [ ] add sheet number in cell references
 [ ] group sheet data in sheet_t structures
@@ -46,7 +47,6 @@ Database:
 [ ] use rangeref_t for find_range_coords() ?
 [ ] change representation for ranges: abs/rel coords instead of pointers
 [ ] use an array of format strings, store an index in the cell struct
-[ ] implement virtual space: jagged 2D matrix
 [ ] more efficient cell structure
 [/] generic formats
 [ ] add undo / autobackup of things typed in. (use command log)
@@ -124,3 +124,4 @@ Commands:
 [X] fix error propagation scheme
 [X] fix error values
 [?] change the expression evaluator: use a stack of dynamically typed values
+[X] clean OP_ERR mess
