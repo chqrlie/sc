@@ -450,7 +450,13 @@ size_t strtrim(char *s) {
     return len;
 }
 
+#ifdef UINTPTR_MAX
+/* clang complains about const removal even with (void *) */
 #define UNCONSTIFY(t, v) ((t)(uintptr_t)(v))
+#else
+/* other compilers (OpenBSD) accept (void *) intermediary cast */
+#define UNCONSTIFY(t, v) ((t)(void *)(v))
+#endif
 
 /* return a pointer to the basename portion of the filename */
 char *get_basename(const char *filename) {
