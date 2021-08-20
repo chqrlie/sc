@@ -90,7 +90,7 @@ extern SCXMEM string_t *empty_string;
 string_t *new_string(const char *s);
 string_t *new_string_len(const char *s, size_t len);
 
-static inline string_t *dup_string(string_t *str) {
+static inline string_t *string_dup(string_t *str) {
     if (str) str->refcount++;
     return str;
 }
@@ -112,8 +112,8 @@ static inline void set_string(SCXMEM string_t **sp, SCXMEM string_t *str) {
 }
 
 SCXMEM string_t *cat_strings(SCXMEM string_t *s1, SCXMEM string_t *s2);
-SCXMEM string_t *sub_string(SCXMEM string_t *s, int pos, int n);
-SCXMEM string_t *trim_string(SCXMEM string_t *s);
+SCXMEM string_t *string_mid(SCXMEM string_t *s, int pos, int n);
+SCXMEM string_t *string_trim(SCXMEM string_t *s);
 
 /*---------------- char buffer utilities ----------------*/
 

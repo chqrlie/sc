@@ -230,7 +230,7 @@ SCXMEM string_t *cat_strings(SCXMEM string_t *s1, SCXMEM string_t *s2) {
 // XXX: should handle UTF-8
 /* pos is a zero base offset of the first byte,
    n is the number of bytes */
-SCXMEM string_t *sub_string(SCXMEM string_t *str, int pos, int n) {
+SCXMEM string_t *string_mid(SCXMEM string_t *str, int pos, int n) {
     SCXMEM string_t *p;
     int len;
 
@@ -243,7 +243,7 @@ SCXMEM string_t *sub_string(SCXMEM string_t *str, int pos, int n) {
     if (n > len - pos)
         n = len - pos;
     if (n <= 0) {
-        p = dup_string(empty_string);
+        p = string_dup(empty_string);
     } else
     if (n == len) {
         return str;
@@ -254,7 +254,7 @@ SCXMEM string_t *sub_string(SCXMEM string_t *str, int pos, int n) {
     return p;
 }
 
-SCXMEM string_t *trim_string(SCXMEM string_t *str) {
+SCXMEM string_t *string_trim(SCXMEM string_t *str) {
     if (str) {
         const char *s = s2c(str);
         int len, left;
@@ -263,7 +263,7 @@ SCXMEM string_t *trim_string(SCXMEM string_t *str) {
         for (left = 0; left < len && isspacechar(s[left]); left++)
             continue;
         if (left > 0 || len < slen(str)) {
-            str = sub_string(str, left, len - left);
+            str = string_mid(str, left, len - left);
         }
     }
     return str;

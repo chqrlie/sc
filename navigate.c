@@ -47,7 +47,7 @@ void go_last(void) {
     case G_STR:
     case G_NSTR:
     case G_XSTR:
-        str_search(gs.g_type, gs.g_rr, dup_string(gs.g_s));
+        str_search(gs.g_type, gs.g_rr, string_dup(gs.g_s));
         break;
     default:
         error("Nothing to repeat");

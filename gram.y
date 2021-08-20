@@ -61,7 +61,7 @@ static int string_to_char(SCXMEM string_t *str) {
 static SCXMEM string_t *get_strarg(cellref_t cr) {
     struct ent *p = lookat_nc(cr.row, cr.col);
     if (p && p->type == SC_STRING) {
-        return dup_string(p->label);
+        return string_dup(p->label);
     } else {
         // XXX: should convert numeric value to string according to format?
         return new_string("NULL_STRING");

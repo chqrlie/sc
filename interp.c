@@ -139,7 +139,7 @@ static scvalue_t eval__number(eval_ctx_t *cp, enode_t *e) {
 }
 
 static scvalue_t eval__string(eval_ctx_t *cp, enode_t *e) {
-    return scvalue_string(dup_string(e->e.s));
+    return scvalue_string(string_dup(e->e.s));
 }
 
 static double eval_num(eval_ctx_t *cp, enode_t *e, int *errp) {
@@ -164,6 +164,13 @@ static double eval_num(eval_ctx_t *cp, enode_t *e, int *errp) {
     return 0.0;
 }
 
+static int eval_int(eval_ctx_t *cp, enode_t *e, int minvalue, int maxvalue, int *errp) {
+    double v = eval_num(cp, e, errp);
+    if (!*errp && (v < (double)minvalue || v >= (double)maxvalue + 1.0))
+        *errp = ERROR_NUM;
+    return (int)v;
+}
+
 static sclong_t eval_long(eval_ctx_t *cp, enode_t *e, int *errp) {
     // XXX: simplify this if SC_LONG becomes a value type
     // XXX: check rounding issues
@@ -182,7 +189,7 @@ static SCXMEM string_t *eval_str(eval_ctx_t *cp, enode_t *e, int *errp) {
     if (res.type == SC_BOOLEAN)
         return new_string(res.u.v ? "TRUE" : "FALSE");
     if (res.type == SC_EMPTY)
-        return dup_string(empty_string);
+        return string_dup(empty_string);
     /* type is SC_ERROR */
     *errp = res.u.error;
     return NULL;
@@ -268,11 +275,9 @@ static scvalue_t eval_pi(eval_ctx_t *cp, enode_t *e) {
 
 static scvalue_t eval_fact(eval_ctx_t *cp, enode_t *e) {
     int err = 0;
-    int num = (int)eval_num(cp, e->e.args[0], &err);
+    int num = eval_int(cp, e->e.args[0], 0, 200, &err);
     double res;
     if (err) return scvalue_error(err);
-    if (num < 0 || num > 200)
-        return scvalue_error(ERROR_NUM);
     for (res = 1.0; num > 1; num -= 1 + (e->op == OP_FACTDOUBLE))
         res *= num;
     return scvalue_number(res);
@@ -280,39 +285,34 @@ static scvalue_t eval_fact(eval_ctx_t *cp, enode_t *e) {
 
 static scvalue_t eval_combin(eval_ctx_t *cp, enode_t *e) {
     int err = 0;
-    int n = (int)eval_num(cp, e->e.args[0], &err);
-    int r = (int)eval_num(cp, e->e.args[1], &err);
+    int n = eval_int(cp, e->e.args[0], 0, INT_MAX, &err);
+    int r = eval_int(cp, e->e.args[1], 0, n, &err);
     double res;
     if (err) return scvalue_error(err);
-    if (n >= 0 && r >= 0 && n >= r) {
-        if (e->op == OP_COMBINA) {
-            n = n + r - 1;
-            r = n - r;
-        }
-        if (r > n - r) {
-            r = n - r;
-        }
-        res = 1;
-        while (r > 0) {
-            res = res * n-- / r--;
-        }
-        return scvalue_number(floor(res + 0.5));
+    if (e->op == OP_COMBINA) {
+        n = n + r - 1;
+        r = n - r;
     }
-    return scvalue_error(ERROR_NUM);
+    if (r > n - r) {
+        r = n - r;
+    }
+    res = 1;
+    while (r > 0) {
+        res = res * n-- / r--;
+    }
+    return scvalue_number(floor(res + 0.5));
 }
 
 static scvalue_t eval_permut(eval_ctx_t *cp, enode_t *e) {
     int err = 0;
-    int n = (int)eval_num(cp, e->e.args[0], &err);
-    int k = (int)eval_num(cp, e->e.args[1], &err);
+    int n = eval_int(cp, e->e.args[0], 0, INT_MAX, &err);
+    int k = eval_int(cp, e->e.args[1], 0, INT_MAX, &err);
     double res;
     if (err) return scvalue_error(err);
     if (e->op == OP_PERMUTATIONA) {
-        if (n >= 0 && k >= 0) {
-            scvalue_number(pow(n, k));
-        }
+        return scvalue_number(pow(n, k));
     } else {
-        if (n >= 0 && k >= 0 && n >= k) {
+        if (n >= k) {
             for (res = 1; n > k; n--)
                 res *= n;
             return scvalue_number(res);
@@ -348,7 +348,7 @@ static scvalue_t eval_gcd_lcm(eval_ctx_t *cp, enode_t *e) {
     sclong_t gcd = 0;
     double lcm = 1;
     for (i = 0; i < e->nargs; i++) {
-        sclong_t b = (sclong_t)eval_num(cp, e->e.args[i], &err);
+        sclong_t b = eval_long(cp, e->e.args[i], &err);
         if (err) return scvalue_error(err);
         if (b < 0) return scvalue_error(ERROR_NUM);
         if (b > 0) {
@@ -393,7 +393,7 @@ static scvalue_t eval_round(eval_ctx_t *cp, enode_t *e) {
     double adjust = (e->op == OP_ROUND) ? 0.5 : 0;
     double res = 0;
     if (e->nargs > 1)
-        digits = (int)eval_num(cp, e->e.args[1], &err);
+        digits = eval_int(cp, e->e.args[1], -100, 100, &err);
     if (err) return scvalue_error(err);
     while (digits > 0) {
         scale /= 10.0;
@@ -464,7 +464,7 @@ static scvalue_t scvalue_getcell(eval_ctx_t *cp, int row, int col) {
         if (p->type == SC_NUMBER)
             return scvalue_number(p->v);
         if (p->type == SC_STRING)
-            return scvalue_string(dup_string(p->label));
+            return scvalue_string(string_dup(p->label));
         if (p->type == SC_BOOLEAN)
             return scvalue_bool(p->v);
     }
@@ -504,12 +504,10 @@ static scvalue_t eval__range(eval_ctx_t *cp, enode_t *e) {
 static scvalue_t eval_address(eval_ctx_t *cp, enode_t *e) {
     char buff[32];
     int err = 0;
-    int row = (int)eval_num(cp, e->e.args[0], &err);
-    int col = (int)eval_num(cp, e->e.args[1], &err);
-    int rel = e->nargs > 2 ? (int)eval_num(cp, e->e.args[2], &err) : 1;
+    int row = eval_int(cp, e->e.args[0], 0, ABSMAXROWS, &err);
+    int col = eval_int(cp, e->e.args[1], 0, ABSMAXCOLS, &err);
+    int rel = e->nargs > 2 ? eval_int(cp, e->e.args[2], 1, 4, &err) : 1;
     if (err) return scvalue_error(err);
-    if (row < 0 || row > ABSMAXCOLS || col < 0 || col > ABSMAXCOLS || rel < 1 || rel > 4)
-        return scvalue_error(ERROR_NUM);
     snprintf(buff, sizeof buff, "%s%s%s%d", &"$"[(rel & 1) ^ 1], coltoa(col), &"$"[rel > 2], row);
     return scvalue_string(new_string(buff));
 }
@@ -552,15 +550,14 @@ static scvalue_t eval_indirect(eval_ctx_t *cp, enode_t *e) {
 
 static scvalue_t eval_choose(eval_ctx_t *cp, enode_t *e) {
     int err = 0;
-    int index = (int)eval_num(cp, e->e.args[0], &err);
+    int index = eval_int(cp, e->e.args[0], 1, e->nargs, &err);
     if (err) return scvalue_error(err);
-    if (index < 1 || index > e->nargs) return scvalue_error(ERROR_VALUE);
     return eval_node(cp, e->e.args[index]);
 }
 
 static scvalue_t eval_index(eval_ctx_t *cp, enode_t *e) {
     scvalue_t res = eval_node(cp, e->e.args[0]);
-    int err = 0, r = 0, c = 0;
+    int err = 0, dr = 0, dc = 0;
 
     if (res.type != SC_RANGE) {
         scvalue_free(res);
@@ -568,23 +565,21 @@ static scvalue_t eval_index(eval_ctx_t *cp, enode_t *e) {
     }
     if (e->nargs > 1) {
         if (e->nargs > 2) {     /* index by both row and column */
-            r = (int)eval_num(cp, e->e.args[1], &err);
-            c = (int)eval_num(cp, e->e.args[2], &err);
+            dr = eval_int(cp, e->e.args[1], 1, INT_MAX, &err) - 1;
+            dc = eval_int(cp, e->e.args[2], 1, INT_MAX, &err) - 1;
         } else if (res.u.rr.right.row == res.u.rr.left.row) {
             /* single row: argument is column index */
-            c = (int)eval_num(cp, e->e.args[1], &err);
+            dc = eval_int(cp, e->e.args[1], 1, INT_MAX, &err) - 1;
         } else {
-            r = (int)eval_num(cp, e->e.args[1], &err);
+            dr = eval_int(cp, e->e.args[1], 1, INT_MAX, &err) - 1;
         }
         if (err) return scvalue_error(err);
     }
-    if (c < 0 || c > res.u.rr.right.col - res.u.rr.left.col + 1
-    ||  r < 0 || r > res.u.rr.right.row - res.u.rr.left.row + 1)
+    if (dr > res.u.rr.right.row - res.u.rr.left.row
+    ||  dc > res.u.rr.right.col - res.u.rr.left.col)
         return scvalue_error(ERROR_REF);
-    if (c > 0)
-        res.u.rr.right.col = res.u.rr.left.col += c - 1;
-    if (r > 0)
-        res.u.rr.right.row = res.u.rr.left.row += r - 1;
+    res.u.rr.right.row = res.u.rr.left.row += dr;
+    res.u.rr.right.col = res.u.rr.left.col += dc;
     return res;
 }
 
@@ -607,12 +602,8 @@ static scvalue_t eval_lookup(eval_ctx_t *cp, enode_t *e) {
         ncols = rr.u.rr.right.col - rr.u.rr.left.col + 1;
         nrows = rr.u.rr.right.row - rr.u.rr.left.row + 1;
         if (e->op == OP_MATCH) {
-            sorted = (int)eval_num(cp, e->e.args[2], &err);
+            sorted = eval_int(cp, e->e.args[2], -1, 1, &err);
             if (err) break;
-            if (sorted < -1 || sorted > 1) {
-                err = ERROR_NUM;
-                break;
-            }
             if (ncols == 1) {
                 incr = 1;
             } else
@@ -644,13 +635,21 @@ static scvalue_t eval_lookup(eval_ctx_t *cp, enode_t *e) {
         } else {
             /* op is OP_HLOOKUP or OP_VLOOKUP */
             dest = rr;
-            offset = (int)eval_num(cp, e->e.args[2], &err) - 1;
+            offset = eval_int(cp, e->e.args[2], 1, INT_MAX, &err);
             if (e->nargs > 3 && !eval_num(cp, e->e.args[3], &err))
                 sorted = 0;
             if (err) break;
             if (e->op == OP_VLOOKUP) {
+                if (offset >= ncols) {
+                    err = ERROR_REF;
+                    break;
+                }
                 dr = incr = 1;
             } else {
+                if (offset >= nrows) {
+                    err = ERROR_REF;
+                    break;
+                }
                 dc = incc = 1;
             }
         }
@@ -881,10 +880,10 @@ static void aggregate_count(struct agregatedata_t *sp, double v) {
     sp->count++;
 }
 static void aggregate_max(struct agregatedata_t *sp, double v) {
-    if (!sp->count++ || sp->v > v) sp->v = v;
+    if (!sp->count++ || sp->v < v) sp->v = v;
 }
 static void aggregate_min(struct agregatedata_t *sp, double v) {
-    if (!sp->count++ || sp->v < v) sp->v = v;
+    if (!sp->count++ || sp->v > v) sp->v = v;
 }
 static void aggregate_product(struct agregatedata_t *sp, double v) {
     sp->v *= v;
@@ -1133,16 +1132,13 @@ static scvalue_t eval_sumif(eval_ctx_t *cp, enode_t *ep) {
 //      which may be incorrect for DST time adjustments.
 static scvalue_t eval_date(eval_ctx_t *cp, enode_t *e) {
     int err = 0;
-    int yr = (int)eval_num(cp, e->e.args[0], &err);
-    int mo = (int)eval_num(cp, e->e.args[1], &err);
-    int day = (int)eval_num(cp, e->e.args[2], &err);
+    int yr = eval_int(cp, e->e.args[0], 1904, 9956, &err);
+    int mo = eval_int(cp, e->e.args[1], 1, 10000, &err);
+    int day = eval_int(cp, e->e.args[2], 1, 100000, &err);
     time_t secs;
     struct tm t;
 
     if (err) return scvalue_error(err);
-
-    if (yr >= 0 && yr < 100)
-        yr += yr >= 50 ? 1900 : 2000;
 
     t.tm_hour = t.tm_min = t.tm_sec = 0;
     t.tm_mon = mo - 1;
@@ -1156,7 +1152,7 @@ static scvalue_t eval_date(eval_ctx_t *cp, enode_t *e) {
      * from the other fields.
      * Dates before 1901/12/31 seem to fail on OS/X.
      */
-    if (mo < 1 || day < 1 || (secs = mktime(&t)) == -1) {
+    if ((secs = mktime(&t)) == -1) {
         error("@date: invalid argument or date out of range");
         return scvalue_error(ERROR_NUM);
     }
@@ -1257,13 +1253,12 @@ static scvalue_t eval_exact(eval_ctx_t *cp, enode_t *e) {
 static scvalue_t eval_getent(eval_ctx_t *cp, enode_t *e) {
     int err = 0;
     SCXMEM string_t *colstr = eval_str(cp, e->e.args[0], &err);
-    double rowdoub = eval_num(cp, e->e.args[1], &err);
+    int col, row = eval_int(cp, e->e.args[1], 0, ABSMAXROWS, &err);
     if (!err) {
-        int row = (int)floor(rowdoub);
-        int col = atocol(s2c(colstr), NULL);
+        col = atocol(s2c(colstr), NULL);
         free_string(colstr);
         // XXX: should return a reference?
-        if (row >= 0 && col >= 0)
+        if (col >= 0)
             return scvalue_getcell(cp, row, col);
         err = ERROR_REF;
     }
@@ -1546,7 +1541,7 @@ static scvalue_t eval_ext(eval_ctx_t *cp, enode_t *e) {
             error("Warning: external functions disabled; using %s value",
                   prev ? "previous" : "null");
             if (prev) return eval_node(cp, prev);
-            return scvalue_string(dup_string(empty_string));
+            return scvalue_string(string_dup(empty_string));
         }
         str = eval_str(cp, cmd, &err);
         if (err) break;
@@ -1589,14 +1584,14 @@ static scvalue_t eval_ext(eval_ctx_t *cp, enode_t *e) {
             break;
         }
         if (cmd == left) {
-            prev = new_str(dup_string(str));
+            prev = new_str(string_dup(str));
             /* create dummy node to store previous value */
             // XXX: potential memory leak on malloc failure
             e->e.args[0] = left = new_op2(OP_DUMMY, prev, cmd);
         } else
         if (prev && prev->op == OP__STRING) {
             /* set updated previous value in dummy node */
-            set_string(&prev->e.s, dup_string(str));
+            set_string(&prev->e.s, string_dup(str));
         }
         return scvalue_string(str);
     }
@@ -1624,7 +1619,7 @@ static scvalue_t eval_sval(eval_ctx_t *cp, enode_t *e) {
         return scvalue_string(new_string(buf));
     }
     if (res.type == SC_EMPTY)
-        return scvalue_string(dup_string(empty_string));
+        return scvalue_string(string_dup(empty_string));
 
     return res; /* type is SC_ERROR */
 }
@@ -1691,7 +1686,7 @@ static scvalue_t eval_case(eval_ctx_t *cp, enode_t *e) {
 
 static scvalue_t eval_char(eval_ctx_t *cp, enode_t *e) {
     int len, err = 0;
-    int code = (int)eval_num(cp, e->e.args[0], &err);
+    int code = eval_int(cp, e->e.args[0], 0, e->op == OP_CHAR ? 255 : 0x10FFFF, &err);
     char buf[10];
     if (err) return scvalue_error(err);
     len = 0;
@@ -1750,25 +1745,22 @@ static scvalue_t eval_len(eval_ctx_t *cp, enode_t *e) {
 static scvalue_t eval_t(eval_ctx_t *cp, enode_t *e) {
     scvalue_t res = eval_node_value(cp, e->e.args[0]);
     if (res.type == SC_STRING) return res;
-    return scvalue_string(dup_string(empty_string));
+    return scvalue_string(string_dup(empty_string));
 }
 
 static scvalue_t eval_find(eval_ctx_t *cp, enode_t *e) {
     int err = 0;
     SCXMEM string_t *search = eval_str(cp, e->e.args[0], &err);
     SCXMEM string_t *t = eval_str(cp, e->e.args[1], &err);
-    int start = e->nargs > 2 ? (int)eval_num(cp, e->e.args[2], &err) : 1;
+    int pos = e->nargs > 2 ? eval_int(cp, e->e.args[2], 1, INT_MAX, &err) - 1 : 0;
 
     if (!err) {
-        if (start < 1) {
-            err = ERROR_NUM;    /* invalid argument */
-        } else
-        if (start <= slen(search)) {
+        if (pos < slen(search)) {
             const char *s1 = s2c(search);
             const char *p = (e->op == OP_SEARCH || e->op == OP_SEARCHB) ?
-                str_case_str(s1 + start - 1, s2c(t)) : strstr(s1 + start - 1, s2c(t));
+                str_case_str(s1 + pos, s2c(t)) : strstr(s1 + pos, s2c(t));
             if (p != NULL) {
-                start = p - s1 + 1;
+                pos = p - s1;
             } else {
                 err = ERROR_NA;
             }
@@ -1781,7 +1773,7 @@ static scvalue_t eval_find(eval_ctx_t *cp, enode_t *e) {
     if (err)
         return scvalue_error(err);
     else
-        return scvalue_number(start);
+        return scvalue_number(pos + 1);
 }
 
 static scvalue_t eval_substitute(eval_ctx_t *cp, enode_t *e) {
@@ -1794,18 +1786,11 @@ static scvalue_t eval_substitute(eval_ctx_t *cp, enode_t *e) {
     const char *s, *s0;
 
     for (;;) {
+        if (e->nargs > 3)
+            which = eval_int(cp, e->e.args[3], 1, INT_MAX, &err);
         if (err)
             break;
-        if (e->nargs > 3) {
-            which = (int)eval_num(cp, e->e.args[3], &err);
-            if (err)
-                break;
-            if (which < 1) {
-                err = ERROR_NUM;
-                break;
-            }
-        }
-        str = dup_string(text);
+        str = string_dup(text);
         if (!slen(oldtext))
             break;
         s = s2c(text);
@@ -1858,27 +1843,23 @@ static scvalue_t eval_substitute(eval_ctx_t *cp, enode_t *e) {
 static scvalue_t eval_replace(eval_ctx_t *cp, enode_t *e) {
     int err = 0;
     SCXMEM string_t *text = eval_str(cp, e->e.args[0], &err);
-    int start = (int)eval_num(cp, e->e.args[1], &err) - 1;
-    int count = (int)eval_num(cp, e->e.args[2], &err);
+    int start = eval_int(cp, e->e.args[1], 1, INT_MAX, &err) - 1;
+    int count = eval_int(cp, e->e.args[2], 0, INT_MAX, &err);
     SCXMEM string_t *newtext = eval_str(cp, e->e.args[3], &err);
-    SCXMEM string_t *str = dup_string(text);
+    SCXMEM string_t *str = string_dup(text);
 
     if (!err) {
-        if (start >= 0 && count >= 0) {
-            int len = slen(text);
-            int len2 = slen(newtext);
-            if (start > len) start = len;
-            if (count > len - start) count = len - start;
-            free_string(str);
-            if ((str = new_string_len(NULL, len - count + len2))) {
-                char *p = str->s;
-                memcpy(p, s2c(text), start);
-                memcpy(p + start, s2c(newtext), len2);
-                memcpy(p + start + len2, s2c(text) + start + count,
-                       len - start - count);
-            }
-        } else {
-            err = ERROR_NUM;
+        int len = slen(text);
+        int len2 = slen(newtext);
+        if (start > len) start = len;
+        if (count > len - start) count = len - start;
+        free_string(str);
+        if ((str = new_string_len(NULL, len - count + len2))) {
+            char *p = str->s;
+            memcpy(p, s2c(text), start);
+            memcpy(p + start, s2c(newtext), len2);
+            memcpy(p + start + len2, s2c(text) + start + count,
+                   len - start - count);
         }
     }
     free_string(text);
@@ -1892,18 +1873,18 @@ static scvalue_t eval_replace(eval_ctx_t *cp, enode_t *e) {
 static scvalue_t eval_rept(eval_ctx_t *cp, enode_t *e) {
     int len, len2, err = 0;
     SCXMEM string_t *text = eval_str(cp, e->e.args[0], &err);
-    int count = (int)eval_num(cp, e->e.args[1], &err);
+    int count = eval_int(cp, e->e.args[1], 0, INT_MAX, &err);
     SCXMEM string_t *str;
 
-    if (err || count < 0) {
+    if (err) {
         free_string(text);
-        return scvalue_error(err ? err : ERROR_NUM);
+        return scvalue_error(err);
     }
     len = slen(text);
     if (count != 0 && FBUFLEN / count < len)
         count = FBUFLEN / len;
     if ((len2 = len * count) == 0) {
-        str = dup_string(empty_string);
+        str = string_dup(empty_string);
     } else
     if ((str = new_string_len(NULL, len2))) {
         char *p = str->s;
@@ -1917,23 +1898,23 @@ static scvalue_t eval_rept(eval_ctx_t *cp, enode_t *e) {
 static scvalue_t eval_left(eval_ctx_t *cp, enode_t *e) {
     int err = 0;
     SCXMEM string_t *str = eval_str(cp, e->e.args[0], &err);
-    int n = (int)eval_num(cp, e->e.args[1], &err);
+    int n = eval_int(cp, e->e.args[1], 0, INT_MAX, &err);
     if (err) {
         free_string(str);
         return scvalue_error(err);
     }
-    return scvalue_string(sub_string(str, 0, n));
+    return scvalue_string(string_mid(str, 0, n));
 }
 
 static scvalue_t eval_right(eval_ctx_t *cp, enode_t *e) {
     int err = 0;
     SCXMEM string_t *str = eval_str(cp, e->e.args[0], &err);
-    int n = (int)eval_num(cp, e->e.args[1], &err);
+    int n = eval_int(cp, e->e.args[1], 0, INT_MAX, &err);
     if (err) {
         free_string(str);
         return scvalue_error(err);
     }
-    return scvalue_string(sub_string(str, slen(str) - n, n));
+    return scvalue_string(string_mid(str, slen(str) - n, n));
 }
 
 static scvalue_t eval_mid(eval_ctx_t *cp, enode_t *e) {
@@ -1942,20 +1923,20 @@ static scvalue_t eval_mid(eval_ctx_t *cp, enode_t *e) {
     /* OP_SUBSTR: v1 and v2 are one-based character offsets, v2 is included */
     int err = 0;
     SCXMEM string_t *str = eval_str(cp, e->e.args[0], &err);
-    int v1 = (int)eval_num(cp, e->e.args[1], &err);
-    int v2 = (int)eval_num(cp, e->e.args[2], &err);
+    int v1 = eval_int(cp, e->e.args[1], 0, INT_MAX, &err);
+    int v2 = eval_int(cp, e->e.args[2], 0, INT_MAX, &err);
     if (err) {
         free_string(str);
         return scvalue_error(err);
     }
-    return scvalue_string(sub_string(str, v1 - 1, e->op == OP_SUBSTR ? v2 - v1 + 1 : v2));
+    return scvalue_string(string_mid(str, v1 - 1, e->op == OP_SUBSTR ? v2 - v1 + 1 : v2));
 }
 
 static scvalue_t eval_trim(eval_ctx_t *cp, enode_t *e) {
     int err = 0;
     SCXMEM string_t *str = eval_str(cp, e->e.args[0], &err);
     if (err) return scvalue_error(err);
-    return scvalue_string(trim_string(str));
+    return scvalue_string(string_trim(str));
 }
 
 static scvalue_t eval_concat(eval_ctx_t *cp, enode_t *e) {
@@ -1982,7 +1963,7 @@ static scvalue_t eval_filename(eval_ctx_t *cp, enode_t *e) {
 
 static scvalue_t eval_coltoa(eval_ctx_t *cp, enode_t *e) {
     int err = 0;
-    int col = (int)eval_num(cp, e->e.args[0], &err);
+    int col = eval_int(cp, e->e.args[0], 0, ABSMAXCOLS, &err);
     if (err) return scvalue_error(err);
     return scvalue_string(new_string(coltoa(col)));
 }
@@ -2119,13 +2100,8 @@ static scvalue_t eval_to_base(eval_ctx_t *cp, enode_t *e, int err, int from_base
     for (;;) {
         if (err) break;
 
-        if (from_base < 2 || from_base > 36 || base < 2 || base > 36) {
-            err = ERROR_NUM;
-            break;
-        }
-
         if (from_base == 10) {
-            n0 = eval_num(cp, e->e.args[0], &err);
+            n0 = eval_long(cp, e->e.args[0], &err);
             if (err) break;
         } else {
             str = eval_str(cp, e->e.args[0], &err);
@@ -2147,9 +2123,10 @@ static scvalue_t eval_to_base(eval_ctx_t *cp, enode_t *e, int err, int from_base
             }
         }
         if (e->nargs > argdig) {
-            mindigits = (int)eval_num(cp, e->e.args[argdig], &err);
+            mindigits = eval_int(cp, e->e.args[argdig], 0, INT_MAX, &err);
             if (err) break;
         }
+        // XXX: should implement sign based on 10th digit's high bit
         n = n0 < 0 ? 0UL - n0 : 0UL + n0;
         do {
             unsigned int d = n % base;
@@ -2170,12 +2147,12 @@ static scvalue_t eval_to_base(eval_ctx_t *cp, enode_t *e, int err, int from_base
 }
 
 static scvalue_t eval_base(eval_ctx_t *cp, enode_t *e) {
-    int err = 0, from_base = (int)eval_num(cp, e->e.args[1], &err);
+    int err = 0, from_base = eval_int(cp, e->e.args[1], 2, 36, &err);
     return eval_to_base(cp, e, err, 10, from_base, 2);
 }
 
 static scvalue_t eval_decimal(eval_ctx_t *cp, enode_t *e) {
-    int err = 0, base = (int)eval_num(cp, e->e.args[1], &err);
+    int err = 0, base = eval_int(cp, e->e.args[1], 2, 36, &err);
     return eval_to_base(cp, e, err, base, 10, 2);
 }
 
@@ -2265,12 +2242,9 @@ static scvalue_t eval_roman(eval_ctx_t *cp, enode_t *e) {
     char *q = buf + countof(buf);
     char const digits[] = "IVXLCDM";
     const char *p = digits;
-    int err = 0, n = (int)eval_num(cp, e->e.args[0], &err);
+    int err = 0, n = eval_int(cp, e->e.args[0], 1, 4000, &err);
 
     if (err) return scvalue_error(err);
-    if (n <= 0 || n >= 4000) {
-        return scvalue_error(ERROR_NUM);
-    }
 
     // XXX: incorrect algorithms, should support 2nd argument
     while (n > 0) {
@@ -2743,7 +2717,7 @@ enode_t *copye(enode_t *e, int Rdelta, int Cdelta,
     } else
     if (e->type == OP_TYPE_STRING) {
         ret->type = OP_TYPE_STRING;
-        ret->e.s = dup_string(e->e.s);
+        ret->e.s = string_dup(e->e.s);
     } else
     if (e->type == OP_TYPE_FUNC) {
         int i;

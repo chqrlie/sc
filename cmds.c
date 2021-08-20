@@ -1550,7 +1550,7 @@ void format_cells(rangeref_t rr, SCXMEM string_t *s) {
             struct ent *p = lookat(r, c);
             if (p->flags & IS_LOCKED)
                 continue;
-            set_string(&p->format, dup_string(s));
+            set_string(&p->format, string_dup(s));
             p->flags |= IS_CHANGED;
         }
     }
@@ -1732,7 +1732,7 @@ void copyent(struct ent *n, struct ent *p, int dr, int dc,
             n->type = p->type;
             n->cellerror = p->cellerror;
             n->v = p->v;
-            set_string(&n->label, dup_string(p->label));
+            set_string(&n->label, string_dup(p->label));
         }
         if (special != 'm' || p->expr) {
             efree(n->expr);
@@ -1743,7 +1743,7 @@ void copyent(struct ent *n, struct ent *p, int dr, int dc,
         n->flags |= p->flags & (ALIGN_MASK | IS_LOCKED);
     }
     if (p->format) {
-        set_string(&n->format, dup_string(p->format));
+        set_string(&n->format, string_dup(p->format));
     } else
     if (special != 'm' && special != 'f') {
         set_string(&n->format, NULL);
