@@ -183,7 +183,7 @@ void scxmemdump(void) {
 
 /*---------------- refcounted strings ----------------*/
 
-string_t *string_new(const char *s) {
+SCXMEM string_t *string_new(const char *s) {
     size_t len = strlen(s);
     string_t *str = scxmalloc(offsetof(string_t, s) + len + 1);
     if (str) {
@@ -194,7 +194,7 @@ string_t *string_new(const char *s) {
     return str;
 }
 
-string_t *string_new_len(const char *s, size_t len) {
+SCXMEM string_t *string_new_len(const char *s, size_t len) {
     string_t *str = scxmalloc(offsetof(string_t, s) + len + 1);
     if (str) {
         str->refcount = 1;
@@ -205,8 +205,16 @@ string_t *string_new_len(const char *s, size_t len) {
     return str;
 }
 
+SCXMEM string_t *string_clone(SCXMEM string_t *str) {
+    if (str && str->refcount > 1 && slen(str) > 0) {
+        SCXMEM string_t *s2 = string_new_len(s2c(str), slen(str));
+        string_free(str);
+        str = s2;
+    }
+    return str;
+}
+
 SCXMEM string_t *string_concat(SCXMEM string_t *s1, SCXMEM string_t *s2) {
-    size_t len1, len2;
     SCXMEM string_t *s3;
 
     if (sempty(s1)) {
@@ -217,11 +225,11 @@ SCXMEM string_t *string_concat(SCXMEM string_t *s1, SCXMEM string_t *s2) {
         string_free(s2);
         return s1;
     }
-    len1 = slen(s1);
-    len2 = slen(s2);
-    s3 = string_new_len(NULL, len1 + len2);
-    memcpy(s3->s, s1->s, len1);
-    memcpy(s3->s + len1, s2->s, len2 + 1);
+    s3 = string_new_len(NULL, slen(s1) + slen(s2));
+    if (s3) {
+        memcpy(s3->s, s1->s, slen(s1));
+        memcpy(s3->s + slen(s1), s2->s, slen(s2));
+    }
     string_free(s1);
     string_free(s2);
     return s3;
@@ -262,11 +270,108 @@ SCXMEM string_t *string_trim(SCXMEM string_t *str) {
             continue;
         for (left = 0; left < len && isspacechar(s[left]); left++)
             continue;
-        if (left > 0 || len < slen(str)) {
-            str = string_mid(str, left, len - left);
+        str = string_mid(str, left, len - left);
+    }
+    return str;
+}
+
+// XXX: Handle Unicode via UTF-8
+SCXMEM string_t *string_clean(SCXMEM string_t *text) {
+    SCXMEM string_t *str = text;
+    if (str) {
+        const char *p = s2c(str);
+        int len = slen(str);
+        int i, j, count;
+
+        for (i = count = 0; i < len; i++) {
+            unsigned char c = p[i];
+            count += (c < 32 || c == 127);
+        }
+        if (count) {
+            str = string_new_len(p, len - count);
+            if (str) {
+                char *q = str->s;
+                for (i = j = 0; i < len; i++) {
+                    unsigned char c = p[i];
+                    if (!(c < 32 || c == 127))
+                        q[j++] = c;
+                }
+            }
+            string_free(text);
         }
     }
     return str;
+}
+
+// XXX: Handle Unicode via UTF-8
+SCXMEM string_t *string_lower(SCXMEM string_t *str) {
+    str = string_clone(str);
+    if (str) {
+        char *p;
+        for (p = str->s; *p; p++) {
+            if (isupperchar(*p))
+                *p = tolowerchar(*p);
+        }
+    }
+    return str;
+}
+
+// XXX: Handle Unicode via UTF-8
+SCXMEM string_t *string_upper(SCXMEM string_t *str) {
+    str = string_clone(str);
+    if (str) {
+        char *p;
+        for (p = str->s; *p; p++) {
+            if (islowerchar(*p))
+                *p = toupperchar(*p);
+        }
+    }
+    return str;
+}
+
+// XXX: Handle Unicode via UTF-8
+SCXMEM string_t *string_proper(SCXMEM string_t *str) {
+    str = string_clone(str);
+    if (str) {
+        char *p;
+        int skip = 1, all_upper = 1;
+        for (p = str->s; *p; p++) {
+            if (islowerchar(*p)) {
+                all_upper = 0;
+                break;
+            }
+        }
+        for (p = str->s; *p; p++) {
+            if (!isalnumchar(*p))
+                skip = 1;
+            else
+            if (skip == 1) {
+                skip = 0;
+                if (islowerchar(*p))
+                    *p = toupperchar(*p);
+            } else {  /* if the string was all upper before */
+                if (isupperchar(*p) && all_upper != 0)
+                    *p = tolowerchar(*p);
+            }
+        }
+    }
+    return str;
+}
+
+int string_find(SCXMEM string_t *search, SCXMEM string_t *t, int pos, int flags) {
+    int found = -1;
+    if (search && t && pos >= 0 && pos <= slen(search)) {
+        const char *s1 = s2c(search);
+        const char *p = (flags & SF_IGNORE_CASE) ?
+            sc_strcasestr(s1 + pos, s2c(t)) : strstr(s1 + pos, s2c(t));
+        if (p != NULL)
+            found = p - s1;
+    }
+    if (flags & SF_FREE_STRINGS) {
+        string_free(search);
+        string_free(t);
+    }
+    return found;
 }
 
 /*---------------- string utilities ----------------*/

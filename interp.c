@@ -1626,64 +1626,16 @@ static scvalue_t eval_sval(eval_ctx_t *cp, enode_t *e) {
 
 /*---------------- string functions ----------------*/
 
-// XXX: should handle UTF-8 encoded UNICODE stuff
-static scvalue_t eval_case(eval_ctx_t *cp, enode_t *e) {
+static scvalue_t eval_fs1(eval_ctx_t *cp, enode_t *e) {
     int err = 0;
-    SCXMEM string_t *s = eval_str(cp, e->e.args[0], &err);
-    SCXMEM string_t *s2;
-    char *p;
-
-    if (err) scvalue_error(err);
-
-    if (sempty(s))
-        return scvalue_string(s);
-
-    s2 = string_new_len(s2c(s), slen(s));
-    string_free(s);
-    if (!s2)
-        return scvalue_error(ERROR_NULL);
-
-    switch (e->op) {
-    case OP_UPPER:
-        for (p = s2->s; *p; p++) {
-            if (islowerchar(*p))
-                *p = toupperchar(*p);
-        }
-        break;
-    case OP_LOWER:
-        for (p = s2->s; *p; p++) {
-            if (isupperchar(*p))
-                *p = tolowerchar(*p);
-        }
-        break;
-    case OP_PROPER: {
-            int skip = 1;
-            int AllUpper = 1;
-            for (p = s2->s; *p; p++) {
-                if (islowerchar(*p)) {
-                    AllUpper = 0;
-                    break;
-                }
-            }
-            for (p = s2->s; *p; p++) {
-                if (!isalnumchar(*p))
-                    skip = 1;
-                else
-                if (skip == 1) {
-                    skip = 0;
-                    if (islowerchar(*p))
-                        *p = toupperchar(*p);
-                } else {  /* if the string was all upper before */
-                    if (isupperchar(*p) && AllUpper != 0)
-                        *p = tolowerchar(*p);
-                }
-            }
-        }
-        break;
-    }
-    return scvalue_string(s2);
+    SCXMEM string_t *str = eval_str(cp, e->e.args[0], &err);
+    scarg_t fun = opdefs[e->op].arg;
+    if (err) return scvalue_error(err);
+    str = ((SCXMEM string_t *(*)(SCXMEM string_t *))fun)(str);
+    return scvalue_string(str);
 }
 
+// XXX: should support Unicode via UTF-8 encoding
 static scvalue_t eval_char(eval_ctx_t *cp, enode_t *e) {
     int len, err = 0;
     int code = eval_int(cp, e->e.args[0], 0, e->op == OP_CHAR ? 255 : 0x10FFFF, &err);
@@ -1691,46 +1643,18 @@ static scvalue_t eval_char(eval_ctx_t *cp, enode_t *e) {
     if (err) return scvalue_error(err);
     len = 0;
     buf[len++] = code;
-    // XXX: should support UNICODE via UTF-8 encoding
+    // XXX: should support Unicode via UTF-8 encoding
     return scvalue_string(string_new_len(buf, len));
 }
 
+// XXX: should support Unicode via UTF-8 encoding
 static scvalue_t eval_code(eval_ctx_t *cp, enode_t *e) {
     int err = 0, code;
     SCXMEM string_t *str = eval_str(cp, e->e.args[0], &err);
     if (err) return scvalue_error(err);
-    // XXX: should support UNICODE via UTF-8 encoding
     code = *s2c(str);
     string_free(str);
     return scvalue_number(code);
-}
-
-static scvalue_t eval_clean(eval_ctx_t *cp, enode_t *e) {
-    int err = 0, i, j, len, count;
-    SCXMEM string_t *text = eval_str(cp, e->e.args[0], &err);
-    SCXMEM string_t *str = text;
-    const char *p;
-    char *q;
-    if (err) return scvalue_error(err);
-    p = s2c(text);
-    len = slen(text);
-    for (i = count = 0; i < len; i++) {
-        unsigned char c = p[i];
-        count += (c < 32 || c == 127);
-    }
-    if (count) {
-        str = string_new_len(p, len - count);
-        if (str) {
-            q = str->s;
-            for (i = j = 0; i < len; i++) {
-                unsigned char c = p[i];
-                if (!(c < 32 || c == 127))
-                    q[j++] = c;
-            }
-        }
-        string_free(text);
-    }
-    return scvalue_string(str);
 }
 
 static scvalue_t eval_len(eval_ctx_t *cp, enode_t *e) {
@@ -1932,13 +1856,6 @@ static scvalue_t eval_mid(eval_ctx_t *cp, enode_t *e) {
     return scvalue_string(string_mid(str, v1 - 1, e->op == OP_SUBSTR ? v2 - v1 + 1 : v2));
 }
 
-static scvalue_t eval_trim(eval_ctx_t *cp, enode_t *e) {
-    int err = 0;
-    SCXMEM string_t *str = eval_str(cp, e->e.args[0], &err);
-    if (err) return scvalue_error(err);
-    return scvalue_string(string_trim(str));
-}
-
 static scvalue_t eval_concat(eval_ctx_t *cp, enode_t *e) {
     int i, err = 0;
     SCXMEM string_t *str = NULL;
@@ -1967,6 +1884,8 @@ static scvalue_t eval_coltoa(eval_ctx_t *cp, enode_t *e) {
     if (err) return scvalue_error(err);
     return scvalue_string(string_new(coltoa(col)));
 }
+
+/*---------------- Logical functions ----------------*/
 
 static scvalue_t eval_not(eval_ctx_t *cp, enode_t *e) {
     int err = 0;
@@ -2086,6 +2005,8 @@ static scvalue_t eval_cmp(eval_ctx_t *cp, enode_t *e) {
     }
     return scvalue_error(ERROR_NULL);
 }
+
+/* 6.19 Number Representation Conversion Functions */
 
 static scvalue_t eval_to_base(eval_ctx_t *cp, enode_t *e, int err, int from_base, int base, int argdig) {
     char buf[300];

@@ -122,7 +122,7 @@ __( OP_IMSUM,           1, -1, NULL, NULL, "IMSUM(value1, [value2, ...])", "Retu
 __( OP_IMTAN,           1, 1, NULL, NULL, "IMTAN(number)", "Returns the tangent of the given complex number.")
 __( OP_IMTANH,          1, 1, NULL, NULL, "IMTANH(number)", "Returns the hyperbolic tangent of the given complex number. For example, a given complex number 'x+yi' returns 'tanh(x+yi)'.")
 
-/* 6.9 Database Funions */
+/* 6.9 Database Functions */
 __( OP_DAVERAGE,        3, 3, NULL, NULL, "DAVERAGE(database, field, criteria)", "Returns the average of a set of values selected from a database table-like array or range using a SQL-like query")
 __( OP_DCOUNT,          3, 3, NULL, NULL, "DCOUNT(database, field, criteria)", "Counts numeric values selected from a database table-like array or range using a SQL-like query")
 __( OP_DCOUNTA,         3, 3, NULL, NULL, "DCOUNTA(database, field, criteria)", "Counts values, including text, selected from a database table-like array or range using a SQL-like query")
@@ -136,7 +136,7 @@ __( OP_DSUM,            3, 3, NULL, NULL, "DSUM(database, field, criteria)", "Re
 __( OP_DVAR,            3, 3, NULL, NULL, "DVAR(database, field, criteria)", "Returns the variance of a population sample selected from a database table-like array or range using a SQL-like query")
 __( OP_DVARP,           3, 3, NULL, NULL, "DVARP(database, field, criteria)", "Returns the variance of an entire population selected from a database table-like array or range using a SQL-like query")
 
-/* 6.10 Date and Ti Functions */
+/* 6.10 Date and Time Functions */
 OP( OP_DATE,            3, 3, eval_date, NULL, "DATE(year, month, day)", "Converts a year, month, and day triplet into a date")
 XX( OP_DATEFMT,         1, 2, eval_datefmt, NULL, "DATEFMT(date, [format])", "Converts a date into a formated string")
 __( OP_DATEDIF,         3, 3, NULL, NULL, "DATEDIF(start_date, end_date, unit)", "Calculates the number of days, months, or years between two dates")
@@ -567,7 +567,7 @@ XX( OP_FMT,             2, 2, eval_fmt, NULL, "FMT(format_string, value)", NULL)
 /* 6.20 Text Functions */
 __( OP_ASC,             1, 1, NULL, NULL, "ASC(text)", "Converts full-width ASCII and katakana characters to their half-width counterparts. All standard-width characters will remain unchanged.")
 OP( OP_CHAR,            1, 1, eval_char, NULL, "CHAR(table_number)", "Convert a number into a character according to the current Unicode table")
-OP( OP_CLEAN,           1, 1, eval_clean, NULL, "CLEAN(text)", "Returns the text with the non-printable ASCII characters removed")
+OP( OP_CLEAN,           1, 1, eval_fs1, string_clean, "CLEAN(text)", "Returns the text with the non-printable ASCII characters removed")
 OP( OP_CODE,            1, 1, eval_code, NULL, "CODE(string)", "Returns the numeric Unicode map value of the first character in the string provided")
 OP( OP_CONCATENATE,     1, -1, eval_concat, NULL, "CONCATENATE(string1, [string2, ...])", "Appends strings to one another")
 __( OP_DOLLAR,          1, 2, NULL, NULL, "DOLLAR(number, [number_of_places])", "Formats a number into the locale-specific currency format")
@@ -578,9 +578,9 @@ __( OP_JIS,             1, 1, NULL, NULL, "JIS(text)", "Converts half-width to f
 LO( OP_JOIN,            2, -1, NULL, NULL, "JOIN(delimiter, value_or_array1, [value_or_array2, ...])", "Concatenates the elements of one or more one-dimensional arrays using a specified delimiter")
 OP( OP_LEFT,            1, 2, eval_left, NULL, "LEFT(string, [number_of_characters])", "Returns a substring from the beginning of a specified string")
 OP( OP_LEN,             1, 1, eval_len, NULL, "LEN(text)", "Returns the length of a string")
-OP( OP_LOWER,           1, 1, eval_case, NULL, "LOWER(text)", "Converts a specified string to lowercase")
+OP( OP_LOWER,           1, 1, eval_fs1, string_lower, "LOWER(text)", "Converts a specified string to lowercase")
 OP( OP_MID,             3, 3, eval_mid, NULL, "MID(string, starting_at, extract_length)", "Returns a segment of a string")
-OP( OP_PROPER,          1, 1, eval_case, NULL, "PROPER(text_to_capitalize)", "Capitalizes each word in a specified string")
+OP( OP_PROPER,          1, 1, eval_fs1, string_proper, "PROPER(text_to_capitalize)", "Capitalizes each word in a specified string")
 LO( OP_REGEXEXTRACT,    2, 2, NULL, NULL, "REGEXEXTRACT(text, regular_expression)", "Extracts matching substrings according to a regular expression")
 LO( OP_REGEXMATCH,      1, 1, NULL, NULL, "REGEXMATCH(text, regular_expression)", "Whether a piece of text matches a regular expression")
 LO( OP_REGEXREPLACE,    3, 3, NULL, NULL, "REGEXREPLACE(text, regular_expression, replacement)", "Replaces part of a text string with a different text string using regular expressions")
@@ -593,10 +593,10 @@ OP( OP_SUBSTITUTE,      3, 4, eval_substitute, NULL, "SUBSTITUTE(text_to_search,
 OP( OP_T,               1, 1, eval_t, NULL, "T(value)", "Returns string arguments as text")
 __( OP_TEXT,            2, 2, NULL, NULL, "TEXT(number, format)", "Converts a number into text according to a specified format")
 LO( OP_TEXTJOIN,        3, -1, NULL, NULL, "TEXTJOIN(delimiter, ignore_empty, text1, [text2], ...)", "Combines the text from multiple strings and/or arrays, with a specifiable delimiter separating the different texts.")
-OP( OP_TRIM,            1, 1, eval_trim, NULL, "TRIM(text)", "Removes leading and trailing spaces in a specified string")
+OP( OP_TRIM,            1, 1, eval_fs1, string_trim, "TRIM(text)", "Removes leading and trailing spaces in a specified string")
 OP( OP_UNICHAR,         1, 1, eval_char, NULL, "UNICHAR(number)", "Returns the Unicode character for a number.")
 OP( OP_UNICODE,         1, 1, eval_code, NULL, "UNICODE(text)", "Returns the decimal Unicode value of the first character of the text.")
-OP( OP_UPPER,           1, 1, eval_case, NULL, "UPPER(text)", "Converts a specified string to uppercase")
+OP( OP_UPPER,           1, 1, eval_fs1, string_upper, "UPPER(text)", "Converts a specified string to uppercase")
 
 XX( OP_SUBSTR,          3, 3, eval_mid, NULL, "SUBSTR(string, start_char, end_char)", "Extract a portion of a string")
 

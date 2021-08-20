@@ -87,15 +87,16 @@ typedef struct string_t {
 
 extern SCXMEM string_t *empty_string;
 
-string_t *string_new(const char *s);
-string_t *string_new_len(const char *s, size_t len);
+SCXMEM string_t *string_new(const char *s);
+SCXMEM string_t *string_new_len(const char *s, size_t len);
+SCXMEM string_t *string_clone(SCXMEM string_t *str);
 
-static inline string_t *string_dup(string_t *str) {
+static inline SCXMEM string_t *string_dup(string_t *str) {
     if (str) str->refcount++;
     return str;
 }
 
-static inline void string_free(string_t *str) {
+static inline void string_free(SCXMEM string_t *str) {
     if (str && !--str->refcount)
         scxfree(str);
 }
@@ -111,9 +112,17 @@ static inline void string_set(SCXMEM string_t **sp, SCXMEM string_t *str) {
     *sp = str;
 }
 
-SCXMEM string_t *string_concat(SCXMEM string_t *s1, SCXMEM string_t *s2);
-SCXMEM string_t *string_mid(SCXMEM string_t *s, int pos, int n);
-SCXMEM string_t *string_trim(SCXMEM string_t *s);
+SCXMEM string_t *string_concat(SCXMEM string_t *str1, SCXMEM string_t *str2);
+SCXMEM string_t *string_mid(SCXMEM string_t *str, int pos, int n);
+SCXMEM string_t *string_trim(SCXMEM string_t *str);
+SCXMEM string_t *string_clean(SCXMEM string_t *str);
+SCXMEM string_t *string_lower(SCXMEM string_t *str);
+SCXMEM string_t *string_upper(SCXMEM string_t *str);
+SCXMEM string_t *string_proper(SCXMEM string_t *str);
+#define SF_IGNORE_CASE      1
+#define SF_USE_CODE_POINTS  2
+#define SF_FREE_STRINGS     4
+int string_find(SCXMEM string_t *search, SCXMEM string_t *t, int pos, int flags);
 
 /*---------------- char buffer utilities ----------------*/
 
