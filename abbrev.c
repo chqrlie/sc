@@ -28,8 +28,8 @@ static void free_abbr(SCXMEM struct abbrev *a) {
             a->prev->next = a->next;
         else
             abbr_base = a->next;
-        free_string(a->name);
-        free_string(a->exp);
+        string_free(a->name);
+        string_free(a->exp);
         scxfree(a);
     }
 }
@@ -68,8 +68,8 @@ void add_abbr(SCXMEM string_t *name, SCXMEM string_t *exp) {
                 closefile(f, pid, 0);
             }
         }
-        free_string(name);
-        free_string(exp);
+        string_free(name);
+        string_free(exp);
         return;
     }
 
@@ -77,8 +77,8 @@ void add_abbr(SCXMEM string_t *name, SCXMEM string_t *exp) {
     if (!exp) {
         for (p = s2c(name), i = 0; p[i]; i++) {
             if (p[i] == ' ') {
-                exp = new_string(p + i + 1);
-                set_string(&name, new_string_len(p, i));
+                exp = string_new(p + i + 1);
+                string_set(&name, string_new_len(p, i));
                 break;
             }
         }
@@ -90,8 +90,8 @@ void add_abbr(SCXMEM string_t *name, SCXMEM string_t *exp) {
     }
     if (*p) {
         error("Invalid abbreviation: %s", s2c(name));
-        free_string(name);
-        free_string(exp);
+        string_free(name);
+        string_free(exp);
         return;
     }
 
@@ -104,15 +104,15 @@ void add_abbr(SCXMEM string_t *name, SCXMEM string_t *exp) {
         } else {
             error("abbreviation \"%s\" does not exist", s2c(name));
         }
-        free_string(name);
-        free_string(exp);
+        string_free(name);
+        string_free(exp);
         return;
     }
 
     /* otherwise add an abbreviation */
     if (a) {
-        set_string(&a->exp, exp);
-        free_string(name);
+        string_set(&a->exp, exp);
+        string_free(name);
         return;
     } else {
         /* insert in lexicographical order */
@@ -143,7 +143,7 @@ void del_abbr(SCXMEM string_t *name) {
 
     if (name && (a = find_abbr(s2c(name), -1, &prev)) != NULL)
         free_abbr(a);
-    free_string(name);
+    string_free(name);
 }
 
 void clean_abbrevs(void) {

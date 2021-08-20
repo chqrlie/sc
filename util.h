@@ -55,7 +55,6 @@ extern size_t pstrcat(char *dst, size_t dstsize, const char *src);
 extern size_t strsplice(char *dst, size_t size, size_t from, size_t len1,
                         const char *src, size_t len2);
 extern size_t strtrim(char *s);
-extern char *str_case_str(const char *s1, const char *s2);
 extern char *get_basename(const char *filename);
 extern char *get_extension(const char *filename);
 
@@ -76,6 +75,7 @@ static inline int isalphachar_(char c) { return isalphachar(c) || c == '_'; }
 static inline int isalnumchar_(char c) { return isalnumchar(c) || c == '_'; }
 
 extern int sc_strncasecmp(const char *a, const char *b, size_t n);
+extern char *sc_strcasestr(const char *s1, const char *s2);
 
 /*---------------- refcounted string_t ----------------*/
 
@@ -87,15 +87,15 @@ typedef struct string_t {
 
 extern SCXMEM string_t *empty_string;
 
-string_t *new_string(const char *s);
-string_t *new_string_len(const char *s, size_t len);
+string_t *string_new(const char *s);
+string_t *string_new_len(const char *s, size_t len);
 
 static inline string_t *string_dup(string_t *str) {
     if (str) str->refcount++;
     return str;
 }
 
-static inline void free_string(string_t *str) {
+static inline void string_free(string_t *str) {
     if (str && !--str->refcount)
         scxfree(str);
 }
@@ -106,12 +106,12 @@ static inline const char *s2str(const string_t *str) { return str ? str->s : "";
 static inline int slen(const string_t *str) { return str->len; }
 static inline int sempty(const string_t *str) { return !str || !str->len; }
 
-static inline void set_string(SCXMEM string_t **sp, SCXMEM string_t *str) {
-    free_string(*sp);
+static inline void string_set(SCXMEM string_t **sp, SCXMEM string_t *str) {
+    string_free(*sp);
     *sp = str;
 }
 
-SCXMEM string_t *cat_strings(SCXMEM string_t *s1, SCXMEM string_t *s2);
+SCXMEM string_t *string_concat(SCXMEM string_t *s1, SCXMEM string_t *s2);
 SCXMEM string_t *string_mid(SCXMEM string_t *s, int pos, int n);
 SCXMEM string_t *string_trim(SCXMEM string_t *s);
 

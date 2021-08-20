@@ -43,13 +43,13 @@ void printfile(SCXMEM string_t *str, rangeref_t rr) {
         }
         if (!strcmp(path, curfile)
         &&  !yn_ask("Confirm that you want to destroy the data base: (y,n)")) {
-            free_string(str);
+            string_free(str);
             return;
         }
 
         if ((f = openfile(path, sizeof path, &pid, NULL)) == NULL) {
             error("Cannot create file \"%s\"", path);
-            free_string(str);
+            string_free(str);
             return;
         }
     } else {
@@ -202,7 +202,7 @@ void printfile(SCXMEM string_t *str, rangeref_t rr) {
     }
     buf_free(buf);
     if (fname) closefile(f, pid, 0);
-    free_string(str);
+    string_free(str);
 }
 
 /* unspecial (backquote) things that are special chars in a table */
@@ -263,13 +263,13 @@ void tblprintfile(SCXMEM string_t *str, rangeref_t rr) {
     }
     if (!strcmp(path, curfile)
     &&  !yn_ask("Confirm that you want to destroy the data base: (y,n)")) {
-        free_string(str);
+        string_free(str);
         return;
     }
 
     if ((f = openfile(path, sizeof path, &pid, NULL)) == NULL) {
         error("Cannot create file \"%s\"", path);
-        free_string(str);
+        string_free(str);
         return;
     }
 
@@ -428,5 +428,5 @@ void tblprintfile(SCXMEM string_t *str, rangeref_t rr) {
     }
 
     closefile(f, pid, 0);
-    free_string(str);
+    string_free(str);
 }

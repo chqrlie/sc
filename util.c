@@ -183,7 +183,7 @@ void scxmemdump(void) {
 
 /*---------------- refcounted strings ----------------*/
 
-string_t *new_string(const char *s) {
+string_t *string_new(const char *s) {
     size_t len = strlen(s);
     string_t *str = scxmalloc(offsetof(string_t, s) + len + 1);
     if (str) {
@@ -194,7 +194,7 @@ string_t *new_string(const char *s) {
     return str;
 }
 
-string_t *new_string_len(const char *s, size_t len) {
+string_t *string_new_len(const char *s, size_t len) {
     string_t *str = scxmalloc(offsetof(string_t, s) + len + 1);
     if (str) {
         str->refcount = 1;
@@ -205,25 +205,25 @@ string_t *new_string_len(const char *s, size_t len) {
     return str;
 }
 
-SCXMEM string_t *cat_strings(SCXMEM string_t *s1, SCXMEM string_t *s2) {
+SCXMEM string_t *string_concat(SCXMEM string_t *s1, SCXMEM string_t *s2) {
     size_t len1, len2;
     SCXMEM string_t *s3;
 
     if (sempty(s1)) {
-        free_string(s1);
+        string_free(s1);
         return s2;
     }
     if (sempty(s2)) {
-        free_string(s2);
+        string_free(s2);
         return s1;
     }
     len1 = slen(s1);
     len2 = slen(s2);
-    s3 = new_string_len(NULL, len1 + len2);
+    s3 = string_new_len(NULL, len1 + len2);
     memcpy(s3->s, s1->s, len1);
     memcpy(s3->s + len1, s2->s, len2 + 1);
-    free_string(s1);
-    free_string(s2);
+    string_free(s1);
+    string_free(s2);
     return s3;
 }
 
@@ -248,9 +248,9 @@ SCXMEM string_t *string_mid(SCXMEM string_t *str, int pos, int n) {
     if (n == len) {
         return str;
     } else {
-        p = new_string_len(&str->s[pos], n);
+        p = string_new_len(&str->s[pos], n);
     }
-    free_string(str);
+    string_free(str);
     return p;
 }
 
@@ -347,25 +347,9 @@ size_t strtrim(char *s) {
 
 #define UNCONSTIFY(t, v) ((t)(uintptr_t)(v))
 
-char *str_case_str(const char *s1, const char *s2) {
-    unsigned char c1, c2 = toupperchar(*s2++);
-    size_t i;
-    if (!c2) return UNCONSTIFY(char *, s1);
-    while ((c1 = toupperchar(*s1++)) != '\0') {
-        if (c1 == c2) {
-            for (i = 0;; i++) {
-                if (!s2[i]) return UNCONSTIFY(char *, s1 - 1);
-                if (toupperchar(s1[i]) != toupperchar(s2[i]))
-                    break;
-            }
-        }
-    }
-    return NULL;
-}
-
 /* return a pointer to the basename portion of the filename */
 char *get_basename(const char *filename) {
-    char *p = strchr(filename, *filename); // silent cast
+    char *p = UNCONSTIFY(char *, filename); // silent cast
     char *base = p;
     char c;
     while ((c = *p++)) {
@@ -411,6 +395,22 @@ int sc_strncasecmp(const char *a, const char *b, size_t n) {
             break;
     }
     return aa - bb;
+}
+
+char *sc_strcasestr(const char *s1, const char *s2) {
+    unsigned char c1, c2 = tolowerchar(*s2++);
+    size_t i;
+    if (!c2) return UNCONSTIFY(char *, s1);
+    while ((c1 = tolowerchar(*s1++)) != '\0') {
+        if (c1 == c2) {
+            for (i = 0;; i++) {
+                if (!s2[i]) return UNCONSTIFY(char *, s1 - 1);
+                if (tolowerchar(s1[i]) != tolowerchar(s2[i]))
+                    break;
+            }
+        }
+    }
+    return NULL;
 }
 
 /*---------------- buffered strings ----------------*/

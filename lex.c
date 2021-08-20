@@ -419,7 +419,7 @@ int yylex(void) {
             if (plugin_exists(p0, p - p0, path, PATHLEN)) {
                 // XXX: really catenate the rest of the input line?
                 pstrcat(path, PATHLEN, p);
-                yylval.sval = new_string(path);
+                yylval.sval = string_new(path);
                 ret = PLUGIN;
                 break;
             } else {
@@ -531,7 +531,7 @@ int yylex(void) {
                     p1++;
                 len++;
             }
-            yylval.sval = new_string_len(NULL, len);
+            yylval.sval = string_new_len(NULL, len);
             ptr = yylval.sval->s;
             while (*p && *p != '"' && *p != '\n') {
                 if (*p == '\\' && (p[1] == '"' || p[1] == '\\'))

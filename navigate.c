@@ -30,7 +30,7 @@ struct go_save gs;
 
 static void g_free(void) {
     gs.g_type = G_NONE;
-    set_string(&gs.g_s, NULL);
+    string_set(&gs.g_s, NULL);
 }
 
 /* repeat the last goto command */
@@ -201,19 +201,19 @@ int str_search(int g_type, rangeref_t rr, SCXMEM string_t *str) {
         char buf[160];
         regerror(errcode, &preg, buf, sizeof(buf));
         error("%s", buf);
-        free_string(str);
+        string_free(str);
         return -1;
     }
 #elif defined RE_COMP
     if ((tmp = re_comp(s)) != NULL) {
         error("%s", tmp);
-        free_string(str);
+        string_free(str);
         return -1;
     }
 #elif defined REGCMP
     if ((tmp = regcmp(s, NULL)) == NULL) {
         error("Invalid search string");
-        free_string(str);
+        string_free(str);
         return -1;
     }
 #else
@@ -225,7 +225,7 @@ int str_search(int g_type, rangeref_t rr, SCXMEM string_t *str) {
     g_free();
     gs.g_type = g_type;
     gs.g_rr = rr;
-    set_string(&gs.g_s, str);
+    string_set(&gs.g_s, str);
 
     firstrow = rr.left.row;
     firstcol = rr.left.col;

@@ -122,7 +122,7 @@ void sortrange(rangeref_t rr, SCXMEM string_t *criteria) {
     // XXX: should actually move to the new position of the same cell
 
 fail:
-    free_string(criteria);
+    string_free(criteria);
     scxfree(sort);
     sort = NULL;
     howmany = 0;

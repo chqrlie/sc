@@ -139,8 +139,8 @@ int main(int argc, char **argv) {
     int Mopt = 0;
     int Dopt = 0;
 
-    empty_string = new_string("");
-    histfile = new_string("~/.sc_history");
+    empty_string = string_new("");
+    histfile = string_new("~/.sc_history");
 
 #ifdef USELOCALE
     setlocale(LC_ALL, "");
@@ -330,15 +330,15 @@ int main(int argc, char **argv) {
         free_enode_list();
         free_styles();
         free_hist();
-        set_string(&histfile, NULL);
-        set_string(&scext, NULL);
-        set_string(&ascext, NULL);
-        set_string(&tbl0ext, NULL);
-        set_string(&tblext, NULL);
-        set_string(&latexext, NULL);
-        set_string(&slatexext, NULL);
-        set_string(&texext, NULL);
-        set_string(&empty_string, NULL);
+        string_set(&histfile, NULL);
+        string_set(&scext, NULL);
+        string_set(&ascext, NULL);
+        string_set(&tbl0ext, NULL);
+        string_set(&tblext, NULL);
+        string_set(&latexext, NULL);
+        string_set(&slatexext, NULL);
+        string_set(&texext, NULL);
+        string_set(&empty_string, NULL);
         scxmemdump();
     }
 

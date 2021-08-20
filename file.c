@@ -334,7 +334,7 @@ int cmd_plugin(SCXMEM string_t *str) {
         snprintf(buf, sizeof buf, "|%s", s2c(str));
         res = readfile(buf, 0);
     }
-    free_string(str);
+    string_free(str);
     return res;
 }
 
@@ -349,8 +349,8 @@ void add_plugin(SCXMEM string_t *ext, SCXMEM string_t *plugin, char type) {
 
     if (!plugin_exists(s2c(plugin), -1, mesg, sizeof mesg)) {
         error("Cannot find plugin %s", s2c(plugin));
-        free_string(ext);
-        free_string(plugin);
+        string_free(ext);
+        string_free(plugin);
         return;
     }
     if (filt == NULL) {
@@ -366,8 +366,8 @@ void add_plugin(SCXMEM string_t *ext, SCXMEM string_t *plugin, char type) {
     // XXX: should use string_t
     pstrcpy(fp->plugin, PATHLEN, s2c(plugin));
     pstrcpy(fp->ext, PATHLEN, s2c(ext));
-    free_string(ext);
-    free_string(plugin);
+    string_free(ext);
+    string_free(plugin);
     fp->type = type;
     fp->next = NULL;
 }

@@ -27,7 +27,7 @@ extern int yychar;
 static void doerror(SCXMEM string_t *s) {
     if (s) {
         error("%s", s2c(s));
-        free_string(s);
+        string_free(s);
     }
 }
 
@@ -35,7 +35,7 @@ static int doreadfile(SCXMEM string_t *fname, int eraseflg) {
     int ret = -1;
     if (fname) {
         ret = readfile(s2c(fname), eraseflg);
-        free_string(fname);
+        string_free(fname);
     }
     return ret;
 }
@@ -44,7 +44,7 @@ static int dowritefile(SCXMEM string_t *fname, rangeref_t rr, int dcp_flags) {
     int ret = -1;
     if (fname) {
         ret = writefile(s2c(fname), rr, dcp_flags);
-        free_string(fname);
+        string_free(fname);
     }
     return ret;
 }
@@ -53,7 +53,7 @@ static int string_to_char(SCXMEM string_t *str) {
     int c = -1;
     if (str) {
         c = *s2c(str);
-        free_string(str);
+        string_free(str);
     }
     return c;
 }
@@ -64,7 +64,7 @@ static SCXMEM string_t *get_strarg(cellref_t cr) {
         return string_dup(p->label);
     } else {
         // XXX: should convert numeric value to string according to format?
-        return new_string("NULL_STRING");
+        return string_new("NULL_STRING");
     }
 }
 
@@ -285,14 +285,14 @@ command:  S_LET var_or_range '=' e      { let($2.left, $4, -1); }
         | S_MDIR strarg                 { set_mdir($2); }
         | S_AUTORUN strarg              { set_autorun($2); }
         | S_FKEY NUMBER '=' strarg      { set_fkey($2, $4); }
-        | S_HISTFILE strarg             { set_string(&histfile, $2); }
-        | S_SCEXT strarg                { set_string(&scext, $2); }
-        | S_ASCEXT strarg               { set_string(&ascext, $2); }
-        | S_TBL0EXT strarg              { set_string(&tbl0ext, $2); }
-        | S_TBLEXT strarg               { set_string(&tblext, $2); }
-        | S_LATEXEXT strarg             { set_string(&latexext, $2); }
-        | S_SLATEXEXT strarg            { set_string(&slatexext, $2); }
-        | S_TEXEXT strarg               { set_string(&texext, $2); }
+        | S_HISTFILE strarg             { string_set(&histfile, $2); }
+        | S_SCEXT strarg                { string_set(&scext, $2); }
+        | S_ASCEXT strarg               { string_set(&ascext, $2); }
+        | S_TBL0EXT strarg              { string_set(&tbl0ext, $2); }
+        | S_TBLEXT strarg               { string_set(&tblext, $2); }
+        | S_LATEXEXT strarg             { string_set(&latexext, $2); }
+        | S_SLATEXEXT strarg            { string_set(&slatexext, $2); }
+        | S_TEXEXT strarg               { string_set(&texext, $2); }
         | S_PUT strarg range noval      { dowritefile($2, $3, $4); }
         | S_PUT strarg noval            { dowritefile($2, rangeref_total(), $3); }
         | S_PUT range noval             { write_cells(stdout, $2, $2.left, $3 | DCP_NO_NAME); }

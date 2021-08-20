@@ -2766,7 +2766,7 @@ static void list_all(void) {
 void free_hist(void) {
     int i;
     for (i = 0; i <= HISTLEN; i++) {
-        free_string(history[i]);
+        string_free(history[i]);
         history[i] = NULL;
     }
 #if defined REGCOMP
@@ -2775,7 +2775,7 @@ void free_hist(void) {
     free(last_search);
     last_search = NULL;
 #else
-    free_string(last_search);
+    string_free(last_search);
     last_search = NULL;
 #endif
 }
@@ -2790,10 +2790,10 @@ static void save_hist(void) {
         if (lasthist > endhist)
             endhist = lasthist;
 
-        set_string(&history[lasthist], new_string(line));
+        string_set(&history[lasthist], string_new(line));
         histsessionnew++;
     }
-    free_string(history[0]);
+    string_free(history[0]);
     history[0] = NULL;
     histp = 0;
 }
@@ -2822,7 +2822,7 @@ static void forw_hist(void) {
 
 static void back_hist(void) {
     if (histp == 0) {
-        set_string(&history[0], new_string(line));
+        string_set(&history[0], string_new(line));
         if (lasthist >= 0)
             histp = lasthist;
     } else if (histp == 1) {
@@ -2879,7 +2879,7 @@ static void search_hist(void) {
         return;
     }
 #else
-    set_string(&last_search, new_string(line));
+    string_set(&last_search, string_new(line));
 #endif
     linelen = pstrcpy(line, sizeof line, s2str(history[0]));
     //last_col();
@@ -3292,7 +3292,7 @@ static void gotobottom(void) {
 static void dogoto(void) {
     char buf[80];
     int len;
-    SCXMEM string_t *save_line = new_string(line);
+    SCXMEM string_t *save_line = string_new(line);
     int save_lim = linelim;
 
     /* Cannot switch back to navigate mode if insert_mode() is used here
@@ -3311,7 +3311,7 @@ static void dogoto(void) {
     if (save_line) {
         linelen = pstrcpy(line, sizeof line, s2c(save_line));
         linelim = save_lim;
-        free_string(save_line);
+        string_free(save_line);
     }
     update(0);
 

@@ -182,7 +182,7 @@ void getrange(SCXMEM string_t *name, int fd) {
     }
     len = pstrcat(buf, sizeof buf, "\n");
     write(fd, buf, len);
-    free_string(name);
+    string_free(name);
 }
 
 void cmd_eval(SCXMEM enode_t *e, SCXMEM string_t *fmt, int row, int col, int fd) {
@@ -203,7 +203,7 @@ void cmd_eval(SCXMEM enode_t *e, SCXMEM string_t *fmt, int row, int col, int fd)
     }
     len = pstrcat(buf, sizeof buf, "\n");
     write(fd, buf, len);
-    free_string(fmt);
+    string_free(fmt);
     efree(e);
 }
 
@@ -214,7 +214,7 @@ void cmd_seval(SCXMEM enode_t *e, int row, int col, int fd) {
     str = seval_at(e, row, col, &err);
     if (!err) write(fd, s2c(str), slen(str));
     write(fd, "\n", 1);
-    free_string(str);
+    string_free(str);
     efree(e);
 }
 
@@ -230,8 +230,8 @@ void cmd_query(SCXMEM string_t *s, SCXMEM string_t *data, int fd) {
         write(fd, "\n", 1);
     }
 
-    free_string(s);
-    free_string(data);
+    string_free(s);
+    string_free(data);
 }
 
 void dogetkey(int fd) {

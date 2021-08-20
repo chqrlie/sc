@@ -18,7 +18,6 @@ Evaluator:
 [ ] add refcounted formula objects
 [ ] chain cells with formulas into a linked list or dependency tree
 [?] stack based dynamic type interpreter
-[ ] rename string functions as string_xxx
 [ ] implement code string functions as string_xxx and call from eval_xxx
 [ ] implement int arguments with constraints
 
@@ -132,3 +131,4 @@ Commands:
 [X] fix error values
 [?] change the expression evaluator: use a stack of dynamically typed values
 [X] clean OP_ERR mess
+[X] rename string functions as string_xxx

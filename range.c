@@ -32,7 +32,7 @@ void add_nrange(SCXMEM string_t *name, rangeref_t rr, int is_range) {
 
     if (!find_nrange_name(s2c(name), slen(name), &prev)) {
         error("Error: range name \"%s\" already defined", s2c(name));
-        free_string(name);
+        string_free(name);
         return;
     }
 
@@ -40,7 +40,7 @@ void add_nrange(SCXMEM string_t *name, rangeref_t rr, int is_range) {
     for (p = s2c(name); *p; p++) {
         if (!isalnumchar_(*p)) {
             error("Invalid range name \"%s\" - illegal combination", s2c(name));
-            free_string(name);
+            string_free(name);
             return;
         }
     }
@@ -68,7 +68,7 @@ void add_nrange(SCXMEM string_t *name, rangeref_t rr, int is_range) {
         }
         if (!*p) {
             error("Invalid range name \"%s\" - ambiguous", s2c(name));
-            free_string(name);
+            string_free(name);
             return;
         }
     }
@@ -83,7 +83,7 @@ void add_nrange(SCXMEM string_t *name, rangeref_t rr, int is_range) {
             /* empty cell to the left of the defined cell:
                set the cell label to the name.
              */
-            set_string(&cp->label, name);
+            string_set(&cp->label, name);
             cp->type = SC_STRING;
             cp->flags &= ~ALIGN_MASK;
             cp->flags |= ALIGN_DEFAULT;
@@ -132,7 +132,7 @@ void del_nrange(rangeref_t rr) {
         r->r_prev->r_next = r->r_next;
     else
         rng_base = r->r_next;
-    free_string(r->r_name);
+    string_free(r->r_name);
     scxfree(r);
     modflg++;
 }
@@ -146,7 +146,7 @@ void clean_nrange(void) {
 
     while (r) {
         nextr = r->r_next;
-        free_string(r->r_name);
+        string_free(r->r_name);
         scxfree(r);
         r = nextr;
     }
