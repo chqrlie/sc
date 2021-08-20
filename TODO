@@ -18,8 +18,14 @@ Evaluator:
 [ ] add refcounted formula objects
 [ ] chain cells with formulas into a linked list or dependency tree
 [?] stack based dynamic type interpreter
+[ ] rename string functions as string_xxx
+[ ] implement code string functions as string_xxx and call from eval_xxx
+[ ] implement int arguments with constraints
 
 Parser:
+[ ] accept TRUE and FALSE as keywords without ()
+[ ] allocate NULL arguments for optional arguments
+[ ] set NULL arguments for omitted arguments
 [ ] define precise semantics for words in lexer (ie: `3rdrow`)
 [?] compile to bytecode
 [ ] use hash table to match function names
@@ -52,6 +58,7 @@ Database:
 [ ] add undo / autobackup of things typed in. (use command log)
 
 Update:
+[ ] truncate cell value display (both formula and string value)
 [ ] rewrite update() function in screen.c from scratch in a more sane manner
 	(the current one is buggy and a headache to debug)
 [ ] update() should not have a side effect on currow/curcol

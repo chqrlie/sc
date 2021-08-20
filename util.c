@@ -345,6 +345,24 @@ size_t strtrim(char *s) {
     return len;
 }
 
+#define UNCONSTIFY(t, v) ((t)(uintptr_t)(v))
+
+char *str_case_str(const char *s1, const char *s2) {
+    unsigned char c1, c2 = toupperchar(*s2++);
+    size_t i;
+    if (!c2) return UNCONSTIFY(char *, s1);
+    while ((c1 = toupperchar(*s1++)) != '\0') {
+        if (c1 == c2) {
+            for (i = 0;; i++) {
+                if (!s2[i]) return UNCONSTIFY(char *, s1 - 1);
+                if (toupperchar(s1[i]) != toupperchar(s2[i]))
+                    break;
+            }
+        }
+    }
+    return NULL;
+}
+
 /* return a pointer to the basename portion of the filename */
 char *get_basename(const char *filename) {
     char *p = strchr(filename, *filename); // silent cast

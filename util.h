@@ -55,6 +55,7 @@ extern size_t pstrcat(char *dst, size_t dstsize, const char *src);
 extern size_t strsplice(char *dst, size_t size, size_t from, size_t len1,
                         const char *src, size_t len2);
 extern size_t strtrim(char *s);
+extern char *str_case_str(const char *s1, const char *s2);
 extern char *get_basename(const char *filename);
 extern char *get_extension(const char *filename);
 
