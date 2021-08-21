@@ -252,10 +252,11 @@ static SCXMEM string_t *get_strarg(cellref_t cr) {
 %right ';'
 %left '|'
 %left '&'
-%nonassoc '<' '=' '>' '!' T_LE T_GE T_NE T_LG
+%nonassoc '<' '=' '>' T_LE T_GE T_NE T_LG
 %left '+' '-' '#'
 %left '*' '/' '%'
 %left '^'
+%left '!'
 %left ':'
 
 %%
@@ -569,6 +570,7 @@ e:        e '+' e                   { $$ = new_op2(OP_PLUS, $1, $3); }
         | e '*' e                   { $$ = new_op2(OP_STAR, $1, $3); }
         | e '/' e                   { $$ = new_op2(OP_SLASH, $1, $3); }
         | e '^' e                   { $$ = new_op2(OP_CARET, $1, $3); }
+        | e '!' e                   { $$ = new_op2(OP_BANG, $1, $3); }
         | e ':' e                   { $$ = new_op2(OP_COLON, $1, $3); }
         | term
         | e '&' e                   { $$ = new_op2(OP_AMPERSAND, $1, $3); }

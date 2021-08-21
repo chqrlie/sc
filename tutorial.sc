@@ -83,6 +83,7 @@ let K14 = @second(K$8)
 leftstring B15 = "^n, j and the <DOWN> arrow key go down"
 let I15 = @max(I9:I14)
 leftstring B16 = "^p, k and the <UP> arrow key go up"
+let G16 = @sum(I8:I14!A10:K10)
 leftstring I16 = @datefmt(I8)
 leftstring B17 = "^b, h and the <LEFT> arrow key go left"
 leftstring I17 = @datefmt(I8,"%Y-%m-%d %H:%M:%S")
@@ -97,8 +98,10 @@ let I21 = @sum(I9:I14)
 let J21 = @sum(J9:J14)
 let K21 = @sum(K9:K14)
 leftstring A22 = "Most of the cells on this page contain text."
+let H22 = "<>"
 let I22 = -2^2
 leftstring C23 = "<Type 'g page2' to continue>"
+let H23 = @countif(H8:H15,H22)
 leftstring A25 = "Cell d22 contains text"
 leftstring D25 = "Text "
 leftstring A26 = "Cell d23 contains a number"
@@ -183,4 +186,4 @@ leftstring A89 = "The basic commands.  Much more detail is available"
 leftstring A90 = "in the man page."
 leftstring A92 = "To quit this program, type 'q'."
 leftstring D94 = "GOOD LUCK!"
-goto H21 A0
+goto G16 A0

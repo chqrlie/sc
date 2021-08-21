@@ -497,6 +497,17 @@ char *get_extension(const char *filename) {
 
 /*---------------- simple case handling ----------------*/
 
+int sc_strcasecmp(const char *a, const char *b) {
+    int aa, bb;
+    for (;;) {
+        aa = tolowerchar(*a++);
+        bb = tolowerchar(*b++);
+        if (aa != bb || aa == 0)
+            break;
+    }
+    return aa - bb;
+}
+
 int sc_strncasecmp(const char *a, const char *b, size_t n) {
     int aa = 0, bb = 0;
     while (n --> 0) {

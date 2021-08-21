@@ -74,6 +74,7 @@ extern char *get_extension(const char *filename);
 static inline int isalphachar_(char c) { return isalphachar(c) || c == '_'; }
 static inline int isalnumchar_(char c) { return isalnumchar(c) || c == '_'; }
 
+extern int sc_strcasecmp(const char *a, const char *b);
 extern int sc_strncasecmp(const char *a, const char *b, size_t n);
 extern char *sc_strcasestr(const char *s1, const char *s2);
 

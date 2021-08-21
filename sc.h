@@ -287,6 +287,9 @@ extern struct opdef const opdefs[];
 #define ERROR_NAME  5  // #NAME?  Unrecognized/deleted name.
 #define ERROR_NUM   6  // #NUM!   Failed to meet domain constraints (e.g., input was too large or too small).
 #define ERROR_NA    7  // #N/A    Not available. ISNA() returns TRUE for this value. Used for Lookup functions which fail.
+#define ERROR_MEM   8  // #MEM!   Memory allocation error.
+#define ERROR_INT   9  // #INT!   Internal error.
+#define ERROR_count 10
 
 /* calculation order */
 #define BYCOLS 1
