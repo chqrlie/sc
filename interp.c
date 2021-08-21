@@ -631,6 +631,7 @@ static scvalue_t eval_lookup(eval_ctx_t *cp, enode_t *e) {
             err = rr.u.error;
             break;
         }
+        dest = rr;
         ncols = rr.u.rr.right.col - rr.u.rr.left.col + 1;
         nrows = rr.u.rr.right.row - rr.u.rr.left.row + 1;
         if (e->op == OP_MATCH) {
@@ -665,7 +666,6 @@ static scvalue_t eval_lookup(eval_ctx_t *cp, enode_t *e) {
             }
         } else {
             /* op is OP_HLOOKUP or OP_VLOOKUP */
-            dest = rr;
             offset = eval_int(cp, e->e.args[2], 1, INT_MAX, &err);
             if (e->nargs > 3 && !eval_num(cp, e->e.args[3], &err))
                 sorted = 0;
