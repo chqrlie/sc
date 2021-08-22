@@ -168,13 +168,14 @@ struct enode {
 #define OP_TYPE_RANGE   2
 #define OP_TYPE_DOUBLE  3
 #define OP_TYPE_STRING  4
-    unsigned short nargs;
+#define OP_TYPE_ERROR   5
+    short nargs;
     union {
-        int gram_match;         /* some compilers (hp9000ipc) need this */
-        double k;               /* constant # */
-        struct ent_ptr v;       /* ref. another cell */
-        struct range_s r;       /* op is on a range */
-        SCXMEM string_t *s;     /* op is a string constant */
+        int error;                  /* error number */
+        double k;                   /* constant # */
+        struct ent_ptr v;           /* ref. another cell */
+        struct range_s r;           /* op is on a range */
+        SCXMEM string_t *s;         /* op is a string constant */
         SCXMEM enode_t *args[1];    /* flexible array of arguments */
     } e;
 };
@@ -556,13 +557,14 @@ extern struct abbrev *find_abbr(const char *abbrev, int len, struct abbrev **pre
 extern enode_t *copye(enode_t *e, int Rdelta, int Cdelta,
                       int r1, int c1, int r2, int c2, int transpose);
 
-extern SCXMEM enode_t *new_op0(int op);
+extern SCXMEM enode_t *new_op0(int op, int nargs);
 extern SCXMEM enode_t *new_op1(int op, SCXMEM enode_t *a1);
 extern SCXMEM enode_t *new_op1x(int op, SCXMEM enode_t *a1, SCXMEM enode_t *a2);
 extern SCXMEM enode_t *new_op2(int op, SCXMEM enode_t *a1, SCXMEM enode_t *a2);
 extern SCXMEM enode_t *new_op3(int op, SCXMEM enode_t *a1,
                                SCXMEM enode_t *a2, SCXMEM enode_t *a3);
 extern SCXMEM enode_t *new_const(double v);
+extern SCXMEM enode_t *new_error(int error);
 extern SCXMEM enode_t *new_range(rangeref_t rr);
 extern SCXMEM enode_t *new_str(SCXMEM string_t *s);
 extern SCXMEM enode_t *new_var(cellref_t cr);

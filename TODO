@@ -8,10 +8,14 @@ Tests:
 Evaluator:
 [ ] fix operator priorities
 [ ] use opdefs for precedence level in decompiler
-[ ] use infix operators from OASIS spec
+[+] use infix operators from OASIS spec
 [ ] improve date/time representation and formatting
 [ ] fix API for @date, @row...
 [ ] use more efficient API to enumerate ranges
+[ ] add complex functions
+[ ] add bessel functions
+[ ] add stat functions
+[ ] add financial functions
 [+] change expression functions for API compatibility
 [ ] add inline vectors, columns and matrices in expressions
 [ ] change cell references to relative and absolute coordinates
@@ -21,8 +25,7 @@ Evaluator:
 [?] stack based dynamic type interpreter
 
 Parser:
-[ ] accept TRUE and FALSE as tokens without ()
-[ ] accept error names as tokens
+[ ] merge edits() and editv()
 [ ] allocate NULL arguments for optional arguments
 [ ] set NULL arguments for omitted arguments
 [ ] define precise semantics for words in lexer (ie: `3rdrow`)
@@ -136,3 +139,5 @@ Commands:
 [X] implement code string functions as string_xxx and call from eval_xxx
 [X] add reference intersection operator (!)
 [X] only support simple string expressions for xxxIF functions
+[X] accept TRUE and FALSE as tokens without ()
+[X] accept error names as tokens

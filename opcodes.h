@@ -20,6 +20,7 @@ OP( OP_DUMMY,           -2, 2, NULL, NULL, NULL, NULL)
 
 /* constants and references */
 OP( OP__NUMBER,         -2, 0, eval__number, NULL, NULL, NULL)
+OP( OP__ERROR,          -2, 0, eval__error, NULL, NULL, NULL)
 OP( OP__STRING,         -2, 0, eval__string, NULL, NULL, NULL)
 OP( OP__VAR,            -2, 0, eval__var, NULL, NULL, NULL)
 OP( OP__RANGE,          -2, 0, eval__range, NULL, NULL, NULL)
@@ -64,7 +65,6 @@ OP( OP_UMINUS,          -3, 0, eval_neg, NULL, "-", NULL)
 OP( OP_UPLUS,           -3, 0, eval_other, NULL, "+", NULL)
 OP( OP_PERCENT,         -4, 1, eval_fn1, math_percent, "%", NULL)
 
-XX( OP_SHARP,           -3, 2, eval_concat, NULL, "#", NULL)
 XX( OP_COMMA,           -3, 2, NULL, NULL, ",", NULL)
 
 /* 6.5 Matrix functions */
@@ -153,11 +153,11 @@ OP( OP_MINUTE,          1, 1, eval_tc, NULL, "MINUTE(time)", "Returns the minute
 OP( OP_MONTH,           1, 1, eval_tc, NULL, "MONTH(date)", "Returns the month of the year a specific date falls in, in numeric format")
 __( OP_NETWORKDAYS,     2, 3, NULL, NULL, "NETWORKDAYS(start_date, end_date, [holidays])", "Returns the number of net working days between two provided days")
 __( OP_NETWORKDAYS_INTL, 2, 4, NULL, NULL, "NETWORKDAYS.INTL(start_date, end_date, [weekend], [holidays])", " Returns the number of net working days between two provided days excluding specified weekend days and holidays")
-OP( OP_NOW,             -1, 0, eval_now, NULL, "NOW()", "Returns the current date and time as a date value")
+OP( OP_NOW,             0, 0, eval_now, NULL, "NOW()", "Returns the current date and time as a date value")
 OP( OP_SECOND,          1, 1, eval_tc, NULL, "SECOND(time)", "Returns the second component of a specific time, in numeric format")
 OP( OP_TIME,            3, 3, eval_fn3, time3, "TIME(hour, minute, second)", "Converts a provided hour, minute, and second into a time")
 __( OP_TIMEVALUE,       1, 1, NULL, NULL, "TIMEVALUE(time_string)", "Returns the fraction of a 24-hour day the time represents")
-__( OP_TODAY,           -1, 0, NULL, NULL, "TODAY()", "Returns the current date as a date value")
+__( OP_TODAY,           0, 0, NULL, NULL, "TODAY()", "Returns the current date as a date value")
 __( OP_WEEKDAY,         1, 2, NULL, NULL, "WEEKDAY(date, [type])", "Returns a number representing the day of the week of the date provided")
 __( OP_WEEKNUM,         1, 2, NULL, NULL, "WEEKNUM(date, [type])", "Returns a number representing the week of the year where the provided date falls")
 __( OP_WORKDAY,         2, 3, NULL, NULL, "WORKDAY(start_date, num_days, [holidays])", "Calculates the end date after a specified number of working days")
@@ -259,7 +259,7 @@ OP( OP_ISODD,           1, 1, eval_iseven_odd, NULL, "ISODD(value)", "Checks whe
 OP( OP_ISREF,           1, 1, eval_isref, NULL, "ISREF(value)", "Checks whether a value is a valid cell reference")
 OP( OP_ISTEXT,          1, 1, eval_istext, NULL, "ISTEXT(value)", "Checks whether a value is text")
 __( OP_N,               1, 1, NULL, NULL, "N(value)", "Returns the argument provided as a number")
-OP( OP_NA,              -1, 0, eval_other, NULL, "NA()", "Returns the 'value not available' error, `#N/A`")
+OP( OP_NA,              0, 0, eval_other, NULL, "NA()", "Returns the 'value not available' error, `#N/A`")
 __( OP_NUMBERVALUE,     1, 3, NULL, NULL, "NUMBERVALUE(text, [decimalseparator, [groupseparator]])", "Convert text to number, in a locale-independent way.")
 OP( OP_ROW,             0, 1, eval_row_col, NULL, "ROW([cell_reference])", "Returns the row number of a specified cell")
 OP( OP_ROWS,            1, 1, eval_rows_cols, NULL, "ROWS(range)", "Returns the number of rows in a specified array or range")
@@ -270,15 +270,12 @@ __( OP_VALUE,           1, 1, NULL, NULL, "VALUE(text)", "Converts a string in a
 
 XX( OP_COLS,            1, 1, eval_rows_cols, NULL, "@cols", NULL)
 XX( OP_COLTOA,          1, 1, eval_coltoa, NULL, "@coltoa", NULL)
-XX( OP_ERR,             -1, -1, eval_other, NULL, "@err", NULL)
-XX( OP_ERRNUM,          -1, -1, eval_other, NULL, "@errnum", NULL)
-XX( OP_ERRREF,          -1, -1, eval_other, NULL, "@errref", NULL)
 XX( OP_FILENAME,        1, 1, eval_filename, NULL, "@filename", NULL)
-XX( OP_LASTCOL,         -1, -1, eval_other, NULL, "@lastcol", NULL)
-XX( OP_LASTROW,         -1, -1, eval_other, NULL, "@lastrow", NULL)
-XX( OP_MYCOL,           -1, -1, eval_other, NULL, "@mycol", NULL)
-XX( OP_MYROW,           -1, -1, eval_other, NULL, "@myrow", NULL)
-XX( OP_NUMITER,         -1, -1, eval_other, NULL, "@numiter", NULL)
+XX( OP_LASTCOL,         0, 0, eval_other, NULL, "@lastcol", NULL)
+XX( OP_LASTROW,         0, 0, eval_other, NULL, "@lastrow", NULL)
+XX( OP_MYCOL,           0, 0, eval_other, NULL, "@mycol", NULL)
+XX( OP_MYROW,           0, 0, eval_other, NULL, "@myrow", NULL)
+XX( OP_NUMITER,         0, 0, eval_other, NULL, "@numiter", NULL)
 XX( OP_NVAL,            2, 2, eval_nval, NULL, "@nval", NULL)
 XX( OP_STON,            1, 1, eval_ston, NULL, "@ston", NULL)
 XX( OP_SVAL,            2, 2, eval_sval, NULL, "@sval", NULL)
@@ -298,7 +295,7 @@ OP( OP_VLOOKUP,         3, 4, eval_lookup, NULL, "VLOOKUP(search_key, range, ind
 
 /* 6.15 Logical Functions */
 OP( OP_AND,             1, -1, eval_and, NULL, "AND(logical_expression1, [logical_expression2, ...])", "Returns true if all of the provided arguments are logically true, and false if any of the provided arguments are logically false")
-OP( OP_FALSE,           -1, 0, eval_other, NULL, "FALSE()", "Returns the logical value `FALSE`")
+OP( OP_FALSE,           0, 0, eval_other, NULL, "FALSE()", "Returns the logical value `FALSE`")
 OP( OP_IF,              3, 3, eval_if, NULL, "IF(logical_expression, [value_if_true, [value_if_false]])", "Returns one value if a logical expression is `TRUE` and another if it is `FALSE`")
 OP( OP_IFERROR,         1, 2, eval_iferror, NULL, "IFERROR(value, [value_if_error])", "Returns the first argument if it is not an error value, otherwise returns the second argument if present, or a blank if the second argument is absent")
 OP( OP_IFNA,            2, 2, eval_iferror, NULL, "IFNA(value, value_if_na)", "Evaluates a value. If the value is an #N/A error, returns the specified value.")
@@ -306,7 +303,7 @@ LO( OP_IFS,             2, -1, NULL, NULL, "IFS(condition1, value1, [condition2,
 OP( OP_NOT,             1, 1, eval_not, NULL, "NOT(logical_expression)", "Returns the opposite of a logical value - `NOT(TRUE)` returns `FALSE`; `NOT(FALSE)` returns `TRUE`")
 OP( OP_OR,              1, -1, eval_or, NULL, "OR(logical_expression1, [logical_expression2, ...])", "Returns true if any of the provided arguments are logically true, and false if all of the provided arguments are logically false")
 LO( OP_SWITCH,          1, -1, NULL, NULL, "SWITCH(expression, case1, value1, [default or case2, value2], ...)", "Tests an expression against a list of cases and returns the corresponding value of the first matching case, with an optional default value if nothing else is met")
-OP( OP_TRUE,            -1, 1, eval_other, NULL, "TRUE()", "Returns the logical value `TRUE`")
+OP( OP_TRUE,            0, 0, eval_other, NULL, "TRUE()", "Returns the logical value `TRUE`")
 OP( OP_XOR,             1, -1, eval_xor, NULL, "XOR(logical_expression1, [logical_expression2, ...])", "The XOR function performs an exclusive or of 2 numbers that returns a 1 if the numbers are different, and a 0 otherwise.")
 
 /* 6.16 Mathematical Functions */
@@ -356,7 +353,7 @@ OP( OP_LOG10,           1, 1, eval_fn1, log10, "LOG10(value)", "Returns the the 
 OP( OP_MOD,             2, 2, eval_mod, NULL, "MOD(dividend, divisor)", "Returns the result of the modulo operator, the remainder after a division operation")
 __( OP_MULTINOMIAL,     1, -1, NULL, NULL, "MULTINOMIAL(value1, [value2...])", "Returns the factorial of the sum of values divided by the product of the values' factorials")
 OP( OP_ODD,             1, 1, eval_fn1, math_odd, "ODD(value)", "Rounds a number up to the nearest odd integer")
-OP( OP_PI,              -1, 0, eval_pi, NULL, "PI()", "Returns the value of Pi to 14 decimal places")
+OP( OP_PI,              0, 0, eval_pi, NULL, "PI()", "Returns the value of Pi to 14 decimal places")
 OP( OP_POWER,           2, 2, eval_fn2, pow, "POWER(base, exponent)", "Returns a number raised to a power")
 OP( OP_PRODUCT,         1, -1, eval_product, NULL, "PRODUCT(factor1, [factor2, ...])", "Returns the result of multiplying a series of numbers together")
 OP( OP_QUOTIENT,        2, 2, eval_quotient, NULL, "QUOTIENT(dividend, divisor)", "Returns one number divided by another")
@@ -603,14 +600,14 @@ XX( OP_SUBSTR,          3, 3, eval_mid, NULL, "SUBSTR(string, start_char, end_ch
 
 /* SC specific functions */
 
-XX( OP_BLACK,           -1, -1, NULL, NULL, "@black", NULL)
-XX( OP_BLUE,            -1, -1, NULL, NULL, "@blue", NULL)
-XX( OP_CYAN,            -1, -1, NULL, NULL, "@cyan", NULL)
-XX( OP_GREEN,           -1, -1, NULL, NULL, "@green", NULL)
-XX( OP_MAGENTA,         -1, -1, NULL, NULL, "@magenta", NULL)
-XX( OP_RED,             -1, -1, NULL, NULL, "@red", NULL)
-XX( OP_WHITE,           -1, -1, NULL, NULL, "@white", NULL)
-XX( OP_YELLOW,          -1, -1, NULL, NULL, "@yellow", NULL)
+XX( OP_BLACK,           0, 0, NULL, NULL, "@black", NULL)
+XX( OP_BLUE,            0, 0, NULL, NULL, "@blue", NULL)
+XX( OP_CYAN,            0, 0, NULL, NULL, "@cyan", NULL)
+XX( OP_GREEN,           0, 0, NULL, NULL, "@green", NULL)
+XX( OP_MAGENTA,         0, 0, NULL, NULL, "@magenta", NULL)
+XX( OP_RED,             0, 0, NULL, NULL, "@red", NULL)
+XX( OP_WHITE,           0, 0, NULL, NULL, "@white", NULL)
+XX( OP_YELLOW,          0, 0, NULL, NULL, "@yellow", NULL)
 
 #undef OP
 #undef XX

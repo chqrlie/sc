@@ -979,23 +979,23 @@ void update(int anychanged) {          /* did any cell really change in value? *
                     addch(']');
                     addch(' ');
                 }
-                if (p->type == SC_NUMBER) {
-                    /* value is a number */
+                if (p->type == SC_NUMBER) { /* value is a number */
                     snprintf(field, sizeof field, "%.15g", p->v);
                     addstr(field);
                     addch(' ');
                 } else
-                if (p->type == SC_BOOLEAN) {
-                    /* value is logical */
+                if (p->type == SC_BOOLEAN) { /* value is logical */
                     addstr(p->v ? "TRUE" : "FALSE");
                     addch(' ');
                 } else
-                if (p->type == SC_STRING) {
-                    /* value is a string */
+                if (p->type == SC_STRING) { /* value is a string */
                     addch('\"');
                     addstr(s2str(p->label));  // XXX: should encode string?
                     addch('\"');
                     addch(' ');
+                } else
+                if (p->type == SC_ERROR) { /* value is an error */
+                    addstr(error_name[p->cellerror]);
                 }
                 /* Display if cell is locked */
                 if (p->flags & IS_LOCKED)

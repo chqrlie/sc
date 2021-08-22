@@ -136,6 +136,10 @@ static inline scvalue_t scvalue_range(rangeref_t rr) {
     return res;
 }
 
+static scvalue_t eval__error(eval_ctx_t *cp, enode_t *e) {
+    return scvalue_error(e->e.error);
+}
+
 static scvalue_t eval__number(eval_ctx_t *cp, enode_t *e) {
     return scvalue_number(e->e.k);
 }
@@ -2392,9 +2396,6 @@ static scvalue_t eval_other(eval_ctx_t *cp, enode_t *e) {
     case OP_FALSE:      return scvalue_boolean(0); break;
     case OP_TRUE:       return scvalue_boolean(1); break;
     case OP_UPLUS:      return eval_node_value(cp, e->e.args[0]);
-    case OP_ERR:
-    case OP_ERRNUM:     return scvalue_error(ERROR_NUM);
-    case OP_ERRREF:     return scvalue_error(ERROR_REF);
     default:            error("Illegal expression");
                         return scvalue_error(ERROR_INT);
     }
@@ -2610,9 +2611,10 @@ void setautocalc(int i) {
 
 static SCXMEM enode_t *new_node(int op, int nargs) {
     SCXMEM enode_t *p;
-    size_t size = offsetof(enode_t, e) + sizeof(p->e.args) * nargs;
+    size_t size = offsetof(enode_t, e);
     int i;
 
+    if (nargs > 0) size += sizeof(p->e.args) * nargs;
     p = scxmalloc(size > sizeof(enode_t) ? size : sizeof(enode_t));
     if (p) {
         p->op = op;
@@ -2625,8 +2627,8 @@ static SCXMEM enode_t *new_node(int op, int nargs) {
     return p;
 }
 
-SCXMEM enode_t *new_op0(int op) {
-    return new_node(op, 0);
+SCXMEM enode_t *new_op0(int op, int nargs) {
+    return new_node(op, nargs);
 }
 
 SCXMEM enode_t *new_op1(int op, SCXMEM enode_t *a1) {
@@ -2737,9 +2739,21 @@ SCXMEM enode_t *new_const(double v) {
         p->nargs = 0;
         p->e.k = v;
         if (!isfinite(v)) {
-            p->op = OP_ERRNUM;
-            p->type = OP_TYPE_FUNC;
+            p->op = OP__ERROR;
+            p->type = OP_TYPE_ERROR;
+            p->e.error = ERROR_NUM;
         }
+    }
+    return p;
+}
+
+SCXMEM enode_t *new_error(int error) {
+    SCXMEM enode_t *p = scxmalloc(sizeof(enode_t));
+    if (p) {
+        p->op = OP__ERROR;
+        p->type = OP_TYPE_ERROR;
+        p->nargs = 0;
+        p->e.error = error;
     }
     return p;
 }
@@ -2766,10 +2780,8 @@ enode_t *copye(enode_t *e, int Rdelta, int Cdelta,
     if (!(ret = new_node(e->op, e->nargs)))
         return NULL;
 
-    if (e->type == OP_TYPE_RANGE) {
+    if ((ret->type = e->type) == OP_TYPE_RANGE) {
         int newrow, newcol, row, col, vf;
-
-        ret->type = OP_TYPE_RANGE;
 
         vf = e->e.r.left.vf;
         row = e->e.r.left.vp->row;
@@ -2793,8 +2805,6 @@ enode_t *copye(enode_t *e, int Rdelta, int Cdelta,
     if (e->type == OP_TYPE_VAR) {
         int newrow, newcol, row, col, vf;
 
-        ret->type = OP_TYPE_VAR;
-
         vf = e->e.v.vf;
         row = e->e.v.vp->row;
         col = e->e.v.vp->col;
@@ -2806,11 +2816,12 @@ enode_t *copye(enode_t *e, int Rdelta, int Cdelta,
         ret->e.v.vf = vf;
     } else
     if (e->type == OP_TYPE_DOUBLE) {
-        ret->type = OP_TYPE_DOUBLE;
         ret->e.k = e->e.k;
     } else
+    if (e->type == OP_TYPE_ERROR) {
+        ret->e.error = e->e.error;
+    } else
     if (e->type == OP_TYPE_STRING) {
-        ret->type = OP_TYPE_STRING;
         ret->e.s = string_dup(e->e.s);
     } else
     if (e->type == OP_TYPE_FUNC) {
@@ -2834,6 +2845,8 @@ static int constant_expr(enode_t *e, int full) {
     if (e == NULL
     ||  e->op == OP__NUMBER
     ||  e->op == OP__STRING
+    ||  e->op == OP__ERROR
+    ||  ((e->op == OP_TRUE || e->op == OP_FALSE) && e->nargs < 0)
     ||  (e->op == OP_UMINUS && constant_expr(e->e.args[0], 0))) /* unary minus */
         return TRUE;
 
@@ -2987,6 +3000,10 @@ static void out_string(decomp_t *dcp, const char *s) {
     buf_quotestr(dcp->buf, '"', s, '"');
 }
 
+static void out_error(decomp_t *dcp, int err) {
+    buf_puts(dcp->buf, error_name[err]);
+}
+
 static void out_var(decomp_t *dcp, struct ent_ptr v, int usename) {
     int row, col;
     struct nrange *r;
@@ -3042,10 +3059,11 @@ static void out_func(decomp_t *dcp, const char *s, enode_t *e) {
         while (*s && *s != '(')
             buf_putc(dcp->buf, tolowerchar(*s++));
     }
-    if (e) {
-        int i, sep = '(';
-        for (i = 0; i < e->nargs; i++, sep = ',') {
-            buf_putc(dcp->buf, sep);
+    if (e && e->nargs >= 0) {
+        int i;
+        buf_putc(dcp->buf, '(');
+        for (i = 0; i < e->nargs; i++) {
+            if (i) buf_putc(dcp->buf, ',');
             decompile_node(dcp, e->e.args[i], 0);
         }
         buf_putc(dcp->buf, ')');
@@ -3077,8 +3095,9 @@ static void decompile_node(decomp_t *dcp, enode_t *e, int priority) {
     case OP__STRING:    out_string(dcp, s2c(e->e.s));   break;
     case OP__VAR:       out_var(dcp, e->e.v, 1);        break;
     case OP__RANGE:     out_range(dcp, e);              break;
+    case OP__ERROR:     out_error(dcp, e->e.error);     break;
     case OP_UMINUS:
-    case OP_UPLUS:      out_prefix(dcp, opp->name, e); break;
+    case OP_UPLUS:      out_prefix(dcp, opp->name, e);  break;
     case OP_SEMI:       out_infix(dcp, opp->name, e, priority, 1); break;
     case OP_EQ:
     case OP_NE:
@@ -3087,7 +3106,6 @@ static void decompile_node(decomp_t *dcp, enode_t *e, int priority) {
     case OP_LE:
     case OP_GE:
     case OP_GT:         out_infix(dcp, opp->name, e, priority, 6); break;
-    case OP_SHARP:
     case OP_AMPERSAND:  out_infix(dcp, opp->name, e, priority, 7); break;
     case OP_PLUS:
     case OP_MINUS:      out_infix(dcp, opp->name, e, priority, 8); break;

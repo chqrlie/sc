@@ -89,6 +89,7 @@ struct key {
 // XXX: should warp in a structure for recursive calls to parse_line()
 static const char *src_line;
 static const char *src_pos;
+static sc_bool_t isexpr;
 static sc_bool_t isgoto;
 static sc_bool_t issetting;
 static sc_bool_t colstate;
@@ -99,6 +100,7 @@ int parse_line(const char *buf) {
     while (isspacechar(*buf))
         buf++;
     src_pos = src_line = buf;
+    isexpr = 0;
     isgoto = 0;
     issetting = 0;
     colstate = 0;
@@ -240,7 +242,6 @@ static int lookup_fname(const char *p, int len, int *pop) {
         if (!sc_strncasecmp(fname, p, len) && (fname[len] == '\0' || fname[len] == '(')) {
             *pop = op;
             switch (opp->min) {
-            case -1:    return FUNC0;
             case 0:     if (opp->max == 0) return FUNC0;
                         if (opp->max == 1) return FUNC01;
                         break;
@@ -324,7 +325,7 @@ int yylex(void) {
     char path[PATHLEN];
     const char *p = src_pos;
     const char *p0;
-    int ret = -1, len;
+    int ret = -1, len, op;
     sc_bool_t isfunc = 0;
     struct nrange *r;
 
@@ -342,6 +343,9 @@ int yylex(void) {
             ret = -1;
             break;
         }
+        if (*p == '=')
+            isexpr = 1;
+
         if (*p == '@' && isalphachar_(p[1])) {
             isfunc = 1;
             p++;
@@ -360,22 +364,28 @@ int yylex(void) {
                     colstate = (ret <= S_FORMAT);
                     if (ret == S_GOTO) isgoto = 1;
                     if (ret == S_SET) issetting = 1;
+                    if (ret == S_EVAL || ret == S_SEVAL) isexpr = 1;
                     break;
                 }
+                // XXX: otherwise unknown command?
             }
-            if (isfunc || *p == '(') {
-                isfunc = 0;
-                if ((ret = lookup_fname(p0, p - p0, &yylval.ival)) >= 0)
-                    break;
-#if 0
-                if ((ret = lookup_name(funcres, countof(funcres), p0, p - p0, &yylval.ival)) >= 0)
-                    break;
-#endif
-                // XXX: should accept unknown function name and create node
-                //      for later re-editing the formula and/or saving it.
-                yylval.ival = ret = '@'; // unknown function name, return single '@'
-                p = p0 + 1;
-                break;
+            if (isexpr) {
+                if ((ret = lookup_fname(p0, p - p0, &op)) >= 0) {
+                    if (isfunc || *p == '(' || op == OP_TRUE || op == OP_FALSE) {
+                        yylval.ival = op;
+                        isfunc = 0;
+                        break;
+                    }
+                } else {
+                    // XXX: should accept unknown function name and create node
+                    //      for later re-editing the formula and/or saving it.
+                    if (isfunc) {
+                        isfunc = 0;
+                        yylval.ival = ret = '@'; // unknown function name, return single '@'
+                        p = p0 + 1;
+                        break;
+                    }
+                }
             }
             if (parse_cellref(p0, &yylval.cval, &len) && len == p - p0) {
                 cellref_t c2;
@@ -500,8 +510,8 @@ int yylex(void) {
                     yylval.fval = strtod(nstart, &endp);
                     p = endp;
                     if (!isfinite(yylval.fval)) {
-                        yylval.ival = OP_ERRNUM;
-                        ret = FUNC0;
+                        yylval.ival = ERROR_NUM;
+                        ret = T_ERROR;
                     } else {
                         sc_decimal = TRUE;
                     }
@@ -520,6 +530,21 @@ int yylex(void) {
             }
             signal(SIGFPE, sig_save);
             break;
+        } else
+        if (*p == '#') {
+            int i;
+            for (i = 1; i < ERROR_count; i++) {
+                len = strlen(error_name[i]);
+                if (!sc_strncasecmp(p, error_name[i], len)) {
+                    p += len;
+                    yylval.ival = i;
+                    ret = T_ERROR;
+                    break;
+                }
+            }
+            if (i == ERROR_count) {
+                yylval.ival = ret = *p++;
+            }
         } else
         if (*p == '"') {
             const char *p1;

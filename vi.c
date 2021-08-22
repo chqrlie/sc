@@ -3818,10 +3818,13 @@ int editv(buf_t buf, int row, int col, struct ent *p, int dcp_flags) {
         } else
         if (p->type == SC_BOOLEAN) {
             // XXX: should translate?
-            buf_printf(buf, "%s", p->v ? "FALSE" : "TRUE");
+            buf_puts(buf, p->v ? "TRUE" : "FALSE");
         } else
         if (p->type == SC_STRING) {
             buf_quotestr(buf, '"', s2str(p->label), '"');
+        } else
+        if (p->type == SC_ERROR) {
+            buf_puts(buf, error_name[p->cellerror]);
         }
     }
     return buf->len;
@@ -3850,10 +3853,13 @@ int edits(buf_t buf, int row, int col, struct ent *p, int dcp_flags) {
         } else
         if (p->type == SC_BOOLEAN) {
             // XXX: should translate?
-            len = buf_printf(buf, "%s", p->v ? "FALSE" : "TRUE");
+            len = buf_puts(buf, p->v ? "TRUE" : "FALSE");
         } else
         if (p->type == SC_STRING) {
             len = buf_quotestr(buf, '"', s2str(p->label), '"');
+        } else
+        if (p->type == SC_ERROR) {
+            len = buf_puts(buf, error_name[p->cellerror]);
         }
     }
     if (!len) {

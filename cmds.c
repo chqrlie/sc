@@ -1576,9 +1576,9 @@ static void sync_expr(enode_t *e) {
         break;
     case OP_TYPE_VAR:
         if (e->e.v.vp->flags & IS_CLEARED) {
-            e->op = OP_ERRREF;
-            e->type = OP_TYPE_FUNC;
-            e->nargs = 0;
+            e->op = OP__ERROR;
+            e->type = OP_TYPE_ERROR;
+            e->e.error = ERROR_REF;
         } else
         if (e->e.v.vp->flags & MAY_SYNC) {
             e->e.v.vp = lookat(e->e.v.vp->row, e->e.v.vp->col);

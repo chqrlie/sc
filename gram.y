@@ -86,7 +86,7 @@ static SCXMEM string_t *get_strarg(cellref_t cr) {
 %type <enode> e term expr_list
 %type <ival> noval
 %token <sval> STRING
-%token <ival> NUMBER
+%token <ival> NUMBER T_ERROR
 %token <fval> FNUMBER
 %token <rval> RANGE
 %token <cval> VAR
@@ -246,14 +246,13 @@ static SCXMEM string_t *get_strarg(cellref_t cr) {
 %token K_LOCALE
 %token K_EMACS
 
-%token <ival> T_GE T_LE T_LG T_NE
-%token <ival> '+' '-' '*' '/' '%' '^'
+//%token <ival> T_GE T_LE T_LG T_NE
+//%token <ival> '+' '-' '*' '/' '%' '^'
 
 %right ';'
-%left '|'
 %left '&'
 %nonassoc '<' '=' '>' T_LE T_GE T_NE T_LG
-%left '+' '-' '#'
+%left '+' '-'
 %left '*' '/' '%'
 %left '^'
 %left '!'
@@ -534,17 +533,18 @@ noval:                                  { $$ = DCP_DEFAULT; }
 
 term:         VAR                       { $$ = new_var($1); }
         |     RANGE                     { $$ = new_range($1); }
+        |     NUMBER                    { $$ = new_const((double)$1); }
+        |     FNUMBER                   { $$ = new_const($1); }
+        |     STRING                    { $$ = new_str($1); }
+        |     T_ERROR                   { $$ = new_error($1); }
         |     '(' e ')'                 { $$ = $2; }
         |     '+' term                  { $$ = new_op1(OP_UPLUS, $2); }
         |     '-' term                  { $$ = new_op1(OP_UMINUS, $2); }
         |     term '%'                  { $$ = new_op1(OP_PERCENT, $1); }
-        |     NUMBER                    { $$ = new_const((double)$1); }
-        |     FNUMBER                   { $$ = new_const($1); }
-        |     STRING                    { $$ = new_str($1); }
-        | FUNC0 '(' ')'                 { $$ = new_op0($1); }
-        | FUNC0                         { $$ = new_op0($1); }
-        | FUNC01 '(' ')'                { $$ = new_op0($1); }
-        | FUNC01                        { $$ = new_op0($1); }
+        | FUNC0 '(' ')'                 { $$ = new_op0($1, 0); }
+        | FUNC0                         { $$ = new_op0($1, -1); }
+        | FUNC01 '(' ')'                { $$ = new_op0($1, 0); }
+        | FUNC01                        { $$ = new_op0($1, -1); }
         | FUNC01 '(' e ')'              { $$ = new_op1($1, $3); }
         | FUNC1 '(' e ')'               { $$ = new_op1($1, $3); }
         | FUNC12 '(' e ')'              { $$ = new_op1($1, $3); }
@@ -574,7 +574,6 @@ e:        e '+' e                   { $$ = new_op2(OP_PLUS, $1, $3); }
         | e ':' e                   { $$ = new_op2(OP_COLON, $1, $3); }
         | term
         | e '&' e                   { $$ = new_op2(OP_AMPERSAND, $1, $3); }
-        | e '#' e                   { $$ = new_op2(OP_SHARP, $1, $3); }
         | e ';' e                   { $$ = new_op2(OP_SEMI, $1, $3); }
         | e '<' e                   { $$ = new_op2(OP_LT, $1, $3); }
         | e '=' e                   { $$ = new_op2(OP_EQ, $1, $3); }
