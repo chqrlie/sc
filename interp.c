@@ -1318,23 +1318,23 @@ static short const date_moffset[] = {
 /* 303 full years, 75-3 leap years (1700, 1800, 1900 are non leap) */
 #define DATE_FROM_1601  (303 * 365 + 75 - 3)
 
-static inline sclong_t floor_div(sclong_t a, sint64_t b) {
+static inline sclong_t floor_div(sclong_t a, sclong_t b) {
     /* integer division rounding toward -Infinity */
     return a / b - (a % b < 0);
 }
 
-static int64_t days_from_year(int64_t y) {
+static sclong_t days_from_year(sclong_t y) {
     return 365 * (y - 1904) + floor_div(y - 1901, 4) -
         floor_div(y - 1901, 100) + floor_div(y - 1601, 400);
 }
 
-static int64_t days_in_year(int64_t y) {
+static sclong_t days_in_year(sclong_t y) {
     return 365 + !(y % 4) - !(y % 100) + !(y % 400);
 }
 
 /* return the year, update days */
-static int64_t year_from_days(int *days) {
-    int64_t y, d1, nd, d = *days;
+static sclong_t year_from_days(int *days) {
+    sclong_t y, d1, nd, d = *days;
     y = floor_div(d * 10000, 3652425) + 1904;
     /* the initial approximation is very good, so only a few
        iterations are necessary */
