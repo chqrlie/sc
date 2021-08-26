@@ -59,7 +59,7 @@ static int RealEvalOne(struct ent *p, enode_t *e, int i, int j);
 #ifdef RINT
 double rint(double d);
 #endif
-static sigret_t eval_fpe(int);
+static sigret_t eval_fpe(int n);
 
 #ifndef M_PI
 #define M_PI (double)3.14159265358979323846
@@ -174,13 +174,14 @@ static int eval_int(eval_ctx_t *cp, enode_t *e, int minvalue, int maxvalue, int 
     double v = eval_num(cp, e, errp);
     if (!*errp && (v < (double)minvalue || v >= (double)maxvalue + 1.0))
         *errp = ERROR_NUM;
-    return (int)v;
+    return (int)floor(v);
 }
 
 static sclong_t eval_long(eval_ctx_t *cp, enode_t *e, int *errp) {
-    // XXX: simplify this if SC_LONG becomes a value type
-    // XXX: check rounding issues
-    return (sclong_t)eval_num(cp, e, errp);
+    double v = eval_num(cp, e, errp);
+    if (!*errp && (v < (double)SCLONG_MIN || v >= (double)SCLONG_MAX + 1.0))
+        *errp = ERROR_NUM;
+    return (sclong_t)floor(v);
 }
 
 static SCXMEM string_t *eval_str(eval_ctx_t *cp, enode_t *e, int *errp) {
@@ -1304,81 +1305,267 @@ static scvalue_t eval_sumif(eval_ctx_t *cp, enode_t *ep) {
 
 /*---------------- date and time functions ----------------*/
 
-// XXX: should accept 6 or 7 arguments
-// XXX: should use integral part for day and fraction for time.
-//      which may be incorrect for DST time adjustments.
-static scvalue_t eval_date(eval_ctx_t *cp, enode_t *e) {
-    int err = 0;
-    int yr = eval_int(cp, e->e.args[0], 1904, 9956, &err);
-    int mo = eval_int(cp, e->e.args[1], 1, 10000, &err);
-    int day = eval_int(cp, e->e.args[2], 1, 100000, &err);
-    time_t secs;
-    struct tm t;
+//static short const month_days[] = { 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 };
+//static char const month_names[] = "JanFebMarAprMayJunJulAugSepOctNovDec";
+//static char const day_names[] = "SunMonTueWedThuFriSat";
+static short const date_moffset[] = {
+    0, 31, 31+28, 31+28+31, 31+28+31+30, 31+28+31+30+31, 31+28+31+30+31+30,
+    31+28+31+30+31+30+31, 31+28+31+30+31+30+31+31, 31+28+31+30+31+30+31+31+30,
+    31+28+31+30+31+30+31+31+30+31, 31+28+31+30+31+30+31+31+30+31+30,
+};
 
-    if (err) return scvalue_error(err);
+/* days from 1601/01/01 to 1903/12/31 inclusive */
+/* 303 full years, 75-3 leap years (1700, 1800, 1900 are non leap) */
+#define DATE_FROM_1601  (303 * 365 + 75 - 3)
 
-    t.tm_hour = t.tm_min = t.tm_sec = 0;
-    t.tm_mon = mo - 1;
-    t.tm_mday = day;
-    t.tm_year = yr - 1900;
-    t.tm_isdst = -1;
-
-    // XXX: should implement proleptic Gregorian calendar ourselves
-    /* mktime() handles out of range values for tm_mon and tm_mday
-     * as a number of months and/or days beyond the date determined
-     * from the other fields.
-     * Dates before 1901/12/31 seem to fail on OS/X.
-     */
-    if ((secs = mktime(&t)) == -1) {
-        error("@date: invalid argument or date out of range");
-        return scvalue_error(ERROR_NUM);
-    }
-    return scvalue_number(secs);
+static inline sclong_t floor_div(sclong_t a, sint64_t b) {
+    /* integer division rounding toward -Infinity */
+    return a / b - (a % b < 0);
 }
 
-static double time3(double hr, double min, double sec) {
-    int seconds = ((int)floor(sec) + (int)floor(min) * 60 + (int)floor(hr) * 3600) % 86400;
-    return seconds < 0 ? 86400 + seconds : seconds;
+static int64_t days_from_year(int64_t y) {
+    return 365 * (y - 1904) + floor_div(y - 1901, 4) -
+        floor_div(y - 1901, 100) + floor_div(y - 1601, 400);
+}
+
+static int64_t days_in_year(int64_t y) {
+    return 365 + !(y % 4) - !(y % 100) + !(y % 400);
+}
+
+/* return the year, update days */
+static int64_t year_from_days(int *days) {
+    int64_t y, d1, nd, d = *days;
+    y = floor_div(d * 10000, 3652425) + 1904;
+    /* the initial approximation is very good, so only a few
+       iterations are necessary */
+    d1 = d - days_from_year(y);
+    for (;;) {
+        if (d1 < 0) {
+            y--;
+            d1 += days_in_year(y);
+        } else {
+            if (d1 < 365 || d1 < (nd = days_in_year(y)))
+                break;
+            d1 -= nd;
+            y++;
+        }
+    }
+    *days = d1;
+    return y;
+}
+
+static int date_leap_year(unsigned y) {
+    return !(y % 100 ? y % 4 : y % 16);
+}
+
+static int date_day_num(int year, int mon, int day) {
+    /* Use proleptic Gregorian calendar day number from 1903/12/31 -> 0 */
+    mon -= 1;
+    year = year + mon / 12;
+    mon = mon % 12;
+    day += days_from_year(year);
+
+    day += date_moffset[mon];
+    return day + (mon >= 2 && date_leap_year(year));
+}
+
+static int date_split(struct tm *tp, int days) {
+    int year, mon, leapday = 0;
+    tp->tm_wday = (days + 4) % 7;  /* 1904/1/1 was a Friday */
+    days -= 1;
+    year = year_from_days(&days);
+    tp->tm_yday = days;
+    if (date_leap_year(year) && days >= date_moffset[1]) {
+        days--;
+        leapday = (days == date_moffset[1]);
+    }
+    mon = ((days >= date_moffset[1])  +
+           (days >= date_moffset[2])  + (days >= date_moffset[3]) +
+           (days >= date_moffset[4])  + (days >= date_moffset[5]) +
+           (days >= date_moffset[6])  + (days >= date_moffset[7]) +
+           (days >= date_moffset[8])  + (days >= date_moffset[9]) +
+           (days >= date_moffset[10]) + (days >= date_moffset[11]));
+    tp->tm_year = year - 1900;
+    tp->tm_mon = mon;
+    tp->tm_mday = days - date_moffset[mon] + leapday + 1;
+
+    return 1;
+}
+
+static double date_time3(double hr, double min, double sec) {
+    return (double)(sec + min * 60 + hr * 3600) / 86400.0;
+}
+
+static double string_todate(SCXMEM string_t *str, int *errp) {
+    char *endp;
+    // XXX: should parse date string
+    double v = strtod(s2c(str), &endp);
+    if (endp == s2c(str) || *endp)
+        *errp = ERROR_VALUE;
+    string_free(str);
+    return v;
+}
+
+static double eval_date_param(eval_ctx_t *cp, enode_t *e, int *errp) {
+    scvalue_t res = eval_node_value(cp, e);
+    if (res.type == SC_NUMBER || res.type == SC_BOOLEAN)
+        return res.u.v;
+    if (res.type == SC_STRING)
+        return string_todate(res.u.str, errp);
+    *errp = res.u.error;
+    return 0;
+}
+
+static double string_totime(SCXMEM string_t *str, int *errp) {
+    char *endp;
+    // XXX: should parse time string or date string
+    double v = strtod(s2c(str), &endp);
+    if (endp == s2c(str) || *endp)
+        *errp = ERROR_VALUE;
+    string_free(str);
+    return v;
+}
+
+static double eval_time_param(eval_ctx_t *cp, enode_t *e, int *errp) {
+    scvalue_t res = eval_node_value(cp, e);
+    if (res.type == SC_NUMBER || res.type == SC_BOOLEAN)
+        return res.u.v;
+    if (res.type == SC_STRING)
+        return string_totime(res.u.str, errp);
+    *errp = res.u.error;
+    return 0;
 }
 
 static scvalue_t eval_now(eval_ctx_t *cp, enode_t *e) {
-    // XXX: should use a more precise time value
-    // XXX: this is completely incorrect. Should return composite time
-    return scvalue_number((double)time(NULL));
-}
-
-static scvalue_t eval_tc(eval_ctx_t *cp, enode_t *e) {
     static time_t t_cache;
-    static struct tm tm_cache;
-    struct tm *tp = &tm_cache;
-    int which = e->op;
-    int err = 0;
-    time_t tloc = (time_t)eval_num(cp, e->e.args[0], &err);
+    static int day_num;
+    static double secs;
+    time_t tloc = time(NULL);
 
-    if (err) return scvalue_error(err);
-
-    // XXX: this primitive cacheing system fails
-    //      as soon as there are more than 1 time value
-    //      and it will fail if the current TZ changes
+    // XXX: this primitive cacheing system will fail if the current TZ changes
+    // XXX: should use a more precise time value
     if (!t_cache || tloc != t_cache) {
-        tp = localtime(&tloc);
+        struct tm *tp = localtime(&tloc);
         if (tp) {
             t_cache = tloc;
-            tm_cache = *tp;
+            day_num = date_day_num(tp->tm_year + 1900, tp->tm_mon + 1, tp->tm_mday);
+            secs = date_time3(tp->tm_hour, tp->tm_min, tp->tm_sec) + (double)day_num;
         }
     }
+    return scvalue_number(e->op == OP_TODAY ? (double)day_num : secs);
+}
 
-    if (tp) {
-        switch (which) {
-        case OP_HOUR:   return scvalue_number(tm_cache.tm_hour);
-        case OP_MINUTE: return scvalue_number(tm_cache.tm_min);
-        case OP_SECOND: return scvalue_number(tm_cache.tm_sec);
-        case OP_MONTH:  return scvalue_number(tm_cache.tm_mon + 1);
-        case OP_DAY:    return scvalue_number(tm_cache.tm_mday);
-        case OP_YEAR:   return scvalue_number(tm_cache.tm_year + 1900);
+static scvalue_t eval_date(eval_ctx_t *cp, enode_t *e) {
+    int err = 0;
+    int year = eval_int(cp, e->e.args[0], 1, 10000, &err);
+    int mon = eval_int(cp, e->e.args[1], 1, 10000, &err);
+    int day = eval_int(cp, e->e.args[2], 1, 100000, &err);
+
+    if (err) return scvalue_error(err);
+    return scvalue_number(date_day_num(year, mon, day));
+}
+
+static unsigned char const date_weekday_delta[] = {
+    0, 0, 6, 5, 0, 0, 0, 0, 0, 0, 0, 6, 5, 4, 3, 2, 1, 0,
+};
+static unsigned char const date_weekday_offset[] = {
+    0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1,
+};
+
+static scvalue_t eval_date_part(eval_ctx_t *cp, enode_t *e) {
+    int err = 0, n = 0, type = 1;
+    double v = eval_date_param(cp, e->e.args[0], &err);
+    struct tm tp[1];
+
+    if (err) return scvalue_error(err);
+    if (v < INT_MIN || v > INT_MAX)
+        return scvalue_error(ERROR_NUM);
+
+    if (date_split(tp, (int)floor(v))) {
+        switch (e->op) {
+        case OP_YEAR:   n = tp->tm_year + 1900; break;
+        case OP_MONTH:  n = tp->tm_mon + 1; break;
+        case OP_DAY:    n = tp->tm_mday; break;
+        case OP_WEEKDAY:
+            if (e->nargs > 1) {
+                type = eval_int(cp, e->e.args[1], 1, 17, &err);
+                if (err) return scvalue_error(ERROR_NUM);
+            }
+            n = (tp->tm_wday + date_weekday_delta[type]) % 7 + date_weekday_offset[type];
+            break;
         }
+
     }
-    return scvalue_error(ERROR_NUM);
+    return scvalue_number(n);
+}
+
+static scvalue_t eval_time_part(eval_ctx_t *cp, enode_t *e) {
+    int err = 0;
+    double d = eval_time_param(cp, e->e.args[0], &err);
+    int n = 0, secs = (int)floor((d - floor(d)) * 86400 + 0.5);
+
+    if (err) return scvalue_error(err);
+    switch (e->op) {
+    case OP_HOUR:   n = secs / 3600; break;
+    case OP_MINUTE: n = secs / 60 % 60; break;
+    case OP_SECOND: n = secs % 60; break;
+    }
+    return scvalue_number(n);
+}
+
+static scvalue_t eval_days(eval_ctx_t *cp, enode_t *e) {
+    int err = 0, european = 0;
+    double a = eval_date_param(cp, e->e.args[0], &err);
+    double b = eval_date_param(cp, e->e.args[1], &err);
+    struct tm tpa[1], tpb[1];
+    if (err) return scvalue_error(err);
+    if (e->op == OP_DAYS) {
+        // XXX: maybe just b-a
+        return scvalue_number(floor(b) - floor(a));
+    }
+    if (e->nargs > 2) {
+        european = eval_test(cp, e->e.args[2], &err);
+        if (err) return scvalue_error(err);
+    }
+    date_split(tpa, (int)floor(a));
+    date_split(tpb, (int)floor(b));
+    tpa->tm_mday -= (tpa->tm_mday == 31);
+    if (european) {
+        tpb->tm_mday -= (tpb->tm_mday == 31);
+    } else {
+        if (tpa->tm_yday == 31 + 28 - 1 + date_leap_year(tpa->tm_year + 1900))
+            tpa->tm_mday = 30;
+        tpb->tm_mday -= (tpb->tm_mday == 31) & (tpa->tm_mday == 30);
+    }
+    return scvalue_number((tpb->tm_year - tpa->tm_year) * 360 +
+                          (tpb->tm_mon - tpa->tm_mon) * 30 + (tpb->tm_mday - tpa->tm_mday));
+}
+
+static scvalue_t eval_datefmt(eval_ctx_t *cp, enode_t *e) {
+    char buff[FBUFLEN];
+    int err = 0;
+    double d = eval_date_param(cp, e->e.args[0], &err);
+    SCXMEM string_t *fmtstr = (e->nargs > 1) ? eval_str(cp, e->e.args[1], &err) : NULL;
+    const char *fmt = fmtstr ? s2c(fmtstr) : "%a %b %d %H:%M:%S %Y";
+
+    if (!err) {
+        struct tm tp[1];
+        int secs = (int)floor((d - floor(d)) * 86400 + 0.5);
+
+        date_split(tp, (int)floor(d));
+        tp->tm_hour = secs / 3600;
+        tp->tm_min = secs / 60 % 60;
+        tp->tm_sec = secs % 60;
+        tp->tm_isdst = 0; /* should compute actual value */
+        // XXX: should check format string
+        ((size_t (*)(char *, size_t, const char *, const struct tm *tm))strftime)
+            (buff, sizeof buff, fmt, tp);
+        string_free(fmtstr);
+        return scvalue_string(string_new(buff));
+    } else {
+        string_free(fmtstr);
+        return scvalue_error(err);
+    }
 }
 
 static scvalue_t eval_ston(eval_ctx_t *cp, enode_t *e) {
@@ -1640,34 +1827,6 @@ static sclong_t makecolor(sclong_t a, sclong_t b) {
 }
 
 /*---------------- formating functions ----------------*/
-
-/*
- * Rules for string functions:
- * Take string arguments which they scxfree.
- * All returned strings are assumed to be xalloced.
- */
-
-static scvalue_t eval_datefmt(eval_ctx_t *cp, enode_t *e) {
-    char buff[FBUFLEN];
-    int err = 0;
-    time_t tloc = (time_t)eval_num(cp, e->e.args[0], &err);
-    SCXMEM string_t *fmtstr = (e->nargs > 1) ? eval_str(cp, e->e.args[1], &err) : NULL;
-    const char *fmt = fmtstr ? s2c(fmtstr) : "%a %b %d %H:%M:%S %Y";
-    struct tm *tp = localtime(&tloc);
-    if (!err && !tp) {
-        err = ERROR_NUM;
-    }
-    if (!err) {
-        // XXX: should check format string
-        ((size_t (*)(char *, size_t, const char *, const struct tm *tm))strftime)
-        (buff, sizeof buff, fmt, tp);
-        string_free(fmtstr);
-        return scvalue_string(string_new(buff));
-    } else {
-        string_free(fmtstr);
-        return scvalue_error(err);
-    }
-}
 
 static scvalue_t eval_fmt(eval_ctx_t *cp, enode_t *e) {
     char buff[FBUFLEN];
@@ -2436,7 +2595,7 @@ scvalue_t eval_node_value(eval_ctx_t *cp, enode_t *e) {
         &&  (col == res.u.rr.right.col || ((col = cp->gmycol) >= res.u.rr.left.col && col <= res.u.rr.right.col))) {
             return scvalue_getcell(cp, row, col);
         }
-        return scvalue_error(ERROR_REF);
+        return scvalue_error(ERROR_NA);
     } else {
         return res;
     }
@@ -2492,7 +2651,8 @@ void EvalAll(void) {
     if (usecurses && color && has_colors()) {
         for (pair = 1; pair <= CPAIRS; pair++) {
             if (cpairs[pair] && cpairs[pair]->expr) {
-                v = (int)neval_at(cpairs[pair]->expr, 0, 0, &err);
+                eval_ctx_t cp[1] = {{ 0, 0, 0, 0 }};
+                v = eval_int(cp, cpairs[pair]->expr, 0, 0x77, &err);
                 if (!err) {
                     /* ignore value if expression error */
                     init_style(pair, v & 7, (v >> 3) & 7, cpairs[pair]->expr);
@@ -2858,6 +3018,7 @@ static int constant_expr(enode_t *e, int full) {
     ||  e->op == OP_NVAL
     ||  e->op == OP_SVAL
     ||  e->op == OP_NOW
+    ||  e->op == OP_TODAY
     ||  e->op == OP_MYROW
     ||  e->op == OP_MYCOL
     ||  e->op == OP_LASTROW

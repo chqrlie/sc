@@ -123,8 +123,11 @@ typedef struct enode enode_t;
 #define SC_STRING  4
 #define SC_RANGE   5
 
-typedef long long sclong_t;
-typedef unsigned long long sculong_t;
+typedef long sclong_t;
+typedef unsigned long sculong_t;
+#define SCLONG_MAX   LONG_MAX
+#define SCLONG_MIN   LONG_MIN
+#define SCULONG_MAX  ULONG_MIN
 
 typedef struct scvalue scvalue_t;
 struct scvalue {

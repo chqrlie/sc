@@ -9,8 +9,9 @@ Evaluator:
 [ ] fix operator priorities
 [ ] use opdefs for precedence level in decompiler
 [+] use infix operators from OASIS spec
-[ ] improve date/time representation and formatting
-[ ] fix API for @date, @row...
+[+] improve date/time representation and formatting
+[+] fix API for date functions
+[ ] fix API for status and cell functions
 [ ] use more efficient API to enumerate ranges
 [ ] add complex functions
 [ ] add bessel functions
@@ -41,6 +42,7 @@ Parser:
 [ ] save formula values in .sc files
 
 Database:
+[ ] support strings up to 32KB long
 [ ] start column and row numbers at 1
 [ ] set maximum rows and cols > 702
 [ ] sparse matrix database
