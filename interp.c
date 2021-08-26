@@ -40,7 +40,7 @@ const char * const error_name[] = {
     NULL,
     "#NULL!",   // ERROR_NULL: Intersection of ranges produced zero cells.
     "#DIV/0!",  // ERROR_DIV0: Attempt to divide by zero, including division by an empty cell. 6.13.11
-    "VALUE!",   // ERROR_VALUE: Parameter is wrong type.
+    "#VALUE!",  // ERROR_VALUE: Parameter is wrong type.
     "#REF!",    // ERROR_REF: Reference to invalid cell (e.g., beyond the application's abilities).
     "#NAME?",   // ERROR_NAME: Unrecognized/deleted name.
     "#NUM!",    // ERROR_NUM: Failed to meet domain constraints (e.g., input was too large or too small).
@@ -1301,6 +1301,115 @@ static scvalue_t eval_minif(eval_ctx_t *cp, enode_t *ep) {
 static scvalue_t eval_sumif(eval_ctx_t *cp, enode_t *ep) {
     struct agregatedata_t pack = { 0, 0, 0 };
     return eval_aggregateif(cp, ep, aggregate_sum, aggregate_v_ret, &pack, ep->op == OP_SUMIFS);
+}
+
+static scvalue_t eval_sumproduct(eval_ctx_t *cp, enode_t *e) {
+    int err = 0, i, dr, dc, ncols = 0, nrows = 0, n = e->nargs;
+    double sum = 0.0;
+    rangeref_t *range = scxmalloc(n * sizeof(*range));
+    if (!range) {
+        err = ERROR_MEM;
+        goto done2;
+    }
+    for (i = 0; i < n; i++) {
+        int nc, nr;
+        scvalue_t res = eval_range(cp, e->e.args[i]);
+        if (res.type == SC_ERROR) {
+            err = res.u.error;
+            goto done2;
+        }
+        nr = res.u.rr.right.row - res.u.rr.left.row + 1;
+        nc = res.u.rr.right.col - res.u.rr.left.col + 1;
+        range[i] = res.u.rr;
+        if (i == 0) {
+            nrows = nr;
+            ncols = nc;
+        } else
+        if (nrows != nr || ncols != nc) {
+            err = ERROR_VALUE;
+            goto done2;
+        }
+    }
+    for (dr = 0; dr < nrows; dr++) {
+        for (dc = 0; dc < ncols; dc++) {
+            double prod = 1.0;
+            for (i = 0; i < n; i++) {
+                struct ent *p = lookat_nc(range[i].left.row + dr, range[i].left.col + dc);
+                if (!p || p->type == SC_EMPTY || p->type == SC_STRING)
+                    goto done1;
+                if (p->type == SC_ERROR) {
+                    err = p->cellerror;
+                    goto done2;
+                }
+                if (p->type == SC_NUMBER || p->type == SC_BOOLEAN)
+                    prod *= p->v;
+            }
+        done1:
+            sum += prod;
+        }
+    }
+done2:
+    scxfree(range);
+    if (err)
+        return scvalue_error(err);
+    else
+        return scvalue_number(sum);
+}
+
+static scvalue_t eval_sumxy(eval_ctx_t *cp, enode_t *e) {
+    int err = 0, dr, dc, ncols, nrows;
+    double sum = 0.0;
+    scvalue_t a, b;
+
+    a = eval_range(cp, e->e.args[0]);
+    if (a.type == SC_ERROR) {
+        err = a.u.error;
+        goto done;
+    }
+    b = eval_range(cp, e->e.args[1]);
+    if (b.type == SC_ERROR) {
+        err = b.u.error;
+        goto done;
+    }
+    nrows = a.u.rr.right.row - a.u.rr.left.row + 1;
+    ncols = a.u.rr.right.col - a.u.rr.left.col + 1;
+    if (nrows != b.u.rr.right.row - b.u.rr.left.row + 1
+    ||  ncols != b.u.rr.right.col - b.u.rr.left.col + 1) {
+        err = ERROR_VALUE;
+        goto done;
+    }
+    for (dr = 0; dr < nrows; dr++) {
+        for (dc = 0; dc < ncols; dc++) {
+            double v1 = 0.0, v2 = 0.0;
+            struct ent *p;
+            if ((p = lookat_nc(a.u.rr.left.row + dr, a.u.rr.left.col + dc))) {
+                if (p->type == SC_ERROR) {
+                    err = p->cellerror;
+                    goto done;
+                }
+                if (p->type == SC_NUMBER || p->type == SC_BOOLEAN)
+                    v1 = p->v;
+            }
+            if ((p = lookat_nc(b.u.rr.left.row + dr, b.u.rr.left.col + dc))) {
+                if (p->type == SC_ERROR) {
+                    err = p->cellerror;
+                    goto done;
+                }
+                if (p->type == SC_NUMBER || p->type == SC_BOOLEAN)
+                    v2 = p->v;
+            }
+            switch (e->op) {
+            case OP_SUMX2MY2: sum += v1 * v1 - v2 * v2; break;
+            case OP_SUMX2PY2: sum += v1 * v1 + v2 * v2; break;
+            case OP_SUMXMY2:  sum += (v1 - v2) * (v1 - v2); break;
+            }
+        }
+    }
+done:
+    if (err)
+        return scvalue_error(err);
+    else
+        return scvalue_number(sum);
 }
 
 /*---------------- date and time functions ----------------*/

@@ -128,8 +128,17 @@ let H22 = "<>"
 let I22 = -2^2
 leftstring C23 = "<Type 'g page2' to continue>"
 let H23 = @countif(H8:H15,H22)
+let I23 = 1
+let J23 = 2
+let K23 = 3
+let I24 = 4
+let J24 = 5
+let K24 = 6
 leftstring A25 = "Cell d22 contains text"
 leftstring D25 = "Text "
+let I25 = @sumproduct(I23:K23,I24:K24)
+let J25 = @sumx2my2(I23:K23,I24:K24)
+let K25 = @sumxmy2(I23:K23,I24:K24)
 leftstring A26 = "Cell d23 contains a number"
 let D26 = 123.34
 let E26 = 1234.5
@@ -212,4 +221,4 @@ leftstring A89 = "The basic commands.  Much more detail is available"
 leftstring A90 = "in the man page."
 leftstring A92 = "To quit this program, type 'q'."
 leftstring D94 = "GOOD LUCK!"
-goto I19 A0
+goto I25 A0
