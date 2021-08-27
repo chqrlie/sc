@@ -896,51 +896,59 @@ static scvalue_t eval_type(eval_ctx_t *cp, enode_t *e) {
     return scvalue_number(type);
 }
 
-struct agregatedata_t {
+struct aggregatedata_t {
+    int row, col;
     int count;
     double v, v2;
 };
 
-static void aggregate_count(struct agregatedata_t *sp, double v) {
-    sp->count++;
+static void aggregate_count(struct aggregatedata_t *ap, double v) {
+    ap->count++;
 }
-static void aggregate_max(struct agregatedata_t *sp, double v) {
-    if (!sp->count++ || sp->v < v) sp->v = v;
+static void aggregate_max(struct aggregatedata_t *ap, double v) {
+    if (!ap->count++ || ap->v < v) ap->v = v;
 }
-static void aggregate_min(struct agregatedata_t *sp, double v) {
-    if (!sp->count++ || sp->v > v) sp->v = v;
+static void aggregate_min(struct aggregatedata_t *ap, double v) {
+    if (!ap->count++ || ap->v > v) ap->v = v;
 }
-static void aggregate_product(struct agregatedata_t *sp, double v) {
-    sp->v *= v;
-    sp->count++;
+static void aggregate_product(struct aggregatedata_t *ap, double v) {
+    ap->v *= v;
+    ap->count++;
 }
-static void aggregate_sum(struct agregatedata_t *sp, double v) {
-    sp->v += v;
-    sp->count++;
+static void aggregate_sum(struct aggregatedata_t *ap, double v) {
+    ap->v += v;
+    ap->count++;
 }
-static void aggregate_sum2(struct agregatedata_t *sp, double v) {
-    sp->v += v;
-    sp->v2 += v * v;
-    sp->count++;
+static void aggregate_sum2(struct aggregatedata_t *ap, double v) {
+    ap->v += v;
+    ap->v2 += v * v;
+    ap->count++;
 }
 
-static scvalue_t aggregate_average_ret(eval_ctx_t *cp, struct agregatedata_t *ap) {
+static scvalue_t aggregate_average_ret(eval_ctx_t *cp, struct aggregatedata_t *ap) {
     return scvalue_number(ap->count ? ap->v / ap->count : ap->v);
 }
 
-static scvalue_t aggregate_count_ret(eval_ctx_t *cp, struct agregatedata_t *ap) {
+static scvalue_t aggregate_count_ret(eval_ctx_t *cp, struct aggregatedata_t *ap) {
     return scvalue_number(ap->count);
 }
 
-static scvalue_t aggregate_v_ret(eval_ctx_t *cp, struct agregatedata_t *ap) {
+static scvalue_t aggregate_get_ret(eval_ctx_t *cp, struct aggregatedata_t *ap) {
+    if (ap->count == 1)
+        return scvalue_getcell(cp, ap->row, ap->col);
+    else
+        return scvalue_error(ap->count ? ERROR_VALUE : ERROR_NA);
+}
+
+static scvalue_t aggregate_v_ret(eval_ctx_t *cp, struct aggregatedata_t *ap) {
     return scvalue_number(ap->v);
 }
 
-static scvalue_t aggregate_v2_ret(eval_ctx_t *cp, struct agregatedata_t *ap) {
+static scvalue_t aggregate_v2_ret(eval_ctx_t *cp, struct aggregatedata_t *ap) {
     return scvalue_number(ap->v2);
 }
 
-static scvalue_t aggregate_stdev_ret(eval_ctx_t *cp, struct agregatedata_t *ap) {
+static scvalue_t aggregate_stdev_ret(eval_ctx_t *cp, struct aggregatedata_t *ap) {
     double rp = 0.0;
     if (ap->count > 1) {
         double nd = (double)ap->count;
@@ -949,7 +957,7 @@ static scvalue_t aggregate_stdev_ret(eval_ctx_t *cp, struct agregatedata_t *ap) 
     return scvalue_number(rp);
 }
 
-static scvalue_t aggregate_stdevp_ret(eval_ctx_t *cp, struct agregatedata_t *ap) {
+static scvalue_t aggregate_stdevp_ret(eval_ctx_t *cp, struct aggregatedata_t *ap) {
     double rp = 0.0;
     if (ap->count > 0) {
         double nd = (double)ap->count;
@@ -958,7 +966,7 @@ static scvalue_t aggregate_stdevp_ret(eval_ctx_t *cp, struct agregatedata_t *ap)
     return scvalue_number(rp);
 }
 
-static scvalue_t aggregate_var_ret(eval_ctx_t *cp, struct agregatedata_t *ap) {
+static scvalue_t aggregate_var_ret(eval_ctx_t *cp, struct aggregatedata_t *ap) {
     double rp = 0.0;
     if (ap->count > 1) {
         double nd = (double)ap->count;
@@ -967,7 +975,7 @@ static scvalue_t aggregate_var_ret(eval_ctx_t *cp, struct agregatedata_t *ap) {
     return scvalue_number(rp);
 }
 
-static scvalue_t aggregate_varp_ret(eval_ctx_t *cp, struct agregatedata_t *ap) {
+static scvalue_t aggregate_varp_ret(eval_ctx_t *cp, struct aggregatedata_t *ap) {
     double rp = 0.0;
     if (ap->count > 0) {
         double nd = (double)ap->count;
@@ -976,16 +984,16 @@ static scvalue_t aggregate_varp_ret(eval_ctx_t *cp, struct agregatedata_t *ap) {
     return scvalue_number(rp);
 }
 
-/*
- * The list routines (e.g. eval_max) are called with a list of expressions.
- * The left pointer is an expression, the right pointer is a chain of OP_COMMA nodes
- */
 static scvalue_t eval_aggregate(eval_ctx_t *cp, enode_t *ep,
-                                void (*fun)(struct agregatedata_t *sp, double v),
-                                scvalue_t (*retfun)(eval_ctx_t *cp, struct agregatedata_t *sp),
-                                struct agregatedata_t *ap, int allvalues)
+                                void (*fun)(struct aggregatedata_t *ap, double v),
+                                scvalue_t (*retfun)(eval_ctx_t *cp, struct aggregatedata_t *ap),
+                                int allvalues)
 {
+    struct aggregatedata_t pack = { 0, 0, 0, 0, 0 };
     int i;
+
+    if (fun == aggregate_product)
+        pack.v = 1.0;
 
     for (i = 0; i < ep->nargs; i++) {
         scvalue_t res = eval_node(cp, ep->e.args[i]);
@@ -997,23 +1005,23 @@ static scvalue_t eval_aggregate(eval_ctx_t *cp, enode_t *ep,
                     for (c = res.u.rr.left.col; c <= res.u.rr.right.col; c++) {
                         if ((p = *ATBL(tbl, r, c))) {
                             switch (p->type) {
-                            case SC_NUMBER:  fun(ap, p->v); break;
-                            case SC_BOOLEAN: if (allvalues) fun(ap, p->v); break;
+                            case SC_BOOLEAN: if (!allvalues) break; FALLTHROUGH;
+                            case SC_NUMBER:  fun(&pack, p->v); break;
                             case SC_STRING:
-                            case SC_ERROR:   if (allvalues) fun(ap, 0); break;
+                            case SC_ERROR:   if (allvalues) fun(&pack, 0); break;
                             }
                         }
                     }
                 }
                 break;
             }
-        case SC_NUMBER:     fun(ap, res.u.v); break;
-        case SC_BOOLEAN:    if (allvalues) fun(ap, res.u.v); break;
+        case SC_NUMBER:     fun(&pack, res.u.v); break;
+        case SC_BOOLEAN:    if (allvalues) fun(&pack, res.u.v); break;
         case SC_STRING:     string_free(res.u.str); FALLTHROUGH;
-        case SC_ERROR:      if (allvalues) fun(ap, 0); break;
+        case SC_ERROR:      if (allvalues) fun(&pack, 0); break;
         }
     }
-    return retfun(cp, ap);
+    return retfun(cp, &pack);
 }
 
 /*
@@ -1048,22 +1056,21 @@ enum cmp_mask {
     CMP_NE = 8,
 };
 
-typedef struct criteria {
-    scvalue_t a;
-    const char *s;
-    int mask;
-} criteria_t;
+typedef struct criterion {
+    scvalue_t a;    /* value used for matching */
+    const char *s;  /* pointer into a.u.str for string matching */
+    int mask;       /* comparison operator bits */
+    int col;        /* database column */
+} criterion_t;
 
-static void criteria_free(criteria_t *crtp) {
+static void criterion_free(criterion_t *crtp) {
     scvalue_free(crtp->a);
 }
 
-static int criteria_setup(criteria_t *crtp, eval_ctx_t *cp, enode_t *e) {
-    scvalue_t a;
+static int criterion_setup(criterion_t *crtp, scvalue_t a) {
     int cmp_mask = CMP_EQ;
     const char *s = NULL;
 
-    a = eval_node_value(cp, e);
     switch (a.type) {
     case SC_EMPTY: /* means == 0 */
         a = scvalue_number(0);
@@ -1130,7 +1137,7 @@ static int criteria_setup(criteria_t *crtp, eval_ctx_t *cp, enode_t *e) {
     return 0;
 }
 
-static int criteria_test(criteria_t *crtp, struct ent *p) {
+static int criterion_test(criterion_t *crtp, struct ent *p) {
     int cmp, mask = crtp->mask;
     if (!p || p->type == SC_EMPTY) {
         return mask & ((crtp->a.type == SC_EMPTY) ? CMP_EQ : CMP_NE);
@@ -1151,17 +1158,21 @@ static int criteria_test(criteria_t *crtp, struct ent *p) {
 }
 
 static scvalue_t eval_aggregateif(eval_ctx_t *cp, enode_t *e,
-                                  void (*fun)(struct agregatedata_t *sp, double v),
-                                  scvalue_t (*retfun)(eval_ctx_t *cp, struct agregatedata_t *sp),
-                                  struct agregatedata_t *ap, int ifs)
+                                  void (*fun)(struct aggregatedata_t *ap, double v),
+                                  scvalue_t (*retfun)(eval_ctx_t *cp, struct aggregatedata_t *ap),
+                                  int ifs)
 {
+    struct aggregatedata_t pack = { 0, 0, 0, 0, 0 };
     scvalue_t res = eval_range(cp, e->e.args[0]);
-    criteria_t crit;
+    criterion_t crit;
     int r, c, dr = 0, dc = 0;
     struct ent *p;
 
     if (res.type != SC_RANGE)
         return scvalue_error(res.u.error);
+
+    if (fun == aggregate_product)
+        pack.v = 1.0;
 
     if (e->nargs & 1) {
         scvalue_t vr = eval_range(cp, e->e.args[e->nargs - 1]);
@@ -1171,33 +1182,27 @@ static scvalue_t eval_aggregateif(eval_ctx_t *cp, enode_t *e,
         dc = vr.u.rr.left.col - res.u.rr.left.col;
     }
     // XXX: should implement IFS
-    criteria_setup(&crit, cp, e->e.args[1]);
-    if (fun == aggregate_count) {
-        for (r = res.u.rr.left.row; r <= res.u.rr.right.row; r++) {
-            for (c = res.u.rr.left.col; c <= res.u.rr.right.col; c++) {
-                p = *ATBL(tbl, r, c);
-                if (criteria_test(&crit, p))
-                    ap->count++;
-            }
-        }
-    } else {
-        /* Get values from optional value range */
-        for (r = res.u.rr.left.row; r <= res.u.rr.right.row; r++) {
-            for (c = res.u.rr.left.col; c <= res.u.rr.right.col; c++) {
-                p = *ATBL(tbl, r, c);
-                if (criteria_test(&crit, p)) {
-                    if (dr | dc) {
-                        p = *ATBL(tbl, r + dr, c + dc);
-                    }
-                    if (p && p->type == SC_NUMBER) {
-                        fun(ap, p->v);
-                    }
+    criterion_setup(&crit, eval_node_value(cp, e->e.args[1]));
+    for (r = res.u.rr.left.row; r <= res.u.rr.right.row; r++) {
+        for (c = res.u.rr.left.col; c <= res.u.rr.right.col; c++) {
+            p = *ATBL(tbl, r, c);
+            if (criterion_test(&crit, p)) {
+                if (!fun) {
+                    pack.count++;
+                    continue;
+                }
+                if (dr | dc) {
+                    /* Get values from optional value range */
+                    p = *ATBL(tbl, r + dr, c + dc);
+                }
+                if (p && p->type == SC_NUMBER) {
+                    fun(&pack, p->v);
                 }
             }
         }
     }
-    criteria_free(&crit);
-    return retfun(cp, ap);
+    criterion_free(&crit);
+    return retfun(cp, &pack);
 }
 
 static scvalue_t eval_countblank(eval_ctx_t *cp, enode_t *ep) {
@@ -1224,83 +1229,67 @@ static scvalue_t eval_countblank(eval_ctx_t *cp, enode_t *ep) {
 }
 
 static scvalue_t eval_average(eval_ctx_t *cp, enode_t *ep) {
-    struct agregatedata_t pack = { 0, 0, 0 };
-    return eval_aggregate(cp, ep, aggregate_sum, aggregate_average_ret, &pack, ep->op == OP_AVERAGEA);
+    return eval_aggregate(cp, ep, aggregate_sum, aggregate_average_ret, ep->op == OP_AVERAGEA);
 }
 
 static scvalue_t eval_count(eval_ctx_t *cp, enode_t *ep) {
-    struct agregatedata_t pack = { 0, 0, 0 };
-    return eval_aggregate(cp, ep, aggregate_count, aggregate_count_ret, &pack, ep->op == OP_COUNTA);
+    return eval_aggregate(cp, ep, aggregate_count, aggregate_count_ret, ep->op == OP_COUNTA);
 }
 
 static scvalue_t eval_max(eval_ctx_t *cp, enode_t *ep) {
-    struct agregatedata_t pack = { 0, 0, 0 };
-    return eval_aggregate(cp, ep, aggregate_max, aggregate_v_ret, &pack, ep->op == OP_MAXA);
+    return eval_aggregate(cp, ep, aggregate_max, aggregate_v_ret, ep->op == OP_MAXA);
 }
 
 static scvalue_t eval_min(eval_ctx_t *cp, enode_t *ep) {
-    struct agregatedata_t pack = { 0, 0, 0 };
-    return eval_aggregate(cp, ep, aggregate_min, aggregate_v_ret, &pack, ep->op == OP_MINA);
+    return eval_aggregate(cp, ep, aggregate_min, aggregate_v_ret, ep->op == OP_MINA);
 }
 
 static scvalue_t eval_product(eval_ctx_t *cp, enode_t *ep) {
-    struct agregatedata_t pack = { 0, 1.0, 0 };
-    return eval_aggregate(cp, ep, aggregate_product, aggregate_v_ret, &pack, FALSE);
-}
-
-static scvalue_t eval_sum(eval_ctx_t *cp, enode_t *ep) {
-    struct agregatedata_t pack = { 0, 0, 0 };
-    return eval_aggregate(cp, ep, aggregate_sum, aggregate_v_ret, &pack, FALSE);
-}
-
-static scvalue_t eval_sumsq(eval_ctx_t *cp, enode_t *ep) {
-    struct agregatedata_t pack = { 0, 0, 0 };
-    return eval_aggregate(cp, ep, aggregate_sum2, aggregate_v2_ret, &pack, FALSE);
+    return eval_aggregate(cp, ep, aggregate_product, aggregate_v_ret, FALSE);
 }
 
 static scvalue_t eval_stdev(eval_ctx_t *cp, enode_t *ep) {
-    struct agregatedata_t pack = { 0, 0, 0 };
-    return eval_aggregate(cp, ep, aggregate_sum2, aggregate_stdev_ret, &pack, ep->op == OP_STDEVA);
+    return eval_aggregate(cp, ep, aggregate_sum2, aggregate_stdev_ret, ep->op == OP_STDEVA);
 }
 
 static scvalue_t eval_stdevp(eval_ctx_t *cp, enode_t *ep) {
-    struct agregatedata_t pack = { 0, 0, 0 };
-    return eval_aggregate(cp, ep, aggregate_sum2, aggregate_stdevp_ret, &pack, ep->op == OP_STDEVPA);
+    return eval_aggregate(cp, ep, aggregate_sum2, aggregate_stdevp_ret, ep->op == OP_STDEVPA);
+}
+
+static scvalue_t eval_sum(eval_ctx_t *cp, enode_t *ep) {
+    return eval_aggregate(cp, ep, aggregate_sum, aggregate_v_ret, FALSE);
+}
+
+static scvalue_t eval_sumsq(eval_ctx_t *cp, enode_t *ep) {
+    return eval_aggregate(cp, ep, aggregate_sum2, aggregate_v2_ret, FALSE);
 }
 
 static scvalue_t eval_var(eval_ctx_t *cp, enode_t *ep) {
-    struct agregatedata_t pack = { 0, 0, 0 };
-    return eval_aggregate(cp, ep, aggregate_sum2, aggregate_var_ret, &pack, ep->op == OP_VARA);
+    return eval_aggregate(cp, ep, aggregate_sum2, aggregate_var_ret, ep->op == OP_VARA);
 }
 
 static scvalue_t eval_varp(eval_ctx_t *cp, enode_t *ep) {
-    struct agregatedata_t pack = { 0, 0, 0 };
-    return eval_aggregate(cp, ep, aggregate_sum2, aggregate_varp_ret, &pack, ep->op == OP_VARPA);
+    return eval_aggregate(cp, ep, aggregate_sum2, aggregate_varp_ret, ep->op == OP_VARPA);
 }
 
 static scvalue_t eval_averageif(eval_ctx_t *cp, enode_t *ep) {
-    struct agregatedata_t pack = { 0, 0, 0 };
-    return eval_aggregateif(cp, ep, aggregate_sum, aggregate_average_ret, &pack, ep->op == OP_AVERAGEIFS);
+    return eval_aggregateif(cp, ep, aggregate_sum, aggregate_average_ret, ep->op == OP_AVERAGEIFS);
 }
 
 static scvalue_t eval_countif(eval_ctx_t *cp, enode_t *ep) {
-    struct agregatedata_t pack = { 0, 0, 0 };
-    return eval_aggregateif(cp, ep, aggregate_count, aggregate_count_ret, &pack, ep->op == OP_COUNTIFS);
+    return eval_aggregateif(cp, ep, NULL, aggregate_count_ret, ep->op == OP_COUNTIFS);
 }
 
 static scvalue_t eval_maxif(eval_ctx_t *cp, enode_t *ep) {
-    struct agregatedata_t pack = { 0, 0, 0 };
-    return eval_aggregateif(cp, ep, aggregate_max, aggregate_v_ret, &pack, ep->op == OP_MAXIFS);
+    return eval_aggregateif(cp, ep, aggregate_max, aggregate_v_ret, ep->op == OP_MAXIFS);
 }
 
 static scvalue_t eval_minif(eval_ctx_t *cp, enode_t *ep) {
-    struct agregatedata_t pack = { 0, 0, 0 };
-    return eval_aggregateif(cp, ep, aggregate_min, aggregate_v_ret, &pack, ep->op == OP_MINIFS);
+    return eval_aggregateif(cp, ep, aggregate_min, aggregate_v_ret, ep->op == OP_MINIFS);
 }
 
 static scvalue_t eval_sumif(eval_ctx_t *cp, enode_t *ep) {
-    struct agregatedata_t pack = { 0, 0, 0 };
-    return eval_aggregateif(cp, ep, aggregate_sum, aggregate_v_ret, &pack, ep->op == OP_SUMIFS);
+    return eval_aggregateif(cp, ep, aggregate_sum, aggregate_v_ret, ep->op == OP_SUMIFS);
 }
 
 static scvalue_t eval_sumproduct(eval_ctx_t *cp, enode_t *e) {
@@ -1410,6 +1399,171 @@ done:
         return scvalue_error(err);
     else
         return scvalue_number(sum);
+}
+
+/*---------------- datebase functions ----------------*/
+
+static int db_lookup_field(rangeref_t rr, const char *name) {
+    int col;
+    for (col = rr.left.col; col <= rr.right.col; col++) {
+        struct ent *p = lookat_nc(rr.left.row, col);
+        if (!p || p->type != SC_STRING)
+            break;
+        if (!sc_strcasecmp(name, s2c(p->label)))
+            return col;
+    }
+    return -1;
+}
+
+static scvalue_t eval_db(eval_ctx_t *cp, enode_t *e,
+                         void (*fun)(struct aggregatedata_t *ap, double v),
+                         scvalue_t (*retfun)(eval_ctx_t *cp, struct aggregatedata_t *ap),
+                         int allvalues)
+{
+    struct aggregatedata_t pack = { 0, 0, 0, 0, 0 };
+    criterion_t *critp = NULL;
+    scvalue_t db, field, crit;
+    int err = 0, r, col = -1, i, ncrit = 0;
+    struct ent *p;
+
+    if (fun == aggregate_product)
+        pack.v = 1.0;
+
+    for (;;) {
+        db = eval_range(cp, e->e.args[0]);
+        if (db.type != SC_RANGE) {
+            err = db.u.error;
+            break;
+        }
+        crit = eval_range(cp, e->e.args[2]);
+        if (crit.type != SC_RANGE) {
+            err = crit.u.error;
+            break;
+        }
+        field = eval_node_value(cp, e->e.args[1]);
+        if (field.type == SC_ERROR) {
+            err = field.u.error;
+            break;
+        }
+        /* look up field (except count) */
+        if (field.type == SC_STRING) {
+            col = db_lookup_field(db.u.rr, s2c(field.u.str));
+        } else
+        if (field.type == SC_NUMBER) {
+            col = db.u.rr.left.col + (int)floor(field.u.v) - 1;
+        }
+        scvalue_free(field);
+        if (col < db.u.rr.left.col || col > db.u.rr.right.col) {
+            if (fun == aggregate_count && field.type == SC_EMPTY) {
+                fun = NULL;
+            } else {
+                err = ERROR_VALUE;
+                break;
+            }
+        }
+        /* compile criteria */
+        ncrit = crit.u.rr.right.col - crit.u.rr.left.col + 1;
+        critp = scxmalloc(ncrit * sizeof(*critp));
+        if (!critp) {
+            err = ERROR_MEM;
+            break;
+        }
+        for (i = 0; i < ncrit; i++) {
+            int fcol = -1;
+            if ((p = lookat_nc(crit.u.rr.left.row, crit.u.rr.left.col + i))) {
+                if (p->type == SC_STRING) {
+                    fcol = db_lookup_field(db.u.rr, s2c(p->label));
+                } else
+                if (p->type == SC_NUMBER) {
+                    fcol = db.u.rr.left.col + (int)floor(field.u.v) - 1;
+                }
+            }
+            if (fcol < db.u.rr.left.col || fcol > db.u.rr.right.col)
+                err = ERROR_VALUE;
+            criterion_setup(&critp[i], scvalue_getcell(cp, crit.u.rr.left.row + 1, crit.u.rr.left.col + i));
+            critp[i].col = fcol;
+        }
+        if (err) break;
+        /* enumerate records */
+        for (r = db.u.rr.left.row + 1; r <= db.u.rr.left.row; r++) {
+            /* apply criteria */
+            for (i = 0; i < ncrit; i++) {
+                p = *ATBL(tbl, r, critp[i].col);
+                if (!criterion_test(&critp[i], p))
+                    break;
+            }
+            if (i < ncrit)
+                continue;
+            if (!fun) {
+                pack.row = r;
+                pack.col = col;
+                pack.count++;
+                continue;
+            }
+            p = lookat_nc(r, col);
+            if (p) {
+                switch (p->type) {
+                case SC_BOOLEAN:    if (!allvalues) break; FALLTHROUGH;
+                case SC_NUMBER:     fun(&pack, p->v); break;
+                case SC_STRING:     FALLTHROUGH;
+                case SC_ERROR:      if (allvalues) fun(&pack, 0); break;
+                }
+            }
+        }
+    }
+    if (critp) {
+        for (i = 0; i < ncrit; i++)
+            criterion_free(&critp[i]);
+        scxfree(critp);
+    }
+    if (err)
+        return scvalue_error(err);
+    else
+        return retfun(cp, &pack);
+}
+
+static scvalue_t eval_daverage(eval_ctx_t *cp, enode_t *ep) {
+    return eval_db(cp, ep, aggregate_sum, aggregate_average_ret, FALSE);
+}
+
+static scvalue_t eval_dcount(eval_ctx_t *cp, enode_t *ep) {
+    return eval_db(cp, ep, aggregate_count, aggregate_count_ret, ep->op == OP_DCOUNTA);
+}
+
+static scvalue_t eval_dget(eval_ctx_t *cp, enode_t *ep) {
+    return eval_db(cp, ep, NULL, aggregate_get_ret, TRUE);
+}
+
+static scvalue_t eval_dmax(eval_ctx_t *cp, enode_t *ep) {
+    return eval_db(cp, ep, aggregate_max, aggregate_v_ret, FALSE);
+}
+
+static scvalue_t eval_dmin(eval_ctx_t *cp, enode_t *ep) {
+    return eval_db(cp, ep, aggregate_min, aggregate_v_ret, FALSE);
+}
+
+static scvalue_t eval_dproduct(eval_ctx_t *cp, enode_t *ep) {
+    return eval_db(cp, ep, aggregate_product, aggregate_v_ret, FALSE);
+}
+
+static scvalue_t eval_dstdev(eval_ctx_t *cp, enode_t *ep) {
+    return eval_db(cp, ep, aggregate_sum2, aggregate_stdev_ret, FALSE);
+}
+
+static scvalue_t eval_dstdevp(eval_ctx_t *cp, enode_t *ep) {
+    return eval_db(cp, ep, aggregate_sum2, aggregate_stdevp_ret, FALSE);
+}
+
+static scvalue_t eval_dsum(eval_ctx_t *cp, enode_t *ep) {
+    return eval_db(cp, ep, aggregate_sum, aggregate_v_ret, FALSE);
+}
+
+static scvalue_t eval_dvar(eval_ctx_t *cp, enode_t *ep) {
+    return eval_db(cp, ep, aggregate_sum2, aggregate_var_ret, FALSE);
+}
+
+static scvalue_t eval_dvarp(eval_ctx_t *cp, enode_t *ep) {
+    return eval_db(cp, ep, aggregate_sum2, aggregate_varp_ret, FALSE);
 }
 
 /*---------------- date and time functions ----------------*/

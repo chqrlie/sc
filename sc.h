@@ -164,15 +164,15 @@ struct ent {
 
 /* stores type of operation this cell will perform */
 struct enode {
-    unsigned char op;
-    unsigned char type;
+    unsigned short op;
+    unsigned short type;
 #define OP_TYPE_FUNC    0
 #define OP_TYPE_VAR     1
 #define OP_TYPE_RANGE   2
 #define OP_TYPE_DOUBLE  3
 #define OP_TYPE_STRING  4
 #define OP_TYPE_ERROR   5
-    short nargs;
+    int nargs;
     union {
         int error;                  /* error number */
         double k;                   /* constant # */

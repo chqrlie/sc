@@ -1,9 +1,10 @@
 # TODO
 
 Tests:
-[ ] fix seg fault when running `./sc tutorial.sc > t`
-[ ] write test cases for all commands and corner cases
 [ ] handle memory allocation failure everywhere
+[ ] add non interactive check commands for tests and benchmarks
+[ ] write test cases for all commands and functions including corner cases
+[ ] write benchmark scripts all commands and and functions
 
 Evaluator:
 [ ] fix operator priorities
@@ -13,17 +14,23 @@ Evaluator:
 [+] fix API for date functions
 [ ] fix API for status and cell functions
 [ ] use more efficient API to enumerate ranges
+[ ] implement IFS functions
 [ ] add complex functions
-[ ] add bessel functions
+[ ] add bessel/erf/gamma functions
 [ ] add stat functions
 [ ] add financial functions
 [+] change expression functions for API compatibility
 [ ] add inline vectors, columns and matrices in expressions
+[ ] use unified enumerators for matrices and cell ranges
 [ ] change cell references to relative and absolute coordinates
 [ ] add refcounted formula objects
 [ ] chain cells with formulas into a linked list or dependency tree
 [ ] add reference union operator (~)
 [?] stack based dynamic type interpreter
+[ ] make sure ISVALID should <not> be used in place of checkbounds in interp.c
+[ ] add regex functions
+[ ] add unified regex support for searching etc.
+[ ] minimize recompute: only recompute formulas whose antecedents change
 
 Parser:
 [ ] merge edits() and editv()
@@ -60,43 +67,58 @@ Database:
 [ ] more efficient cell structure
 [/] generic formats
 [ ] add undo / autobackup of things typed in. (use command log)
+[ ] load xls files
+[ ] load csv files
+[ ] save xls files
 
 Update:
 [ ] truncate cell value display (both formula and string value)
 [ ] rewrite update() function in screen.c from scratch in a more sane manner
-	(the current one is buggy and a headache to debug)
 [ ] update() should not have a side effect on currow/curcol
 [ ] update() should not have a side effect on the database
 [ ] don't redraw the whole screen all the time
-	(only cells that change, (in addition to what is in 'fixed #9'))
-	(Note: there was no #9 when I took this over, and I've renumbered
-	things since then, so I'm not sure what this is referring to - CRM)
 
 Commands:
-[ ] pattern directed input in vi.c
 [ ] fix modflg, FullUpdate, modified, IS_CHANGED handling
 [ ] all LISTABBREV instead of ABBREV hack?
 [ ] same for DEFINE with one or no arguments?
 [ ] validate and clip all ranges in commands
 [ ] ignore unknown commands (keep them in a list?)
 [ ] pass count to duprow() and dupcol() ???
+[ ] hide range
+[ ] block moving into range
+
+UI:
+[ ] add Cocoa user interface
+[ ] add X11 user interface
+[ ] add Windows user interface
+[ ] pattern directed input in vi.c
 [ ] add emacs keybinding stuff
 [ ] add emacs macro language
 [ ] add emacs command completion
+[ ] add command, function and range name completions
 [ ] use command templates for 1-2-3 menu driven commands and vi interaction
 [/] add 1-2-3 menus and connect them
 [ ] convert help to markdown
 [ ] built-in hyperlinked help system
-[ ] make sure ISVALID should <not> be used in place of checkbounds in interp.c
-[ ] hide range
-[ ] block moving into range
+[ ] incremental search
+[ ] keyboard macros
+[ ] multi-cell parallel edition
+[ ] add form entry mode
 [ ] an option to go into a ^R like <mode>
 	++data entry fields (highlight entry cells)....
 	++only allow entry in these cells....
+
+Non-interactive:
+[ ] fix seg fault when running `./sc tutorial.sc > t`
 [ ] add a command line option (possibly -g) to use sc as a sort of grep for
 	formatted or unformatted data in a file or list of files which will
 	output the whole row in which a given number or string is found,
 	formatted as with the write command.
+
+Build:
+[ ] add Windows target
+[ ] test more targets
 
 # DONE
 
@@ -143,3 +165,4 @@ Commands:
 [X] only support simple string expressions for xxxIF functions
 [X] accept TRUE and FALSE as tokens without ()
 [X] accept error names as tokens
+[X] add database functions
