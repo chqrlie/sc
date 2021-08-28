@@ -534,35 +534,19 @@ static const char * const * const pages[] = {
 
 #ifndef QREF
 
-static void pscreen(int page) {
-    const char * const *screen;
-    int lineno;
-    int dbline;
-
-    if (page < 0 || page >= HELP_NB)
-        page = HELP_INTRO;
-    screen = pages[page];
-    move(1,0);
-    clrtobot();
-    dbline = 1;
-    for (lineno = 0; screen[lineno]; lineno++) {
-        move(dbline++, 4);
-        addstr(screen[lineno]);
-        clrtoeol();
-    }
-    move(0,0);
-    printw("Which Screen? [a-p, q]");
-    clrtoeol();
-    refresh();
-}
-
 void help(int ctx) {
     int history[32];
     int pos = 0;
     int page = ctx;
 
     for (;;) {
-        pscreen(history[pos] = page);
+        if (page < 0 || page >= HELP_NB)
+            page = HELP_INTRO;
+        history[pos] = page;
+        screen_erase();
+        screen_draw_page(1, 4, pages[page]);
+        screen_draw_line(0, 0, "Which Screen? [a-p, q]");
+        screen_refresh();
         switch (nmgetch(0)) {
         case 'a': case 'A': page = HELP_INTRO; break;
         case 'b': case 'B': page = HELP_TOGGLEOPTIONS; break;
@@ -611,8 +595,7 @@ void help(int ctx) {
         }
     }
     FullUpdate++;
-    move(1,0);
-    clrtobot();
+    screen_erase();
 }
 
 #else /* QREF */

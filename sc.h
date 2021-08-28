@@ -319,14 +319,8 @@ extern struct opdef const opdefs[];
 
 /*---------------- curses stuff ----------------*/
 
-#define CLEAR_LINE error("%s", "") /* suppress warning on NetBSD curses */
-
 #ifndef A_CHARTEXT      /* Should be defined in curses.h */
 #define A_CHARTEXT 0xff
-#endif
-
-#ifndef color_set
-#define color_set(c, o)         attron(COLOR_PAIR(c))
 #endif
 
 #if !defined(HAVE_ATTR_T) && defined(_COMPAT_H) /* Not defined for psc */
@@ -367,6 +361,7 @@ typedef chtype attr_t;
 
 #define KEY_ALT(c)   ((c)|01000)
 extern int nmgetch(int clearline);
+extern int nmgetch_savepos(int clearline);
 
 /*---------------- Context sensitive help ----------------*/
 
@@ -703,6 +698,21 @@ extern void sync_ranges(void);
 extern void sync_refs(void);
 extern void tblprintfile(SCXMEM string_t *fname, rangeref_t rr);
 extern void unlock_cells(rangeref_t rr);
+extern void screen_resize(void);
+extern void screen_pause(void);
+extern void screen_rebuild(void);
+extern void screen_erase(void);
+extern void screen_refresh(void);
+extern void screen_move(int y, int x);
+extern void screen_clear_line(int y);
+extern void screen_draw_page(int y, int x, const char * const *screen);
+extern void screen_draw_line(int y, int x, const char *str);
+extern void screen_init_pair(int n, int fg, int bg);
+extern int screen_get_keyname(char *buf, size_t size, int c);
+extern void screen_mouseon(void);
+extern void screen_mouseoff(void);
+extern int screen_getmouse(MEVENT *event);
+extern void screen_hidecursor(void);
 extern void update(int anychanged);
 extern void valueize_area(rangeref_t rr);
 extern void write_abbrevs(FILE *f);
@@ -769,6 +779,7 @@ extern char revmsg[80];
 extern int showneed;   /* Causes cells needing values to be highlighted */
 extern int showexpr;   /* Causes cell exprs to be displayed, highlighted */
 extern int shownote;   /* Causes cells with attached notes to be highlighted */
+extern int screen_COLS, screen_LINES;
 #ifdef VMS
 extern int VMS_read_raw;   /*sigh*/
 #endif
@@ -795,9 +806,6 @@ extern sigret_t nopipe(int i);
 #ifdef SIGWINCH
 extern sigret_t winchg(int i);
 #endif
-extern void mouseon(void);
-extern void mouseoff(void);
-extern void hidecursor(void);
 extern void vi_interaction(void);
 extern void sc_cmd_put(const char *arg, int vopt);
 extern void sc_cmd_write(const char *arg);

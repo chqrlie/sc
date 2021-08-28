@@ -234,7 +234,7 @@ int main(int argc, char **argv) {
     if (optind < argc && argv[optind][0] != '|' && strcmp(argv[optind], "-"))
         pstrcpy(curfile, sizeof curfile, argv[optind]);
 
-    if (usecurses && has_colors())
+    if (usecurses)
         initcolor(0);
 
     if (optind < argc) {
@@ -266,8 +266,7 @@ int main(int argc, char **argv) {
         exit(0);
     }
 
-    if (usecurses)
-        clearok(stdscr, TRUE);
+    screen_rebuild();
 
     // XXX: potentially redundant
     EvalAll();
@@ -280,7 +279,7 @@ int main(int argc, char **argv) {
     if (Copt) craction = CRCOLS;
     if (Ropt) craction = CRROWS;
     if (eopt) rndtoeven = 1;
-    if (Mopt) mouseon();
+    if (Mopt) screen_mouseon();
     if (popt) {
         int Vopt = 0;
         const char *redraw = NULL;
@@ -381,18 +380,7 @@ sigret_t nopipe(int i) {
 
 sigret_t winchg(int i) {
     (void)i;
-    stopdisp();
-    startdisp();
-    /*
-     * I'm not sure why a refresh() needs to be done both before and after
-     * the clearok() and update(), but without doing it this way, a screen
-     * (or window) that grows bigger will leave the added space blank. - CRM
-     */
-    refresh();
-    FullUpdate++;
-    clearok(stdscr, TRUE);
-    update(1);
-    refresh();
+    screen_resize();
 #ifdef SIGWINCH
     signal(SIGWINCH, winchg);
 #endif

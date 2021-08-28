@@ -241,29 +241,8 @@ void dogetkey(int fd) {
     goraw();
     c = nmgetch(0);
     deraw(0);
-
-    // XXX: this is bogus for function keys
-    if (c < 256) {
-        buf[0] = c;
-        len = 1;
-#ifdef HAVE_CURSES_KEYNAME
-    } else if (c >= KEY_MIN && c <= KEY_MAX) {
-        int i, j;
-        buf[0] = '\0';
-        snprintf(buf + 1, sizeof buf - 1, "%s\n", keyname(c));
-        /* strip `KEY_` and parentheses */
-        for (i = 1, j = 5; buf[j-1]; j++) {
-            if (buf[j] != '(' && buf[j] != ')')
-                buf[i++] = buf[j];
-        }
-        len = 1 + strlen(buf + 1);
-#endif
-    } else {
-        buf[0] = '0';
-        snprintf(buf + 1, sizeof buf - 1, "%s\n", "UNKNOWN KEY");
-        len = 1 + strlen(buf + 1);
-    }
-
+    screen_get_keyname(buf, sizeof(buf) - 1, c);
+    len = pstrcat(buf, sizeof buf, "\n");
     write(fd, buf, len);
 }
 

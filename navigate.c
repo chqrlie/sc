@@ -399,7 +399,7 @@ void doend(int rowinc, int colinc) {
 
 /* moves currow down one page */
 void forwpage(int arg) {
-    int ps = pagesize ? pagesize : (LINES - RESROW - framerows) / 2;
+    int ps = pagesize ? pagesize : (screen_LINES - RESROW - framerows) / 2;
     forwrow(arg * ps);
     // XXX: hidden row issue
     strow = strow + arg * ps;
@@ -408,7 +408,7 @@ void forwpage(int arg) {
 
 /* moves currow up one page */
 void backpage(int arg) {
-    int ps = pagesize ? pagesize : (LINES - RESROW - framerows) / 2;
+    int ps = pagesize ? pagesize : (screen_LINES - RESROW - framerows) / 2;
     backrow(arg * ps);
     // XXX: hidden row issue
     strow = strow - arg * ps;

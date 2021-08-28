@@ -70,9 +70,9 @@ int growtbl(int mode, int toprow, int topcol) {
 
     if (mode == GROWNEW) {
         /* when we first start up, fill the screen w/ cells */
-        newrows = LINES - RESROW;
+        newrows = screen_LINES - RESROW;
         if (newrows < MINROWS) newrows = MINROWS;
-        newcols = ((COLS) - rescol) / DEFWIDTH;
+        newcols = ((screen_COLS) - rescol) / DEFWIDTH;
         if (newcols < MINCOLS) newcols = MINCOLS;
         currows = toprow = 0;
         curcols = topcol = 0;

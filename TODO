@@ -72,6 +72,7 @@ Database:
 [ ] save xls files
 
 Update:
+[+] move curses support to specific file and use API layer
 [ ] truncate cell value display (both formula and string value)
 [ ] rewrite update() function in screen.c from scratch in a more sane manner
 [ ] update() should not have a side effect on currow/curcol
@@ -94,8 +95,7 @@ UI:
 [ ] add Windows user interface
 [ ] pattern directed input in vi.c
 [ ] add emacs keybinding stuff
-[ ] add emacs macro language
-[ ] add emacs command completion
+[ ] add macro language
 [ ] add command, function and range name completions
 [ ] use command templates for 1-2-3 menu driven commands and vi interaction
 [/] add 1-2-3 menus and connect them
@@ -110,7 +110,6 @@ UI:
 	++only allow entry in these cells....
 
 Non-interactive:
-[ ] fix seg fault when running `./sc tutorial.sc > t`
 [ ] add a command line option (possibly -g) to use sc as a sort of grep for
 	formatted or unformatted data in a file or list of files which will
 	output the whole row in which a given number or string is found,
@@ -122,8 +121,7 @@ Build:
 
 # DONE
 
-[X] pass cell locations and ranges as sets of coordinates instead of
-    allocated cell pointers in gram.y
+[X] pass cell locations and ranges as sets of coordinates instead of allocated cell pointers in gram.y
 [X] use rangeref_t and HAS_NOTE flag for notes
 [X] remove currow/curcol side effects in yankrows() and yankcols()
 [X] remove cellassign side effect
@@ -166,3 +164,4 @@ Build:
 [X] accept TRUE and FALSE as tokens without ()
 [X] accept error names as tokens
 [X] add database functions
+[X] fix seg fault when running `./sc tutorial.sc > t`

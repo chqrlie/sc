@@ -144,8 +144,8 @@ static int cellassign;
 
 #ifdef NCURSES_MOUSE_VERSION
 static MEVENT mevent;
-static void mouse_set_pos(int);
-static int mouse_sel_cell(int);
+static void mouse_set_pos(int mode);
+static int mouse_sel_cell(int mode);
 #endif
 
 int set_line(const char *fmt, ...) {
@@ -174,7 +174,6 @@ void vi_interaction(void) {
     int nedistate;
     int running;
     int anychanged = FALSE;
-    int tempx, tempy;       /* Temp versions of curx, cury */
     char *ext;
     struct ent *p;
     buf_t buf;
@@ -206,14 +205,9 @@ void vi_interaction(void) {
             update(anychanged);
             anychanged = FALSE;
 #ifndef SYSV3   /* HP/Ux 3.1 this may not be wanted */
-            refresh(); /* 5.3 does a refresh in getch */
+            screen_refresh(); /* 5.3 does a refresh in getch */
 #endif
-            // XXX: should use CLEAR_LINE
-            c = nmgetch(0);
-            getyx(stdscr, tempy, tempx);
-            move(1, 0);
-            clrtoeol();
-            move(tempy, tempx);
+            c = nmgetch_savepos(1);
             seenerr = 0;
             showneed = 0;   /* reset after each update */
             showexpr = 0;
@@ -234,12 +228,12 @@ void vi_interaction(void) {
                     FALLTHROUGH;
                 case ctl('l'):
                     FullUpdate++;
-                    clearok(stdscr, 1);
+                    screen_rebuild();
                     break;
                 case ctl('x'):
                     FullUpdate++;
                     showexpr = 1;
-                    clearok(stdscr, 1);
+                    screen_rebuild();
                     break;
                 case ctl('b'):
                     if (emacs_bindings)
@@ -339,8 +333,7 @@ void vi_interaction(void) {
                 case ctl('g'):
                     showrange = 0;
                     linelim = -1;
-                    move(1, 0);
-                    clrtoeol();
+                    screen_clear_line(1);
                     break;
 
                 case ESC:       /* ctl('[') */
@@ -429,9 +422,8 @@ void vi_interaction(void) {
                           "x:encrypt,"
 #endif
                           "$:pre-scale,<MORE>");
-                    if (braille) move(1, 0);
-                    refresh();
-
+                    if (braille) screen_move(1, 0);
+                    screen_refresh();
                     switch (nmgetch(1)) {
                     case 'a': case 'A':
                     case 'm': case 'M':
@@ -454,16 +446,7 @@ void vi_interaction(void) {
                         --modflg;   /* negate the modflg++ */
                         break;
                     case 'C':
-                        color = !color;
-                        if (has_colors()) {
-                            if (color) {
-                                attron(COLOR_PAIR(1));
-                                bkgd(COLOR_PAIR(1) | ' ');
-                            } else {
-                                attron(COLOR_PAIR(0));
-                                bkgd(COLOR_PAIR(0) | ' ');
-                            }
-                        }
+                        sc_setcolor(!color);
                         error("Color %s.", color ? "enabled" : "disabled");
                         break;
                     case 'e':
@@ -658,7 +641,7 @@ void vi_interaction(void) {
                 deraw(1);
                 system("man sc");
                 goraw();
-                clear();
+                screen_erase();
             } else
             if (linelim >= 0) {
                 /* Editing line */
@@ -800,9 +783,8 @@ void vi_interaction(void) {
 
                 case 'r':
                     error("Range: x:erase v:value c:copy f:fill d:def l:lock U:unlock S:show u:undef F:fmt");
-                    if (braille) move(1, 0);
-                    refresh();
-
+                    if (braille) screen_move(1, 0);
+                    screen_refresh();
                     switch (c = nmgetch(1)) {
                     case 'l':
                         set_line("lock [range] ");
@@ -854,8 +836,8 @@ void vi_interaction(void) {
                         break;
                     case 'r':
                         error("frame (top/bottom/left/right/all/unframe)");
-                        if (braille) move(1, 0);
-                        refresh();
+                        if (braille) screen_move(1, 0);
+                        screen_refresh();
                         switch (c = nmgetch(1)) {
                         case 't':
                             set_line("frametop [<outrange> rows] ");
@@ -1428,7 +1410,7 @@ void vi_interaction(void) {
                     if (c == 's' || c == 'S') {
                         FullUpdate++;
                         shownote = 1;
-                        clearok(stdscr,1);
+                        screen_rebuild();
                         error("Highlighted cells have attached notes.");
                         break;
                     }
@@ -1443,17 +1425,17 @@ void vi_interaction(void) {
                     case ctl('m'):
                         strow = currow;
                         FullUpdate++;
-                        clearok(stdscr, 1);
+                        screen_rebuild();
                         break;
                     case '.':
                         strow = -1;
                         FullUpdate++;
-                        clearok(stdscr, 1);
+                        screen_rebuild();
                         break;
                     case '|':
                         stcol = -1;
                         FullUpdate++;
-                        clearok(stdscr, 1);
+                        screen_rebuild();
                         break;
                     case 'c':
                         /* Force centering of current cell (or range, if
@@ -1463,7 +1445,7 @@ void vi_interaction(void) {
                         strow = -1;
                         stcol = -1;
                         FullUpdate++;
-                        clearok(stdscr, 1);
+                        screen_rebuild();
                         break;
                     default:
                         break;
@@ -1478,7 +1460,7 @@ void vi_interaction(void) {
 #endif
 #ifdef NCURSES_MOUSE_VERSION
                 case KEY_MOUSE:
-                    if (getmouse(&mevent) != OK)
+                    if (screen_getmouse(&mevent) != OK)
                         break;
                     if (mevent.bstate & BUTTON1_CLICKED) {
                         mouse_sel_cell(0);
@@ -1657,7 +1639,7 @@ static void write_line(int c) {
     struct ent *p;
     int c1;
 
-    CLEAR_LINE;  // XXX: possibly redundant
+    screen_clear_line(1);  // XXX: possibly redundant
     if (c != ctl('i'))
         completethis = NULL;
     if (mode == EDIT_MODE) {
@@ -1744,7 +1726,7 @@ static void write_line(int c) {
         case 'y':       yank_cmd(0, 0);                                 break;
         case 'Y':       yank_chars(linelim, linelen, 0);                break;
 #ifdef NCURSES_MOUSE_VERSION
-        case KEY_MOUSE: if (getmouse(&mevent) != OK || mevent.y)
+        case KEY_MOUSE: if (screen_getmouse(&mevent) != OK || mevent.y)
                             break;
                         if (mevent.bstate & BUTTON1_CLICKED)
                             mouse_set_pos(0);
@@ -1809,7 +1791,7 @@ static void write_line(int c) {
          */
         case '\035':        ins_in_line(0);                         break;
 #ifdef NCURSES_MOUSE_VERSION
-        case KEY_MOUSE:     if (getmouse(&mevent) != OK || mevent.y)
+        case KEY_MOUSE:     if (screen_getmouse(&mevent) != OK || mevent.y)
                                 break;
                             if (mevent.bstate & BUTTON1_CLICKED)
                                 mouse_set_pos(0);
@@ -2228,8 +2210,7 @@ static void stop_edit(void) {
         showrange = 0;
         numeric_field = 0;
         linelim = -1;
-        move(1, 0);
-        clrtoeol();
+        screen_clear_line(1);
     }
 }
 
@@ -2723,12 +2704,9 @@ static void doshell(void) {
     while (pid != wait(&temp))
         continue;
 
-    printf("Press any key to continue ");
-    fflush(stdout);
-    cbreak();
-    getch();
+    screen_pause();
     goraw();
-    clear();
+    screen_erase();
 #endif /* NOSHELL */
 }
 
@@ -2816,7 +2794,7 @@ static void forw_hist(void) {
     if (histp) {
         error("History line %d", endhist - lasthist + histp);
     } else {
-        CLEAR_LINE;  // XXX: should not be necessary
+        screen_clear_line(1);  // XXX: should not be necessary
     }
 }
 
@@ -2838,7 +2816,7 @@ static void back_hist(void) {
     if (histp) {
         error("History line %d", endhist - lasthist + histp);
     } else {
-        CLEAR_LINE;  // XXX: should not be necessary
+        screen_clear_line(1);  // XXX: should not be necessary
     }
 }
 
@@ -2911,7 +2889,7 @@ static void search_again(sc_bool_t reverse) {
         return;
 #endif
     prev_match = histp > 0 ? histp : 0;
-    CLEAR_LINE;
+    screen_clear_line(1);
 
     do {
         if (lasthist > 0) {
@@ -3343,7 +3321,7 @@ int query(char *dest, int destsize, const char *s, const char *data) {
             break;
         case ctl('l'):
             FullUpdate++;
-            clearok(stdscr, 1);
+            screen_rebuild();
             update(1);
             continue;
         default:
@@ -3434,7 +3412,7 @@ static int get_rcqual(int ch) {
           (ch == 'Z')     ? "  Z: save/exit" :
                             "");
 
-    refresh();
+    screen_refresh();
 
     switch (c = nmgetch(1)) {
     case 'r':
@@ -3545,9 +3523,9 @@ static void formatcol(int arg) {
     }
     error("Current format is %d %d %d",
           fwidth[curcol], precision[curcol], realfmt[curcol]);
-    refresh();
+    screen_refresh();
     c = nmgetch(0);
-    //CLEAR_LINE;     // XXX: clear line?
+    //screen_clear_line(1);     // XXX: clear line?
     for (;;) {
         if (c < 0 || c == ctl('m') || c == 'q' || c == ESC ||
             c == ctl('g') || linelim >= 0)
@@ -3572,8 +3550,8 @@ static void formatcol(int arg) {
             case 'l':
                 for (i = curcol; i < curcol + arg; i++) {
                     fwidth[i]++;
-                    if (fwidth[i] > COLS - rescol - 2)
-                        fwidth[i] = COLS - rescol - 2;
+                    if (fwidth[i] > screen_COLS - rescol - 2)
+                        fwidth[i] = screen_COLS - rescol - 2;
                 }
                 modflg++;
                 break;
@@ -3608,7 +3586,7 @@ static void formatcol(int arg) {
                 continue;
             case '=':
                 error("Define format type (0-9):");
-                refresh();
+                screen_refresh();
                 c = nmgetch(1);
                 if (c >= '0' && c <= '9') {
                     if (colformat[c - '0']) {
@@ -3628,7 +3606,7 @@ static void formatcol(int arg) {
                 continue;
             case ctl('l'):
                 FullUpdate++;
-                clearok(stdscr, 1);
+                screen_rebuild();
                 break;
             default:
                 break;
@@ -3638,7 +3616,7 @@ static void formatcol(int arg) {
               fwidth[curcol], precision[curcol], realfmt[curcol]);
         FullUpdate++;
         update(1);
-        refresh();
+        screen_refresh();
         if (linelim < 0) {
             c = nmgetch(0);
             if (c == ESC || c == ctl('g') || c == 'q') {
@@ -3656,7 +3634,7 @@ static void formatcol(int arg) {
     }
     scxfree(oldformat);
     if (c >= 0)
-        CLEAR_LINE;     // XXX: should get rid of this hack
+        screen_clear_line(1);     // XXX: should get rid of this hack
 }
 
 /* called from main() for -P/ option, via sc_cmd_put() */
@@ -3671,7 +3649,7 @@ static int vi_select_range(const char *cmd, const char *arg) {
     update(1);
     while (!linelim) {
         c = nmgetch(0);
-        //CLEAR_LINE;   // XXX: why delay?
+        //screen_clear_line(1);   // XXX: why delay?
         switch (c) {
         case '.':
         case ':':
@@ -3698,7 +3676,7 @@ static int vi_select_range(const char *cmd, const char *arg) {
             break;
         case ctl('l'):
             FullUpdate++;
-            clearok(stdscr, 1);
+            screen_rebuild();
             break;
         default:
             write_line(c);
@@ -3709,12 +3687,13 @@ static int vi_select_range(const char *cmd, const char *arg) {
          */
         if (mode_ind == 'i')
             write_line(ctl('v'));
-        CLEAR_LINE;
+        screen_clear_line(1);
         update(1);
     }
     return linelim;
 }
 
+// XXX: get rid of this hack
 void sc_cmd_put(const char *arg, int vopt) {
     if (*optarg == '/') {
         int in = dup(STDIN_FILENO);
@@ -3723,11 +3702,7 @@ void sc_cmd_put(const char *arg, int vopt) {
         freopen("/dev/tty", "w", stdout);
         usecurses = TRUE;
         startdisp();
-        if (has_colors()) {
-            initcolor(0);
-            bkgd(COLOR_PAIR(1) | ' ');
-        }
-        clearok(stdscr, TRUE);
+        screen_rebuild();
         FullUpdate++;
 
         // XXX: should not use global line array
@@ -3758,10 +3733,8 @@ void sc_cmd_write(const char *arg) {
 
 /* return 1 if yes given, 0 otherwise */
 int yn_ask(const char *msg) {
-    move(0, 0);
-    clrtoeol();
-    addstr(msg);
-    refresh();
+    screen_draw_line(0, 0, msg);
+    screen_refresh();
     // should clear screen row 0 upon returning
     for (;;) {
         switch (nmgetch(0)) {

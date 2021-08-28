@@ -45,6 +45,7 @@ static int wasforw = FALSE;  /* Causes screen to be redisplay if on lastcol */
 int framerows;      /* Rows in current frame */
 int framecols;      /* Columns in current frame */
 int rescol = 4;     /* Columns reserved for row numbers */
+int screen_COLS = 80, screen_LINES = 25;
 
 static void repaint(int x, int y, int len, int attron, int attroff);
 static void showstring(const char *string, int align, int hasvalue, int row,
@@ -55,25 +56,32 @@ void error(const char *fmt, ...) {
     char buf[256];
     va_list ap;
 
-    select_style(STYLE_CELL, 0);
-    if (isatty(fileno(stdout)) && !move(1, 0) && !clrtoeol()) {
-        va_start(ap, fmt);
-        // Prevent warning: format string is not a string literal [-Werror,-Wformat-nonliteral]
-        ((int (*)(char *, size_t, const char *, va_list))vsnprintf)(buf, sizeof buf, fmt, ap);
-        va_end(ap);
+    va_start(ap, fmt);
+    // Prevent warning: format string is not a string literal [-Werror,-Wformat-nonliteral]
+    ((int (*)(char *, size_t, const char *, va_list))vsnprintf)(buf, sizeof buf, fmt, ap);
+    va_end(ap);
+
+    if (usecurses) {
+        select_style(STYLE_CELL, 0);
+        screen_clear_line(1);
+        // XXX: should clip message to screen width
         addstr(buf);
+    } else {
+        if (*buf) fprintf(stderr, "%s\n", buf);
     }
 }
 
 void select_style(int n, int rev) {
-    if (rev) {
-        if (rev > 0)
-            standout();
-        else
-            standend();
-    }
-    if (color && has_colors()) {
-        color_set(n, NULL);
+    if (usecurses) {
+        if (rev) {
+            if (rev > 0)
+                standout();
+            else
+                standend();
+        }
+        if (color && has_colors()) {
+            attron(COLOR_PAIR(n));
+        }
     }
 }
 
@@ -574,7 +582,7 @@ void update(int anychanged) {          /* did any cell really change in value? *
 #ifdef RIGHT_CBUG
         if (wasforw) {
             select_style(STYLE_CELL, 0);
-            clearok(stdscr, TRUE);
+            screen_rebuild();
             wasforw = 0;
         }
 #endif
@@ -1055,6 +1063,8 @@ void repaint_cursor(int set) {
     struct crange *cr;
     int style = STYLE_CELL;
 
+    if (!usecurses) return;
+
     if (set) {
         p = *ATBL(tbl, row, col);
         if ((cr = find_crange(row, col)))
@@ -1088,12 +1098,10 @@ void parse_error(const char *err, const char *src, int pos) {
     if (usecurses) {
         if (seenerr) return;
         seenerr++;
-        move(1, 0);
-        clrtoeol();
         // XXX: should print line portion around error if too long
-        printw("%s: %.*s<=%s", err, pos, src, src + pos);
+        error("%s: %.*s>%s", err, pos, src, src + pos);
     } else {
-        fprintf(stderr, "%s: %.*s<=%s\n", err, pos, src, src + pos);
+        fprintf(stderr, "%s: %.*s>%s\n", err, pos, src, src + pos);
     }
 }
 
@@ -1102,10 +1110,10 @@ struct termio tmio;
 #endif
 
 void startdisp(void) {
-#ifdef sun
-    int fd = dup(0);
-#endif
     if (usecurses) {
+#ifdef sun
+        int fd = dup(0);
+#endif
         int i;
 #ifdef TIOCGSIZE
         {
@@ -1121,6 +1129,8 @@ void startdisp(void) {
         ioctl(fileno(stdin), TCGETA, &tmio);
 #endif
         initscr();
+        screen_LINES = LINES;
+        screen_COLS = COLS;
         start_color();
         for (i = 1; i <= CPAIRS; i++) {
             if (cpairs[i])
@@ -1185,33 +1195,11 @@ void stopdisp(void) {
 }
 
 /* init curses */
+void goraw(void) {
+    if (usecurses) {
 #ifdef VMS
-
-void goraw(void) {
-    if (usecurses) {
         VMS_read_raw = 1;
-        if (color && has_colors())
-            bkgdset(COLOR_PAIR(1) | ' ');
-        FullUpdate++;
-    }
-}
-
-void deraw(int ClearLastLine) {
-    if (usecurses) {
-        if (ClearLastLine) {
-            if (color && has_colors())
-                bkgdset(COLOR_PAIR(0) | ' ');
-            move(lines - 1, 0);
-            clrtoeol();
-            refresh();
-        }
-        VMS_read_raw = 0;
-    }
-}
-
 #else /* VMS */
-void goraw(void) {
-    if (usecurses) {
 #ifdef HAVE_FIXTERM
         fixterm();
 #else
@@ -1220,6 +1208,7 @@ void goraw(void) {
         noecho();
 #endif
         kbd_again();
+#endif /* VMS */
         if (color && has_colors())
             bkgdset(COLOR_PAIR(1) | ' ');
         FullUpdate++;
@@ -1236,6 +1225,9 @@ void deraw(int ClearLastLine) {
             clrtoeol();
             refresh();
         }
+#ifdef VMS
+        VMS_read_raw = 0;
+#else /* VMS */
 #ifdef HAVE_RESETTERM
         resetterm();
 #else
@@ -1244,49 +1236,74 @@ void deraw(int ClearLastLine) {
         echo();
 #endif
         resetkbd();
+#endif /* VMS */
     }
 }
 
-#endif /* VMS */
-
-void mouseon(void) {
-#ifdef NCURSES_MOUSE_VERSION
-    mousemask(BUTTON1_CLICKED
-# if NCURSES_MOUSE_VERSION >= 2
-              | BUTTON4_PRESSED | BUTTON5_PRESSED
-# endif
-              , NULL);
-# if NCURSES_MOUSE_VERSION < 2
-    error("Warning: NCURSES_MOUSE_VERSION < 2");
-# endif
-#else
-    error("Error: NCURSES_MOUSE_VERSION undefined");
-#endif
+/* called to let the user see external command output */
+void screen_pause(void) {
+    printf("Press any key to continue ");
+    fflush(stdout);
+    cbreak();
+    nmgetch(0);
 }
 
-void mouseoff(void) {
-#if NCURSES_MOUSE_VERSION >= 2
-    mousemask(0, NULL);
+void screen_mouseon(void) {
+    if (usecurses) {
+#ifdef NCURSES_MOUSE_VERSION
+        mousemask(BUTTON1_CLICKED
+# if NCURSES_MOUSE_VERSION >= 2
+                  | BUTTON4_PRESSED | BUTTON5_PRESSED
+# endif
+                  , NULL);
+# if NCURSES_MOUSE_VERSION < 2
+        error("Warning: NCURSES_MOUSE_VERSION < 2");
+# endif
+#else
+        error("Error: NCURSES_MOUSE_VERSION undefined");
 #endif
+    }
+}
+
+void screen_mouseoff(void) {
+    if (usecurses) {
+#if NCURSES_MOUSE_VERSION >= 2
+        mousemask(0, NULL);
+#endif
+    }
+}
+
+int screen_getmouse(MEVENT *event) {
+    if (usecurses)
+        return getmouse(event);
+    else
+        return !OK;
+}
+
+void screen_init_pair(int n, int fg, int bg) {
+    if (usecurses && color && has_colors())
+        init_pair(n, fg, bg);
 }
 
 void sc_setcolor(int set) {
     color = set;
     if (usecurses && has_colors()) {
         if (set) {
-            select_style(STYLE_CELL, 0);
+            //select_style(STYLE_CELL, 0);
+            attron(COLOR_PAIR(1));
             bkgd(COLOR_PAIR(1) | ' ');
         } else {
             //select_style(STYLE_NONE, 0);
-            color_set(0, NULL);
+            attron(COLOR_PAIR(0));
             bkgd(COLOR_PAIR(0) | ' ');
         }
         FullUpdate++;
     }
 }
 
-void hidecursor(void) {
-    move(lines - 1, cols - 1);
+void screen_hidecursor(void) {
+    if (usecurses)
+        move(lines - 1, cols - 1);
 }
 
 /*
@@ -1332,7 +1349,7 @@ void showstring(const char *string,         /* to display */
     if (c + fieldlen == rescol + flcols && nextcol < stcol)
         nextcol = stcol;
     if (frightcols &&
-            c + fieldlen + fwidth[nextcol] >= COLS - 1 - frcols &&
+            c + fieldlen + fwidth[nextcol] >= cols - 1 - frcols &&
             nextcol < fr->or_right->col - frightcols + 1)
         nextcol = fr->or_right->col - frightcols + 1;
 
@@ -1344,7 +1361,7 @@ void showstring(const char *string,         /* to display */
         if (c + fieldlen == rescol + flcols && nextcol < stcol)
             nextcol = stcol;
         if (frightcols &&
-                c + fieldlen + fwidth[nextcol] >= COLS - 1 - frcols &&
+                c + fieldlen + fwidth[nextcol] >= cols - 1 - frcols &&
                 nextcol < fr->or_right->col - frightcols + 1)
             nextcol = fr->or_right->col - frightcols + 1;
     }
@@ -1402,9 +1419,9 @@ void showstring(const char *string,         /* to display */
 
 void cmd_redraw(void) {
     if (usecurses) {
-        clearok(stdscr, TRUE);
+        screen_rebuild();
         update(1);
-        refresh();
+        screen_refresh();
         changed = 0;
     }
 }
@@ -1423,7 +1440,7 @@ void resetkbd(void) {}
 
 int nmgetch(int clearline) {
     int c = getchar();
-    if (clearline) CLEAR_LINE;
+    if (clearline) screen_clear_line(1);
     return c;
 }
 
@@ -1447,7 +1464,7 @@ int nmgetch(int clearline) {
 #  define VMScheck(a) {if (~(status = (a)) & 1) VMS_MSG (status);}
 
     if (VMS_read_raw) {
-        VMScheck(smg$read_keystroke (&stdkb->_id, &c, 0, 0, 0));
+        VMScheck(smg$read_keystroke(&stdkb->_id, &c, 0, 0, 0));
     } else {
         c = getchar();
     }
@@ -1459,7 +1476,7 @@ int nmgetch(int clearline) {
     case SMG$K_TRM_DOWN:  c = ctl('n');  break;
     default:   c = c & A_CHARTEXT;
     }
-    if (clearline) CLEAR_LINE;
+    if (clearline) screen_clear_line(1);
     return c;
 }
 
@@ -1533,6 +1550,8 @@ void initkbd(void) {
     char *p = keyarea;
     char *ktmp;
     static char buf[1024]; /* Why do I have to do this again? */
+
+    // XXX: should have a hard coded VT100 terminal version for !usecurses
 
     if (!(ktmp = getenv("TERM"))) {
         fprintf(stderr, "TERM environment variable not set\n");
@@ -1614,7 +1633,7 @@ int nmgetch(int clearline) {
     static char *dumpindex;
 
     if (dumpindex && *dumpindex) {
-        if (clearline) CLEAR_LINE;
+        if (clearline) screen_clear_line(1);
         return *dumpindex++;
     }
 
@@ -1664,7 +1683,7 @@ int nmgetch(int clearline) {
         return dumpbuf[0];
     }
 
-    if (clearline) CLEAR_LINE;
+    if (clearline) screen_clear_line(1);
     return c;
 }
 
@@ -1767,8 +1786,101 @@ int nmgetch(int clearline) {
     default:
         break;
     }
-    if (clearline) CLEAR_LINE;
+    if (clearline) screen_clear_line(1);
     return c;
 }
 
 #endif /* SIMPLE */
+
+int nmgetch_savepos(int clearline) {
+    int c, tempx = 0, tempy = 0;
+    if (usecurses) getyx(stdscr, tempy, tempx);
+    c = nmgetch(clearline);
+    if (usecurses) move(tempy, tempx);
+    return c;
+}
+
+/* called upon receiving the SIGWINCH signal */
+void screen_resize(void) {
+    if (usecurses) {
+        stopdisp();
+        startdisp();
+        /*
+         * I'm not sure why a screen_refresh() needs to be done both before and after
+         * the screen_rebuild() and update(), but without doing it this way, a screen
+         * (or window) that grows bigger will leave the added space blank. - CRM
+         */
+        screen_refresh();
+        FullUpdate++;
+        screen_rebuild();
+        update(1);
+        screen_refresh();
+    }
+}
+
+void screen_rebuild(void) {
+    if (usecurses) clearok(stdscr, 1);
+}
+
+void screen_erase(void) {
+    if (usecurses) clear();
+}
+
+void screen_refresh(void) {
+    if (usecurses) refresh();
+}
+
+void screen_move(int y, int x) {
+    if (usecurses) move(y, x);
+}
+
+void screen_clear_line(int y) {
+    if (usecurses) { move(y, 0); clrtoeol(); }
+}
+
+void screen_draw_page(int y, int x, const char * const *screen) {
+    if (usecurses) {
+        int i;
+        for (i = 0; screen[i]; i++) {
+            move(y + i, x);
+            addstr(screen[i]);
+            clrtoeol();
+        }
+    }
+}
+
+void screen_draw_line(int y, int x, const char *str) {
+    if (usecurses) {
+        move(y, x);
+        addstr(str);
+        clrtoeol();
+    }
+}
+
+int screen_get_keyname(char *buf, size_t size, int c) {
+    const char *name;
+
+    if (c < 256) {
+        // XXX: should handle control keys, DEL, and UNICODE
+        buf[0] = c;
+        buf[1] = '\0';
+        return 1;
+    }
+#ifdef HAVE_CURSES_KEYNAME
+    if (c >= KEY_MIN && c <= KEY_MAX && (name = keyname(c)) != NULL) {
+        // XXX: this is bogus for function keys
+        int i, len;
+        buf[0] = '\0';
+        pstrcpy(buf + 1, size - 1, name);
+        /* strip `KEY_` and parentheses */
+        for (len = 1, i = 5; buf[i]; i++) {
+            if (buf[i] != '(' && buf[i] != ')')
+                buf[len++] = buf[i];
+        }
+        buf[len] = '\0';
+        return len;
+    }
+#endif
+    buf[0] = '\0';
+    return 1 + pstrcpy(buf + 1, size - 1, "UNKNOWN KEY");
+}

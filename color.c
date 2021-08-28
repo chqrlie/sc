@@ -61,8 +61,7 @@ int init_style(int n, int fg, int bg, enode_t *expr) {
     cpairs[n]->fg = fg;
     cpairs[n]->bg = bg;
     cpairs[n]->expr = expr;
-    if (color && has_colors())
-        init_pair(n, fg, bg);
+    screen_init_pair(n, fg, bg);
     return 0;
 }
 

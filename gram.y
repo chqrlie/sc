@@ -651,8 +651,8 @@ setitem : K_AUTO                    { setautocalc(1); }
         | not K_BRAILLE             { braille = 0; }
         | K_BACKUP                  { dobackups = 1; }
         | not K_BACKUP              { dobackups = 0; }
-        | K_MOUSE                   { mouseon(); }
-        | not K_MOUSE               { mouseoff(); }
+        | K_MOUSE                   { screen_mouseon(); }
+        | not K_MOUSE               { screen_mouseoff(); }
         | K_ITERATIONS '=' NUMBER   { setiterations($3); }
         | K_TBLSTYLE '=' NUMBER     { tbl_style = $3; }
         | K_TBLSTYLE '=' K_TBL      { tbl_style = TBL; }

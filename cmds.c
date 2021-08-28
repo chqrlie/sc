@@ -1238,9 +1238,12 @@ void cmd_format(int c1, int c2, int w, int p, int r) {
         w = 1;
     }
 
-    if (usecurses && w > COLS - rescol - 2) {
-        error("Width too large - Maximum = %d", COLS - rescol - 2);
-        w = COLS - rescol - 2;
+    if (usecurses) {
+        int maxwidth = screen_COLS - rescol - 2;
+        if (w > maxwidth) {
+            error("Width too large - Maximum = %d", maxwidth);
+            w = maxwidth;
+        }
     }
 
     if (p > w) {
@@ -1382,7 +1385,7 @@ void copy(int flags, rangeref_t drr, rangeref_t srr) {
 
     error("Copying...");
     if (!loading)
-        refresh();
+        screen_refresh();
     p = delbuf[dbidx];
     if (minsr == maxsr && minsc == maxsc) {
         /* Source is a single cell */
@@ -1938,10 +1941,7 @@ void cmd_run(SCXMEM string_t *str) {
     deraw(1);
     system(cmd);
     if (*cmd && cmd[strlen(cmd) - 1] != '&') {
-        printf("Press any key to continue ");
-        fflush(stdout);
-        cbreak();
-        nmgetch(0);
+        screen_pause();
     }
     goraw();
     string_free(str);

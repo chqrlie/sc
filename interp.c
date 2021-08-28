@@ -2160,8 +2160,8 @@ static scvalue_t eval_ext(eval_ctx_t *cp, enode_t *e) {
         }
         if (err) break;
 
-        error("Running external function...");
-        refresh();
+        //error("Running external function...");
+        //screen_refresh();
 
         if ((pf = popen(buff, "r")) == NULL) {     /* run it */
             error("Warning: running \"%s\" failed", buff);
@@ -2911,7 +2911,7 @@ void EvalAll(void) {
     if (propagation > 1 && lastcnt > 0)
         error("Still changing after %d iterations", repct);
 
-    if (usecurses && color && has_colors()) {
+    if (usecurses && color) {
         for (pair = 1; pair <= CPAIRS; pair++) {
             if (cpairs[pair] && cpairs[pair]->expr) {
                 eval_ctx_t cp[1] = {{ 0, 0, 0, 0 }};
@@ -2925,9 +2925,7 @@ void EvalAll(void) {
              * turn off color in that case.
              */
             if (pair == 1 && err) {
-                color = 0;
-                attron(COLOR_PAIR(0));
-                color_set(0, NULL);
+                sc_setcolor(0);
                 error("Error in color 1: color turned off");
             }
         }

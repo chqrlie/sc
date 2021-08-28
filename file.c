@@ -165,30 +165,12 @@ void closefile(FILE *f, int pid, int rfd) {
         while (pid != wait(&temp))
             continue;
         if (rfd == 0) {
-            printf("Press any key to continue ");
-            fflush(stdout);
-            cbreak();
-            nmgetch(0);
+            screen_pause();
             goraw();
-            clear();
+            screen_erase();
         } else {
             close(rfd);
-            if (usecurses) {
-# ifdef VMS
-                VMS_read_raw = 1;
-# else /* VMS */
-#  ifdef HAVE_FIXTERM
-                fixterm();
-#  else
-                cbreak();
-                nonl();
-                noecho();
-#  endif
-                kbd_again();
-# endif /* VMS */
-                if (color && has_colors())
-                    bkgdset(COLOR_PAIR(1) | ' ');
-            }
+            goraw();
         }
     }
 #endif /* NOPIPES */
@@ -562,7 +544,7 @@ int writefile(const char *fname, rangeref_t rr, int dcp_flags) {
 
     if (usecurses) {
         error("Writing file \"%s\"...", save);
-        refresh();
+        screen_refresh();
     }
     write_fd(f, rr, dcp_flags);
 
@@ -667,7 +649,7 @@ int readfile(const char *fname, int eraseflg) {
         if (*save) {
             if (usecurses) {
                 error("Reading file \"%s\"", save);
-                refresh();
+                screen_refresh();
             } else
                 fprintf(stderr, "Reading file \"%s\"\n", save);
         }
@@ -713,7 +695,7 @@ int readfile(const char *fname, int eraseflg) {
         if (*save) {
             if (usecurses) {
                 error("File \"%s\" loaded.", save);
-                refresh();
+                screen_refresh();
             } else
                 fprintf(stderr, "File \"%s\" loaded.\n", save);
         }

@@ -1344,10 +1344,9 @@ static int run_menu(const void *arg, int n) {
             select_style(STYLE_CELL, 0);
             addstr("  ");
         }
-        move(1, 0);
-        clrtoeol();
-        addstr(menu[option].desc);
-        hidecursor();
+        screen_draw_line(1, 0, menu[option].desc);
+        screen_hidecursor();
+        screen_refresh();
         switch (c = nmgetch(0)) {
         case KEY_HOME:
         case ctl('a'):
@@ -1372,13 +1371,13 @@ static int run_menu(const void *arg, int n) {
         case ESC:
         case KEY_UP:
         case ctl('p'):
-            move(0, 0); clrtoeol();
-            move(1, 0); clrtoeol();
+            screen_clear_line(0);
+            screen_clear_line(1);
             return ESC;
         case ctl('g'):
         case EOF:
-            move(0, 0); clrtoeol();
-            move(1, 0); clrtoeol();
+            screen_clear_line(0);
+            screen_clear_line(1);
             return c;
         case KEY_ENTER:
         case KEY_DOWN:
@@ -1397,8 +1396,8 @@ static int run_menu(const void *arg, int n) {
                 break;
             continue;
         }
-        move(0, 0); clrtoeol();
-        move(1, 0); clrtoeol();
+        screen_clear_line(0);
+        screen_clear_line(1);
         if (menu[option].func) {
             c = menu[option].func(menu[option].arg, menu[option].n);
             if (c == ESC)
