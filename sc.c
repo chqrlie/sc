@@ -59,7 +59,6 @@ SCXMEM string_t *tblext;
 SCXMEM string_t *latexext;
 SCXMEM string_t *slatexext;
 SCXMEM string_t *texext;
-SCXMEM string_t *empty_string;
 int scrc = 0;
 int showsc, showsr;     /* Starting cell for highlighted range */
 int usecurses = TRUE;   /* Use curses unless piping/redirection or using -q */
@@ -139,7 +138,7 @@ int main(int argc, char **argv) {
     int Mopt = 0;
     int Dopt = 0;
 
-    empty_string = string_new("");
+    string_init();
     histfile = string_new("~/.sc_history");
 
 #ifdef USELOCALE
@@ -241,7 +240,7 @@ int main(int argc, char **argv) {
     if (optind < argc) {
         if (!readfile(argv[optind], 1) && (optind == argc - 1))
             error("New file: \"%s\"", curfile);
-        EvalAll();
+        EvalAll(); // XXX: should delay until after all files have been loaded
         optind++;
     } else {
         erasedb(TRUE);
@@ -256,6 +255,7 @@ int main(int argc, char **argv) {
     savedcr[0] = cellref(currow, curcol);
     savedst[0] = cellref(strow, stcol);
     // XXX: potentially redundant
+    // XXX: should check for autocalc
     EvalAll();
 
     if (!(popt || isatty(STDIN_FILENO)))
@@ -338,7 +338,7 @@ int main(int argc, char **argv) {
         string_set(&latexext, NULL);
         string_set(&slatexext, NULL);
         string_set(&texext, NULL);
-        string_set(&empty_string, NULL);
+        string_exit();
         scxmemdump();
     }
 

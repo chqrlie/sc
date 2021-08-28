@@ -86,11 +86,13 @@ typedef struct string_t {
     char s[1];
 }  string_t;
 
-extern SCXMEM string_t *empty_string;
+void string_init(void);
+void string_exit(void);
 
 SCXMEM string_t *string_new(const char *s);
 SCXMEM string_t *string_new_len(const char *s, size_t len);
 SCXMEM string_t *string_clone(SCXMEM string_t *str);
+SCXMEM string_t *string_empty(void);
 
 static inline SCXMEM string_t *string_dup(string_t *str) {
     if (str) str->refcount++;

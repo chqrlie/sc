@@ -196,7 +196,7 @@ static SCXMEM string_t *eval_str(eval_ctx_t *cp, enode_t *e, int *errp) {
     if (res.type == SC_BOOLEAN)
         return string_new(res.u.v ? "TRUE" : "FALSE");
     if (res.type == SC_EMPTY)
-        return string_dup(empty_string);
+        return string_empty();
     /* type is SC_ERROR */
     *errp = res.u.error;
     return NULL;
@@ -2140,7 +2140,7 @@ static scvalue_t eval_ext(eval_ctx_t *cp, enode_t *e) {
             error("Warning: external functions disabled; using %s value",
                   prev ? "previous" : "null");
             if (prev) return eval_node(cp, prev);
-            return scvalue_string(string_dup(empty_string));
+            return scvalue_string(string_empty());
         }
         str = eval_str(cp, cmd, &err);
         if (err) break;
@@ -2218,7 +2218,7 @@ static scvalue_t eval_sval(eval_ctx_t *cp, enode_t *e) {
         return scvalue_string(string_new(buf));
     }
     if (res.type == SC_EMPTY)
-        return scvalue_string(string_dup(empty_string));
+        return scvalue_string(string_empty());
 
     return res; /* type is SC_ERROR */
 }
@@ -2268,7 +2268,7 @@ static scvalue_t eval_len(eval_ctx_t *cp, enode_t *e) {
 static scvalue_t eval_t(eval_ctx_t *cp, enode_t *e) {
     scvalue_t res = eval_node_value(cp, e->e.args[0]);
     if (res.type == SC_STRING) return res;
-    return scvalue_string(string_dup(empty_string));
+    return scvalue_string(string_empty());
 }
 
 static scvalue_t eval_find(eval_ctx_t *cp, enode_t *e) {
@@ -2407,7 +2407,7 @@ static scvalue_t eval_rept(eval_ctx_t *cp, enode_t *e) {
     if (count != 0 && FBUFLEN / count < len)
         count = FBUFLEN / len;
     if ((len2 = len * count) == 0) {
-        str = string_dup(empty_string);
+        str = string_empty();
     } else
     if ((str = string_new_len(NULL, len2))) {
         char *p = str->s;

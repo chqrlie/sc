@@ -183,6 +183,20 @@ void scxmemdump(void) {
 
 /*---------------- refcounted strings ----------------*/
 
+static SCXMEM string_t *empty_string;
+
+void string_init(void) {
+    empty_string = string_new("");
+}
+
+void string_exit(void) {
+    string_set(&empty_string, NULL);
+}
+
+SCXMEM string_t *string_empty(void) {
+    return string_dup(empty_string);
+}
+
 SCXMEM string_t *string_new(const char *s) {
     size_t len = strlen(s);
     string_t *str = scxmalloc(offsetof(string_t, s) + len + 1);
@@ -251,7 +265,7 @@ SCXMEM string_t *string_mid(SCXMEM string_t *str, int pos, int n) {
     if (n > len - pos)
         n = len - pos;
     if (n <= 0) {
-        p = string_dup(empty_string);
+        p = string_empty();
     } else
     if (n == len) {
         return str;
