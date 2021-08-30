@@ -246,12 +246,12 @@ static SCXMEM string_t *get_strarg(cellref_t cr) {
 %token K_LOCALE
 %token K_EMACS
 
-//%token <ival> T_GE T_LE T_LG T_NE
+//%token <ival> T_GTE T_LTE T_NE T_NE2
 //%token <ival> '+' '-' '*' '/' '%' '^'
 
 %right ';'
 %left '&'
-%nonassoc '<' '=' '>' T_LE T_GE T_NE T_LG
+%nonassoc '<' '=' '>' T_LTE T_GTE T_NE T_NE2
 %left '+' '-'
 %left '*' '/' '%'
 %left '^'
@@ -538,9 +538,9 @@ term:         VAR                       { $$ = new_var($1); }
         |     STRING                    { $$ = new_str($1); }
         |     T_ERROR                   { $$ = new_error($1); }
         |     '(' e ')'                 { $$ = $2; }
-        |     '+' term                  { $$ = new_op1(OP_UPLUS, $2); }
-        |     '-' term                  { $$ = new_op1(OP_UMINUS, $2); }
-        |     term '%'                  { $$ = new_op1(OP_PERCENT, $1); }
+        |     '+' term                  { $$ = new_op1(OP_UPLUS_, $2); }
+        |     '-' term                  { $$ = new_op1(OP_UMINUS_, $2); }
+        |     term '%'                  { $$ = new_op1(OP_PERCENT_, $1); }
         | FUNC0 '(' ')'                 { $$ = new_op0($1, 0); }
         | FUNC0                         { $$ = new_op0($1, -1); }
         | FUNC01 '(' ')'                { $$ = new_op0($1, 0); }
@@ -560,32 +560,35 @@ term:         VAR                       { $$ = new_var($1); }
         | FUNC2x '(' e ',' expr_list ')' { $$ = new_op1x($1, $3, $5); }
         | FUNC3 '(' e ',' e ',' e ')'   { $$ = new_op3($1, $3, $5, $7); }
         | FUNC34 '(' e ',' e ',' e ')'  { $$ = new_op3($1, $3, $5, $7); }
-        | FUNC34 '(' e ',' e ',' e ',' e ')' { $$ = new_op1x($1, $3, new_op3(OP_COMMA, $5, $7, $9)); }
+        | FUNC34 '(' e ',' e ',' e ',' e ')' { $$ = new_op1x($1, $3, new_op3(OP_COMMA_, $5, $7, $9)); }
         | FUNC35 '(' e ',' e ',' e ')'  { $$ = new_op3($1, $3, $5, $7); } /* XXX: hack for FV, PMT, PV */
+        | FUNC35 '(' e ',' e ',' e ',' e ')' { $$ = new_op1x($1, $3, new_op3(OP_COMMA_, $5, $7, $9)); }
+        | FUNC35 '(' e ',' e ',' e ',' e ',' e ')' { $$ = new_op1x($1, $3, new_op2(OP_COMMA_, $5,
+                                                                                   new_op3(OP_COMMA_, $7, $9, $11))); }
         ;
 
 /* expressions */
-e:        e '+' e                   { $$ = new_op2(OP_PLUS, $1, $3); }
-        | e '-' e                   { $$ = new_op2(OP_MINUS, $1, $3); }
-        | e '*' e                   { $$ = new_op2(OP_STAR, $1, $3); }
-        | e '/' e                   { $$ = new_op2(OP_SLASH, $1, $3); }
-        | e '^' e                   { $$ = new_op2(OP_CARET, $1, $3); }
-        | e '!' e                   { $$ = new_op2(OP_BANG, $1, $3); }
-        | e ':' e                   { $$ = new_op2(OP_COLON, $1, $3); }
+e:        e '+' e                   { $$ = new_op2(OP_ADD_, $1, $3); }
+        | e '-' e                   { $$ = new_op2(OP_MINUS_, $1, $3); }
+        | e '*' e                   { $$ = new_op2(OP_MULTIPLY_, $1, $3); }
+        | e '/' e                   { $$ = new_op2(OP_DIVIDE_, $1, $3); }
+        | e '^' e                   { $$ = new_op2(OP_POW_, $1, $3); }
+        | e '!' e                   { $$ = new_op2(OP_BANG_, $1, $3); }
+        | e ':' e                   { $$ = new_op2(OP_COLON_, $1, $3); }
         | term
-        | e '&' e                   { $$ = new_op2(OP_AMPERSAND, $1, $3); }
-        | e ';' e                   { $$ = new_op2(OP_SEMI, $1, $3); }
-        | e '<' e                   { $$ = new_op2(OP_LT, $1, $3); }
-        | e '=' e                   { $$ = new_op2(OP_EQ, $1, $3); }
-        | e '>' e                   { $$ = new_op2(OP_GT, $1, $3); }
-        | e T_GE e                  { $$ = new_op2(OP_GE, $1, $3); }
-        | e T_LE e                  { $$ = new_op2(OP_LE, $1, $3); }
-        | e T_LG e                  { $$ = new_op2(OP_LG, $1, $3); }
-        | e T_NE e                  { $$ = new_op2(OP_NE, $1, $3); }
+        | e '&' e                   { $$ = new_op2(OP_CONCAT_, $1, $3); }
+        | e ';' e                   { $$ = new_op2(OP_SEMI_, $1, $3); }
+        | e '<' e                   { $$ = new_op2(OP_LT_, $1, $3); }
+        | e '=' e                   { $$ = new_op2(OP_EQ_, $1, $3); }
+        | e '>' e                   { $$ = new_op2(OP_GT_, $1, $3); }
+        | e T_GTE e                 { $$ = new_op2(OP_GTE_, $1, $3); }
+        | e T_LTE e                 { $$ = new_op2(OP_LTE_, $1, $3); }
+        | e T_NE e                  { $$ = new_op2(OP_NE_, $1, $3); }
+        | e T_NE2 e                 { $$ = new_op2(OP_NE2_, $1, $3); }
         ;
 
 expr_list: e                        { $$ = $1; }
-        | e ',' expr_list           { $$ = new_op2(OP_COMMA, $1, $3); }
+        | e ',' expr_list           { $$ = new_op2(OP_COMMA_, $1, $3); }
         ;
 
 range:    RANGE                     { $$ = $1; }

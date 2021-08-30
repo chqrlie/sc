@@ -277,6 +277,10 @@ static scvalue_t eval_neg(eval_ctx_t *cp, enode_t *e) {
     return err ? scvalue_error(err) : scvalue_number(v);
 }
 
+static scvalue_t eval_uplus(eval_ctx_t *cp, enode_t *e) {
+    return eval_node_value(cp, e->e.args[0]);
+}
+
 static scvalue_t eval_div(eval_ctx_t *cp, enode_t *e) {
     int err = 0;
     double num = eval_num(cp, e->e.args[0], &err);
@@ -2545,26 +2549,24 @@ static scvalue_t eval_iferror(eval_ctx_t *cp, enode_t *e) {
 }
 
 static int is_relative(int op) {
-    return op == OP_LT || op == OP_GT || op == OP_LE || op == OP_GE;
+    return (op == OP_LT_ || op == OP_GT_ || op == OP_LTE_ || op == OP_GTE_ ||
+            op == OP_LT || op == OP_GT || op == OP_LTE || op == OP_GTE);
 }
 
-static scvalue_t eval_cmp(eval_ctx_t *cp, enode_t *e) {
-    int op = e->op;
-    scvalue_t a = eval_node_value(cp, e->e.args[0]);
-    scvalue_t b = eval_node_value(cp, e->e.args[1]);
+static int scvalue_cmp(int op, scvalue_t a, scvalue_t b) {
     int cmp = 0;
     // XXX: mixed types should compare in this order:
     //  number < string < logical < error < empty
     // XXX: should stop error propagation
     if (a.type == SC_ERROR || b.type == SC_ERROR) {
-        if (op == OP_EQ)
+        if (op == OP_EQ_ || op == OP_EQ)
             cmp = 1;  /* return false */
         else
             op = 0;  /* return error */
     } else
     if (a.type == SC_NUMBER || (a.type == SC_BOOLEAN && is_relative(op))) {
         if (b.type == SC_NUMBER || (b.type == SC_BOOLEAN && is_relative(op)))
-            cmp = (a.u.v > a.u.v) - (a.u.v < a.u.v);
+            cmp = (a.u.v > b.u.v) - (a.u.v < b.u.v);
         else
             cmp = -1;
     } else
@@ -2582,7 +2584,7 @@ static scvalue_t eval_cmp(eval_ctx_t *cp, enode_t *e) {
     } else
     if (a.type == SC_BOOLEAN) {
         if (b.type == SC_BOOLEAN)
-            cmp = b.u.v - a.u.v;
+            cmp = a.u.v - b.u.v;
         else
             cmp = -1;
     } else
@@ -2591,18 +2593,45 @@ static scvalue_t eval_cmp(eval_ctx_t *cp, enode_t *e) {
     } else {
         cmp = 0;
     }
+    switch (op) {
+    case OP_LT:
+    case OP_LT_:    return (cmp <  0);
+    case OP_LTE:
+    case OP_LTE_:   return (cmp <= 0);
+    case OP_EQ:
+    case OP_EQ_:    return (cmp == 0);
+    case OP_NE:
+    case OP_NE2_:
+    case OP_NE_:    return (cmp != 0);
+    case OP_GT:
+    case OP_GT_:    return (cmp >  0);
+    case OP_GTE:
+    case OP_GTE_:   return (cmp >= 0);
+    }
+    return FALSE;
+}
+
+static scvalue_t eval_cmp(eval_ctx_t *cp, enode_t *e) {
+    scvalue_t a = eval_node_value(cp, e->e.args[0]);
+    scvalue_t b = eval_node_value(cp, e->e.args[1]);
+    int t = scvalue_cmp(e->op, a, b);
     scvalue_free(a);
     scvalue_free(b);
-    switch (op) {
-    case OP_LT:     return scvalue_boolean(cmp <  0);
-    case OP_LE:     return scvalue_boolean(cmp <= 0);
-    case OP_EQ:     return scvalue_boolean(cmp == 0);
-    case OP_LG:
-    case OP_NE:     return scvalue_boolean(cmp != 0);
-    case OP_GT:     return scvalue_boolean(cmp >  0);
-    case OP_GE:     return scvalue_boolean(cmp >= 0);
-    }
-    return scvalue_error(ERROR_INT);
+    return scvalue_boolean(t);
+}
+
+static scvalue_t eval_isbetween(eval_ctx_t *cp, enode_t *e) {
+    int err = 0;
+    scvalue_t a = eval_node_value(cp, e->e.args[0]);
+    scvalue_t b = eval_node_value(cp, e->e.args[1]);
+    scvalue_t c = eval_node_value(cp, e->e.args[2]);
+    int op1 = (e->nargs < 4 || eval_test(cp, e->e.args[3], &err)) ? OP_GTE_ : OP_GT_;
+    int op2 = (e->nargs < 5 || eval_test(cp, e->e.args[4], &err)) ? OP_LTE_ : OP_LT_;
+    int t = scvalue_cmp(op1, a, b) && scvalue_cmp(op2, a, c);
+    scvalue_free(a);
+    scvalue_free(b);
+    scvalue_free(c);
+    return scvalue_boolean(t);
 }
 
 /* 6.19 Number Representation Conversion Functions */
@@ -2817,7 +2846,6 @@ static scvalue_t eval_other(eval_ctx_t *cp, enode_t *e) {
     case OP_NA:         return scvalue_error(ERROR_NA);
     case OP_FALSE:      return scvalue_boolean(0); break;
     case OP_TRUE:       return scvalue_boolean(1); break;
-    case OP_UPLUS:      return eval_node_value(cp, e->e.args[0]);
     default:            error("Illegal expression");
                         return scvalue_error(ERROR_INT);
     }
@@ -3081,7 +3109,7 @@ SCXMEM enode_t *new_op1x(int op, SCXMEM enode_t *a1, SCXMEM enode_t *a2) {
     SCXMEM enode_t *e;
     SCXMEM enode_t *p;
 
-    for (p = a2; p && p->op == OP_COMMA;) {
+    for (p = a2; p && p->op == OP_COMMA_;) {
         nargs += p->nargs - 1;
         p = p->e.args[p->nargs - 1];
     }
@@ -3096,7 +3124,7 @@ SCXMEM enode_t *new_op1x(int op, SCXMEM enode_t *a1, SCXMEM enode_t *a2) {
     }
     i = 0;
     e->e.args[i++] = a1;
-    for (p = a2; p && p->op == OP_COMMA;) {
+    for (p = a2; p && p->op == OP_COMMA_;) {
         for (j = 0; j < p->nargs; j++)
             e->e.args[i++] = p->e.args[j];
         scxfree(p);
@@ -3268,7 +3296,7 @@ static int constant_expr(enode_t *e, int full) {
     ||  e->op == OP__STRING
     ||  e->op == OP__ERROR
     ||  ((e->op == OP_TRUE || e->op == OP_FALSE) && e->nargs < 0)
-    ||  (e->op == OP_UMINUS && constant_expr(e->e.args[0], 0))) /* unary minus */
+    ||  (e->op == OP_UMINUS_ && constant_expr(e->e.args[0], 0))) /* unary minus */
         return TRUE;
 
     if (!full
@@ -3518,25 +3546,25 @@ static void decompile_node(decomp_t *dcp, enode_t *e, int priority) {
     case OP__VAR:       out_var(dcp, e->e.v, 1);        break;
     case OP__RANGE:     out_range(dcp, e);              break;
     case OP__ERROR:     out_error(dcp, e->e.error);     break;
-    case OP_UMINUS:
-    case OP_UPLUS:      out_prefix(dcp, opp->name, e);  break;
-    case OP_SEMI:       out_infix(dcp, opp->name, e, priority, 1); break;
-    case OP_EQ:
-    case OP_NE:
-    case OP_LG:
-    case OP_LT:
-    case OP_LE:
-    case OP_GE:
-    case OP_GT:         out_infix(dcp, opp->name, e, priority, 6); break;
-    case OP_AMPERSAND:  out_infix(dcp, opp->name, e, priority, 7); break;
-    case OP_PLUS:
-    case OP_MINUS:      out_infix(dcp, opp->name, e, priority, 8); break;
-    case OP_STAR:
-    case OP_SLASH:      out_infix(dcp, opp->name, e, priority, 10); break;
-    case OP_PERCENT:    out_postfix(dcp, opp->name, e); break;
-    case OP_CARET:      out_infix(dcp, opp->name, e, priority, 12); break;
-    case OP_BANG:       out_infix(dcp, opp->name, e, priority, 13); break;
-    case OP_COLON:      out_infix(dcp, opp->name, e, priority, 14); break;
+    case OP_UMINUS_:
+    case OP_UPLUS_:     out_prefix(dcp, opp->name, e);  break;
+    case OP_SEMI_:      out_infix(dcp, opp->name, e, priority, 1); break;
+    case OP_EQ_:
+    case OP_NE_:
+    case OP_NE2_:
+    case OP_LT_:
+    case OP_LTE_:
+    case OP_GTE_:
+    case OP_GT_:        out_infix(dcp, opp->name, e, priority, 6); break;
+    case OP_CONCAT_:    out_infix(dcp, opp->name, e, priority, 7); break;
+    case OP_ADD_:
+    case OP_MINUS_:     out_infix(dcp, opp->name, e, priority, 8); break;
+    case OP_MULTIPLY_:
+    case OP_DIVIDE_:     out_infix(dcp, opp->name, e, priority, 10); break;
+    case OP_PERCENT_:   out_postfix(dcp, opp->name, e); break;
+    case OP_POW_:       out_infix(dcp, opp->name, e, priority, 12); break;
+    case OP_BANG_:      out_infix(dcp, opp->name, e, priority, 13); break;
+    case OP_COLON_:     out_infix(dcp, opp->name, e, priority, 14); break;
     default:            if (e->op < OP_count) {
                             out_func(dcp, opp->name, (opp->min < 0) ? NULL : e);
                         } else {

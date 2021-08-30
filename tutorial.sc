@@ -146,6 +146,10 @@ fmt E26 ",#.&"
 let F26 = E26
 fmt F26 ",#.&\"#\""
 let G26 = @sum(D26:F26)
+let I26 = @isbetween(J26,K26,L26)
+let J26 = 1
+let K26 = 0
+let L26 = 3
 leftstring A27 = "Cell d24 contains a formula"
 let D27 = D26+88
 let E27 = 12345678

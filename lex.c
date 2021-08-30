@@ -570,19 +570,19 @@ int yylex(void) {
         } else {
             yylval.ival = ret = *p++;
             if (ret == '<' && *p == '=') {
-                ret = T_LE;
+                ret = T_LTE;
                 p++;
             } else
             if (ret == '<' && *p == '>') {
-                ret = T_LG;
-                p++;
-            } else
-            if (ret == '!' && *p == '=') {
                 ret = T_NE;
                 p++;
             } else
+            if (ret == '!' && *p == '=') {
+                ret = T_NE2;
+                p++;
+            } else
             if (ret == '>' && *p == '=') {
-                ret = T_GE;
+                ret = T_GTE;
                 p++;
             }
         }
