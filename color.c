@@ -31,25 +31,25 @@ struct sc_style {
 };
 
 static struct sc_style const default_style[1+CPAIRS] = {
-    STYLE_DEF(COLOR_WHITE, COLOR_BLACK),  /* 0: unused */
+    STYLE_DEF(SC_COLOR_WHITE, SC_COLOR_BLACK),  /* 0: unused */
 #if 0  // default colors from SC */
-    STYLE_DEF(COLOR_WHITE, COLOR_BLUE),    /* 1: default cell color */
-    STYLE_DEF(COLOR_RED, COLOR_WHITE),     /* 2: negative numbers */
-    STYLE_DEF(COLOR_WHITE, COLOR_RED),     /* 3: cells with errors */
-    STYLE_DEF(COLOR_BLACK, COLOR_YELLOW),  /* 4: '*' marking cells with attached notes */
-    STYLE_DEF(COLOR_BLACK, COLOR_CYAN),    /* 5: the row and column number frame */
-    STYLE_DEF(COLOR_RED, COLOR_CYAN),      /* 6: the current col and row frame */
-    STYLE_DEF(COLOR_WHITE, COLOR_BLACK),
-    STYLE_DEF(COLOR_RED, COLOR_BLACK),
+    STYLE_DEF(SC_COLOR_WHITE, SC_COLOR_BLUE),    /* 1: default cell color */
+    STYLE_DEF(SC_COLOR_RED, SC_COLOR_WHITE),     /* 2: negative numbers */
+    STYLE_DEF(SC_COLOR_WHITE, SC_COLOR_RED),     /* 3: cells with errors */
+    STYLE_DEF(SC_COLOR_BLACK, SC_COLOR_YELLOW),  /* 4: '*' marking cells with attached notes */
+    STYLE_DEF(SC_COLOR_BLACK, SC_COLOR_CYAN),    /* 5: the row and column number frame */
+    STYLE_DEF(SC_COLOR_RED, SC_COLOR_CYAN),      /* 6: the current col and row frame */
+    STYLE_DEF(SC_COLOR_WHITE, SC_COLOR_BLACK),
+    STYLE_DEF(SC_COLOR_RED, SC_COLOR_BLACK),
 #else  // default colors from 1-2-3 */
-    STYLE_DEF(COLOR_WHITE, COLOR_BLACK),   /* 1: default cell color */
-    STYLE_DEF(COLOR_RED, COLOR_BLACK),     /* 2: negative numbers */
-    STYLE_DEF(COLOR_WHITE, COLOR_RED),     /* 3: cells with errors */
-    STYLE_DEF(COLOR_YELLOW, COLOR_BLACK),  /* 4: '*' marking cells with attached notes */
-    STYLE_DEF(COLOR_BLACK, COLOR_CYAN),    /* 5: the row and column number frame */
-    STYLE_DEF(COLOR_WHITE, COLOR_BLUE),    /* 6: the current col and row frame */
-    STYLE_DEF(COLOR_WHITE, COLOR_BLACK),
-    STYLE_DEF(COLOR_RED, COLOR_BLACK),
+    STYLE_DEF(SC_COLOR_WHITE, SC_COLOR_BLACK),   /* 1: default cell color */
+    STYLE_DEF(SC_COLOR_RED, SC_COLOR_BLACK),     /* 2: negative numbers */
+    STYLE_DEF(SC_COLOR_WHITE, SC_COLOR_RED),     /* 3: cells with errors */
+    STYLE_DEF(SC_COLOR_YELLOW, SC_COLOR_BLACK),  /* 4: '*' marking cells with attached notes */
+    STYLE_DEF(SC_COLOR_BLACK, SC_COLOR_CYAN),    /* 5: the row and column number frame */
+    STYLE_DEF(SC_COLOR_WHITE, SC_COLOR_BLUE),    /* 6: the current col and row frame */
+    STYLE_DEF(SC_COLOR_WHITE, SC_COLOR_BLACK),
+    STYLE_DEF(SC_COLOR_RED, SC_COLOR_BLACK),
 #endif
 };
 

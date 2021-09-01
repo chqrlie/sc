@@ -572,15 +572,15 @@ void help(int ctx) {
         case ' ':
         case ctl('f'):
         case ctl('n'):
-        case KEY_RIGHT:
-        case KEY_DOWN:      if (page < HELP_NB) page++; break;
+        case SC_KEY_RIGHT:
+        case SC_KEY_DOWN:   if (page < HELP_NB) page++; break;
 
         case ctl('h'):
         case DEL:
         case ctl('b'):
         case ctl('p'):
-        case KEY_LEFT:
-        case KEY_UP:        if (pos > 0) page = history[--pos];
+        case SC_KEY_LEFT:
+        case SC_KEY_UP:     if (pos > 0) page = history[--pos];
                             else page = HELP_INTRO; break;
 
         default:            break;

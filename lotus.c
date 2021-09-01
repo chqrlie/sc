@@ -8,14 +8,6 @@
 
 #include "sc.h"
 
-struct menu_item {
-    const char *option;
-    const char *desc;
-    int (*func)(const void *arg, int n);
-    const void *arg;
-    int n;
-};
-
 static int run_menu(const void *arg, int n);
 static int run_copy(const void *arg, int n);
 static int run_move(const void *arg, int n);
@@ -1335,41 +1327,33 @@ static int run_menu(const void *arg, int n) {
     struct menu_item const *menu = arg;
     int option = 0, i, e, c;
     for (;;) {
-        move(0, 0);
-        clrtoeol();
-        for (e = 0; menu[e].option; e++) {
-            if (e == option)
-                select_style(STYLE_FRAME, 0);
-            addstr(menu[e].option);
-            select_style(STYLE_CELL, 0);
-            addstr("  ");
-        }
+        e = screen_draw_menu(0, 0, menu, option);
         screen_draw_line(1, 0, menu[option].desc);
         screen_hidecursor();
         screen_refresh();
         switch (c = nmgetch(0)) {
-        case KEY_HOME:
+        case SC_KEY_HOME:
         case ctl('a'):
             option = 0;
             continue;
-        case KEY_END:
+        case SC_KEY_END:
         case ctl('e'):
             option = e - 1;
             continue;
-        case KEY_LEFT:
+        case SC_KEY_LEFT:
         case DEL:
-        case KEY_BACKSPACE:
+        case SC_KEY_BACKSPACE:
         case ctl('b'):
             if (option > 0)
                 option--;
             continue;
-        case KEY_RIGHT:
+        case SC_KEY_RIGHT:
         case ctl('f'):
             if (option < e - 1)
                 option++;
             continue;
         case ESC:
-        case KEY_UP:
+        case SC_KEY_UP:
         case ctl('p'):
             screen_clear_line(0);
             screen_clear_line(1);
@@ -1379,8 +1363,8 @@ static int run_menu(const void *arg, int n) {
             screen_clear_line(0);
             screen_clear_line(1);
             return c;
-        case KEY_ENTER:
-        case KEY_DOWN:
+        case SC_KEY_ENTER:
+        case SC_KEY_DOWN:
         case ctl('j'):
         case ctl('m'):
         case ctl('n'):

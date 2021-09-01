@@ -72,7 +72,6 @@ Database:
 [ ] save xls files
 
 Update:
-[+] move curses support to specific file and use API layer
 [ ] truncate cell value display (both formula and string value)
 [ ] rewrite update() function in screen.c from scratch in a more sane manner
 [ ] update() should not have a side effect on currow/curcol
@@ -165,3 +164,4 @@ Build:
 [X] accept error names as tokens
 [X] add database functions
 [X] fix seg fault when running `./sc tutorial.sc > t`
+[X] move curses support to specific file and use API layer

@@ -12,14 +12,8 @@
  */
 
 #include <time.h>
+#include "icurses.h"
 #include "sc.h"
-
-#ifdef BROKENCURSES    /* nl/nonl bug fix */
-#undef nl
-#undef nonl
-#define nl()     (_tty.sg_flags |= CRMOD, _pfast = _rawmode, stty(_tty_ch, &_tty))
-#define nonl()   (_tty.sg_flags &= ~CRMOD, _pfast = TRUE, stty(_tty_ch, &_tty))
-#endif
 
 static char under_cursor = ' '; /* Data under the < cursor */
 char mode_ind = 'i';
@@ -1273,16 +1267,41 @@ void screen_mouseoff(void) {
     }
 }
 
-int screen_getmouse(MEVENT *event) {
-    if (usecurses)
-        return getmouse(event);
-    else
-        return !OK;
+int screen_getmouse(struct screen_mouse_event *event) {
+    MEVENT cevent;
+    int bits = 0;
+
+    if (!usecurses || getmouse(&cevent) != OK)
+        return 0;
+
+    event->x = cevent.x;
+    event->y = cevent.y;
+    //event->bstate = cevent.bstate;
+    /* map mouse events */
+    if (cevent.bstate & BUTTON1_RELEASED)       bits |= SC_BUTTON_RELEASED(1);
+    if (cevent.bstate & BUTTON1_PRESSED)        bits |= SC_BUTTON_PRESSED(1);
+    if (cevent.bstate & BUTTON1_CLICKED)        bits |= SC_BUTTON_CLICKED(1);
+    if (cevent.bstate & BUTTON1_DOUBLE_CLICKED) bits |= SC_BUTTON_DOUBLE_CLICKED(1);
+    if (cevent.bstate & BUTTON2_RELEASED)       bits |= SC_BUTTON_RELEASED(2);
+    if (cevent.bstate & BUTTON2_PRESSED)        bits |= SC_BUTTON_PRESSED(2);
+    if (cevent.bstate & BUTTON2_CLICKED)        bits |= SC_BUTTON_CLICKED(2);
+    if (cevent.bstate & BUTTON2_DOUBLE_CLICKED) bits |= SC_BUTTON_DOUBLE_CLICKED(2);
+    if (cevent.bstate & BUTTON3_RELEASED)       bits |= SC_BUTTON_RELEASED(3);
+    if (cevent.bstate & BUTTON3_PRESSED)        bits |= SC_BUTTON_PRESSED(3);
+    if (cevent.bstate & BUTTON3_CLICKED)        bits |= SC_BUTTON_CLICKED(3);
+    if (cevent.bstate & BUTTON3_DOUBLE_CLICKED) bits |= SC_BUTTON_DOUBLE_CLICKED(3);
+    if (cevent.bstate & BUTTON_CTRL)            bits |= SC_BUTTON_CTRL;
+    if (cevent.bstate & BUTTON_SHIFT)           bits |= SC_BUTTON_SHIFT;
+    if (cevent.bstate & BUTTON_ALT)             bits |= SC_BUTTON_ALT;
+    event->bstate = bits;
+    return 1;
 }
 
 void screen_init_pair(int n, int fg, int bg) {
-    if (usecurses && color && has_colors())
+    if (usecurses && color && has_colors()) {
+        // XXX: translate SC_COLOR_xxx to COLOR_xxx
         init_pair(n, fg, bg);
+    }
 }
 
 void sc_setcolor(int set) {
@@ -1470,29 +1489,26 @@ int nmgetch(int clearline) {
     }
 
     switch (c) {
-    case SMG$K_TRM_LEFT:  c = KEY_LEFT;  break;
-    case SMG$K_TRM_RIGHT: c = KEY_RIGHT; break;
+    case SMG$K_TRM_LEFT:  c = SC_KEY_LEFT;  break;
+    case SMG$K_TRM_RIGHT: c = SC_KEY_RIGHT; break;
     case SMG$K_TRM_UP:    c = ctl('p');  break;
     case SMG$K_TRM_DOWN:  c = ctl('n');  break;
-    default:   c = c & A_CHARTEXT;
+    default:   c = c & A_CHARTEXT; break;
     }
     if (clearline) screen_clear_line(1);
     return c;
 }
 
 
-VMS_MSG (int status)
-/*
-   Routine to put out the VMS operating system error (if one occurs).
-*/
-{
+VMS_MSG(int status) {
+    /* Routine to put out the VMS operating system error (if one occurs). */
 #  include <descrip.h>
    char errstr[81], buf[120];
    $DESCRIPTOR(errdesc, errstr);
    short length;
 #  define err_out(msg) fprintf (stderr,msg)
 
-/* Check for no error or standard error */
+   /* Check for no error or standard error */
 
     if (~status & 1) {
         status = status & 0x8000 ? status & 0xFFFFFFF : status & 0xFFFF;
@@ -1744,9 +1760,7 @@ int nmgetch(int clearline) {
     c = getch();
     switch (c) {
 # ifdef KEY_SELECT
-    case KEY_SELECT:
-        c = 'm';
-        break;
+    case KEY_SELECT:    c = 'm'; break;
 # endif
 # ifdef KEY_C1
 /* This stuff works for a wyse wy75 in ANSI mode under 5.3.  Good luck. */
@@ -1757,30 +1771,56 @@ int nmgetch(int clearline) {
  * make this work without causing problems with programmable function
  * keys on everything else?  - CRM
 
-        case KEY_C1:    c = '0'; break;
-        case KEY_A1:    c = '1'; break;
-        case KEY_B2:    c = '2'; break;
-        case KEY_A3:    c = '3'; break;
-        case KEY_F(5):  c = '4'; break;
-        case KEY_F(6):  c = '5'; break;
-        case KEY_F(7):  c = '6'; break;
-        case KEY_F(9):  c = '7'; break;
-        case KEY_F(10): c = '8'; break;
-        case KEY_F0:    c = '9'; break;
-        case KEY_C3:    c = '.'; break;
-        case KEY_ENTER: c = ctl('m'); break;
-
- *
+    case KEY_C1:    c = '0'; break;
+    case KEY_A1:    c = '1'; break;
+    case KEY_B2:    c = '2'; break;
+    case KEY_A3:    c = '3'; break;
+    case KEY_F(5):  c = '4'; break;
+    case KEY_F(6):  c = '5'; break;
+    case KEY_F(7):  c = '6'; break;
+    case KEY_F(9):  c = '7'; break;
+    case KEY_F(10): c = '8'; break;
+    case KEY_F0:    c = '9'; break;
+    case KEY_C3:    c = '.'; break;
+    case KEY_ENTER: c = ctl('m'); break;
  *
  */
 # endif
+    case KEY_DOWN:      c = SC_KEY_DOWN; break; /* down-arrow key */
+    case KEY_UP:        c = SC_KEY_UP; break; /* up-arrow key */
+    case KEY_LEFT:      c = SC_KEY_LEFT; break; /* left-arrow key */
+    case KEY_RIGHT:     c = SC_KEY_RIGHT; break; /* right-arrow key */
+    case KEY_HOME:      c = SC_KEY_HOME; break; /* home key */
+    case KEY_BACKSPACE: c = SC_KEY_BACKSPACE; break; /* backspace key */
+    case KEY_F0:        c = SC_KEY_F0; break; /* Function keys. */
+    case KEY_F(1):      c = SC_KEY_F(1); break; /* Value of function key n */
+    case KEY_F(2):      c = SC_KEY_F(2); break;
+    case KEY_F(3):      c = SC_KEY_F(3); break;
+    case KEY_F(4):      c = SC_KEY_F(4); break;
+    case KEY_F(5):      c = SC_KEY_F(5); break;
+    case KEY_F(6):      c = SC_KEY_F(6); break;
+    case KEY_F(7):      c = SC_KEY_F(7); break;
+    case KEY_F(8):      c = SC_KEY_F(8); break;
+    case KEY_F(9):      c = SC_KEY_F(9); break;
+    case KEY_F(10):     c = SC_KEY_F(10); break;
+    case KEY_DC:        c = SC_KEY_DC; break; /* delete-character key */
+    case KEY_IC:        c = SC_KEY_IC; break; /* insert-character key */
+    case KEY_NPAGE:     c = SC_KEY_NPAGE; break; /* next-page key */
+    case KEY_PPAGE:     c = SC_KEY_PPAGE; break; /* previous-page key */
+    case KEY_ENTER:     c = SC_KEY_ENTER; break; /* enter/send key */
+    case KEY_END:       c = SC_KEY_END; break; /* end key */
+    case KEY_FIND:      c = SC_KEY_FIND; break; /* find key */
+    case KEY_HELP:      c = SC_KEY_HELP; break; /* help key */
+    case KEY_MOUSE:     c = SC_KEY_MOUSE; break; /* Mouse event has occurred */
+    case KEY_RESIZE:    c = SC_KEY_RESIZE; break; /* Terminal resize event */
+
     case 27:
         // XXX: should check for available input from curses to distinguish
         //      ESC hit by the user from alt and special keys
         if (kbhit()) {
             c = getch();
             if (c != 27)
-                c = KEY_ALT(c);
+                c = SC_ALT(c);
         }
         break;
     default:
@@ -1798,6 +1838,10 @@ int nmgetch_savepos(int clearline) {
     c = nmgetch(clearline);
     if (usecurses) move(tempy, tempx);
     return c;
+}
+
+int nmungetch(int c) {
+    return ungetch(c);
 }
 
 /* called upon receiving the SIGWINCH signal */
@@ -1883,4 +1927,18 @@ int screen_get_keyname(char *buf, size_t size, int c) {
 #endif
     buf[0] = '\0';
     return 1 + pstrcpy(buf + 1, size - 1, "UNKNOWN KEY");
+}
+
+int screen_draw_menu(int y, int x, struct menu_item const *menu, int option) {
+    int e;
+    move(y, x);
+    clrtoeol();
+    for (e = 0; menu[e].option; e++) {
+        if (e == option)
+            select_style(STYLE_FRAME, 0);
+        addstr(menu[e].option);
+        select_style(STYLE_CELL, 0);
+        addstr("  ");
+    }
+    return e;
 }

@@ -142,11 +142,8 @@ static int finddir = 0;
 static int numeric_field = 0; /* Started the line editing with a number */
 static int cellassign;
 
-#ifdef NCURSES_MOUSE_VERSION
-static MEVENT mevent;
-static void mouse_set_pos(int mode);
-static int mouse_sel_cell(int mode);
-#endif
+static void mouse_set_pos(void);
+static int mouse_sel_cell(void);
 
 int set_line(const char *fmt, ...) {
     size_t len;
@@ -213,7 +210,7 @@ void vi_interaction(void) {
             showexpr = 0;
             shownote = 0;
 
-            if (ISCTL(c) || c == DEL || c == KEY_END || c == KEY_BACKSPACE) {
+            if (ISCTL(c) || c == DEL || c == SC_KEY_END || c == SC_KEY_BACKSPACE) {
                 switch (c) {
 #ifdef SIGTSTP
                 case ctl('z'):
@@ -245,24 +242,24 @@ void vi_interaction(void) {
                     running = 0;
                     break;
 
-                case KEY_END:
+                case SC_KEY_END:
                 case ctl('e'):
                     if (linelim < 0 || mode_ind == 'v') {
                         switch (c = nmgetch(1)) {
-                        case KEY_UP:
+                        case SC_KEY_UP:
                         case ctl('p'):
                         case 'k':       doend(-1, 0);  break;
 
-                        case KEY_DOWN:
+                        case SC_KEY_DOWN:
                         case ctl('n'):
                         case 'j':       doend(1, 0);   break;
 
-                        case KEY_LEFT:
-                        case KEY_BACKSPACE:
+                        case SC_KEY_LEFT:
+                        case SC_KEY_BACKSPACE:
                         case ctl('h'):
                         case 'h':       doend(0, -1);  break;
 
-                        case KEY_RIGHT:
+                        case SC_KEY_RIGHT:
                         case ' ':
                         case ctl('i'):
                         case 'l':       doend(0, 1);   break;
@@ -286,7 +283,7 @@ void vi_interaction(void) {
                                 uarg = 1;
                                 c = nmgetch(0);
                             }
-                            ungetch(c);
+                            nmungetch(c);
                             break;
 
                         case ESC:
@@ -320,7 +317,7 @@ void vi_interaction(void) {
                         uarg = 1;
                         c = nmgetch(0);
                     }
-                    ungetch(c);
+                    nmungetch(c);
                     break;
 
                 case ctl('f'):
@@ -344,7 +341,7 @@ void vi_interaction(void) {
                     write_line(ctl('d'));
                     break;
 
-                case KEY_BACKSPACE:
+                case SC_KEY_BACKSPACE:
                 case DEL:
                 case ctl('h'):
                     if (linelim < 0)  /* not editing */
@@ -493,13 +490,13 @@ void vi_interaction(void) {
                             break;
                         case 'j':
                         case ctl('n'):
-                        case KEY_DOWN:
+                        case SC_KEY_DOWN:
                             craction = CRROWS;
                             error("Down row after new line");
                             break;
                         case 'l':
                         case ' ':
-                        case KEY_RIGHT:
+                        case SC_KEY_RIGHT:
                             craction = CRCOLS;
                             error("Right column after new line");
                             break;
@@ -637,7 +634,7 @@ void vi_interaction(void) {
                     narg = uarg * 10 + (c - '0');
                 }
             } else
-            if (c == KEY_F(1) && sempty(fkey[c - KEY_F0])) {
+            if (c == SC_KEY_F(1) && sempty(fkey[c - SC_KEY_F0])) {
                 deraw(1);
                 system("man sc");
                 goraw();
@@ -688,12 +685,12 @@ void vi_interaction(void) {
                 FullUpdate++;
                 modflg++;
             } else
-            if (c >= KEY_F0 && c <= KEY_F(FKEYS-1)) {
+            if (c >= SC_KEY_F0 && c <= SC_KEY_F(FKEYS-1)) {
                 /* a function key was pressed */
-                if (!sempty(fkey[c - KEY_F0])) {
+                if (!sempty(fkey[c - SC_KEY_F0])) {
                     int i;
 
-                    pstrcpy(line, sizeof line, s2c(fkey[c - KEY_F0]));
+                    pstrcpy(line, sizeof line, s2c(fkey[c - SC_KEY_F0]));
                     for (i = 0; line[i]; i++) {
                         // XXX: string should have been unescaped already
                         if (line[i] == '\\' && line[i+1] == '"') {
@@ -944,7 +941,7 @@ void vi_interaction(void) {
                      * Row/column commands:
                      */
 
-                case KEY_IC:
+                case SC_KEY_IC:
                 case 'i':
                 case 'o':
                 case 'a':
@@ -1066,13 +1063,11 @@ void vi_interaction(void) {
                 case '^':
                     gototop();
                     break;
-#ifdef KEY_HELP
-                case KEY_HELP:
-#endif
+                case SC_KEY_HELP:
                 case '?':
                     help(HELP_INTRO);
                     break;
-                case KEY_ALT('?'):
+                case SC_ALT('?'):
                     error("count=%zu  requested=%zu  allocated=%zu  overhead=%zu",
                           scxmem_count, scxmem_requested, scxmem_allocated, scxmem_overhead);
                     //error("maxrow=%d  maxcol=%d  maxrows=%d  maxcols=%d  rescol=%d",
@@ -1171,9 +1166,7 @@ void vi_interaction(void) {
                     }
                     break;
                 }
-#ifdef KEY_FIND
-                case KEY_FIND:
-#endif
+                case SC_KEY_FIND:
                 case 'g':
                     set_line("goto [v] ");
                     insert_mode();
@@ -1271,9 +1264,7 @@ void vi_interaction(void) {
                     }
                     insert_mode();
                     break;
-#ifdef KEY_DC
-                case KEY_DC:
-#endif
+                case SC_KEY_DC:
                 case 'x':
                     if (calc_order == BYROWS) {
                         eraser(rangeref(currow, curcol, currow, curcol + uarg - 1));
@@ -1285,43 +1276,37 @@ void vi_interaction(void) {
                 case 'q':
                     running = 0;
                     break;
-                case KEY_LEFT:
+                case SC_KEY_LEFT:
                 case 'h':
                     backcol(uarg);
                     break;
-                case KEY_DOWN:
+                case SC_KEY_DOWN:
                 case 'j':
                     forwrow(uarg);
                     break;
-                case KEY_UP:
+                case SC_KEY_UP:
                 case 'k':
                     backrow(uarg);
                     break;
                 case 'H':
                     backcol(curcol - stcol + 2);
                     break;
-#ifdef KEY_NPAGE
-                case KEY_NPAGE:                 /* next page */
-#endif
+                case SC_KEY_NPAGE:                 /* next page */
                 case 'J':
                     forwpage(uarg);
                     break;
-#ifdef KEY_PPAGE
-                case KEY_PPAGE:                 /* previous page */
-#endif
-                case KEY_ALT('v'):
+                case SC_KEY_PPAGE:                 /* previous page */
+                case SC_ALT('v'):
                 case 'K':
                     backpage(uarg);
                     break;
-#ifdef KEY_HOME
-                case KEY_HOME:
+                case SC_KEY_HOME:
                     gohome();
                     break;
-#endif
                 case 'L':
                     forwcol(lcols - (curcol - stcol) + 1);
                     break;
-                case KEY_RIGHT:
+                case SC_KEY_RIGHT:
                 case ' ':
                 case 'l':
                     forwcol(uarg);
@@ -1451,39 +1436,14 @@ void vi_interaction(void) {
                         break;
                     }
                     break;
-#ifdef KEY_RESIZE
-                case KEY_RESIZE:
+                case SC_KEY_RESIZE:
 #ifndef SIGWINCH
                     winchg();
 #endif
                     break;
-#endif
-#ifdef NCURSES_MOUSE_VERSION
-                case KEY_MOUSE:
-                    if (screen_getmouse(&mevent) != OK)
-                        break;
-                    if (mevent.bstate & BUTTON1_CLICKED) {
-                        mouse_sel_cell(0);
-                        update(0);
-                    } else if (mevent.bstate & BUTTON1_PRESSED) {
-                        mouse_sel_cell(1);
-                    } else if (mevent.bstate & BUTTON1_RELEASED) {
-                        if (!mouse_sel_cell(2))
-                            update(0);
-                    }
-# if NCURSES_MOUSE_VERSION >= 2
-                    else if (mevent.bstate & BUTTON4_PRESSED) {
-                        scroll_up(1);
-                        FullUpdate++;
-                        update(0);
-                    } else if (mevent.bstate & BUTTON5_PRESSED) {
-                        scroll_down();
-                        FullUpdate++;
-                        update(0);
-                    }
-# endif
+                case SC_KEY_MOUSE:
+                    mouse_sel_cell();
                     break;
-#endif
                 default:
                     if (c < 32 || c >= 127) {
                         error("Unhandled key: %d (%#x)\n", c, c);
@@ -1645,7 +1605,7 @@ static void write_line(int c) {
     if (mode == EDIT_MODE) {
         nosavedot = 0;
         switch (c) {
-        case KEY_BACKSPACE:
+        case SC_KEY_BACKSPACE:
         case ctl('h'):  linelim = back_line(uarg);                      break;
         case ctl('i'):  dotab();                                        break;
         case ctl('m'):  if (search_ind == ' ')
@@ -1658,7 +1618,7 @@ static void write_line(int c) {
         case ESC:       stop_edit();                                    break;
         case '+':       forw_hist();                                    break;
         case '-':       back_hist();                                    break;
-        case KEY_END:
+        case SC_KEY_END:
         case ctl('e'):
         case '$':       last_col();                                     break;
         case '.':       dotcmd();                                       break;
@@ -1667,12 +1627,10 @@ static void write_line(int c) {
         case ',':       find_char2(uarg, -finddir);                     break;
         case '~':       u_save(c); change_case(uarg);                   break;
         case '%':       match_paren();                                  break;
-#ifdef KEY_FIND
-        case KEY_FIND:
-#endif
+        case SC_KEY_FIND:
         case '?':
         case '/':       search_mode(c);                                 break;
-        case KEY_HOME:
+        case SC_KEY_HOME:
         case ctl('a'):
         case '0':       col_0();                                        break;
         case 'G':       if (histp > 0) histp = lasthist; forw_hist();   break;
@@ -1689,17 +1647,17 @@ static void write_line(int c) {
         case 'E':       linelim = forw_word(uarg, 1, 1, 0);             break;
         case 'f':       linelim = find_char(linelim, uarg, 1);          break;
         case 'F':       linelim = find_char(linelim, uarg, -1);         break;
-        case KEY_LEFT:
+        case SC_KEY_LEFT:
         case ctl('b'):
         case 'h':       linelim = back_line(uarg);                      break;
-        case KEY_IC:
+        case SC_KEY_IC:
         case 'i':       u_save(c); insert_mode();                       break;
         case 'I':       u_save(c); col_0(); insert_mode();              break;
-        case KEY_DOWN:
+        case SC_KEY_DOWN:
         case 'j':       forw_hist();                                    break;
-        case KEY_UP:
+        case SC_KEY_UP:
         case 'k':       back_hist();                                    break;
-        case KEY_RIGHT:
+        case SC_KEY_RIGHT:
         case ctl('f'):
         case ' ':
         case 'l':       linelim = forw_line(uarg, 0);                   break;
@@ -1720,24 +1678,13 @@ static void write_line(int c) {
         case 'u':       restore_it();                                   break;
         case 'w':       linelim = forw_word(uarg, 0, 0, 0);             break;
         case 'W':       linelim = forw_word(uarg, 0, 1, 0);             break;
-        case KEY_DC:
+        case SC_KEY_DC:
         case 'x':       u_save(c); del_in_line(uarg, 1);                break;
         case 'X':       u_save(c); back_space();                        break;
         case 'y':       yank_cmd(0, 0);                                 break;
         case 'Y':       yank_chars(linelim, linelen, 0);                break;
-#ifdef NCURSES_MOUSE_VERSION
-        case KEY_MOUSE: if (screen_getmouse(&mevent) != OK || mevent.y)
-                            break;
-                        if (mevent.bstate & BUTTON1_CLICKED)
-                            mouse_set_pos(0);
-                        else if (mevent.bstate & BUTTON1_PRESSED)
-                            mouse_set_pos(1);
-                        else if (mevent.bstate & BUTTON1_RELEASED)
-                            mouse_set_pos(2);
-                        break;
-#endif
-        default:
-                        break;
+        case SC_KEY_MOUSE:  mouse_set_pos();                            break;
+        default:        break;
         }
     } else if (mode == INSERT_MODE) {
         if (c == ctl('m'))
@@ -1745,26 +1692,26 @@ static void write_line(int c) {
         else
             savedot(c);
         switch (c) {
-        case KEY_BACKSPACE:
+        case SC_KEY_BACKSPACE:
         case ctl('h'):      back_space();                           break;
         case ctl('i'):      dotab();                                break;
         case ctl('m'):      cr_line(craction);                      break;
         case ctl('v'):      toggle_navigate_mode();                 break;
-        case KEY_LEFT:
+        case SC_KEY_LEFT:
         case ctl('b'):      if (numeric_field) {
                                 check_navigate();
                                 backcol(1);
                             } else {
                                 istart = linelim = back_line(uarg);
                             }   break;
-        case KEY_RIGHT:
+        case SC_KEY_RIGHT:
         case ctl('f'):      if (numeric_field) {
                                 check_navigate();
                                 forwcol(1);
                             } else {
                                 istart = linelim = forw_line(uarg, 1);
                             }   break;
-        case KEY_DOWN:
+        case SC_KEY_DOWN:
         case ctl('n'):      if (numeric_field) {
                                 check_navigate();
                                 forwrow(1);
@@ -1772,7 +1719,7 @@ static void write_line(int c) {
                                 forw_hist();
                                 istart = linelim;
                             }   break;
-        case KEY_UP:
+        case SC_KEY_UP:
         case ctl('p'):      if (numeric_field) {
                                 check_navigate();
                                 backrow(1);
@@ -1780,9 +1727,9 @@ static void write_line(int c) {
                                 back_hist();
                                 istart = linelim;
                             }   break;
-        case KEY_HOME:
+        case SC_KEY_HOME:
         case ctl('a'):      col_0();                                break;
-        case KEY_END:
+        case SC_KEY_END:
         case ctl('e'):      last_col();                             break;
         case ESC:           ins_in_line(0);
                             edit_mode();                            break;
@@ -1790,22 +1737,12 @@ static void write_line(int c) {
          * character in the line
          */
         case '\035':        ins_in_line(0);                         break;
-#ifdef NCURSES_MOUSE_VERSION
-        case KEY_MOUSE:     if (screen_getmouse(&mevent) != OK || mevent.y)
-                                break;
-                            if (mevent.bstate & BUTTON1_CLICKED)
-                                mouse_set_pos(0);
-                            else if (mevent.bstate & BUTTON1_PRESSED)
-                                mouse_set_pos(1);
-                            else if (mevent.bstate & BUTTON1_RELEASED)
-                                mouse_set_pos(2);
-                            break;
-#endif
+        case SC_KEY_MOUSE:  mouse_set_pos();                        break;
         default:            ins_in_line(c);                         break;
         }
     } else if (mode == SEARCH_MODE) {
         switch (c) {
-        case KEY_BACKSPACE:
+        case SC_KEY_BACKSPACE:
         case ctl('h'):      back_space();                           break;
         case ctl('m'):      search_hist();                          break;
         case ESC:           ins_in_line(0);
@@ -1819,7 +1756,7 @@ static void write_line(int c) {
     } else if (mode == REP_MODE) {
         savedot(c);
         switch (c) {
-        case KEY_BACKSPACE:
+        case SC_KEY_BACKSPACE:
         case ctl('h'):      if (linelim >= 0 && linelim > undo_len) {
                                 back_space();
                             } else {
@@ -1920,14 +1857,14 @@ static void write_line(int c) {
                                 ins_in_line(' ');
                                 showrange = 0;
                             }                                       break;
-        case KEY_LEFT:
+        case SC_KEY_LEFT:
         case 'h':           backcol(uarg);                          break;
-        case KEY_RIGHT:
+        case SC_KEY_RIGHT:
         case 'l':           forwcol(uarg);                          break;
-        case KEY_DOWN:
+        case SC_KEY_DOWN:
         case ctl('n'):
         case 'j':           forwrow(uarg);                          break;
-        case KEY_UP:
+        case SC_KEY_UP:
         case ctl('p'):
         case 'k':           backrow(uarg);                          break;
         case 'q':
@@ -1937,15 +1874,15 @@ static void write_line(int c) {
                             showrange = 0;                          break;
         case 'H':           backcol(curcol - stcol + 2);
                                                                     break;
-        case KEY_NPAGE:     /* next page */
+        case SC_KEY_NPAGE:     /* next page */
         case ctl('f'):
         case 'J':           forwpage(uarg);                         break;
-        case KEY_PPAGE:     /* previous page */
+        case SC_KEY_PPAGE:     /* previous page */
         case ctl('b'):
         case 'K':           backpage(uarg);                         break;
         case 'L':           forwcol(lcols - (curcol - stcol) + 1);  break;
         case ctl('a'):
-        case KEY_HOME:      gohome();                               break;
+        case SC_KEY_HOME:      gohome();                               break;
         case '0':           leftlimit();                            break;
         case '$':           rightlimit();                           break;
         case '^':           gototop();                              break;
@@ -3079,7 +3016,7 @@ static int find_char(int start, int arg, int dir) {
 
 static void find_char2(int arg, int dir) {
     if (findchar) {
-        ungetch(findchar);
+        nmungetch(findchar);
         findchar = 0;
         if (findfunc == 'f')
             linelim = find_char(linelim, arg, dir);
@@ -3337,10 +3274,34 @@ int query(char *dest, int destsize, const char *s, const char *data) {
     return len;
 }
 
-#ifdef NCURSES_MOUSE_VERSION
-static int mouse_sel_cell(int mmode) { /* 0: set, 1: save, 2: cmp and set */
-    int i, y, x, tx, ty;
+static int mouse_sel_cell(void) { /* 0: set, 1: save, 2: cmp and set */
     static int x1, y1;
+    int mmode = -1, x, y, i, tx, ty, res = 1;
+    struct screen_mouse_event mevent;
+
+    if (!screen_getmouse(&mevent))
+        return 1;
+    if (mevent.bstate & SC_BUTTON_CLICKED(1)) {
+        mmode = 0;
+    } else
+    if (mevent.bstate & SC_BUTTON_PRESSED(1)) {
+        mmode = 1;
+    } else
+    if (mevent.bstate & SC_BUTTON_RELEASED(1)) {
+        mmode = 2;
+    } else
+    if (mevent.bstate & SC_BUTTON_PRESSED(4)) {
+        scroll_up(1);
+        FullUpdate++;
+        update(0);
+        return 1;
+    } else
+    if (mevent.bstate & SC_BUTTON_PRESSED(5)) {
+        scroll_down();
+        FullUpdate++;
+        update(0);
+        return 1;
+    }
     if ((y = mevent.y - RESROW) < 0 || (x = mevent.x - rescol) < 0)
         return 1;
     for (ty = strow, i = y;; ty++) {
@@ -3357,34 +3318,40 @@ static int mouse_sel_cell(int mmode) { /* 0: set, 1: save, 2: cmp and set */
     }
     switch (mmode) {
     case 1:
-        y1 = ty; x1 = tx;
+        y1 = ty;
+        x1 = tx;
         break;
     case 2:
         if (y1 != ty || x1 != tx)
             break;
         FALLTHROUGH;
     default:
-        currow = ty; curcol = tx;
-        return 0;
+        currow = ty;
+        curcol = tx;
+        res = 0;
+        break;
     }
-    return 1;
+    update(0);
+    return res;
 }
 
-static void mouse_set_pos(int m) {
+static void mouse_set_pos(void) {
     static int x0;
-    switch (m) {
-    case 1:
-        x0 = mevent.x;
-        break;
-    case 2:
-        if (x0 != mevent.x)
-            break;
-        FALLTHROUGH;
-    default:
+    struct screen_mouse_event mevent;
+
+    if (!screen_getmouse(&mevent) || mevent.y)
+        return;
+    if (mevent.bstate & SC_BUTTON_CLICKED(1)) {
         linelim = mevent.x - 3;
+    } else
+    if (mevent.bstate & SC_BUTTON_PRESSED(1)) {
+        x0 = mevent.x;
+    } else
+    if (mevent.bstate & SC_BUTTON_RELEASED(1)) {
+        if (x0 == mevent.x)
+            linelim = mevent.x - 3;
     }
 }
-#endif
 
 /*
  * Given a row/column command letter, emit a small menu, then read a qualifier
@@ -3397,7 +3364,7 @@ static int get_rcqual(int ch) {
     int c;
 
     error("%s row/column:  r: row  c: column%s",
-          (ch == KEY_IC)  ? "Insert" :
+          (ch == SC_KEY_IC)  ? "Insert" :
           (ch == 'i')     ? "Insert" :
           (ch == 'o')     ? "Open" :
           (ch == 'a')     ? "Append" :
@@ -3429,7 +3396,7 @@ static int get_rcqual(int ch) {
     case ctl('g'):  return ESC;
 
     case 'd':       if (ch == 'd') {
-                        ungetch('x');
+                        nmungetch('x');
                         return ESC;
                     } else
                         return 0;
@@ -3446,10 +3413,10 @@ static int get_rcqual(int ch) {
                     } else
                         return 0;
 
-    case KEY_UP:
-    case KEY_DOWN:
-    case KEY_PPAGE:
-    case KEY_NPAGE:
+    case SC_KEY_UP:
+    case SC_KEY_DOWN:
+    case SC_KEY_PPAGE:
+    case SC_KEY_NPAGE:
     case 'j':
     case 'k':
     case 'J':
@@ -3470,12 +3437,12 @@ static int get_rcqual(int ch) {
                     startshow();
                     showrange = SHOWROWS;
                     showsr = currow;
-                    ungetch(c);
+                    nmungetch(c);
                     return ESC;
 
-    case KEY_BACKSPACE:
-    case KEY_LEFT:
-    case KEY_RIGHT:
+    case SC_KEY_BACKSPACE:
+    case SC_KEY_LEFT:
+    case SC_KEY_RIGHT:
     case ' ':
     case 'h':
     case 'l':
@@ -3493,7 +3460,7 @@ static int get_rcqual(int ch) {
                     startshow();
                     showrange = SHOWCOLS;
                     showsc = curcol;
-                    ungetch(c);
+                    nmungetch(c);
                     return ESC;
 
     default:        return 0;
@@ -3535,7 +3502,7 @@ static void formatcol(int arg) {
                 realfmt[i] = c - '0';
         } else {
             switch (c) {
-            case KEY_LEFT:
+            case SC_KEY_LEFT:
             case '<':
             case 'h':
                 for (i = curcol; i < curcol + arg; i++) {
@@ -3545,7 +3512,7 @@ static void formatcol(int arg) {
                 }
                 modflg++;
                 break;
-            case KEY_RIGHT:
+            case SC_KEY_RIGHT:
             case '>':
             case 'l':
                 for (i = curcol; i < curcol + arg; i++) {
@@ -3555,7 +3522,7 @@ static void formatcol(int arg) {
                 }
                 modflg++;
                 break;
-            case KEY_DOWN:
+            case SC_KEY_DOWN:
             case '-':
             case 'j':
                 for (i = curcol; i < curcol + arg; i++) {
@@ -3565,7 +3532,7 @@ static void formatcol(int arg) {
                 }
                 modflg++;
                 break;
-            case KEY_UP:
+            case SC_KEY_UP:
             case '+':
             case 'k':
                 for (i = curcol; i < curcol + arg; i++)

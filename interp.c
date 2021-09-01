@@ -2835,17 +2835,17 @@ static scvalue_t eval_other(eval_ctx_t *cp, enode_t *e) {
     case OP_LASTROW:    val = maxrow;           break;
     case OP_LASTCOL:    val = maxcol;           break;
     case OP_NUMITER:    val = repct;            break;
-    case OP_BLACK:      val = COLOR_BLACK;      break;
-    case OP_RED:        val = COLOR_RED;        break;
-    case OP_GREEN:      val = COLOR_GREEN;      break;
-    case OP_YELLOW:     val = COLOR_YELLOW;     break;
-    case OP_BLUE:       val = COLOR_BLUE;       break;
-    case OP_MAGENTA:    val = COLOR_MAGENTA;    break;
-    case OP_CYAN:       val = COLOR_CYAN;       break;
-    case OP_WHITE:      val = COLOR_WHITE;      break;
+    case OP_BLACK:      val = SC_COLOR_BLACK;   break;
+    case OP_RED:        val = SC_COLOR_RED;     break;
+    case OP_GREEN:      val = SC_COLOR_GREEN;   break;
+    case OP_YELLOW:     val = SC_COLOR_YELLOW;  break;
+    case OP_BLUE:       val = SC_COLOR_BLUE;    break;
+    case OP_MAGENTA:    val = SC_COLOR_MAGENTA; break;
+    case OP_CYAN:       val = SC_COLOR_CYAN;    break;
+    case OP_WHITE:      val = SC_COLOR_WHITE;   break;
     case OP_NA:         return scvalue_error(ERROR_NA);
-    case OP_FALSE:      return scvalue_boolean(0); break;
-    case OP_TRUE:       return scvalue_boolean(1); break;
+    case OP_FALSE:      return scvalue_boolean(0);
+    case OP_TRUE:       return scvalue_boolean(1);
     default:            error("Illegal expression");
                         return scvalue_error(ERROR_INT);
     }

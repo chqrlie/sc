@@ -17,7 +17,7 @@
 #include <errno.h>      /* adjust for non conforming systems */
 #include <limits.h>     /* for PATH_MAX */
 #include <stdarg.h>     /* adjust for non conforming systems */
-#include <stdio.h>      /* would be included by compat for curses anyway */
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -317,51 +317,65 @@ extern struct opdef const opdefs[];
 #define GROWCOL     4   /* add columns */
 #define GROWBOTH    6   /* grow both */
 
-/*---------------- curses stuff ----------------*/
+/*---------------- screen stuff ----------------*/
 
-#ifndef A_CHARTEXT      /* Should be defined in curses.h */
-#define A_CHARTEXT 0xff
-#endif
-
-#if !defined(HAVE_ATTR_T) && defined(_COMPAT_H) /* Not defined for psc */
-typedef chtype attr_t;
-#endif
-
-#if !defined(HAVE_ATTR_GET) && !defined(NO_ATTR_GET)
-#define attr_get(a, p, o)       ((void)((a) != 0 && (*(a) = stdscr->_attrs)), \
-                                (void)((p) != 0 && \
-                                (*(p) = PAIR_NUMBER(stdscr->_attrs))), OK)
-#endif
-
-#if defined BSD42 || defined SYSIII
-# ifndef cbreak
-# define cbreak      crmode
-# define nocbreak    nocrmode
-# endif
-#endif
+#define SC_COLOR_BLACK     0
+#define SC_COLOR_RED       1
+#define SC_COLOR_GREEN     2
+#define SC_COLOR_YELLOW    3
+#define SC_COLOR_BLUE      4
+#define SC_COLOR_MAGENTA   5
+#define SC_COLOR_CYAN      6
+#define SC_COLOR_WHITE     7
 
 /*---------------- keyboard input stuff ----------------*/
+
+/*
+ * CG: since we cannot use iscntrl() with an argument outside the
+ * range EOF..0xFF and `ctl(c)`, ESC and DEL are defined explicitly
+ * let's define ISCTL(c) consistently and test for DEL explicitly
+ * wherever it is required.
+ */
+#define ISCTL(c)    (!((c) & ~0x1F))
+#define ISBYTE(c)   (!((c) & ~0xFF))
 
 #define ctl(c) ((c)&037)
 #define ESC 033
 #define DEL 0177
 
-/*
- * there seems to be some question about what to do w/ the iscntrl
- * some BSD systems are reportedly broken as well...
- *
- * CG: to settle this issue once and for all, we cannot use
- * iscntrl() with an argument outside the range EOF..0xFF.
- * Furthermore `ctl(c)` and ESC and DEL are defined explicitly
- * so let's define ISCTL(c) consistently and test for DEL explicitly
- * wherever it is required.
- */
-#define ISCTL(c)  (!((c) & ~0x1F))
-#define ISBYTE(c) (!((c) & ~0xFF))
+#define SC_KEY_DOWN         0xE402      /* down-arrow key */
+#define SC_KEY_UP           0xE403      /* up-arrow key */
+#define SC_KEY_LEFT         0xE404      /* left-arrow key */
+#define SC_KEY_RIGHT        0xE405      /* right-arrow key */
+#define SC_KEY_HOME         0xE406      /* home key */
+#define SC_KEY_BACKSPACE    0xE407      /* backspace key */
+#define SC_KEY_F0           0xE410      /* Function keys. */
+#define SC_KEY_F(n)         (SC_KEY_F0+(n)) /* 10 Function keys. */
+#define SC_KEY_DC           0xE512      /* delete-character key */
+#define SC_KEY_IC           0xE513      /* insert-character key */
+#define SC_KEY_NPAGE        0xE522      /* next-page key */
+#define SC_KEY_PPAGE        0xE523      /* previous-page key */
+#define SC_KEY_ENTER        0xE527      /* enter/send key */
+#define SC_KEY_END          0xE550      /* end key */
+#define SC_KEY_FIND         0xE552      /* find key */
+#define SC_KEY_HELP         0xE553      /* help key */
+#define SC_KEY_MOUSE        0xE631      /* Mouse event has occurred */
+#define SC_KEY_RESIZE       0xE632      /* Terminal resize event */
 
-#define KEY_ALT(c)   ((c)|01000)
+#define SC_ALT(c)   ((c)|0xE8000)       /* can be combined with all keys */
+
+/* 5 bits per mouse button, 5 mouse buttons */
+#define SC_BUTTON_RELEASED(n)        (001 << (((n)-1)*5))
+#define SC_BUTTON_PRESSED(n)         (002 << (((n)-1)*5))
+#define SC_BUTTON_CLICKED(n)         (004 << (((n)-1)*5))
+#define SC_BUTTON_DOUBLE_CLICKED(n)  (010 << (((n)-1)*5))
+#define SC_BUTTON_CTRL               (001 << ((6-1)*5))
+#define SC_BUTTON_SHIFT              (002 << ((6-1)*5))
+#define SC_BUTTON_ALT                (004 << ((6-1)*5))
+
 extern int nmgetch(int clearline);
 extern int nmgetch_savepos(int clearline);
+extern int nmungetch(int c);
 
 /*---------------- Context sensitive help ----------------*/
 
@@ -709,9 +723,10 @@ extern void screen_draw_page(int y, int x, const char * const *screen);
 extern void screen_draw_line(int y, int x, const char *str);
 extern void screen_init_pair(int n, int fg, int bg);
 extern int screen_get_keyname(char *buf, size_t size, int c);
+struct screen_mouse_event { int x, y, bstate; };
 extern void screen_mouseon(void);
 extern void screen_mouseoff(void);
-extern int screen_getmouse(MEVENT *event);
+extern int screen_getmouse(struct screen_mouse_event *event);
 extern void screen_hidecursor(void);
 extern void update(int anychanged);
 extern void valueize_area(rangeref_t rr);
@@ -809,4 +824,12 @@ extern sigret_t winchg(int i);
 extern void vi_interaction(void);
 extern void sc_cmd_put(const char *arg, int vopt);
 extern void sc_cmd_write(const char *arg);
+struct menu_item {
+    const char *option;
+    const char *desc;
+    int (*func)(const void *arg, int n);
+    const void *arg;
+    int n;
+};
 extern void lotus_menu(void);
+extern int screen_draw_menu(int y, int x, struct menu_item const *menu, int option);

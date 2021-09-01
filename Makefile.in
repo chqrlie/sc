@@ -432,7 +432,7 @@ $O/range.o: range.c $(DEPENDS)
 $O/sc.o: sc.c $(DEPENDS)
 	$(CC) $(_CFLAGS) -o $@ ${DFLT_PAGER} ${SIGVOID} ${SAVE} -c sc.c
 
-$O/screen.o: screen.c $(DEPENDS)
+$O/screen.o: screen.c $(DEPENDS) icurses.h
 	$(CC) $(_CFLAGS) -o $@ ${BROKENCURSES} ${IDLOKISBAD} ${RIGHTBUG} ${SIGVOID} ${NO_IDLOK} -c screen.c
 
 $O/sort.o: sort.c $(DEPENDS)
@@ -457,7 +457,7 @@ clean:
 
 distclean: clean
 	rm -f $(name) p$(name) $(name)qref x$(name) Makefile config.log
-	rm -f $(name).1 p$(name).1 $(name)qref.1 x$(name).1 compat.h
+	rm -f $(name).1 p$(name).1 $(name)qref.1 x$(name).1
 
 shar: ${SRCS} ${DOCS}
 	shar -c -m 64000 -f shar ${DOCS} ${SRCS}
