@@ -1179,7 +1179,7 @@ void startdisp(void) {
 
 void stopdisp(void) {
     if (usecurses) {
-        deraw(1);
+        screen_deraw(1);
         resetkbd();
         endwin();
 #ifdef XENIX2_3
@@ -1189,7 +1189,7 @@ void stopdisp(void) {
 }
 
 /* init curses */
-void goraw(void) {
+void screen_goraw(void) {
     if (usecurses) {
 #ifdef VMS
         VMS_read_raw = 1;
@@ -1210,7 +1210,7 @@ void goraw(void) {
 }
 
 /* clean up curses */
-void deraw(int ClearLastLine) {
+void screen_deraw(int ClearLastLine) {
     if (usecurses) {
         if (ClearLastLine) {
             if (color && has_colors())

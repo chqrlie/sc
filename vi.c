@@ -178,9 +178,6 @@ void vi_interaction(void) {
     modflg = 0;
     if (linelim < 0)
         cellassign = 0;
-#ifdef VENIX
-    setbuf(stdin, NULL);
-#endif
 
     uarg = 1;
     while (inloop) {
@@ -214,10 +211,10 @@ void vi_interaction(void) {
                 switch (c) {
 #ifdef SIGTSTP
                 case ctl('z'):
-                    deraw(1);
+                    screen_deraw(1);
                     kill(0, SIGTSTP); /* Nail process group */
                     /* the pc stops here */
-                    goraw();
+                    screen_goraw();
                     break;
 #endif
                 case ctl('r'):
@@ -635,9 +632,9 @@ void vi_interaction(void) {
                 }
             } else
             if (c == SC_KEY_F(1) && sempty(fkey[c - SC_KEY_F0])) {
-                deraw(1);
+                screen_deraw(1);
                 system("man sc");
-                goraw();
+                screen_goraw();
                 screen_erase();
             } else
             if (linelim >= 0) {
@@ -652,38 +649,6 @@ void vi_interaction(void) {
                     break;
                 }
                 write_line(c);
-            } else
-            if (!numeric && (c == '+' || c == '-')) {
-                /* increment/decrement ops */
-                p = *ATBL(tbl, currow, curcol);
-                if (p && p->expr) {
-                    // XXX: should decompile and append a '+'/'-'
-                    error("Cannot increment/decrement a formula\n");
-                    continue;
-                }
-                if (p && p->type == SC_STRING) {
-                    error("Cannot increment/decrement a string\n");
-                    continue;
-                }
-                if (!p || (p->flags != SC_NUMBER)) {
-                    if (c == '+') {
-                        /* copy cell contents into line array */
-                        buf_init(buf, line, sizeof line);
-                        // XXX: there should be no value yet
-                        linelim = linelen = editv(buf, currow, curcol, p, DCP_DEFAULT);
-                        cellassign = 1;
-                        insert_mode();
-                        write_line(ctl('v'));
-                    }
-                    continue;
-                }
-                /* p has a valid number, increment/decrement value by uarg */
-                if (c == '+')
-                    p->v += (double)uarg;
-                else
-                    p->v -= (double)uarg;
-                FullUpdate++;
-                modflg++;
             } else
             if (c >= SC_KEY_F0 && c <= SC_KEY_F(FKEYS-1)) {
                 /* a function key was pressed */
@@ -745,16 +710,26 @@ void vi_interaction(void) {
                 case '+':
                 case '-':
                     if (!locked_cell(currow, curcol)) {
-                        p = lookat(currow, curcol);
+                        p = lookat_nc(currow, curcol);
+                        if (!numeric && p && p->type == SC_NUMBER) {
+                            /* increment/decrement numeric cell by uarg */
+                            if (c == '+')
+                                p->v += (double)uarg;
+                            else
+                                p->v -= (double)uarg;
+                            FullUpdate++;
+                            modflg++;
+                            continue;
+                        }
                         /* copy cell contents into line array */
                         buf_init(buf, line, sizeof line);
                         // XXX: the conversion should be localized
-                        linelim = linelen = editv(buf, currow, curcol, p, DCP_DEFAULT);
+                        linelim = linelen = edit_cell(buf, currow, curcol, p, DCP_DEFAULT, 0);
                         setmark('0');
                         numeric_field = 1;
                         cellassign = 1;
                         insert_mode();
-                        if (c == '-' || (p->flags == SC_NUMBER))
+                        if (c == '-' || (p && p->flags == SC_NUMBER) || (p && p->expr))
                             write_line(c);
                         else
                             write_line(ctl('v'));
@@ -1115,7 +1090,7 @@ void vi_interaction(void) {
                         /* copy cell contents into line array */
                         buf_init(buf, line, sizeof line);
                         // XXX: the conversion should be localized
-                        linelim = linelen = edits(buf, currow, curcol, p, DCP_DEFAULT);
+                        linelim = linelen = edit_cell(buf, currow, curcol, p, DCP_DEFAULT, '"');
                         setmark('0');
                         cellassign = 1;
                         if (c == 'e' && (p->flags != SC_NUMBER)) {
@@ -2604,21 +2579,19 @@ static void doshell(void) {
     error("Shell not available");
 #else /* NOSHELL */
     const char *shl;
-    int pid, temp, len;
+    int pid, temp;
     char cmd[MAXCMD];
     static char lastcmd[MAXCMD];
 
     if (!(shl = getenv("SHELL")))
         shl = "/bin/sh";
 
-    deraw(1);
+    screen_deraw(1);
     fputs("! ", stdout);
     fflush(stdout);
     if (!fgets(cmd, MAXCMD, stdin))
         *cmd = '\0';
-    len = strlen(cmd);
-    if (len && cmd[len - 1] == '\n')
-        cmd[--len] = '\0';        /* clobber \n */
+    strtrim(cmd);   /* strip the trailing newline */
     if (strcmp(cmd, "!") == 0)           /* repeat? */
         pstrcpy(cmd, sizeof cmd, lastcmd);
     else
@@ -2631,7 +2604,7 @@ static void doshell(void) {
 
     if (!(pid = fork())) {
         signal(SIGINT, SIG_DFL);  /* reset */
-        if (strlen(cmd))
+        if (*cmd)
             execl(shl, shl, "-c", cmd, (char *)NULL);
         else
             execl(shl, shl, (char *)NULL);
@@ -2642,7 +2615,7 @@ static void doshell(void) {
         continue;
 
     screen_pause();
-    goraw();
+    screen_goraw();
     screen_erase();
 #endif /* NOSHELL */
 }
@@ -3743,10 +3716,18 @@ int modcheck(const char *endstr) {
     return 0;
 }
 
-int editv(buf_t buf, int row, int col, struct ent *p, int dcp_flags) {
-    const char *command = "set";
+int edit_cell(buf_t buf, int row, int col, struct ent *p, int dcp_flags, int c0) {
+    int align = p ? (p->flags & ALIGN_MASK) : ALIGN_DEFAULT;
+    size_t len;
+    const char *command;
 
-    buf_setf(buf, "%s %s = ", command, v_name(row, col));
+    switch (align) {
+    default:            command = "let";         break;
+    case ALIGN_LEFT:    command = "leftstring";  break;
+    case ALIGN_CENTER:  command = "label";       break;
+    case ALIGN_RIGHT:   command = "rightstring"; break;
+    }
+    len = buf_setf(buf, "%s %s = ", command, v_name(row, col));
     if (p) {
         if (p->expr && !(dcp_flags & DCP_NO_EXPR)) {
             // XXX: should pass row, col as the cell reference
@@ -3767,44 +3748,9 @@ int editv(buf_t buf, int row, int col, struct ent *p, int dcp_flags) {
             buf_puts(buf, error_name[p->cellerror]);
         }
     }
-    return buf->len;
-}
-
-int edits(buf_t buf, int row, int col, struct ent *p, int dcp_flags) {
-    int align = p ? (p->flags & ALIGN_MASK) : ALIGN_DEFAULT;
-    int len = 0;
-    const char *command;
-
-    switch (align) {
-    default:            command = "let";         break;
-    case ALIGN_LEFT:    command = "leftstring";  break;
-    case ALIGN_CENTER:  command = "label";       break;
-    case ALIGN_RIGHT:   command = "rightstring"; break;
-    }
-    buf_setf(buf, "%s %s = ", command, v_name(row, col));
-    if (p) {
-        if (p->expr && !(dcp_flags & DCP_NO_EXPR)) {
-            // XXX: should pass row, col as the cell reference
-            len = decompile_expr(buf, p->expr, row - p->row, col - p->col, dcp_flags);
-        } else
-        if (p->type == SC_NUMBER) {
-            // XXX: should convert to locale: use out_number()?
-            len = buf_printf(buf, "%.15g", p->v);
-        } else
-        if (p->type == SC_BOOLEAN) {
-            // XXX: should translate?
-            len = buf_puts(buf, p->v ? "TRUE" : "FALSE");
-        } else
-        if (p->type == SC_STRING) {
-            len = buf_quotestr(buf, '"', s2str(p->label), '"');
-        } else
-        if (p->type == SC_ERROR) {
-            len = buf_puts(buf, error_name[p->cellerror]);
-        }
-    }
-    if (!len) {
+    if (len == buf->len && c0) {
         /* output a single `"` for the user to start entering the string */
-        buf_putc(buf, '"');
+        buf_putc(buf, c0);
     }
     return buf->len;
 }

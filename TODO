@@ -27,14 +27,11 @@ Evaluator:
 [ ] chain cells with formulas into a linked list or dependency tree
 [ ] add reference union operator (~)
 [?] stack based dynamic type interpreter
-[ ] make sure ISVALID should <not> be used in place of checkbounds in interp.c
 [ ] add regex functions
 [ ] add unified regex support for searching etc.
 [ ] minimize recompute: only recompute formulas whose antecedents change
 
 Parser:
-[ ] merge edits() and editv()
-[ ] allocate NULL arguments for optional arguments
 [ ] set NULL arguments for omitted arguments
 [ ] define precise semantics for words in lexer (ie: `3rdrow`)
 [?] compile to bytecode
@@ -46,7 +43,6 @@ Parser:
 [ ] remove yacc based parser
 [ ] fix replicated cell alignment as alignment type and use whole parts
 [ ] add format info in scvalue_t
-[ ] save formula values in .sc files
 
 Database:
 [ ] support strings up to 32KB long
@@ -60,8 +56,8 @@ Database:
 [ ] group sheet data in sheet_t structures
 [ ] make delbufs sheet_t instances
 [ ] make delbufs point to sheet_t instances, handle duplicates
-[ ] hash sc_string_t in a dictionary?
-[ ] use rangeref_t for find_range_coords() ?
+[?] hash sc_string_t in a dictionary
+[?] use rangeref_t for find_range_coords()
 [ ] change representation for ranges: abs/rel coords instead of pointers
 [ ] use an array of format strings, store an index in the cell struct
 [ ] more efficient cell structure
@@ -70,6 +66,7 @@ Database:
 [ ] load xls files
 [ ] load csv files
 [ ] save xls files
+[ ] save formula values in .sc files
 
 Update:
 [ ] truncate cell value display (both formula and string value)
@@ -80,11 +77,11 @@ Update:
 
 Commands:
 [ ] fix modflg, FullUpdate, modified, IS_CHANGED handling
-[ ] all LISTABBREV instead of ABBREV hack?
-[ ] same for DEFINE with one or no arguments?
+[?] all LISTABBREV instead of ABBREV hack
+[?] same for DEFINE with one or no arguments
 [ ] validate and clip all ranges in commands
 [ ] ignore unknown commands (keep them in a list?)
-[ ] pass count to duprow() and dupcol() ???
+[?] pass count to duprow() and dupcol()
 [ ] hide range
 [ ] block moving into range
 
@@ -165,3 +162,5 @@ Build:
 [X] add database functions
 [X] fix seg fault when running `./sc tutorial.sc > t`
 [X] move curses support to specific file and use API layer
+[X] make sure ISVALID should <not> be used in place of checkbounds in interp.c
+[X] merge edits() and editv()

@@ -24,14 +24,19 @@ extern int yychar;
 //extern union YYSTYPE yylval;
 #endif
 
-static void doerror(SCXMEM string_t *s) {
+static void cmd_error(SCXMEM string_t *s) {
     if (s) {
         error("%s", s2c(s));
         string_free(s);
     }
 }
 
-static int doreadfile(SCXMEM string_t *fname, int eraseflg) {
+static void cmd_quit(void) {
+    stopdisp();
+    exit(0);
+}
+
+static int cmd_readfile(SCXMEM string_t *fname, int eraseflg) {
     int ret = -1;
     if (fname) {
         ret = readfile(s2c(fname), eraseflg);
@@ -40,7 +45,7 @@ static int doreadfile(SCXMEM string_t *fname, int eraseflg) {
     return ret;
 }
 
-static int dowritefile(SCXMEM string_t *fname, rangeref_t rr, int dcp_flags) {
+static int cmd_writefile(SCXMEM string_t *fname, rangeref_t rr, int dcp_flags) {
     int ret = -1;
     if (fname) {
         ret = writefile(s2c(fname), rr, dcp_flags);
@@ -84,7 +89,7 @@ static SCXMEM string_t *get_strarg(cellref_t cr) {
 %type <rval> range var_or_range
 %type <sval> strarg
 %type <enode> e term expr_list
-%type <ival> noval
+%type <ival> outfd noval
 %token <sval> STRING
 %token <ival> NUMBER T_ERROR
 %token <fval> FNUMBER
@@ -280,8 +285,8 @@ command:  S_LET var_or_range '=' e      { let($2.left, $4, -1); }
         | S_FORMAT COL ':' COL NUMBER NUMBER  { cmd_format($2, $4, $5, $6, REFMTFIX); }
         | S_FORMAT COL NUMBER NUMBER    { cmd_format($2, $2, $3, $4, REFMTFIX); }
         | S_FORMAT NUMBER '=' STRING    { cmd_setformat($2, $4); }
-        | S_GET strarg                  { doreadfile($2, 1); }
-        | S_MERGE strarg                { doreadfile($2, 0); }
+        | S_GET strarg                  { cmd_readfile($2, 1); }
+        | S_MERGE strarg                { cmd_readfile($2, 0); }
         | S_MDIR strarg                 { set_mdir($2); }
         | S_AUTORUN strarg              { set_autorun($2); }
         | S_FKEY NUMBER '=' strarg      { set_fkey($2, $4); }
@@ -293,8 +298,8 @@ command:  S_LET var_or_range '=' e      { let($2.left, $4, -1); }
         | S_LATEXEXT strarg             { string_set(&latexext, $2); }
         | S_SLATEXEXT strarg            { string_set(&slatexext, $2); }
         | S_TEXEXT strarg               { string_set(&texext, $2); }
-        | S_PUT strarg range noval      { dowritefile($2, $3, $4); }
-        | S_PUT strarg noval            { dowritefile($2, rangeref_total(), $3); }
+        | S_PUT strarg range noval      { cmd_writefile($2, $3, $4); }
+        | S_PUT strarg noval            { cmd_writefile($2, rangeref_total(), $3); }
         | S_PUT range noval             { write_cells(stdout, $2, $2.left, $3 | DCP_NO_NAME); }
         | S_PUT range '/' var noval     { write_cells(stdout, $2, $4, $5 | DCP_NO_NAME); }
         | S_PUT '%' '/' var noval       { write_cells(stdout, rangeref_total(), $4, $5 | DCP_NO_NAME); }
@@ -472,59 +477,45 @@ command:  S_LET var_or_range '=' e      { let($2.left, $4, -1); }
         | S_PULLFMT                     { pullcells('f', cellref_current()); }
         | S_PULLCOPY                    { copy(COPY_FROM_QBUF, rangeref_current(), rangeref_empty()); }
         | S_PULLCOPY var_or_range       { copy(COPY_FROM_QBUF, $2, rangeref_empty()); }
-        | S_WHEREAMI                    { cmd_whereami(macrofd); }
-        | S_WHEREAMI '|' NUMBER         { cmd_whereami($3); }
-        | S_GETNUM var_or_range         { getnum($2, macrofd); }
-        | S_GETNUM var_or_range '|' NUMBER  { getnum($2, $4); }
-        | S_GETNUM                      { getnum(rangeref_current(), macrofd); }
-        | S_GETNUM '|' NUMBER           { getnum(rangeref_current(), $3); }
-        | S_FGETNUM var_or_range        { fgetnum($2, macrofd); }
-        | S_FGETNUM var_or_range '|' NUMBER  { fgetnum($2, $4); }
-        | S_FGETNUM                     { fgetnum(rangeref_current(), macrofd); }
-        | S_FGETNUM '|' NUMBER          { fgetnum(rangeref_current(), $3); }
-        | S_GETSTRING var_or_range      { getstring($2, macrofd); }
-        | S_GETSTRING var_or_range '|' NUMBER  { getstring($2, $4); }
-        | S_GETSTRING                   { getstring(rangeref_current(), macrofd); }
-        | S_GETSTRING '|' NUMBER        { getstring(rangeref_current(), $3); }
-        | S_GETEXP var_or_range         { getexp($2, macrofd); }
-        | S_GETEXP var_or_range '|' NUMBER  { getexp($2, $4); }
-        | S_GETEXP                      { getexp(rangeref_current(), macrofd); }
-        | S_GETEXP '|' NUMBER           { getexp(rangeref_current(), $3); }
-        | S_GETFORMAT COL               { getformat($2, macrofd); }
-        | S_GETFORMAT COL '|' NUMBER    { getformat($2, $4); }
-        | S_GETFORMAT                   { getformat(curcol, macrofd); }
-        | S_GETFORMAT '|' NUMBER        { getformat(curcol, $3); }
-        | S_GETFMT var_or_range         { getfmt($2, macrofd); }
-        | S_GETFMT var_or_range '|' NUMBER  { getfmt($2, $4); }
-        | S_GETFMT                      { getfmt(rangeref_current(), macrofd); }
-        | S_GETFMT '|' NUMBER           { getfmt(rangeref_current(), $3); }
-        | S_GETFRAME                    { getframe(macrofd); }
-        | S_GETFRAME '|' NUMBER         { getframe($3); }
-        | S_GETRANGE STRING             { getrange($2, macrofd); }
-        | S_GETRANGE STRING '|' NUMBER  { getrange($2, $4); }
-        | S_EVAL e                      { cmd_eval($2, NULL, currow, curcol, macrofd); }
-        | S_EVAL e STRING               { cmd_eval($2, $3, currow, curcol, macrofd); }
-        | S_EVAL e STRING '|' NUMBER    { cmd_eval($2, $3, currow, curcol, $5); }
-        | S_SEVAL e                     { cmd_seval($2, currow, curcol, macrofd); }
-        | S_QUERY STRING STRING         { cmd_query($2, $3, macrofd); }
-        | S_QUERY STRING STRING '|' NUMBER  { cmd_query($2, $3, $5); }
-        | S_QUERY STRING                { cmd_query($2, NULL, macrofd); }
-        | S_QUERY STRING '|' NUMBER     { cmd_query($2, NULL, $4); }
-        | S_QUERY                       { cmd_query(NULL, NULL, macrofd); }
-        | S_QUERY '|' NUMBER            { cmd_query(NULL, NULL, $3); }
-        | S_GETKEY                      { dogetkey(macrofd); }
-        | S_ERROR STRING                { doerror($2); }
-        | S_STATUS                      { cmd_status(macrofd); }
-        | S_STATUS '|' NUMBER           { cmd_status($3); }
+
+        | S_WHEREAMI outfd              { cmd_whereami($2); }
+        | S_GETNUM var_or_range outfd   { cmd_getnum($2, $3); }
+        | S_GETNUM outfd                { cmd_getnum(rangeref_current(), $2); }
+        | S_FGETNUM var_or_range outfd  { cmd_fgetnum($2, $3); }
+        | S_FGETNUM outfd               { cmd_fgetnum(rangeref_current(), $2); }
+        | S_GETSTRING var_or_range outfd  { cmd_getstring($2, $3); }
+        | S_GETSTRING outfd             { cmd_getstring(rangeref_current(), $2); }
+        | S_GETEXP var_or_range outfd   { cmd_getexp($2, $3); }
+        | S_GETEXP outfd                { cmd_getexp(rangeref_current(), $2); }
+        | S_GETFORMAT COL outfd         { cmd_getformat($2, $3); }
+        | S_GETFORMAT outfd             { cmd_getformat(curcol, $2); }
+        | S_GETFMT var_or_range outfd   { cmd_getfmt($2, $3); }
+        | S_GETFMT outfd                { cmd_getfmt(rangeref_current(), $2); }
+        | S_GETFRAME outfd              { cmd_getframe($2); }
+        | S_GETRANGE STRING outfd       { cmd_getrange($2, $3); }
+        | S_EVAL e outfd                { cmd_eval($2, NULL, currow, curcol, $3); }
+        | S_EVAL e STRING outfd         { cmd_eval($2, $3, currow, curcol, $4); }
+        | S_SEVAL e outfd               { cmd_seval($2, currow, curcol, $3); }
+        | S_QUERY STRING STRING outfd   { cmd_query($2, $3, $4); }
+        | S_QUERY STRING outfd          { cmd_query($2, NULL, $3); }
+        | S_QUERY outfd                 { cmd_query(NULL, NULL, $2); }
+        | S_GETKEY outfd                { cmd_getkey($2); }
+        | S_STATUS outfd                { cmd_status($2); }
+
         | S_RECALC                      { cmd_recalc(); }
         | S_REDRAW                      { cmd_redraw(); }
-        | S_QUIT                        { stopdisp(); exit(0); }
+        | S_ERROR STRING                { cmd_error($2); }
+        | S_QUIT                        { cmd_quit(); }
         | S_RUN STRING                  { cmd_run($2); }
         | S_PLUGIN STRING '=' STRING    { add_plugin($2, $4, 'r'); }
         | S_PLUGOUT STRING '=' STRING   { add_plugin($2, $4, 'w'); }
         | PLUGIN                        { cmd_plugin($1); }
         | /* nothing */
         | error
+        ;
+
+outfd:                                  { $$ = macrofd; }
+        | '|' NUMBER                    { $$ = $2; }
         ;
 
 noval:                                  { $$ = DCP_DEFAULT; }

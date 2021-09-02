@@ -1938,12 +1938,12 @@ void cmd_setformat(int n, SCXMEM string_t *str) {
 
 void cmd_run(SCXMEM string_t *str) {
     const char *cmd = s2str(str);
-    deraw(1);
+    screen_deraw(1);
     system(cmd);
     if (*cmd && cmd[strlen(cmd) - 1] != '&') {
         screen_pause();
     }
-    goraw();
+    screen_goraw();
     string_free(str);
 }
 

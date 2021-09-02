@@ -41,9 +41,9 @@ int creadfile(const char *fname, int eraseflg) {
         return 0;
     }
 
-    deraw(1);
+    screen_deraw(1);
     pstrcpy(KeyWord, sizeof KeyWord, getpass("Enter key:"));
-    goraw();
+    screen_goraw();
 
     if ((pid = fork()) == 0) {   /* if child              */
         close(0);                /* close stdin           */
@@ -131,9 +131,9 @@ int cwritefile(char *fname, rangeref_t rr, int dcp_flags) {
     }
 
     if (KeyWord[0] == '\0') {
-        deraw(1);
+        screen_deraw(1);
         pstrcpy(KeyWord, sizeof KeyWord, getpass("Enter key:"));
-        goraw();
+        screen_goraw();
     }
 
     if ((pid = fork()) == 0) {           /* if child              */

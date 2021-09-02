@@ -114,7 +114,7 @@ FILE *openfile(char *fname, size_t fnamesiz, int *rpid, int *rfd) {
         return 0;
     }
 
-    deraw(rfd == NULL);
+    screen_deraw(rfd == NULL);
 #ifdef VMS
     fprintf(stderr, "No son tasks available yet under VMS--sorry\n");
     return f;
@@ -166,11 +166,11 @@ void closefile(FILE *f, int pid, int rfd) {
             continue;
         if (rfd == 0) {
             screen_pause();
-            goraw();
+            screen_goraw();
             screen_erase();
         } else {
             close(rfd);
-            goraw();
+            screen_goraw();
         }
     }
 #endif /* NOPIPES */
@@ -441,7 +441,7 @@ void write_cells(FILE *f, rangeref_t rr, cellref_t cr, int dcp_flags) {
                 int row = r + cr.row - rr.left.row;
                 int col = c + cr.col - rr.left.col;
                 if (p->type || p->expr) {
-                    edits(buf, row, col, p, dcp_flags);
+                    edit_cell(buf, row, col, p, dcp_flags, 0);
                     fprintf(f, "%s\n", buf->buf);
                 } else
                 if ((p->flags & ALIGN_MASK) != ALIGN_DEFAULT) {
@@ -684,7 +684,7 @@ int readfile(const char *fname, int eraseflg) {
     closefile(f, pid, rfd);
     if (f == stdin) {
         freopen("/dev/tty", "r", stdin);
-        goraw();
+        screen_goraw();
     }
     if (eraseflg) {
         pstrcpy(curfile, sizeof curfile, save);

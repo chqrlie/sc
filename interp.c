@@ -26,8 +26,6 @@
 
 #include "sc.h"
 
-#define ISVALID(r,c)    ((r)>=0 && (r)<maxrows && (c)>=0 && (c)<maxcols)
-
 static jmp_buf fpe_save;
 double prescale = 1.0;  /* Prescale for constants in let() */
 int extfunc = 0;        /* Enable/disable external functions */

@@ -8,10 +8,9 @@
  *              $Revision: 8.1 $
  */
 
-#include <time.h>
 #include "sc.h"
 
-void getnum(rangeref_t rr, int fd) {
+void cmd_getnum(rangeref_t rr, int fd) {
     char buf[32];
     int r, c, len;
 
@@ -41,7 +40,7 @@ void getnum(rangeref_t rr, int fd) {
     }
 }
 
-void fgetnum(rangeref_t rr, int fd) {
+void cmd_fgetnum(rangeref_t rr, int fd) {
     char buf[FBUFLEN+1];
     int r, c, len;
 
@@ -77,7 +76,7 @@ void fgetnum(rangeref_t rr, int fd) {
     }
 }
 
-void getstring(rangeref_t rr, int fd) {
+void cmd_getstring(rangeref_t rr, int fd) {
     char buf[FBUFLEN];  /* for very long labels */
     int r, c, len;
 
@@ -95,7 +94,7 @@ void getstring(rangeref_t rr, int fd) {
     }
 }
 
-void getexp(rangeref_t rr, int fd) {
+void cmd_getexp(rangeref_t rr, int fd) {
     buf_t(buf, FBUFLEN);
     int r, c;
 
@@ -118,13 +117,13 @@ void getexp(rangeref_t rr, int fd) {
     }
 }
 
-void getformat(int col, int fd) {
+void cmd_getformat(int col, int fd) {
     char buf[32];
     snprintf(buf, sizeof buf, "%d %d %d\n", fwidth[col], precision[col], realfmt[col]);
     write(fd, buf, strlen(buf));
 }
 
-void getfmt(rangeref_t rr, int fd) {
+void cmd_getfmt(rangeref_t rr, int fd) {
     char buf[FBUFLEN];  /* for very long format strings */
     int r, c, len;
 
@@ -142,7 +141,7 @@ void getfmt(rangeref_t rr, int fd) {
     }
 }
 
-void getframe(int fd) {
+void cmd_getframe(int fd) {
     char buf[100];
     struct frange *fr;
     int len;
@@ -159,7 +158,7 @@ void getframe(int fd) {
     write(fd, buf, len);
 }
 
-void getrange(SCXMEM string_t *name, int fd) {
+void cmd_getrange(SCXMEM string_t *name, int fd) {
     char buf[100];
     struct nrange *r;
     int len;
@@ -222,9 +221,9 @@ void cmd_query(SCXMEM string_t *s, SCXMEM string_t *data, int fd) {
     char buf[FBUFLEN];
     int len;
 
-    goraw();
+    screen_goraw();
     len = query(buf, sizeof buf, s ? s2c(s) : NULL, data ? s2c(data) : NULL);
-    deraw(0);
+    screen_deraw(0);
     if (len >= 0) {
         write(fd, buf, len);
         write(fd, "\n", 1);
@@ -234,13 +233,13 @@ void cmd_query(SCXMEM string_t *s, SCXMEM string_t *data, int fd) {
     string_free(data);
 }
 
-void dogetkey(int fd) {
+void cmd_getkey(int fd) {
     char buf[32];
     int c, len;
 
-    goraw();
+    screen_goraw();
     c = nmgetch(0);
-    deraw(0);
+    screen_deraw(0);
     screen_get_keyname(buf, sizeof(buf) - 1, c);
     len = pstrcat(buf, sizeof buf, "\n");
     write(fd, buf, len);

@@ -318,6 +318,9 @@ int main(int argc, char **argv) {
         return EXIT_SUCCESS;
     }
 
+#ifdef VENIX
+    setbuf(stdin, NULL);
+#endif
     vi_interaction();
     stopdisp();
     write_hist();
@@ -325,6 +328,7 @@ int main(int argc, char **argv) {
     if (Dopt) {
         /* free all memory and check for remaining blocks */
         erasedb(FALSE);
+        go_free();
         free_ent_list();
         free_enode_list();
         free_styles();
@@ -400,7 +404,7 @@ sigret_t dump_me(int i) {
     (void)i;
     if (usecurses)
         diesave();
-    deraw(1);
+    screen_deraw(1);
     abort();
 }
 
@@ -446,7 +450,7 @@ static void settcattr(void) {
 }
 
 void fatal(const char *str) {
-    deraw(1);
+    screen_deraw(1);
     fprintf(stderr, "%s\n", str);
     diesave();
     exit(1);

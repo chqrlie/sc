@@ -76,7 +76,7 @@ extern void fatal(const char *str);
 #define DFLT_PAGER "more"       /* more is probably more widespread than less */
 #endif /* DFLT_PAGER */
 
-#define MAXCMD 160      /* for ! command and commands that use the pager */
+#define MAXCMD  FBUFLEN      /* for ! command and commands that use the pager */
 
 /* a cellref has a row, column, flags and sheet */
 typedef struct cellref cellref_t;
@@ -229,11 +229,11 @@ struct impexfilt {
 /* Use this structure to save the last 'g' command */
 struct go_save {
     int g_type;
+    int stflag;
     double g_n;
     SCXMEM string_t *g_s;
     rangeref_t g_rr;
     cellref_t st;
-    int stflag;
 };
 
 /* g_type can be: */
@@ -626,31 +626,25 @@ extern int decompile(char *dest, size_t size, enode_t *e, int dr, int dc, int dc
 extern int decompile_expr(buf_t buf, enode_t *e, int dr, int dc, int flags);
 extern void del_nrange(rangeref_t rr);
 extern void del_abbr(SCXMEM string_t *abbrev);
-extern void deraw(int ClearLastLine);
 extern void doend(int rowinc, int colinc);
 extern void cmd_format(int c1, int c2, int w, int p, int r);
 extern void cmd_setformat(int n, SCXMEM string_t *str);
+extern int cmd_plugin(SCXMEM string_t *str);
+extern void cmd_recalc(void);
 extern void cmd_redraw(void);
+extern void cmd_run(SCXMEM string_t *str);
 extern void cmd_select_qbuf(char c);
-extern void cmd_whereami(int fd);
 extern int dupcol(cellref_t cr);
 extern int duprow(cellref_t cr);
-extern void cmd_query(SCXMEM string_t *s, SCXMEM string_t *data, int fd);
-extern void cmd_status(int fd);
-extern int cmd_plugin(SCXMEM string_t *str);
 extern void set_mdir(SCXMEM string_t *str);
 extern void set_autorun(SCXMEM string_t *str);
 extern void set_fkey(int n, SCXMEM string_t *str);
-extern void cmd_recalc(void);
-extern void cmd_run(SCXMEM string_t *str);
-extern int edits(buf_t buf, int row, int col, struct ent *p, int dcp_flags);
-extern int editv(buf_t buf, int row, int col, struct ent *p, int dcp_flags);
+extern int edit_cell(buf_t buf, int row, int col, struct ent *p, int dcp_flags, int c0);
 extern void efree(SCXMEM enode_t *e);
 extern void free_enode_list(void);
 extern void erase_area(int idx, int sr, int sc, int er, int ec, int ignorelock);
 extern void erasedb(int load_scrc);
 extern void eraser(rangeref_t rr);
-extern void fgetnum(rangeref_t rr, int fd);
 extern void fillr(rangeref_t rr, double start, double inc, int bycols);
 extern void fix_colors(int row1, int col1, int row2, int col2,
                        int delta1, int delta2, struct frange *fr);
@@ -665,13 +659,9 @@ extern void forwpage(int arg);
 extern void forwcell(int arg);
 extern void forwcol(int arg);
 extern void forwrow(int arg);
-extern void getexp(rangeref_t rr, int fd);
-extern void getfmt(rangeref_t rr, int fd);
-extern void getformat(int col, int fd);
-extern void getnum(rangeref_t rr, int fd);
-extern void getstring(rangeref_t rr, int fd);
+
+extern void go_free(void);
 extern void go_last(void);
-extern void goraw(void);
 extern void dohide(void);
 extern void hidecols(int c1, int c2);
 extern void hiderows(int c1, int c2);
@@ -712,22 +702,6 @@ extern void sync_ranges(void);
 extern void sync_refs(void);
 extern void tblprintfile(SCXMEM string_t *fname, rangeref_t rr);
 extern void unlock_cells(rangeref_t rr);
-extern void screen_resize(void);
-extern void screen_pause(void);
-extern void screen_rebuild(void);
-extern void screen_erase(void);
-extern void screen_refresh(void);
-extern void screen_move(int y, int x);
-extern void screen_clear_line(int y);
-extern void screen_draw_page(int y, int x, const char * const *screen);
-extern void screen_draw_line(int y, int x, const char *str);
-extern void screen_init_pair(int n, int fg, int bg);
-extern int screen_get_keyname(char *buf, size_t size, int c);
-struct screen_mouse_event { int x, y, bstate; };
-extern void screen_mouseon(void);
-extern void screen_mouseoff(void);
-extern int screen_getmouse(struct screen_mouse_event *event);
-extern void screen_hidecursor(void);
 extern void update(int anychanged);
 extern void valueize_area(rangeref_t rr);
 extern void write_abbrevs(FILE *f);
@@ -794,10 +768,6 @@ extern char revmsg[80];
 extern int showneed;   /* Causes cells needing values to be highlighted */
 extern int showexpr;   /* Causes cell exprs to be displayed, highlighted */
 extern int shownote;   /* Causes cells with attached notes to be highlighted */
-extern int screen_COLS, screen_LINES;
-#ifdef VMS
-extern int VMS_read_raw;   /*sigh*/
-#endif
 
 extern void gotonote(void);
 extern void addnote(cellref_t cr, rangeref_t rr);
@@ -807,11 +777,6 @@ extern void yankcols(int c1, int c2);
 extern void yankrows(int r1, int r2);
 extern void list_frames(FILE *fp);
 extern void yankr(rangeref_t rr);
-extern void dogetkey(int fd);
-extern void cmd_seval(SCXMEM enode_t *e, int row, int col, int fd);
-extern void cmd_eval(SCXMEM enode_t *e, SCXMEM string_t *fmt, int row, int col, int fd);
-extern void getrange(SCXMEM string_t *name, int fd);
-extern void getframe(int fd);
 extern void add_abbr(SCXMEM string_t *name, SCXMEM string_t *exp);
 extern void repaint_cursor(int set);
 extern sigret_t doquit(int i);
@@ -832,4 +797,47 @@ struct menu_item {
     int n;
 };
 extern void lotus_menu(void);
+
+/*---------------- piping commands ----------------*/
+
+extern void cmd_getnum(rangeref_t rr, int fd);
+extern void cmd_fgetnum(rangeref_t rr, int fd);
+extern void cmd_getstring(rangeref_t rr, int fd);
+extern void cmd_getexp(rangeref_t rr, int fd);
+extern void cmd_getformat(int col, int fd);
+extern void cmd_getfmt(rangeref_t rr, int fd);
+extern void cmd_getframe(int fd);
+extern void cmd_getrange(SCXMEM string_t *name, int fd);
+extern void cmd_eval(SCXMEM enode_t *e, SCXMEM string_t *fmt, int row, int col, int fd);
+extern void cmd_seval(SCXMEM enode_t *e, int row, int col, int fd);
+extern void cmd_query(SCXMEM string_t *s, SCXMEM string_t *data, int fd);
+extern void cmd_getkey(int fd);
+extern void cmd_status(int fd);
+extern void cmd_whereami(int fd);
+
+/*---------------- screen and input stuff ----------------*/
+
+#ifdef VMS
+extern int VMS_read_raw;   /*sigh*/
+#endif
+extern int screen_COLS, screen_LINES;
+
+extern void screen_resize(void);
+extern void screen_pause(void);
+extern void screen_rebuild(void);
+extern void screen_erase(void);
+extern void screen_refresh(void);
+extern void screen_move(int y, int x);
+extern void screen_clear_line(int y);
+extern void screen_draw_page(int y, int x, const char * const *screen);
+extern void screen_draw_line(int y, int x, const char *str);
+extern void screen_init_pair(int n, int fg, int bg);
+extern int screen_get_keyname(char *buf, size_t size, int c);
+struct screen_mouse_event { int x, y, bstate; };
+extern void screen_mouseon(void);
+extern void screen_mouseoff(void);
+extern int screen_getmouse(struct screen_mouse_event *event);
+extern void screen_hidecursor(void);
 extern int screen_draw_menu(int y, int x, struct menu_item const *menu, int option);
+extern void screen_deraw(int ClearLastLine);
+extern void screen_goraw(void);

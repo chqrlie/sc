@@ -28,7 +28,7 @@ struct go_save gs;
 
 /* Goto subroutines */
 
-static void g_free(void) {
+void go_free(void) {
     gs.g_type = G_NONE;
     string_set(&gs.g_s, NULL);
 }
@@ -66,7 +66,7 @@ void moveto(rangeref_t rr, cellref_t st) {
     lookat(rr.left.row, rr.left.col);
     currow = rr.left.row;
     curcol = rr.left.col;
-    g_free();
+    go_free();
     gs.g_type = G_CELL;
     gs.g_rr = rr;
     gs.st = st;
@@ -111,7 +111,7 @@ int num_search(int g_type, rangeref_t rr, double n) {
     if (g_type == G_INVALID)
         errsearch = -1;
 
-    g_free();
+    go_free();
     gs.g_type = g_type;
     gs.g_rr = rr;
     gs.g_n = n;
@@ -222,7 +222,7 @@ int str_search(int g_type, rangeref_t rr, SCXMEM string_t *str) {
     if (!loading)
         remember(0);
 
-    g_free();
+    go_free();
     gs.g_type = g_type;
     gs.g_rr = rr;
     string_set(&gs.g_s, str);
