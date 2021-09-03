@@ -142,7 +142,8 @@ int main(int argc, char **argv) {
     histfile = string_new("~/.sc_history");
 
 #ifdef USELOCALE
-    setlocale(LC_ALL, "");
+    //setlocale(LC_ALL, "");
+    setlocale(LC_ALL, "en_US.UTF-8");
 #endif
     progname = get_basename(argv[0]);
 

@@ -104,6 +104,9 @@
  *
  *****************************************************************************/
 
+#ifdef USELOCALE
+#include <locale.h>
+#endif
 #include <math.h>
 #include <time.h>
 #include "sc.h"

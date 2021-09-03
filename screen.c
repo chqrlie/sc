@@ -46,6 +46,23 @@ static void showstring(const char *string, int align, int hasvalue, int row,
                        int col, int *nextcolp, int mxcol, int *fieldlenp, int r, int c,
                        struct frange *fr, int frightcols, int flcols, int frcols);
 
+static int addustr(const char *s) {
+    int i, pos = 0, res = OK;
+    int wc;
+    for (i = 0;;) {
+        if (s[i] > 0 && !(s[i] & 0x80)) {
+            i++;
+        } else {
+            res |= addnstr(s + pos, i - pos);
+            if (!s[pos = i])
+                break;
+            pos = i += utf8_decode(s + pos, &wc);
+            res |= addnwstr(&wc, 1);
+        }
+    }
+    return res;
+}
+
 void error(const char *fmt, ...) {
     char buf[256];
     va_list ap;
@@ -59,7 +76,7 @@ void error(const char *fmt, ...) {
         select_style(STYLE_CELL, 0);
         screen_clear_line(1);
         // XXX: should clip message to screen width
-        addstr(buf);
+        addustr(buf);
     } else {
         if (*buf) fprintf(stderr, "%s\n", buf);
     }
@@ -872,7 +889,7 @@ void update(int anychanged) {          /* did any cell really change in value? *
                                 select_style(curcolor, 0);
 #endif
                             }
-                            addstr(field);
+                            addustr(field);
                             for (i = 0; i < rpad; i++)
                                 addch(' ');
                         }
@@ -929,6 +946,7 @@ void update(int anychanged) {          /* did any cell really change in value? *
     if (linelim >= 0) {
         // XXX: display the current edit line
         // XXX: should scroll line to make cursor position visible
+        // XXX: should clip the line to the visible portion
         int ctlchars = 0;
         for (i = 0; i < linelim; i++) {
             if ((unsigned char)line[i] < ' ')
@@ -937,7 +955,7 @@ void update(int anychanged) {          /* did any cell really change in value? *
         addch(mode_ind);
         addch('>');
         addch(search_ind);
-        addstr(line);
+        addustr(line);
         if (!braille || (!message && mode_ind != 'v'))
             move((linelim + 3 + ctlchars) / cols, (linelim + 3 + ctlchars) % cols);
         else if (message)
@@ -977,7 +995,7 @@ void update(int anychanged) {          /* did any cell really change in value? *
                     // XXX: should pass currow, curcol as the cell reference
                     decompile(field, sizeof field, p->expr, 0, 0, DCP_DEFAULT);
                     addch('[');
-                    addstr(field);
+                    addustr(field);
                     addch(']');
                     addch(' ');
                 }
@@ -992,7 +1010,7 @@ void update(int anychanged) {          /* did any cell really change in value? *
                 } else
                 if (p->type == SC_STRING) { /* value is a string */
                     addch('\"');
-                    addstr(s2str(p->label));  // XXX: should encode string?
+                    addustr(s2str(p->label));  // XXX: should encode string?
                     addch('\"');
                     addch(' ');
                 } else
@@ -1430,7 +1448,8 @@ void showstring(const char *string,         /* to display */
         if (*fp == '\\' && fp[1] == '"')
             strsplice(field, sizeof field, fp - field, 1, NULL, 0);
     }
-    mvaddstr(r, c, field);
+    move(r, c);
+    addustr(field);
 
     *nextcolp  = nextcol;
     *fieldlenp = fieldlen;
@@ -1887,7 +1906,7 @@ void screen_draw_page(int y, int x, const char * const *screen) {
         int i;
         for (i = 0; screen[i]; i++) {
             move(y + i, x);
-            addstr(screen[i]);
+            addustr(screen[i]);
             clrtoeol();
         }
     }
@@ -1896,7 +1915,7 @@ void screen_draw_page(int y, int x, const char * const *screen) {
 void screen_draw_line(int y, int x, const char *str) {
     if (usecurses) {
         move(y, x);
-        addstr(str);
+        addustr(str);
         clrtoeol();
     }
 }
@@ -1936,7 +1955,7 @@ int screen_draw_menu(int y, int x, struct menu_item const *menu, int option) {
     for (e = 0; menu[e].option; e++) {
         if (e == option)
             select_style(STYLE_FRAME, 0);
-        addstr(menu[e].option);
+        addustr(menu[e].option);
         select_style(STYLE_CELL, 0);
         addstr("  ");
     }

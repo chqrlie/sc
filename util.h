@@ -78,6 +78,9 @@ extern int sc_strcasecmp(const char *a, const char *b);
 extern int sc_strncasecmp(const char *a, const char *b, size_t n);
 extern char *sc_strcasestr(const char *s1, const char *s2);
 
+extern int utf8_decode(const char *s, int *wp);
+extern int utf8_encode(char *s, int code);
+
 /*---------------- refcounted string_t ----------------*/
 
 typedef struct string_t {

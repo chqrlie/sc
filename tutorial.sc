@@ -136,6 +136,7 @@ let J24 = 5
 let K24 = 6
 leftstring A25 = "Cell d22 contains text"
 leftstring D25 = "Text "
+let H25 = "test: "&@unichar(960)
 let I25 = @sumproduct(I23:K23,I24:K24)
 let J25 = @sumx2my2(I23:K23,I24:K24)
 let K25 = @sumxmy2(I23:K23,I24:K24)
@@ -225,4 +226,4 @@ leftstring A89 = "The basic commands.  Much more detail is available"
 leftstring A90 = "in the man page."
 leftstring A92 = "To quit this program, type 'q'."
 leftstring D94 = "GOOD LUCK!"
-goto I25 A0
+goto H24 A0

@@ -30,6 +30,8 @@ Evaluator:
 [ ] add regex functions
 [ ] add unified regex support for searching etc.
 [ ] minimize recompute: only recompute formulas whose antecedents change
+[ ] support byte/char offsets in string functions
+[ ] support unicode versions of case conversions
 
 Parser:
 [ ] set NULL arguments for omitted arguments
@@ -86,6 +88,7 @@ Commands:
 [ ] block moving into range
 
 UI:
+[ ] fix curses cursor repaint (remove inch() and addch())
 [ ] add Cocoa user interface
 [ ] add X11 user interface
 [ ] add Windows user interface

@@ -382,7 +382,7 @@ $O/file.o: file.c $(DEPENDS)
 	$(CC) $(_CFLAGS) -o $@ -c file.c
 
 $O/format.o: format.c $(DEPENDS)
-	$(CC) $(_CFLAGS) -o $@ -c format.c
+	$(CC) $(_CFLAGS) -o $@ ${USELOCALE} -c format.c
 
 $O/frame.o: frame.c $(DEPENDS)
 	$(CC) $(_CFLAGS) -o $@ -c frame.c
@@ -430,7 +430,7 @@ $O/range.o: range.c $(DEPENDS)
 	$(CC) $(_CFLAGS) -o $@ -c range.c
 
 $O/sc.o: sc.c $(DEPENDS)
-	$(CC) $(_CFLAGS) -o $@ ${DFLT_PAGER} ${SIGVOID} ${SAVE} -c sc.c
+	$(CC) $(_CFLAGS) -o $@ ${DFLT_PAGER} ${SIGVOID} ${SAVE} ${USELOCALE} -c sc.c
 
 $O/screen.o: screen.c $(DEPENDS) icurses.h
 	$(CC) $(_CFLAGS) -o $@ ${BROKENCURSES} ${IDLOKISBAD} ${RIGHTBUG} ${SIGVOID} ${NO_IDLOK} -c screen.c

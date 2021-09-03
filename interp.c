@@ -2236,24 +2236,21 @@ static scvalue_t eval_fs1(eval_ctx_t *cp, enode_t *e) {
     return scvalue_string(str);
 }
 
-// XXX: should support Unicode via UTF-8 encoding
 static scvalue_t eval_char(eval_ctx_t *cp, enode_t *e) {
     int len, err = 0;
     int code = eval_int(cp, e->e.args[0], 0, e->op == OP_CHAR ? 255 : 0x10FFFF, &err);
     char buf[10];
     if (err) return scvalue_error(err);
-    len = 0;
-    buf[len++] = code;
-    // XXX: should support Unicode via UTF-8 encoding
+    len = utf8_encode(buf, code);
     return scvalue_string(string_new_len(buf, len));
 }
 
-// XXX: should support Unicode via UTF-8 encoding
 static scvalue_t eval_code(eval_ctx_t *cp, enode_t *e) {
     int err = 0, code;
     SCXMEM string_t *str = eval_str(cp, e->e.args[0], &err);
     if (err) return scvalue_error(err);
-    code = *s2c(str);
+    //code = *s2c(str);
+    utf8_decode(s2c(str), &code);
     string_free(str);
     return scvalue_number(code);
 }
@@ -2461,7 +2458,7 @@ static scvalue_t eval_concat(eval_ctx_t *cp, enode_t *e) {
     int i, err = 0;
     SCXMEM string_t *str = NULL;
     for (i = 0; i < e->nargs; i++) {
-        SCXMEM string_t *str2 = eval_str(cp, e->e.args[0], &err);
+        SCXMEM string_t *str2 = eval_str(cp, e->e.args[i], &err);
         if (err) {
             string_free(str);
             return scvalue_error(err);

@@ -509,6 +509,59 @@ char *get_extension(const char *filename) {
     return ext;
 }
 
+/*---------------- UTF-8 handling ----------------*/
+
+/* convert a utf-8 encoded code point and return the byte count */
+int utf8_decode(const char *s, int *wp) {
+    unsigned char c = *s++;
+    int code;
+    if (c < 0xC0) {
+        *wp = c;
+        return c != 0;
+    }
+    if ((*s & 0xC0) == 0x80) {
+        code = (c << 6) | (*s++ & 0x3F);
+        if (c < 0xE0) {
+            *wp = code & 0x7FF;
+            return 2;
+        }
+        if ((*s & 0xC0) == 0x80) {
+            code = (code << 6) | (*s++ & 0x3F);
+            if (c < 0xF0) {
+                *wp = code & 0xFFFF;
+                return 3;
+            }
+            if ((*s & 0xC0) == 0x80) {
+                code = (code << 6) | (*s++ & 0x3F);
+                if (c < 0xF8) {
+                    *wp = code & 0x1FFFFF;
+                    return 4;
+                }
+            }
+        }
+    }
+    *wp = c;
+    return 1;
+}
+
+/* encode a code point in utf-8 and return the byte count */
+int utf8_encode(char *s, int code) {
+    char val[4];
+    int lbmax = 0x7F, res, n = 0;
+    code &= 0x1FFFFF;
+    while (code > lbmax) {
+        val[n++] = (code & 0x3F) | 0x80;
+        code >>= 6;
+        lbmax >>= 1 + (n == 1);
+    }
+    val[n++] = (code & lbmax) | (~lbmax << 1);
+    res = n;
+    while (n --> 0) {
+        *s++ = val[n];
+    }
+    return res;
+}
+
 /*---------------- simple case handling ----------------*/
 
 int sc_strcasecmp(const char *a, const char *b) {
