@@ -40,6 +40,11 @@ int framerows;      /* Rows in current frame */
 int framecols;      /* Columns in current frame */
 int rescol = 4;     /* Columns reserved for row numbers */
 int screen_COLS = 80, screen_LINES = 25;
+int seenerr;
+static int standlast = FALSE;
+#ifdef XENIX2_3
+struct termio tmio;
+#endif
 
 static void repaint(int x, int y, int len, int attron, int attroff);
 static void showstring(const char *string, int align, int hasvalue, int row,
@@ -73,6 +78,11 @@ void error(const char *fmt, ...) {
     va_end(ap);
 
     if (usecurses) {
+        /* seenerr is cleared in vi_interaction().
+           show only a single error per input cycle. */
+        if (seenerr) return;
+        seenerr++;
+
         select_style(STYLE_CELL, 0);
         screen_clear_line(1);
         // XXX: should clip message to screen width
@@ -116,14 +126,7 @@ int cols_width(int c, int n) {
     return width;
 }
 
-/*
- * update() does general screen update
- *
- * standout last time in update()?
- *      At this point we will let curses do work
- */
-static int standlast = FALSE;
-
+/* update() does general screen update */
 void update(int anychanged) {          /* did any cell really change in value? */
     char field[FBUFLEN];
     int row, col;
@@ -135,7 +138,6 @@ void update(int anychanged) {          /* did any cell really change in value? *
     struct crange *cr;
     int ftoprows, fbottomrows, fleftcols, frightcols;
     int ftrows, fbrows, flcols, frcols;
-    //int width, height, target_width, target_height;
     sc_bool_t message;
 
     /*
@@ -261,8 +263,8 @@ void update(int anychanged) {          /* did any cell really change in value? *
                     col += flcols;
             }
             for (; i < maxcols &&
-                    (col + fwidth[i] < cols-1 || col_hidden[i] || i < curcol);
-                    i++) {
+                    (col + fwidth[i] < cols - 1 || col_hidden[i] || i < curcol);
+                 i++) {
                 lcols++;
                 if (fr && i == fr->ir_right->col + 1) {
                     col -= frcols;
@@ -331,8 +333,8 @@ void update(int anychanged) {          /* did any cell really change in value? *
                  * If we've just jumped to a range using the goto command,
                  * center the range instead.
                  */
-                colsinrange = (colsinrange > cols - rescol - flcols - frcols - 2 ?
-                               cols - rescol - flcols - frcols - 2 : colsinrange);
+                if (colsinrange > cols - rescol - flcols - frcols - 2)
+                    colsinrange = cols - rescol - flcols - frcols - 2;
                 col = (cols - rescol - flcols - frcols - colsinrange) / 2;
                 stcol = curcol;
                 for (i = curcol - 1;
@@ -1042,14 +1044,14 @@ void update(int anychanged) {          /* did any cell really change in value? *
         clrtoeol();      /* get rid of topline display */
         printw(revmsg);
         *revmsg = '\0';         /* don't show it again */
-        if (braille)
+        if (braille) {
             if (message)
                 move(1, 0);
             else if (braillealt)
                 move(0, 0);
             else
                 move(lastmy, lastmx);
-        else if (showcell)
+        } else if (showcell)
             move(lines - 1, cols - 1);
         else
             move(lastmy, lastmx + fwidth[sc_lastcol]);
@@ -1068,19 +1070,21 @@ static void repaint(int x, int y, int len, int attron, int attroff) {
 }
 
 void repaint_cursor(int set) {
-    int row = sc_lastrow;
     int col = sc_lastcol;
     int width = fwidth[col];
-    struct ent *p;
-    struct crange *cr;
-    int style = STYLE_CELL;
 
     if (!usecurses) return;
 
     if (set) {
-        p = *ATBL(tbl, row, col);
+#if 0
+        struct ent *p;
+        struct crange *cr;
+        int style = STYLE_CELL;
+        int row = sc_lastrow;
+
         if ((cr = find_crange(row, col)))
             style = cr->r_color;
+        p = *ATBL(tbl, row, col);
         if (p) {
             if (colorneg && (p->type == SC_NUMBER) && p->v < 0) {
                 if (cr)
@@ -1092,7 +1096,7 @@ void repaint_cursor(int set) {
                 style = STYLE_ERROR;
         }
         select_style(style, 0);
-
+#endif
         if (set < 0)
             repaint(lastmx, lastmy, width, 0, A_STANDOUT);
         else
@@ -1100,26 +1104,15 @@ void repaint_cursor(int set) {
     }
 }
 
-int seenerr;
-
 /* error routine for yacc (gram.y) */
-void parse_error(const char *err, const char *src, int pos) {
-    int len = strlen(src);
-    if (pos < 0 || pos > len)
-        pos = len;
-    if (usecurses) {
-        if (seenerr) return;
-        seenerr++;
-        // XXX: should print line portion around error if too long
-        error("%s: %.*s>%s", err, pos, src, src + pos);
+void parse_error(const char *err, const char *src, const char *src_pos) {
+    if (src_pos) {
+        int pos = src_pos - src;
+        error("%s: %.*s>%s", err, pos, src, src_pos);
     } else {
-        fprintf(stderr, "%s: %.*s>%s\n", err, pos, src, src + pos);
+        error("%s: %s", err, src);
     }
 }
-
-#ifdef XENIX2_3
-struct termio tmio;
-#endif
 
 void startdisp(void) {
     if (usecurses) {

@@ -714,7 +714,7 @@ extern void write_hist(void);
 extern void write_nranges(FILE *f);
 extern void yank_area(rangeref_t rr);
 extern int parse_line(const char *buf);
-extern void parse_error(const char *err, const char *src, int pos);
+extern void parse_error(const char *err, const char *src, const char *src_pos);
 extern void yyerror(const char *err);
 extern int parse_cellref(const char *p, cellref_t *cp, int *lenp);
 extern int parse_rangeref(const char *p0, rangeref_t *rp, int *lenp);

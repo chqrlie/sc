@@ -32,6 +32,7 @@ Evaluator:
 [ ] minimize recompute: only recompute formulas whose antecedents change
 [ ] support byte/char offsets in string functions
 [ ] support unicode versions of case conversions
+[ ] compile unknown functions and names as special opcodes
 
 Parser:
 [ ] set NULL arguments for omitted arguments
