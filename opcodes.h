@@ -24,6 +24,8 @@ OP( OP__ERROR,          -2, 0, eval__error, NULL, NULL, NULL)
 OP( OP__STRING,         -2, 0, eval__string, NULL, NULL, NULL)
 OP( OP__VAR,            -2, 0, eval__var, NULL, NULL, NULL)
 OP( OP__RANGE,          -2, 0, eval__range, NULL, NULL, NULL)
+OP( OP__BADFUNC,        -2, 0, eval__badname, NULL, NULL, NULL)
+OP( OP__BADNAME,        -2, 0, eval__badname, NULL, NULL, NULL)
 
 /* unary / binary operators (Google sheet functions) */
 OP( OP_ADD,             2, 2, eval_add, NULL, "ADD(value1, value2)", "Returns the sum of two numbers. Equivalent to the `+` operator")

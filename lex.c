@@ -343,9 +343,9 @@ int yylex(void) {
             ret = -1;
             break;
         }
-        if (*p == '=')
+        if (*p == '=') {
             isexpr = 1;
-
+        }
         if (*p == '@' && isalphachar_(p[1])) {
             isfunc = 1;
             p++;
@@ -367,22 +367,32 @@ int yylex(void) {
                     if (ret == S_EVAL || ret == S_SEVAL) isexpr = 1;
                     break;
                 }
-                // XXX: otherwise unknown command?
+                if (plugin_exists(p0, p - p0, path, PATHLEN)) {
+                    // XXX: really catenate the rest of the input line?
+                    pstrcat(path, PATHLEN, p);
+                    yylval.sval = string_new(path);
+                    p += strlen(p);
+                    ret = PLUGIN;
+                    break;
+                }
+                error("unknown command: %.*s", (int)(p - p0), p0);
+                ret = WORD;
+                break;
             }
             if (isexpr) {
                 if ((ret = lookup_fname(p0, p - p0, &op)) >= 0) {
                     if (isfunc || *p == '(' || op == OP_TRUE || op == OP_FALSE) {
                         yylval.ival = op;
-                        isfunc = 0;
                         break;
                     }
                 } else {
-                    // XXX: should accept unknown function name and create node
-                    //      for later re-editing the formula and/or saving it.
-                    if (isfunc) {
-                        isfunc = 0;
-                        yylval.ival = ret = '@'; // unknown function name, return single '@'
-                        p = p0 + 1;
+                    /* accept unknown function name and create node
+                       for later re-editing the formula and/or saving it. */
+                    if (isfunc) p0--;  /* include the @ in the function name */
+                    if (isfunc || *p == '(') {
+                        yylval.sval = string_new_len(p0, p - p0);
+                        ret = (*p == '(') ? BADFUNC : BADNAME;
+                        error("unknown function: %.*s", (int)(p - p0), p0);
                         break;
                     }
                 }
@@ -426,14 +436,13 @@ int yylex(void) {
                     break;
                 }
             } else
-            if (plugin_exists(p0, p - p0, path, PATHLEN)) {
-                // XXX: really catenate the rest of the input line?
-                pstrcat(path, PATHLEN, p);
-                yylval.sval = string_new(path);
-                ret = PLUGIN;
+            if (isexpr) {
+                yylval.sval = string_new_len(p0, p - p0);
+                ret = BADNAME;
+                error("unknown name: %.*s", (int)(p - p0), p0);
                 break;
             } else {
-                yyerror("Unintelligible word");
+                error("invalid argument: %.*s", (int)(p - p0), p0);
                 ret = WORD;
                 break;
             }
@@ -444,6 +453,7 @@ int yylex(void) {
             int temp;
             const char *nstart = p;
 
+            // XXX: should accept hex, oct and binary constants
             if (p == src_line && parse_time(p, &p, &yylval.fval)) {
                 ret = FNUMBER;
                 break;

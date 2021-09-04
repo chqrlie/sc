@@ -542,6 +542,10 @@ static scvalue_t eval__range(eval_ctx_t *cp, enode_t *e) {
     return scvalue_error(ERROR_REF);
 }
 
+static scvalue_t eval__badname(eval_ctx_t *cp, enode_t *e) {
+    return scvalue_error(ERROR_REF);
+}
+
 static scvalue_t eval_address(eval_ctx_t *cp, enode_t *e) {
     char buff[32];
     int err = 0;
@@ -3496,6 +3500,23 @@ static void out_postfix(decomp_t *dcp, const char *s, enode_t *e) {
     buf_puts(dcp->buf, s);
 }
 
+static void out_args(decomp_t *dcp, enode_t **args, int nargs) {
+    int i;
+    buf_putc(dcp->buf, '(');
+    for (i = 0; i < nargs; i++) {
+        if (i) buf_putc(dcp->buf, ',');
+        decompile_node(dcp, args[i], 0);
+    }
+    buf_putc(dcp->buf, ')');
+}
+
+static void out_badfunc(decomp_t *dcp, enode_t *e) {
+    buf_puts(dcp->buf, s2c(e->e.args[0]->e.s));
+    if (e->op == OP__BADFUNC) {
+        out_args(dcp, &e->e.args[1], e->nargs - 1);
+    }
+}
+
 static void out_func(decomp_t *dcp, const char *s, enode_t *e) {
     if (*s == '@') {
         buf_puts(dcp->buf, s);
@@ -3505,13 +3526,7 @@ static void out_func(decomp_t *dcp, const char *s, enode_t *e) {
             buf_putc(dcp->buf, tolowerchar(*s++));
     }
     if (e && e->nargs >= 0) {
-        int i;
-        buf_putc(dcp->buf, '(');
-        for (i = 0; i < e->nargs; i++) {
-            if (i) buf_putc(dcp->buf, ',');
-            decompile_node(dcp, e->e.args[i], 0);
-        }
-        buf_putc(dcp->buf, ')');
+        out_args(dcp, e->e.args, e->nargs);
     }
 }
 
@@ -3541,6 +3556,8 @@ static void decompile_node(decomp_t *dcp, enode_t *e, int priority) {
     case OP__VAR:       out_var(dcp, e->e.v, 1);        break;
     case OP__RANGE:     out_range(dcp, e);              break;
     case OP__ERROR:     out_error(dcp, e->e.error);     break;
+    case OP__BADFUNC:
+    case OP__BADNAME:   out_badfunc(dcp, e);            break;
     case OP_UMINUS_:
     case OP_UPLUS_:     out_prefix(dcp, opp->name, e);  break;
     case OP_SEMI_:      out_infix(dcp, opp->name, e, priority, 1); break;

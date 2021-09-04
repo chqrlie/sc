@@ -32,7 +32,6 @@ Evaluator:
 [ ] minimize recompute: only recompute formulas whose antecedents change
 [ ] support byte/char offsets in string functions
 [ ] support unicode versions of case conversions
-[ ] compile unknown functions and names as special opcodes
 
 Parser:
 [ ] set NULL arguments for omitted arguments
@@ -168,3 +167,4 @@ Build:
 [X] move curses support to specific file and use API layer
 [X] make sure ISVALID should <not> be used in place of checkbounds in interp.c
 [X] merge edits() and editv()
+[X] compile unknown functions and names as special opcodes

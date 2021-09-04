@@ -90,7 +90,7 @@ static SCXMEM string_t *get_strarg(cellref_t cr) {
 %type <sval> strarg
 %type <enode> e term expr_list
 %type <ival> outfd noval
-%token <sval> STRING
+%token <sval> STRING BADFUNC BADNAME
 %token <ival> NUMBER T_ERROR
 %token <fval> FNUMBER
 %token <rval> RANGE
@@ -556,6 +556,9 @@ term:         VAR                       { $$ = new_var($1); }
         | FUNC35 '(' e ',' e ',' e ',' e ')' { $$ = new_op1x($1, $3, new_op3(OP_COMMA_, $5, $7, $9)); }
         | FUNC35 '(' e ',' e ',' e ',' e ',' e ')' { $$ = new_op1x($1, $3, new_op2(OP_COMMA_, $5,
                                                                                    new_op3(OP_COMMA_, $7, $9, $11))); }
+        | BADFUNC '(' ')'               { $$ = new_op1(OP__BADFUNC, new_str($1)); }
+        | BADFUNC '(' expr_list ')'     { $$ = new_op1x(OP__BADFUNC, new_str($1), $3); }
+        | BADNAME                       { $$ = new_op1(OP__BADNAME, new_str($1)); }
         ;
 
 /* expressions */

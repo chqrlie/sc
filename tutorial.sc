@@ -131,6 +131,7 @@ let H23 = @countif(H8:H15,H22)
 let I23 = 1
 let J23 = 2
 let K23 = 3
+let H24 = toto(tutu)+@toto(@tutu)+@tutu
 let I24 = 4
 let J24 = 5
 let K24 = 6
