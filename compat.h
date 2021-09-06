@@ -47,4 +47,13 @@ size_t strlen(const char *s);
 #define isfinite(v)  finite(v)
 #endif
 
+#ifdef VMS
+#ifndef NOPIPES
+#define NOPIPES  1
+#endif
+#ifndef NOGETPWNAM
+#define NOGETPWNAM  1
+#endif
+#endif /* VMS */
+
 #endif /* _COMPAT_H */

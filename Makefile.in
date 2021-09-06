@@ -101,7 +101,7 @@ SAVE=-DSAVENAME=\"$(NAME).SAVE\"
 #CRYPT=-DCRYPT_PATH=\"/bin/crypt\"
 #CRYPT_OBJ=$O/crypt.o
 # BSD
-# CRYPT=-DCRYPT_PATH=\"/usr/bin/crypt\"
+#CRYPT=-DCRYPT_PATH=\"/usr/bin/crypt\"
 #CRYPT_OBJ=$O/crypt.o
 # other people?
 #CRYPT=-DCRYPT_PATH=\"/usr/local/bin/crypt\"

@@ -52,17 +52,41 @@ static void showstring(const char *string, int align, int hasvalue, int row,
                        struct frange *fr, int frightcols, int flcols, int frcols);
 
 static int addustr(const char *s) {
-    int i, pos = 0, res = OK;
-    int wc;
-    for (i = 0;;) {
-        if (s[i] > 0 && !(s[i] & 0x80)) {
+    int i, pos, res = OK, wc;
+    for (i = pos = 0;;) {
+        unsigned char c = s[i];
+        if (c > 0 && !(c & 0x80)) {
             i++;
         } else {
             res |= addnstr(s + pos, i - pos);
-            if (!s[pos = i])
+            if (!c)
                 break;
             pos = i += utf8_decode(s + pos, &wc);
             res |= addnwstr(&wc, 1);
+        }
+    }
+    return res;
+}
+
+static int addqstr(const char *s) {
+    int i, pos, res = OK, wc;
+    for (i = pos = 0;;) {
+        unsigned char c = s[i];
+        if (c > 0 && !(c & 0x80) && c != '"' && c != '\\') {
+            i++;
+        } else {
+            res |= addnstr(s + pos, i - pos);
+            if (!c)
+                break;
+            if (c < 0x80) {
+                pos = i++;
+                /* only escape `"`, `\"` and `\\` */
+                if (c != '\\' || s[i] == '\\' || s[i] == '"')
+                    res |= addch('\\');
+            } else {
+                pos = i += utf8_decode(s + pos, &wc);
+                res |= addnwstr(&wc, 1);
+            }
         }
     }
     return res;
@@ -1012,7 +1036,7 @@ void update(int anychanged) {          /* did any cell really change in value? *
                 } else
                 if (p->type == SC_STRING) { /* value is a string */
                     addch('\"');
-                    addustr(s2str(p->label));  // XXX: should encode string?
+                    addqstr(s2str(p->label));
                     addch('\"');
                     addch(' ');
                 } else
@@ -1205,13 +1229,13 @@ void screen_goraw(void) {
 #ifdef VMS
         VMS_read_raw = 1;
 #else /* VMS */
-#ifdef HAVE_FIXTERM
+# ifdef HAVE_FIXTERM
         fixterm();
-#else
+# else
         cbreak();
         nonl();
         noecho();
-#endif
+# endif
         kbd_again();
 #endif /* VMS */
         if (color && has_colors())
@@ -1233,13 +1257,13 @@ void screen_deraw(int ClearLastLine) {
 #ifdef VMS
         VMS_read_raw = 0;
 #else /* VMS */
-#ifdef HAVE_RESETTERM
+# ifdef HAVE_RESETTERM
         resetterm();
-#else
+# else
         nocbreak();
         nl();
         echo();
-#endif
+# endif
         resetkbd();
 #endif /* VMS */
     }
@@ -1360,7 +1384,6 @@ void showstring(const char *string,         /* to display */
     char field[FBUFLEN];
     int slen;
     char *start, *last, *fp;
-    const char *sp;
     struct ent *nc;
     struct crange *cr;
 
@@ -1370,11 +1393,8 @@ void showstring(const char *string,         /* to display */
        slop over into the next blank field */
 
     slen = strlen(string);
-    for (sp = string; *sp != '\0'; sp++) {
-        if (*sp == '\\' && sp[1] == '"')
-            slen--;
-    }
-    if (*string == '\\' && string[1] != '\0' && string[1] != '"')
+    /* handle repeating patterns */
+    if (*string == '\\' && string[1] != '\0')
         slen = fwidth[col];
     if (c + fieldlen == rescol + flcols && nextcol < stcol)
         nextcol = stcol;
@@ -1410,25 +1430,17 @@ void showstring(const char *string,         /* to display */
         while (fp < start)
             *fp++ = ' ';
     }
-    if (*string == '\\' && string[1] != '\0' && string[1] != '"') {
+    if (*string == '\\' && string[1] != '\0') {
         const char *strt = ++string;
 
         while (slen--) {
-            if (*string == '\\' && string[1] == '"') {
-                slen++;
-                string++;
-            } else
-                *fp++ = *string++;
+            *fp++ = *string++;
             if (*string == '\0')
                 string = strt;
         }
     } else {
         while (slen--) {
-            if (*string == '\\' && string[1] == '"') {
-                slen++;
-                string++;
-            } else
-                *fp++ = *string++;
+            *fp++ = *string++;
         }
     }
 
@@ -1437,10 +1449,6 @@ void showstring(const char *string,         /* to display */
             *fp++ = ' ';
     }
     *fp = '\0';
-    for (fp = field; *fp != '\0'; fp++) {
-        if (*fp == '\\' && fp[1] == '"')
-            strsplice(field, sizeof field, fp - field, 1, NULL, 0);
-    }
     move(r, c);
     addustr(field);
 
@@ -1511,7 +1519,6 @@ int nmgetch(int clearline) {
     return c;
 }
 
-
 VMS_MSG(int status) {
     /* Routine to put out the VMS operating system error (if one occurs). */
 #  include <descrip.h>
@@ -1536,7 +1543,7 @@ VMS_MSG(int status) {
 }
 # endif /* VMS */
 
-#else /*SIMPLE*/
+#else /* SIMPLE */
 
 # if defined(BSD42) || defined (SYSIII) || defined(BSD43)
 

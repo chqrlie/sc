@@ -1050,7 +1050,7 @@ void vi_interaction(void) {
                     break;
                 case '\\':
                     if (!locked_cell(currow, curcol)) {
-                        set_line("label %s = \"", v_name(currow, curcol));
+                        set_line("label %s = \"\\", v_name(currow, curcol));
                         setmark('0');
                         cellassign = 1;
                         insert_mode();

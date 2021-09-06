@@ -124,13 +124,16 @@ let I21 = @sum(I9:I14)
 let J21 = @sum(J9:J14)
 let K21 = @sum(K9:K14)
 leftstring A22 = "Most of the cells on this page contain text."
+let F22 = "a\\\"b\\\c"
 let H22 = "<>"
 let I22 = -2^2
 leftstring C23 = "<Type 'g page2' to continue>"
+let F23 = "a\"b\c"
 let H23 = @countif(H8:H15,H22)
 let I23 = 1
 let J23 = 2
 let K23 = 3
+let F24 = "\x"
 let H24 = toto(tutu)+@toto(@tutu)+@tutu
 let I24 = 4
 let J24 = 5
@@ -227,4 +230,4 @@ leftstring A89 = "The basic commands.  Much more detail is available"
 leftstring A90 = "in the man page."
 leftstring A92 = "To quit this program, type 'q'."
 leftstring D94 = "GOOD LUCK!"
-goto H24 A0
+goto F21 A0

@@ -13,7 +13,7 @@
 
 int Crypt = 0;
 #define MAXKEYWORDSIZE 30
-char KeyWord[MAXKEYWORDSIZE] = { "" };
+static char KeyWord[MAXKEYWORDSIZE];
 
 int creadfile(const char *fname, int eraseflg) {
     char save[FBUFLEN];
@@ -68,7 +68,6 @@ int creadfile(const char *fname, int eraseflg) {
     }
 
     loading++;
-    // XXX: should use a local buffer
     while (fgets(buf, sizeof buf, f)) {
         p = buf;
         while (*p == ' ') {
@@ -82,7 +81,7 @@ int creadfile(const char *fname, int eraseflg) {
         parse_line(buf);
     }
     --loading;
-    if (fclose(f) == EOF) {
+    if (fclose(f)) {
         error("fclose(pipefd): %s", strerror(errno));
     }
     close(pipefd[0]);
@@ -95,7 +94,7 @@ int creadfile(const char *fname, int eraseflg) {
     return 1;
 }
 
-int cwritefile(char *fname, rangeref_t rr, int dcp_flags) {
+int cwritefile(const char *fname, rangeref_t rr, int dcp_flags) {
     char path[PATHLEN];
     FILE *f;
     int pipefd[2];
@@ -168,7 +167,6 @@ int cwritefile(char *fname, rangeref_t rr, int dcp_flags) {
     while (pid != wait(&fildes))
         continue;
     pstrcpy(curfile, sizeof curfile, path);
-
     modflg = 0;
     error("File \"%s\" written (encrypted).", curfile);
     return 0;

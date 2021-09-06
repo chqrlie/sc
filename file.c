@@ -77,7 +77,8 @@ static void write_options(FILE *f) {
     fprintf(f, "\n");
 }
 
-/* Open the input or output file, setting up a pipe if needed */
+/* Open the input or output file, setting up a pipe if needed
+   open for output rfd == NULL and input otherwise */
 FILE *openfile(char *fname, size_t fnamesiz, int *rpid, int *rfd) {
     int pipefd[4];
     int pid;
@@ -94,31 +95,29 @@ FILE *openfile(char *fname, size_t fnamesiz, int *rpid, int *rfd) {
         if (rfd != NULL)
             *rfd = 1;                   /* Set to stdout just in case */
 
-        efname = findhome(fname, fnamesiz);
+        if (!(efname = findhome(fname, fnamesiz)))
+            return NULL;
         if (dobackups && rfd == NULL && !backup_file(efname) &&
             (yn_ask("Could not create backup copy.  Save anyway?: (y,n)") != 1))
-            return 0;
+            return NULL;
         return fopen(efname, rfd == NULL ? "w" : "r");
     }
 
 #ifdef NOPIPES
     error("Piping not available\n");
-    return 0;
+    return NULL;
 #else
     fname++;                            /* Skip | */
     fnamesiz--;
-    efname = findhome(fname, fnamesiz);
-    if (pipe(pipefd) < 0 || (rfd != NULL && pipe(pipefd+2) < 0)) {
+    if (!(efname = findhome(fname, fnamesiz)))
+        return NULL;
+    if (pipe(pipefd) < 0 || (rfd != NULL && pipe(&pipefd[2]) < 0)) {
         error("Cannot make pipe to child");
         *rpid = 0;
-        return 0;
+        return NULL;
     }
 
     screen_deraw(rfd == NULL);
-#ifdef VMS
-    fprintf(stderr, "No son tasks available yet under VMS--sorry\n");
-    return f;
-#else /* VMS */
     if ((pid = fork()) == 0) {   /* if child */
         close(0);                /* close stdin */
         close(pipefd[1]);
@@ -130,7 +129,7 @@ FILE *openfile(char *fname, size_t fnamesiz, int *rpid, int *rfd) {
         }
         signal(SIGINT, SIG_DFL); /* reset */
         execl("/bin/sh", "sh", "-c", efname, (char *)NULL);
-        exit (-127);
+        exit(-127);
     } else {                     /* else parent */
         *rpid = pid;
         if ((f = fdopen(pipefd[(rfd == NULL ? 1 : 2)], rfd == NULL ? "w" : "r")) == NULL) {
@@ -140,7 +139,7 @@ FILE *openfile(char *fname, size_t fnamesiz, int *rpid, int *rfd) {
             if (rfd != NULL)
                 close(pipefd[3]);
             *rpid = 0;
-            return 0;
+            return NULL;
         }
     }
     close(pipefd[0]);
@@ -149,7 +148,6 @@ FILE *openfile(char *fname, size_t fnamesiz, int *rpid, int *rfd) {
         *rfd = pipefd[1];
     }
     return f;
-#endif /* VMS */
 #endif /* NOPIPES */
 }
 
@@ -180,9 +178,8 @@ void closefile(FILE *f, int pid, int rfd) {
     }
 }
 
-
 /* expand a ~ in a path to your home directory */
-#ifndef VMS
+#ifndef NOGETPWNAM
 #include <pwd.h>
 #endif
 char *findhome(char *path, size_t pathsiz) {
@@ -192,33 +189,33 @@ char *findhome(char *path, size_t pathsiz) {
     if (*path == '~') {
         // XXX: should use strsplice()
         char tmppath[PATHLEN];
-        char *pathptr;
-
-        if (HomeDir == NULL) {
-            HomeDir = getenv("HOME");
-            if (HomeDir == NULL)
-                HomeDir = "/";
-        }
-        pathptr = path + 1;
-        if ((*pathptr == '/') || (*pathptr == '\0'))
+        char *pathptr = path + 1;
+        if (*pathptr == '/' || *pathptr == '\0') {
+            if (HomeDir == NULL) {
+                HomeDir = getenv("HOME");
+                if (HomeDir == NULL)
+                    HomeDir = "/";
+            }
             pstrcpy(tmppath, sizeof tmppath, HomeDir);
-#ifndef VMS
-        else {
+        } else {
+#ifndef NOGETPWNAM
             struct passwd *pwent;
             char *namep;
             char name[50];
 
             namep = name;
-            while ((*pathptr != '\0') && (*pathptr != '/'))
-                    *namep++ = *pathptr++;
+            while (namep < name + sizeof(name) - 1 && (*pathptr != '\0') && (*pathptr != '/'))
+                *namep++ = *pathptr++;
             *namep = '\0';
             if ((pwent = getpwnam(name)) == NULL) {
                 error("Cannot find user %s", name);
                 return NULL;
             }
             pstrcpy(tmppath, sizeof tmppath, pwent->pw_dir);
-        }
+#else
+            *tmppath = '\0';
 #endif
+        }
         pstrcat(tmppath, sizeof tmppath, pathptr);
         pstrcpy(path, pathsiz, tmppath);
     }
@@ -465,10 +462,9 @@ void write_cells(FILE *f, rangeref_t rr, cellref_t cr, int dcp_flags) {
 }
 
 int writefile(const char *fname, rangeref_t rr, int dcp_flags) {
-    FILE *f;
     char save[PATHLEN];
     char tfname[PATHLEN];
-    char *tpp;
+    FILE *f;
     const char *p;
     char *ext;
     char *plugin;
@@ -515,28 +511,18 @@ int writefile(const char *fname, rangeref_t rr, int dcp_flags) {
         }
     }
 
-    /* copy the string, strip the \ in front of " */
-    for (tpp = tfname, p = fname; *p; p++) {
-        if (*p == '\\' && p[1] == '"')
-            p++;
-        *tpp++ = *p;
-    }
-    *tpp = '\0';
-    ext = get_extension(tfname);
+    pstrcpy(tfname, sizeof tfname, fname);
+    // XXX: extension should determine file format: sc, xls, xlsx, csv
     if (scext != NULL) {
+        ext = get_extension(tfname);
         if (!strcmp(ext, ".sc") || !strcmp(ext, s2c(scext)))
             *ext = '\0';
         pstrcat(tfname, sizeof tfname, ".");
         pstrcat(tfname, sizeof tfname, s2c(scext));
     }
-
     pstrcpy(save, sizeof save, tfname);
-    for (tpp = save; *tpp != '\0'; tpp++) {
-        if (*tpp == '"') {
-            strsplice(save, sizeof save, tpp - save, 0, "\\", 1);
-            tpp++;
-        }
-    }
+
+    // XXX: should pass Crypt flag
     if ((f = openfile(tfname, sizeof tfname, &pid, NULL)) == NULL) {
         error("Cannot create file \"%s\"", save);
         return -1;
@@ -547,19 +533,16 @@ int writefile(const char *fname, rangeref_t rr, int dcp_flags) {
         screen_refresh();
     }
     write_fd(f, rr, dcp_flags);
-
     closefile(f, pid, 0);
 
+    if (usecurses) {
+        error("File \"%s\" written", save);
+    }
     if (!pid) {
         pstrcpy(curfile, sizeof curfile, save);
         modflg = 0;
         FullUpdate++;
-        if (usecurses) {
-            error("File \"%s\" written", curfile);
-        } else
-            fprintf(stderr, "\nFile \"%s\" written", curfile);
     }
-
     return 0;
 }
 
@@ -636,6 +619,7 @@ int readfile(const char *fname, int eraseflg) {
         f = stdin;
         *save = '\0';
     } else {
+        // XXX: should pass a flag to invoke crypt
         if ((f = openfile(save, sizeof save, &pid, &rfd)) == NULL) {
             error("Cannot read file \"%s\"", save);
             autolabel = tempautolabel;
@@ -660,8 +644,7 @@ int readfile(const char *fname, int eraseflg) {
     loading++;
     savefd = macrofd;
     macrofd = rfd;
-    // XXX: should use a local buffer
-    while (!brokenpipe && fgets(buf, sizeof(buf), f)) {
+    while (!brokenpipe && fgets(buf, sizeof buf, f)) {
         p = buf;
         if (*p == '|' && pid != 0) {
             *p = ' ';
@@ -689,7 +672,8 @@ int readfile(const char *fname, int eraseflg) {
     if (eraseflg) {
         pstrcpy(curfile, sizeof curfile, save);
         modflg = 0;
-        if (!sempty(autorun) && !skipautorun) readfile(s2c(autorun), 0);
+        if (!sempty(autorun) && !skipautorun)
+            readfile(s2c(autorun), 0);
         skipautorun = 0;
         EvalAll();
         if (*save) {
