@@ -464,12 +464,13 @@ size_t strtrim(char *s) {
     return len;
 }
 
-#if defined OPENBSD
-/* other compilers (OpenBSD) accept (void *) intermediary cast */
-#define UNCONSTIFY(t, v) ((t)(void *)(v))
-#else
+#ifdef HAVE_STDINT
+# include <stdint.h>
 /* clang complains about const removal even with (void *) */
-#define UNCONSTIFY(t, v) ((t)(uintptr_t)(v))
+# define UNCONSTIFY(t, v) ((t)(uintptr_t)(v))
+#else
+/* other compilers (OpenBSD) accept (void *) intermediary cast */
+# define UNCONSTIFY(t, v) ((t)(void *)(v))
 #endif
 
 /* return a pointer to the basename portion of the filename */

@@ -66,14 +66,14 @@ test_result () {
 	RESULT=$?
 	RESULT_TEXT=${1:-0} # 1: omit "no", 2: say nothing
 	if [ $RESULT -eq 0 ]; then
-		echo success >>$LOG
+		echo "success" >>$LOG
 		[ -z "$SFLAG" -a $RESULT_TEXT -lt 2 ] && \
 		    echo "yes$PASS_TEXT"
 		PASS_TEXT=
 		[ -e $TMPC ] && rm -f $TMPC
 		true
 	else
-		[ -z "$SFLAG" -a $RESULT_TEXT -lt 1 ] && echo no
+		[ -z "$SFLAG" -a $RESULT_TEXT -lt 1 ] && echo "no"
 		if [ -e $TMPC ]; then
 			echo "Failed program:" >>$LOG
 			pr -n -t $TMPC >>$LOG
@@ -203,7 +203,7 @@ check_Sanitizer () {
 	__CLDBG="$__CLDBG $__CLXXDBG"
 	__CXXDBG="$__CXXDBG $__CCXXDBG"
 	cat <<EOT >$TMPC
-int main() { return 0; }
+int main(void) { return 0; }
 EOT
 	gen_mk
 	cat <<EOT >>$OUTMK
@@ -221,7 +221,7 @@ check_float_store () {
 	FLOAT_STORE=-ffloat-store
 	check_for "$FLOAT_STORE"
 	cat <<EOT >$TMPC
-int main() { return 0; }
+int main(void) { return 0; }
 EOT
 	gen_mk
 	cat <<EOT >>$OUTMK
@@ -252,7 +252,7 @@ check_fixterm () {
 
 	cat <<EOT >$TMPC
 #include ${INCFILE_CURSES}
-int main() { fixterm(); return 0; }
+int main(void) { fixterm(); return 0; }
 EOT
 	gen_mk
 	cat <<EOT >>$OUTMK
@@ -268,7 +268,7 @@ check_resetterm () {
 
 	cat <<EOT >$TMPC
 #include ${INCFILE_CURSES}
-int main() { resetterm(); return 0; }
+int main(void) { resetterm(); return 0; }
 EOT
 	gen_mk
 	cat <<EOT >>$OUTMK
@@ -285,7 +285,7 @@ check_escdelay () {
 	cat <<EOT >$TMPC
 #include ${INCFILE_CURSES}
 extern int ESCDELAY;
-int main() { ESCDELAY = 0; return 0; }
+int main(void) { ESCDELAY = 0; return 0; }
 EOT
 	gen_mk
 	cat <<EOT >>$OUTMK
@@ -299,7 +299,7 @@ EOT
 compile_curses () {
 	cat <<EOT >$TMPC
 #include ${INCFILE_CURSES}
-int main() { return 0; }
+int main(void) { return 0; }
 EOT
 	gen_mk
 	cat <<EOT >>$OUTMK
@@ -322,7 +322,8 @@ test_curses () {
 
 check_ncursesw () {
 	LIB_CURSES="-lncursesw"
-	check_for $LIB_CURSES
+
+	check_for "$LIB_CURSES"
 	ODEFS=$DEFS
 
 	# At first test for specific ncursesw.h to not use -lncursesw with
@@ -356,7 +357,7 @@ check_ncursesw () {
 	PASS_TEXT=
 #	test_curses && return # OpenBSD, FreeBSD
 
-	[ -z "$SFLAG" ] && echo no
+	[ -z "$SFLAG" ] && echo "no"
 	false
 }
 
@@ -411,7 +412,7 @@ EOT
 	check_for 'attr_get(3)'
 	cat <<EOT >$TMPC
 #include ${INCFILE_CURSES}
-int main() { return attr_get(NULL, NULL, NULL); }
+int main(void) { return attr_get(NULL, NULL, NULL); }
 EOT
 	gen_mk
 	cat <<EOT >>$OUTMK
@@ -450,7 +451,7 @@ check_curses_wch () {
 
 	cat <<EOT >$TMPC
 #include ${INCFILE_CURSES}
-int main() { cchar_t c; wins_wch(stdscr, &c); return 0; }
+int main(void) { cchar_t c; wins_wch(stdscr, &c); return 0; }
 EOT
 	gen_mk
 	cat <<EOT >>$OUTMK
@@ -479,6 +480,20 @@ EOT
 	test_result || return;
 
 	DEFS="$DEFS -DHAVE_CURSES_KEYNAME"
+}
+
+check_stdint () {
+	check_for "stdint"
+
+	cat <<EOT >$TMPC
+#include <stdint.h>
+int main(void) { return (uintptr_t)0; }
+EOT
+	compile
+	test_result && {
+		DEFS="$DEFS -DHAVE_STDINT"
+		return
+	}
 }
 
 check_isfinite () {
@@ -525,7 +540,7 @@ check_sc_attr_get () {
 	check_for "sc(1) attr_get(3)"
 	cat <<EOT >$TMPC
 #include "icurses.h"
-int main() { attr_get(NULL, NULL, NULL); return 0; }
+int main(void) { attr_get(NULL, NULL, NULL); return 0; }
 EOT
 	gen_mk
 	cat <<EOT >>$OUTMK
@@ -541,7 +556,7 @@ check_stdbool_h () {
 
 	cat <<EOT >$TMPC
 #include <stdbool.h>
-int main() { return 0; }
+int main(void) { return 0; }
 EOT
 	compile
 	test_result && DEFS="$DEFS -DHAVE_STDBOOL_H"
@@ -564,6 +579,7 @@ check_make
 #check_Sanitizer
 check_float_store
 check_isfinite
+check_stdint
 #check_stdbool_h
 
 check_lib_curses
