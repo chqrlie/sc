@@ -496,7 +496,7 @@ static double fin_pmt(double v1, double v2, double v3) {
 /*---------------- range lookup functions ----------------*/
 
 static scvalue_t scvalue_getcell(eval_ctx_t *cp, int row, int col) {
-    struct ent *p = lookat_nc(row, col);
+    struct ent *p = getcell(sht, row, col);
     if (p) {
         if (p->flags & IS_DELETED)
             return scvalue_error(ERROR_REF);
@@ -704,7 +704,7 @@ static scvalue_t eval_lookup(eval_ctx_t *cp, enode_t *e) {
 
             r = rr.u.rr.left.row + i * incr;
             c = rr.u.rr.left.col + i * incc;
-            p = *ATBL(tbl, r, c);
+            p = getcell(sht, r, c);
             if (!p || p->type == SC_EMPTY) {
                 cmp = (a.type == SC_EMPTY) ? 0 : 1;
             } else
@@ -785,7 +785,7 @@ static scvalue_t eval_isformula(eval_ctx_t *cp, enode_t *e) {
         int col = res.u.rr.left.col;
         if ((row == res.u.rr.right.row || ((row = cp->gmyrow) >= res.u.rr.left.row && row <= res.u.rr.right.row))
         &&  (col == res.u.rr.right.col || ((col = cp->gmycol) >= res.u.rr.left.col && col <= res.u.rr.right.col))) {
-            struct ent *p = lookat_nc(row, col);
+            struct ent *p = getcell(sht, row, col);
             t = (p && p->expr);
         }
     }
@@ -801,7 +801,7 @@ static scvalue_t eval_formula(eval_ctx_t *cp, enode_t *e) {
         int col = res.u.rr.left.col;
         if ((row == res.u.rr.right.row || ((row = cp->gmyrow) >= res.u.rr.left.row && row <= res.u.rr.right.row))
         &&  (col == res.u.rr.right.col || ((col = cp->gmycol) >= res.u.rr.left.col && col <= res.u.rr.right.col))) {
-            struct ent *p = lookat_nc(row, col);
+            struct ent *p = getcell(sht, row, col);
             if (p && p->expr) {
                 decompile(buff, sizeof buff, p->expr, 0, 0, DCP_DEFAULT);
                 return scvalue_string(string_new(buff));
@@ -1009,7 +1009,7 @@ static scvalue_t eval_aggregate(eval_ctx_t *cp, enode_t *ep,
                 struct ent *p;
                 for (r = res.u.rr.left.row; r <= res.u.rr.right.row; r++) {
                     for (c = res.u.rr.left.col; c <= res.u.rr.right.col; c++) {
-                        if ((p = *ATBL(tbl, r, c))) {
+                        if ((p = getcell(sht, r, c))) {
                             switch (p->type) {
                             case SC_BOOLEAN: if (!allvalues) break; FALLTHROUGH;
                             case SC_NUMBER:  fun(&pack, p->v); break;
@@ -1191,7 +1191,7 @@ static scvalue_t eval_aggregateif(eval_ctx_t *cp, enode_t *e,
     criterion_setup(&crit, eval_node_value(cp, e->e.args[1]));
     for (r = res.u.rr.left.row; r <= res.u.rr.right.row; r++) {
         for (c = res.u.rr.left.col; c <= res.u.rr.right.col; c++) {
-            p = *ATBL(tbl, r, c);
+            p = getcell(sht, r, c);
             if (criterion_test(&crit, p)) {
                 if (!fun) {
                     pack.count++;
@@ -1199,7 +1199,7 @@ static scvalue_t eval_aggregateif(eval_ctx_t *cp, enode_t *e,
                 }
                 if (dr | dc) {
                     /* Get values from optional value range */
-                    p = *ATBL(tbl, r + dr, c + dc);
+                    p = getcell(sht, r + dr, c + dc);
                 }
                 if (p && p->type == SC_NUMBER) {
                     fun(&pack, p->v);
@@ -1221,7 +1221,7 @@ static scvalue_t eval_countblank(eval_ctx_t *cp, enode_t *ep) {
         case SC_RANGE:
             for (r = res.u.rr.left.row; r <= res.u.rr.right.row; r++) {
                 for (c = res.u.rr.left.col; c <= res.u.rr.right.col; c++) {
-                    struct ent *p = *ATBL(tbl, r, c);
+                    struct ent *p = getcell(sht, r, c);
                     if (!p || p->type == SC_EMPTY)
                         count++;
                 }
@@ -1329,7 +1329,7 @@ static scvalue_t eval_sumproduct(eval_ctx_t *cp, enode_t *e) {
         for (dc = 0; dc < ncols; dc++) {
             double prod = 1.0;
             for (i = 0; i < n; i++) {
-                struct ent *p = lookat_nc(range[i].left.row + dr, range[i].left.col + dc);
+                struct ent *p = getcell(sht, range[i].left.row + dr, range[i].left.col + dc);
                 if (!p || p->type == SC_EMPTY || p->type == SC_STRING)
                     goto done1;
                 if (p->type == SC_ERROR) {
@@ -1377,7 +1377,7 @@ static scvalue_t eval_sumxy(eval_ctx_t *cp, enode_t *e) {
         for (dc = 0; dc < ncols; dc++) {
             double v1 = 0.0, v2 = 0.0;
             struct ent *p;
-            if ((p = lookat_nc(a.u.rr.left.row + dr, a.u.rr.left.col + dc))) {
+            if ((p = getcell(sht, a.u.rr.left.row + dr, a.u.rr.left.col + dc))) {
                 if (p->type == SC_ERROR) {
                     err = p->cellerror;
                     goto done;
@@ -1385,7 +1385,7 @@ static scvalue_t eval_sumxy(eval_ctx_t *cp, enode_t *e) {
                 if (p->type == SC_NUMBER || p->type == SC_BOOLEAN)
                     v1 = p->v;
             }
-            if ((p = lookat_nc(b.u.rr.left.row + dr, b.u.rr.left.col + dc))) {
+            if ((p = getcell(sht, b.u.rr.left.row + dr, b.u.rr.left.col + dc))) {
                 if (p->type == SC_ERROR) {
                     err = p->cellerror;
                     goto done;
@@ -1412,7 +1412,7 @@ done:
 static int db_lookup_field(rangeref_t rr, const char *name) {
     int col;
     for (col = rr.left.col; col <= rr.right.col; col++) {
-        struct ent *p = lookat_nc(rr.left.row, col);
+        struct ent *p = getcell(sht, rr.left.row, col);
         if (!p || p->type != SC_STRING)
             break;
         if (!sc_strcasecmp(name, s2c(p->label)))
@@ -1476,7 +1476,7 @@ static scvalue_t eval_db(eval_ctx_t *cp, enode_t *e,
         }
         for (i = 0; i < ncrit; i++) {
             int fcol = -1;
-            if ((p = lookat_nc(crit.u.rr.left.row, crit.u.rr.left.col + i))) {
+            if ((p = getcell(sht, crit.u.rr.left.row, crit.u.rr.left.col + i))) {
                 if (p->type == SC_STRING) {
                     fcol = db_lookup_field(db.u.rr, s2c(p->label));
                 } else
@@ -1494,7 +1494,7 @@ static scvalue_t eval_db(eval_ctx_t *cp, enode_t *e,
         for (r = db.u.rr.left.row + 1; r <= db.u.rr.left.row; r++) {
             /* apply criteria */
             for (i = 0; i < ncrit; i++) {
-                p = *ATBL(tbl, r, critp[i].col);
+                p = getcell(sht, r, critp[i].col);
                 if (!criterion_test(&critp[i], p))
                     break;
             }
@@ -1506,7 +1506,7 @@ static scvalue_t eval_db(eval_ctx_t *cp, enode_t *e,
                 pack.count++;
                 continue;
             }
-            p = lookat_nc(r, col);
+            p = getcell(sht, r, col);
             if (p) {
                 switch (p->type) {
                 case SC_BOOLEAN:    if (!allvalues) break; FALLTHROUGH;
@@ -2973,7 +2973,7 @@ static int RealEvalAll(void) {
     if (calc_order == BYROWS) {
         for (i = 0; i <= maxrow; i++) {
             for (j = 0; j <= maxcol; j++) {
-                if ((p = *ATBL(tbl, i, j)) && p->expr)
+                if ((p = getcell(sht, i, j)) && p->expr)
                     chgct += RealEvalOne(p, p->expr, i, j);
             }
         }
@@ -2981,7 +2981,7 @@ static int RealEvalAll(void) {
     if (calc_order == BYCOLS) {
         for (j = 0; j <= maxcol; j++) {
             for (i = 0; i <= maxrow; i++) {
-                if ((p = *ATBL(tbl,i,j)) && p->expr)
+                if ((p = getcell(sht, i, j)) && p->expr)
                     chgct += RealEvalOne(p, p->expr, i, j);
             }
         }
@@ -3160,7 +3160,7 @@ SCXMEM enode_t *new_var(cellref_t cr) {
         p->type = OP_TYPE_VAR;
         p->nargs = 0;
         p->e.v.vf = cr.vf;
-        p->e.v.vp = lookat(cr.row, cr.col);
+        p->e.v.vp = lookat(sht, cr.row, cr.col);
     }
     return p;
 }
@@ -3172,9 +3172,9 @@ SCXMEM enode_t *new_range(rangeref_t rr) {
         p->type = OP_TYPE_RANGE;
         p->nargs = 0;
         p->e.r.left.vf = rr.left.vf;
-        p->e.r.left.vp = lookat(rr.left.row, rr.left.col);
+        p->e.r.left.vp = lookat(sht, rr.left.row, rr.left.col);
         p->e.r.right.vf = rr.right.vf;
-        p->e.r.right.vp = lookat(rr.right.row, rr.right.col);
+        p->e.r.right.vp = lookat(sht, rr.right.row, rr.right.col);
     }
     return p;
 }
@@ -3239,7 +3239,7 @@ enode_t *copye(enode_t *e, int Rdelta, int Cdelta,
         newcol = ((vf & FIX_COL) || row < r1 || row > r2 || col < c1 || col > c2 ?
               col : transpose ? c1 + Cdelta + row - r1 : col + Cdelta);
         ret->e.r.left.vf = vf;
-        ret->e.r.left.vp = lookat(newrow, newcol);
+        ret->e.r.left.vp = lookat(sht, newrow, newcol);
         vf = e->e.r.right.vf;
         row = e->e.r.right.vp->row;
         col = e->e.r.right.vp->col;
@@ -3248,7 +3248,7 @@ enode_t *copye(enode_t *e, int Rdelta, int Cdelta,
         newcol = ((vf & FIX_COL) || row < r1 || row > r2 || col < c1 || col > c2 ?
               col : transpose ? c1 + Cdelta + row - r1 : col + Cdelta);
         ret->e.r.right.vf = vf;
-        ret->e.r.right.vp = lookat(newrow, newcol);
+        ret->e.r.right.vp = lookat(sht, newrow, newcol);
     } else
     if (e->type == OP_TYPE_VAR) {
         int newrow, newcol, row, col, vf;
@@ -3260,7 +3260,7 @@ enode_t *copye(enode_t *e, int Rdelta, int Cdelta,
               row : transpose ? r1 + Rdelta + col - c1 : row + Rdelta);
         newcol = ((vf & FIX_COL) || row < r1 || row > r2 || col < c1 || col > c2 ?
               col : transpose ? c1 + Cdelta + row - r1 : col + Cdelta);
-        ret->e.v.vp = lookat(newrow, newcol);
+        ret->e.v.vp = lookat(sht, newrow, newcol);
         ret->e.v.vf = vf;
     } else
     if (e->type == OP_TYPE_DOUBLE) {
@@ -3326,7 +3326,7 @@ static int constant_expr(enode_t *e, int full) {
 
 /* clear the value and expression of a cell */
 void unlet(cellref_t cr) {
-    struct ent *p = lookat_nc(cr.row, cr.col);
+    struct ent *p = getcell(sht, cr.row, cr.col);
     if (p && p->type != SC_EMPTY) {
         // XXX: what if the cell is locked?
         string_set(&p->label, NULL);
@@ -3358,7 +3358,7 @@ static void push_mark(int row, int col) {
 
 /* set the expression and/or value part of a cell */
 void let(cellref_t cr, SCXMEM enode_t *e, int align) {
-    struct ent *v = lookat(cr.row, cr.col);
+    struct ent *v = lookat(sht, cr.row, cr.col);
     int isconstant = constant_expr(e, optimize);
 
     /* prescale input unless it has a decimal */

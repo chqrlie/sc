@@ -64,7 +64,7 @@ static int string_to_char(SCXMEM string_t *str) {
 }
 
 static SCXMEM string_t *get_strarg(cellref_t cr) {
-    struct ent *p = lookat_nc(cr.row, cr.col);
+    struct ent *p = getcell(sht, cr.row, cr.col);
     if (p && p->type == SC_STRING) {
         return string_dup(p->label);
     } else {

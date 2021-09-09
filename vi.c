@@ -575,7 +575,7 @@ void vi_interaction(void) {
                 case ctl('w'):  /* insert variable expression */
                     if (linelim >= 0) {
                         buf_init2(buf, line, sizeof line, linelen);
-                        p = lookat(currow, curcol);
+                        p = lookat(sht, currow, curcol);
                         /* decompile expression into line array */
                         // XXX: insert expression instead of appending?
                         // XXX: should pass currow, curcol as the cell reference
@@ -710,7 +710,7 @@ void vi_interaction(void) {
                 case '+':
                 case '-':
                     if (!locked_cell(currow, curcol)) {
-                        p = lookat_nc(currow, curcol);
+                        p = getcell(sht, currow, curcol);
                         if (!numeric && p && p->type == SC_NUMBER) {
                             /* increment/decrement numeric cell by uarg */
                             if (c == '+')
@@ -1086,7 +1086,7 @@ void vi_interaction(void) {
                 case 'e':
                 case 'E':
                     if (!locked_cell(currow, curcol)) {
-                        p = lookat(currow, curcol);
+                        p = lookat(sht, currow, curcol);
                         /* copy cell contents into line array */
                         buf_init(buf, line, sizeof line);
                         // XXX: the conversion should be localized
@@ -1103,7 +1103,7 @@ void vi_interaction(void) {
                     formatcol(uarg);
                     break;
                 case 'F':
-                    p = *ATBL(tbl, currow, curcol);
+                    p = getcell(sht, currow, curcol);
                     if (p && p->format) {
                         buf_init(buf, line, sizeof line);
                         buf_setf(buf, "fmt [format] %s \"", v_name(currow, curcol));
@@ -1320,9 +1320,9 @@ void vi_interaction(void) {
                         // copy(currow, curcol, currow, curcol + uarg - 1,
                         //      savedcr[c].row, savedcr[c].col, savedcr[c].row, savedcr[c].col);
 
-                        p = *ATBL(tbl, savedcr[c].row, savedcr[c].col);
+                        p = getcell(sht, savedcr[c].row, savedcr[c].col);
                         for (c1 = curcol; uarg-- && c1 < maxcols; c1++) {
-                            if ((n = *ATBL(tbl, currow, c1))) {
+                            if ((n = getcell(sht, currow, c1))) {
                                 if (n->flags & IS_LOCKED)
                                     continue;
                                 if (!p) {
@@ -1331,7 +1331,7 @@ void vi_interaction(void) {
                                 }
                             } else {
                                 if (!p) break;
-                                n = lookat(currow, c1);
+                                n = lookat(sht, currow, c1);
                             }
                             copyent(n, p, currow - savedcr[c].row, c1 - savedcr[c].col,
                                     0, 0, maxrow, maxcol, 0);
@@ -1358,7 +1358,7 @@ void vi_interaction(void) {
                         break;
                     }
                     if (c == 'd' || c == 'D') {
-                        p = lookat_nc(currow, curcol);
+                        p = getcell(sht, currow, curcol);
                         if (p && (p->flags & HAS_NOTE)) {
                             p->flags ^= HAS_NOTE;
                             p->flags |= IS_CHANGED;
@@ -1797,7 +1797,7 @@ static void write_line(int c) {
         case 'v':           {   /* insert variable value */
                                 char temp[100];
 
-                                p = *ATBL(tbl, currow, curcol);
+                                p = getcell(sht, currow, curcol);
                                 if (p && (p->flags == SC_NUMBER)) {
                                     snprintf(temp, sizeof temp, "%.*f",
                                              precision[curcol], p->v);

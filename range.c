@@ -78,7 +78,7 @@ void add_nrange(SCXMEM string_t *name, rangeref_t rr, int is_range) {
     }
 
     if (autolabel && rr.left.col > 0 && !is_range) {
-        struct ent *cp = lookat(rr.left.row, rr.left.col - 1);
+        struct ent *cp = lookat(sht, rr.left.row, rr.left.col - 1);
         if (!cp->type && !cp->expr) {
             /* empty cell to the left of the defined cell:
                set the cell label to the name.
@@ -94,9 +94,9 @@ void add_nrange(SCXMEM string_t *name, rangeref_t rr, int is_range) {
 
     r = scxmalloc(sizeof(struct nrange));
     r->r_name = name;
-    r->r_left.vp = lookat(rr.left.row, rr.left.col);
+    r->r_left.vp = lookat(sht, rr.left.row, rr.left.col);
     r->r_left.vf = rr.left.vf;
-    r->r_right.vp = lookat(rr.right.row, rr.right.col);
+    r->r_right.vp = lookat(sht, rr.right.row, rr.right.col);
     r->r_right.vf = rr.right.vf;
     r->r_is_range = is_range;
     // link in doubly linked list
@@ -195,8 +195,8 @@ void sync_nranges(void) {
     struct nrange *r;
 
     for (r = rng_base; r; r = r->r_next) {
-        r->r_left.vp = lookat(r->r_left.vp->row, r->r_left.vp->col);
-        r->r_right.vp = lookat(r->r_right.vp->row, r->r_right.vp->col);
+        r->r_left.vp = lookat(sht, r->r_left.vp->row, r->r_left.vp->col);
+        r->r_right.vp = lookat(sht, r->r_right.vp->row, r->r_right.vp->col);
     }
 }
 
@@ -205,8 +205,8 @@ static void sync_enode(struct enode *e) {
     if (e) {
         // XXX: should sync 'v' nodes too?
         if (e->type == OP_TYPE_RANGE) {
-            e->e.r.left.vp = lookat(e->e.r.left.vp->row, e->e.r.left.vp->col);
-            e->e.r.right.vp = lookat(e->e.r.right.vp->row, e->e.r.right.vp->col);
+            e->e.r.left.vp = lookat(sht, e->e.r.left.vp->row, e->e.r.left.vp->col);
+            e->e.r.right.vp = lookat(sht, e->e.r.right.vp->row, e->e.r.right.vp->col);
         } else
         if (e->type == OP_TYPE_FUNC) {
             int i;
@@ -223,7 +223,7 @@ void sync_ranges(void) {
     sync_nranges();
     for (i = 0; i <= maxrow; i++) {
         for (j = 0; j <= maxcol; j++) {
-            if ((p = *ATBL(tbl, i, j)) && p->expr)
+            if ((p = getcell(sht, i, j)) && p->expr)
                 sync_enode(p->expr);
         }
     }
@@ -355,8 +355,8 @@ void fix_ranges(int row1, int col1, int row2, int col2,
             if (r2 >= row1 && r2 <= row2) r2 = row1 + delta2;
             if (c2 >= col1 && c2 <= col2) c2 = col1 + delta2;
         }
-        r->r_left.vp = lookat(r1, c1);
-        r->r_right.vp = lookat(r2, c2);
+        r->r_left.vp = lookat(sht, r1, c1);
+        r->r_right.vp = lookat(sht, r2, c2);
     }
 
     /* Next, we go through all valid cells with expressions and fix any ranges
@@ -364,7 +364,7 @@ void fix_ranges(int row1, int col1, int row2, int col2,
      */
     for (i = 0; i <= maxrow; i++) {
         for (j = 0; j <= maxcol; j++) {
-            struct ent *p = *ATBL(tbl, i, j);
+            struct ent *p = getcell(sht, i, j);
             if (p && p->expr)
                 fix_enode(p->expr, row1, col2, row2, col2, delta1, delta2, fr);
         }
@@ -395,8 +395,8 @@ static void fix_enode(struct enode *e, int row1, int col1, int row2, int col2,
                 if (r1 != r2 && r2 >= row1 && r2 <= row2) r2 = row1 + delta2;
                 if (c1 != c2 && c2 >= col1 && c2 <= col2) c2 = col1 + delta2;
             }
-            e->e.r.left.vp = lookat(r1, c1);
-            e->e.r.right.vp = lookat(r2, c2);
+            e->e.r.left.vp = lookat(sht, r1, c1);
+            e->e.r.right.vp = lookat(sht, r2, c2);
         } else
         if (e->type == OP_TYPE_FUNC) {
             int i;

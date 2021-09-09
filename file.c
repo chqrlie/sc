@@ -409,7 +409,7 @@ void write_fd(FILE *f, rangeref_t rr, int dcp_flags) {
     write_cells(f, rr, rr.left, dcp_flags);
     for (r = rr.left.row; r <= rr.right.row; r++) {
         for (c = rr.left.col; c <= rr.right.col; c++) {
-            struct ent *p = *ATBL(tbl, r, c);
+            struct ent *p = getcell(sht, r, c);
             if (p) {
                 if (p->flags & IS_LOCKED) {
                     fprintf(f, "lock %s%d\n", coltoa(p->col), p->row);
@@ -433,7 +433,7 @@ void write_cells(FILE *f, rangeref_t rr, cellref_t cr, int dcp_flags) {
     dcp_flags |= DCP_NO_LOCALE;
     for (r = rr.left.row; r <= rr.right.row; r++) {
         for (c = rr.left.col; c <= rr.right.col; c++) {
-            struct ent *p = *ATBL(tbl, r, c);
+            struct ent *p = getcell(sht, r, c);
             if (p) {
                 int row = r + cr.row - rr.left.row;
                 int col = c + cr.col - rr.left.col;

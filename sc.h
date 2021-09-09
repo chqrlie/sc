@@ -36,8 +36,6 @@ extern const char *progname;
 
 /*---------------- Spreadsheet data ----------------*/
 
-#define ATBL(tbl, row, col)     (&tbl[row][col])
-
 #define MINROWS 100     /* minimum size at startup */
 #define MINCOLS 30
 #define ABSMAXROWS 0xFFFFFF  /* maximum number of rows */
@@ -410,7 +408,11 @@ extern void help(int ctx);
    This design is suboptimal in terms of memory space and implies much
    dreaded three star programming.
  */
-extern SCXMEM struct ent ***tbl;       /* data table ref. in vmtbl.c and ATBL() */
+typedef struct sheet {
+    SCXMEM struct ent ***tbl;
+} sheet_t;
+
+extern sheet_t *sht;
 
 extern char curfile[PATHLEN];
 extern int strow, stcol;
@@ -518,7 +520,7 @@ rangeref_t *range_normalize(rangeref_t *rr);
 
 /* check if the cell at r,c has a value */
 /* p must be defined as struct ent *p; */
-#define VALID_CELL(p, r, c) ((p = *ATBL(tbl, r, c)) && (p->type != SC_EMPTY))
+#define VALID_CELL(p, r, c) ((p = getcell(sht, r, c)) && (p->type != SC_EMPTY))
 
 /* styles */
 extern SCXMEM struct colorpair *cpairs[CPAIRS + 1];
@@ -558,7 +560,7 @@ extern int engformat(char *buf, size_t size, int fmt, int lprecision, double val
 extern int find_nrange_name(const char *name, int len, struct nrange **rng);
 struct nrange *find_nrange_coords(rangeref_t rr);
 extern int format(char *buf, size_t buflen, const char *fmt, int lprecision, double val, int *alignp);
-extern int growtbl(int rowcol, int toprow, int topcol);
+extern int growtbl(sheet_t *sp, int rowcol, int toprow, int topcol);
 extern int locked_cell(int row, int col);
 extern int modcheck(const char *endstr);
 extern int plugin_exists(const char *name, int len, char *path, size_t size);
@@ -581,8 +583,8 @@ extern SCXMEM enode_t *new_range(rangeref_t rr);
 extern SCXMEM enode_t *new_str(SCXMEM string_t *s);
 extern SCXMEM enode_t *new_var(cellref_t cr);
 /* a linked list of free [struct ent]'s, uses .next as the pointer */
-extern struct ent *lookat(int row, int col);    /* allocates the cell */
-extern struct ent *lookat_nc(int row, int col); /* does not allocate the cell */
+extern struct ent *lookat(sheet_t *sp, int row, int col);  /* allocates the cell */
+extern struct ent *getcell(sheet_t *sp, int row, int col); /* does not allocate the cell */
 extern struct crange *find_crange(int row, int col);
 extern struct frange *find_frange(int row, int col);
 extern void EvalAll(void);
@@ -600,7 +602,7 @@ extern void backpage(int arg);
 extern void backcell(int arg);
 extern void backcol(int arg);
 extern void backrow(int arg);
-extern void checkbounds(int *rowp, int *colp);
+extern int checkbounds(sheet_t *sp, int *rowp, int *colp);
 extern void clearent(struct ent *v);
 extern void clean_crange(void);
 extern void clean_frange(void);

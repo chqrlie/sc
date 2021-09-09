@@ -50,14 +50,14 @@ void add_frange(int flags, rangeref_t orr, rangeref_t irr,
     }
     range_normalize(&orr);
 
-    or_left = lookat(orr.left.row, orr.left.col);
-    or_right = lookat(orr.right.row, orr.right.col);
+    or_left = lookat(sht, orr.left.row, orr.left.col);
+    or_right = lookat(sht, orr.right.row, orr.right.col);
 
     if (flags & FRANGE_INNER) {
         range_normalize(&irr);
 
-        ir_left = lookat(irr.left.row, irr.left.col);
-        ir_right = lookat(irr.right.row, irr.right.col);
+        ir_left = lookat(sht, irr.left.row, irr.left.col);
+        ir_right = lookat(sht, irr.right.row, irr.right.col);
 
         if (irr.left.row < orr.left.row || irr.left.col < orr.left.col
         ||  irr.right.row > orr.right.row || irr.right.col > orr.right.col) {
@@ -86,9 +86,9 @@ void add_frange(int flags, rangeref_t orr, rangeref_t irr,
                     leftcols = r->ir_left->col - r->or_left->col;
                 if (rightcols < 0)
                     rightcols = r->or_right->col - r->ir_right->col;
-                r->ir_left = lookat(r->or_left->row + toprows,
+                r->ir_left = lookat(sht, r->or_left->row + toprows,
                                     r->or_left->col + leftcols);
-                r->ir_right = lookat(r->or_right->row - bottomrows,
+                r->ir_right = lookat(sht, r->or_right->row - bottomrows,
                                      r->or_right->col - rightcols);
             }
 
@@ -126,9 +126,9 @@ void add_frange(int flags, rangeref_t orr, rangeref_t irr,
             if (bottomrows < 0) bottomrows = 0;
             if (leftcols   < 0) leftcols   = 0;
             if (rightcols  < 0) rightcols  = 0;
-            r->ir_left = lookat(r->or_left->row + toprows,
+            r->ir_left = lookat(sht, r->or_left->row + toprows,
                                 r->or_left->col + leftcols);
-            r->ir_right = lookat(r->or_right->row - bottomrows,
+            r->ir_right = lookat(sht, r->or_right->row - bottomrows,
                                  r->or_right->col - rightcols);
         }
 
@@ -174,10 +174,10 @@ void sync_franges(void) {
     struct frange *fr;
 
     for (fr = frame_base; fr; fr = fr->r_next) {
-        fr->or_left  = lookat(fr->or_left->row,  fr->or_left->col);
-        fr->or_right = lookat(fr->or_right->row, fr->or_right->col);
-        fr->ir_left  = lookat(fr->ir_left->row,  fr->ir_left->col);
-        fr->ir_right = lookat(fr->ir_right->row, fr->ir_right->col);
+        fr->or_left  = lookat(sht, fr->or_left->row,  fr->or_left->col);
+        fr->or_right = lookat(sht, fr->or_right->row, fr->or_right->col);
+        fr->ir_left  = lookat(sht, fr->ir_left->row,  fr->ir_left->col);
+        fr->ir_right = lookat(sht, fr->ir_right->row, fr->ir_right->col);
     }
 }
 
@@ -237,8 +237,8 @@ void fix_frames(int row1, int col1, int row2, int col2,
             if (c2 >= col1 && c2 <= col2) c2 = col1 + delta2;
         }
 
-        r->or_left = lookat(r1, c1);
-        r->or_right = lookat(r2, c2);
+        r->or_left = lookat(sht, r1, c1);
+        r->or_right = lookat(sht, r2, c2);
 
         r1 = r->ir_left->row;
         c1 = r->ir_left->col;
@@ -255,7 +255,7 @@ void fix_frames(int row1, int col1, int row2, int col2,
             if (c2 >= col1 && c2 <= col2) c2 = col1 + delta2;
         }
 
-        r->ir_left = lookat(r1, c1);
-        r->ir_right = lookat(r2, c2);
+        r->ir_left = lookat(sht, r1, c1);
+        r->ir_right = lookat(sht, r2, c2);
     }
 }

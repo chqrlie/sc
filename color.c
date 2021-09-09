@@ -138,8 +138,8 @@ void add_crange(rangeref_t rr, int pair) {
     }
 
     r = scxmalloc(sizeof(struct crange));
-    r->r_left = lookat(rr.left.row, rr.left.col);
-    r->r_right = lookat(rr.right.row, rr.right.col);
+    r->r_left = lookat(sht, rr.left.row, rr.left.col);
+    r->r_right = lookat(sht, rr.right.row, rr.right.col);
     r->r_color = pair;
 
     r->r_prev = NULL;
@@ -181,8 +181,8 @@ void sync_cranges(void) {
     struct crange *cr;
 
     for (cr = color_base; cr; cr = cr->r_next) {
-        cr->r_left = lookat(cr->r_left->row, cr->r_left->col);
-        cr->r_right = lookat(cr->r_right->row, cr->r_right->col);
+        cr->r_left = lookat(sht, cr->r_left->row, cr->r_left->col);
+        cr->r_right = lookat(sht, cr->r_right->row, cr->r_right->col);
     }
 }
 
@@ -266,8 +266,8 @@ void fix_colors(int row1, int col1, int row2, int col2,
         {
             del_crange(cr);
         } else {
-            cr->r_left = lookat(r1, c1);
-            cr->r_right = lookat(r2, c2);
+            cr->r_left = lookat(sht, r1, c1);
+            cr->r_right = lookat(sht, r2, c2);
         }
     }
 }

@@ -16,7 +16,7 @@ void cmd_getnum(rangeref_t rr, int fd) {
 
     for (r = rr.left.row; r <= rr.right.row; r++) {
         for (c = rr.left.col; c <= rr.right.col; c++) {
-            struct ent *p = *ATBL(tbl, r, c);
+            struct ent *p = getcell(sht, r, c);
 
             *buf = '\0';
             if (p) {
@@ -47,7 +47,7 @@ void cmd_fgetnum(rangeref_t rr, int fd) {
     for (r = rr.left.row; r <= rr.right.row; r++) {
         for (c = rr.left.col; c <= rr.right.col; c++) {
             /* convert cell contents, but ignore alignment and width test */
-            struct ent *p = *ATBL(tbl, r, c);
+            struct ent *p = getcell(sht, r, c);
             int align = ALIGN_DEFAULT;
 
             *buf = '\0';
@@ -82,7 +82,7 @@ void cmd_getstring(rangeref_t rr, int fd) {
 
     for (r = rr.left.row; r <= rr.right.row; r++) {
         for (c = rr.left.col; c <= rr.right.col; c++) {
-            struct ent *p = *ATBL(tbl, r, c);
+            struct ent *p = getcell(sht, r, c);
             *buf = '\0';
             if (p && p->type == SC_STRING)
                 snprintf(buf, sizeof buf - 1, "%s", s2str(p->label));
@@ -100,7 +100,7 @@ void cmd_getexp(rangeref_t rr, int fd) {
 
     for (r = rr.left.row; r <= rr.right.row; r++) {
         for (c = rr.left.col; c <= rr.right.col; c++) {
-            struct ent *p = *ATBL(tbl, r, c);
+            struct ent *p = getcell(sht, r, c);
             buf_reset(buf);
             if (p && p->expr) {
                 // XXX: should pass r, c as the current cell
@@ -129,7 +129,7 @@ void cmd_getfmt(rangeref_t rr, int fd) {
 
     for (r = rr.left.row; r <= rr.right.row; r++) {
         for (c = rr.left.col; c <= rr.right.col; c++) {
-            struct ent *p = *ATBL(tbl, r, c);
+            struct ent *p = getcell(sht, r, c);
             *buf = '\0';
             if (p && p->format)
                 snprintf(buf, sizeof buf - 1, "%s", s2c(p->format));

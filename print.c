@@ -64,7 +64,7 @@ void printfile(SCXMEM string_t *str, rangeref_t rr) {
 
         buf_reset(buf);
         for (col = rr.left.col; col <= rr.right.col; col = nextcol, w += fieldlen) {
-            struct ent *p = *ATBL(tbl, row, col);
+            struct ent *p = getcell(sht, row, col);
             const char *s;
             int align, len;
 
@@ -151,7 +151,7 @@ void printfile(SCXMEM string_t *str, rangeref_t rr) {
                 /* Figure out if the label slops over to a blank field. */
                 while (slen > fieldlen && nextcol <= rr.right.col) {
                     if (!col_hidden[nextcol]) {
-                        struct ent *nc = lookat_nc(row, nextcol);
+                        struct ent *nc = getcell(sht, row, nextcol);
                         if (nc && (nc->type || nc->expr))
                             break;
                         fieldlen += fwidth[nextcol];
@@ -341,7 +341,7 @@ void tblprintfile(SCXMEM string_t *str, rangeref_t rr) {
         }
 
         for (col = rr.left.col; col <= rr.right.col; col++) {
-            struct ent *p = *ATBL(tbl, row, col);
+            struct ent *p = getcell(sht, row, col);
 
             // XXX: print hidden columns?
             // XXX: should handle cell fusion

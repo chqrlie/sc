@@ -36,7 +36,9 @@
 
 const char *progname;
 
-struct ent ***tbl;
+static sheet_t cur_sheet;
+sheet_t *sht = &cur_sheet;
+
 int *fwidth;
 int *precision;
 int *realfmt;
@@ -48,7 +50,7 @@ static int scan(void);
 static int getrow(const char *p);
 static int getcol(const char *p);
 
-//int growtbl(int rowcol, int toprow, int topcol);
+//int growtbl(sheet_t *sp, int rowcol, int toprow, int topcol);
 //char *coltoa(int col);
 
 static int curlen;
@@ -159,7 +161,7 @@ int main(int argc, char **argv) {
     }
 
     /* setup the spreadsheet arrays */
-    if (!growtbl(GROWNEW, 0, 0))
+    if (!growtbl(sht, GROWNEW, 0, 0))
         return EXIT_FAILURE;
 
     curlen = 0;
@@ -200,7 +202,7 @@ int main(int argc, char **argv) {
             }
 
             if (effc >= maxcols - 1) {
-                if (!growtbl(GROWCOL, 0, effc)) {
+                if (!growtbl(sht, GROWCOL, 0, effc)) {
                     fprintf(stderr, "Invalid column used: %s\n", coltoa(effc));
                     exit_status = EXIT_FAILURE;
                     continue;
@@ -257,7 +259,7 @@ int main(int argc, char **argv) {
                 }
             }
 
-            if (effc >= maxcols - 1 && !growtbl(GROWCOL, 0, effc)) {
+            if (effc >= maxcols - 1 && !growtbl(sht, GROWCOL, 0, effc)) {
                 fprintf(stderr, "Invalid column used: %s\n", coltoa(effc));
                 exit_status = EXIT_FAILURE;
                 continue;
@@ -432,7 +434,7 @@ static const char nowider[] = "The table cannot be any wider";
  * toprow &&/|| topcol tell us a better guess of how big to become.
  * we return TRUE if we could grow, FALSE if not....
  */
-int growtbl(int rowcol, int toprow, int topcol) {
+int growtbl(sheet_t *sp, int rowcol, int toprow, int topcol) {
     int newcols;
 
     (void)toprow; /* unused */

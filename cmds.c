@@ -13,6 +13,8 @@
 #include <fcntl.h>      // because erasedb reads .scrc files
 #include "sc.h"
 
+#define ATBL(sp, row, col)     (&(sp)->tbl[row][col])
+
 /* a linked list of free [struct ent]'s, uses .next as the pointer */
 static struct ent *freeents = NULL;
 
@@ -213,20 +215,42 @@ void clearent(struct ent *p) {
     }
 }
 
-struct ent *lookat_nc(int row, int col) {
+struct ent *getcell(sheet_t *sp, int row, int col) {
     if (row >= 0 && row <= maxrow && col >= 0 && col <= maxcol)
-        return *ATBL(tbl, row, col);
+        return *ATBL(sp, row, col);
     else
         return NULL;
 }
 
+static void killcell(sheet_t *sp, int row, int col,
+                     int idx, int ignorelock, int unlock)
+{
+    if (row >= 0 && row <= maxrow && col >= 0 && col <= maxcol) {
+        struct ent **pp = ATBL(sp, row, col);
+        if (*pp && (!((*pp)->flags & IS_LOCKED) || ignorelock)) {
+            free_ent(idx, *pp, unlock);
+            *pp = NULL;
+        }
+    }
+}
+
+static int setcell(sheet_t *sp, int row, int col, struct ent *p) {
+    if (row >= 0 && row <= maxrow && col >= 0 && col <= maxcol) {
+        struct ent **pp = ATBL(sp, row, col);
+        // XXX: should reclaim destination cell
+        *pp = p;
+        return 1;
+    }
+    return 0;
+}
+
 /* return a pointer to a cell's [struct ent *], creating if needed */
-struct ent *lookat(int row, int col) {
+struct ent *lookat(sheet_t *sp, int row, int col) {
     struct ent **pp;
     struct ent *p;
 
-    checkbounds(&row, &col);
-    pp = ATBL(tbl, row, col);
+    checkbounds(sp, &row, &col);
+    pp = ATBL(sp, row, col);
     if (*pp == NULL) {
         if ((p = freeents) != NULL) {
             freeents = p->next;
@@ -297,9 +321,9 @@ int duprow(cellref_t cr) {
     modflg++;
     // XXX: should use copy_area(row + 1, c1, row + 1, c2, row, c1, row, c2)
     for (col = c1; col <= c2; col++) {
-        struct ent *p = *ATBL(tbl, row, col);
+        struct ent *p = getcell(sht, row, col);
         if (p) {
-            struct ent *n = lookat(row + 1, col);
+            struct ent *n = lookat(sht, row + 1, col);
             copyent(n, p, 1, 0, 0, 0, maxrow, maxcol, 0);
         }
     }
@@ -317,9 +341,9 @@ int dupcol(cellref_t cr) {
     // XXX: should use copy_area(0, col + 1, maxrow, col + 1,
     //                           0, col, maxrow, col)
     for (row = 0; row <= maxrow; row++) {
-        struct ent *p = *ATBL(tbl, row, col);
+        struct ent *p = getcell(sht, row, col);
         if (p) {
-            struct ent *n = lookat(row, col + 1);
+            struct ent *n = lookat(sht, row, col + 1);
             copyent(n, p, 0, 1, 0, 0, maxrow, maxcol, 0);
         }
     }
@@ -346,7 +370,7 @@ int insertrow(cellref_t cr, int arg, int delta) {
     rangeref_t rr = rangeref(cr.row + delta, 0, maxrow, maxcol);
     struct frange *fr;
 
-    if ((maxrow + arg >= maxrows) && !growtbl(GROWROW, maxrow + arg, 0))
+    if ((maxrow + arg >= maxrows) && !growtbl(sht, GROWROW, maxrow + arg, 0))
         return 0;
 
     // XXX: should clip cr reference
@@ -360,9 +384,9 @@ int insertrow(cellref_t cr, int arg, int delta) {
                       fr->or_right->row, fr->or_right->col);
         move_area(rr.left.row + arg, rr.left.col, rr);
         if (!delta && fr->ir_left->row == cr.row + arg)
-            fr->ir_left = lookat(fr->ir_left->row - arg, fr->ir_left->col);
+            fr->ir_left = lookat(sht, fr->ir_left->row - arg, fr->ir_left->col);
         if (delta && fr->ir_right->row == cr.row)
-            fr->ir_right = lookat(fr->ir_right->row + arg, fr->ir_right->col);
+            fr->ir_right = lookat(sht, fr->ir_right->row + arg, fr->ir_right->col);
 
         for (i = 0; i < 37; i++) {      /* update all marked cells */
             if (savedcr[i].row >= rr.left.row &&
@@ -388,7 +412,7 @@ int insertrow(cellref_t cr, int arg, int delta) {
             gs.st.row += arg;
         for (r = 0; r <= maxrow; r++) {
             for (c = 0; c <= maxcol; c++) {
-                struct ent *p = *ATBL(tbl, r, c);
+                struct ent *p = getcell(sht, r, c);
                 if (p && (p->flags & HAS_NOTE)) {
                     if (p->nrr.left.row >= rr.left.row &&
                         p->nrr.left.col >= rr.left.col &&
@@ -406,22 +430,22 @@ int insertrow(cellref_t cr, int arg, int delta) {
          * save the last active row+1, shift the rows downward, put the last
          * row in place of the first
          */
-        struct ent **tmp_row = tbl[maxrow];
+        struct ent **tmp_row = sht->tbl[maxrow];
         unsigned char tmp_hidden = row_hidden[maxrow];
 
         for (r = maxrow; r > lim; r--) {
             row_hidden[r] = row_hidden[r-arg];
             row_hidden[r-arg] = row_hidden[r-1];
-            tbl[r] = tbl[r-arg];
-            tbl[r-arg] = tbl[r-1];
+            sht->tbl[r] = sht->tbl[r-arg];
+            sht->tbl[r-arg] = sht->tbl[r-1];
             for (c = 0; c < maxcols; c++) {
-                struct ent *p = *ATBL(tbl, r, c);
+                struct ent *p = getcell(sht, r, c);
                 if (p)
                     p->row = r;
             }
         }
         row_hidden[r] = tmp_hidden;
-        tbl[r] = tmp_row;               /* the last row was never used.... */
+        sht->tbl[r] = tmp_row;               /* the last row was never used.... */
 
         for (i = 0; i < 37; i++) {      /* update all marked cells */
             if (savedcr[i].row >= rr.left.row)
@@ -437,7 +461,7 @@ int insertrow(cellref_t cr, int arg, int delta) {
             gs.st.row += arg;
         for (r = 0; r <= maxrow; r++) {
             for (c = 0; c <= maxcol; c++) {
-                struct ent *p = *ATBL(tbl, r, c);
+                struct ent *p = getcell(sht, r, c);
                 if (p && (p->flags & HAS_NOTE)) {
                     if (p->nrr.left.row >= rr.left.row)
                         p->nrr.left.row += arg;
@@ -473,7 +497,7 @@ int insertcol(cellref_t cr, int arg, int delta) {
     int dc2 = sc2 + arg;
     struct frange *fr;
 
-    if ((maxcol + arg >= maxcols) && !growtbl(GROWCOL, 0, maxcol + arg))
+    if ((maxcol + arg >= maxcols) && !growtbl(sht, GROWCOL, 0, maxcol + arg))
         return 0;
 
     maxcol += arg;
@@ -492,7 +516,8 @@ int insertcol(cellref_t cr, int arg, int delta) {
     }
 
     for (r = 0; r <= maxrow; r++) {
-        pp = ATBL(tbl, r, 0);
+        // XXX: should factorize as movecell()
+        pp = ATBL(sht, r, 0);
         for (c = dc2; c >= dc1; c--) {
             if ((pp[c] = pp[c-arg]))
                 pp[c]->col += arg;
@@ -518,7 +543,7 @@ int insertcol(cellref_t cr, int arg, int delta) {
     /* Update note links. */
     for (r = 0; r <= maxrow; r++) {
         for (c = 0; c <= maxcol; c++) {
-            struct ent *p = *ATBL(tbl, r, c);
+            struct ent *p = getcell(sht, r, c);
             if (p && (p->flags & HAS_NOTE)) {
                 if (p->nrr.left.col >= sc1)
                     p->nrr.left.col += arg;
@@ -532,11 +557,11 @@ int insertcol(cellref_t cr, int arg, int delta) {
     fr = find_frange(cr.row, cr.col);
     if (delta) {
         if (fr && fr->ir_right->col == cr.col)
-            fr->ir_right = lookat(fr->ir_right->row, fr->ir_right->col + arg);
+            fr->ir_right = lookat(sht, fr->ir_right->row, fr->ir_right->col + arg);
         fix_ranges(-1, cr.col, -1, cr.col, 0, arg, fr);
     } else {
         if (fr && fr->ir_left->col == cr.col + arg)
-            fr->ir_left = lookat(fr->ir_left->row, fr->ir_left->col - arg);
+            fr->ir_left = lookat(sht, fr->ir_left->row, fr->ir_left->col - arg);
         fix_ranges(-1, cr.col + arg, -1, cr.col + arg, arg, 0, fr);
     }
     FullUpdate++;
@@ -580,9 +605,9 @@ void deleterows(int r1, int r2) {
             /* store delbuf[dbidx--] to named buffer '1' after rotation and qbuf if any */
             deldata_store(DELBUFSIZE - 9, DELBUFSIZE - 1, DD_UNSYNC);
             if (r1 + nrows > fr->ir_right->row && fr->ir_right->row >= r1)
-                fr->ir_right = lookat(r1 - 1, fr->ir_right->col);
+                fr->ir_right = lookat(sht, r1 - 1, fr->ir_right->col);
             if (r1 + nrows > fr->or_right->row) {
-                fr->or_right = lookat(r1 - 1, fr->or_right->col);
+                fr->or_right = lookat(sht, r1 - 1, fr->or_right->col);
             } else {
                 move_area(r1, c1, rangeref(r1 + nrows, c1, fr->or_right->row, c2));
             }
@@ -703,21 +728,20 @@ void yankcols(int c1, int c2) {
 /* move cell range to subsheet delbuf[idx] */
 void erase_area(int idx, int sr, int sc, int er, int ec, int ignorelock) {
     int r, c;
-    struct ent **pp;
 
     if (sr > er) SWAPINT(sr, er);
     if (sc > ec) SWAPINT(sc, ec);
     if (sr < 0) sr = 0;
     if (sc < 0) sc = 0;
-    checkbounds(&er, &ec);
+    checkbounds(sht, &er, &ec);
 
     /* Do a lookat() for the upper left and lower right cells of the range
      * being erased to make sure they are included in the delete buffer so
      * that pulling cells always works correctly even if the cells at one
      * or more edges of the range are all empty.
      */
-    lookat(sr, sc);
-    lookat(er, ec);
+    lookat(sht, sr, sc);
+    lookat(sht, er, ec);
 
     // XXX: assuming delbuffmt[idx] is NULL
     delbuffmt[idx] = scxmalloc((4*(ec-sc+1)+(er-sr+1))*sizeof(char));
@@ -727,13 +751,10 @@ void erase_area(int idx, int sr, int sc, int er, int ec, int ignorelock) {
         delbuffmt[idx][4*(c-sc)+2] = (unsigned char)realfmt[c];
         delbuffmt[idx][4*(c-sc)+3] = (unsigned char)col_hidden[c];
     }
+    // XXX: should have range_kill()
     for (r = sr; r <= er; r++) {
         for (c = sc; c <= ec; c++) {
-            pp = ATBL(tbl, r, c);
-            if (*pp && (!((*pp)->flags & IS_LOCKED) || ignorelock)) {
-                free_ent(idx, *pp, 0);
-                *pp = NULL;
-            }
+            killcell(sht, r, c, idx, ignorelock, 0);
         }
         delbuffmt[idx][4*(ec-sc+1)+(r-sr)] = (unsigned char)row_hidden[r];
     }
@@ -755,8 +776,7 @@ void yank_area(rangeref_t rr) {
 }
 
 void move_area(int dr, int dc, rangeref_t rr) {
-    struct ent *p;
-    struct ent **pp;
+    struct ent *p, *next;
     int deltar, deltac;
 
     range_clip(range_normalize(&rr));
@@ -781,12 +801,12 @@ void move_area(int dr, int dc, rangeref_t rr) {
     /* free delbuf[dbidx--] */
     flush_saved(dbidx--);
     // XXX: if moving entire columns or rows, the column or row flags should be copied
-    for (p = delbuf[dbidx]; p; p = p->next) {
-        pp = ATBL(tbl, p->row + deltar, p->col + deltac);
-        *pp = p;
+    for (p = delbuf[dbidx]; p; p = next) {
+        next = p->next;
         p->row += deltar;
         p->col += deltac;
         p->flags &= ~IS_DELETED;
+        setcell(sht, p->row, p->col, p);
     }
     delbuf[dbidx] = NULL;
     delbuffmt[dbidx] = NULL;
@@ -803,7 +823,7 @@ void valueize_area(rangeref_t rr) {
     range_normalize(&rr);
     for (r = rr.left.row; r <= rr.right.row; r++) {
         for (c = rr.left.col; c <= rr.right.col; c++) {
-            struct ent *p = *ATBL(tbl, r, c);
+            struct ent *p = getcell(sht, r, c);
             if (p && p->expr) {
                 if (p->flags & IS_LOCKED) {
                     error(" Cell %s%d is locked", coltoa(c), r);
@@ -820,8 +840,7 @@ void valueize_area(rangeref_t rr) {
 /* copy/move cell range from subsheet delbuf[qbuf] via delbuf[++dbidx] or delbuf[dbidx] */
 void pullcells(int to_insert, cellref_t cr) {
     struct ent *obuf;
-    struct ent *p, *n;
-    struct ent **pp;
+    struct ent *p, *n, *next;
     int deltar, deltac;
     int minrow, mincol;
     int mxrow, mxcol;
@@ -940,10 +959,10 @@ void pullcells(int to_insert, cellref_t cr) {
      */
     for (p = delbuf[dbidx]; p; p = p->next) {
         if (to_insert == 't') {   /* Transpose rows and columns while pulling. */
-            n = lookat(minrow + deltar + p->col - mincol,
+            n = lookat(sht, minrow + deltar + p->col - mincol,
                        mincol + deltac + p->row - minrow);
         } else {
-            n = lookat(p->row + deltar, p->col + deltac);
+            n = lookat(sht, p->row + deltar, p->col + deltac);
         }
         copyent(n, p, deltar, deltac, minrow, mincol, mxrow, mxcol, to_insert);
     }
@@ -966,21 +985,17 @@ void pullcells(int to_insert, cellref_t cr) {
             /* move the unlocked cells from destination range to delbuf[dbidx+1] */
             // XXX: this does nothing for PULLROWS, PULLCOLS as the range is empty
             for (p = delbuf[dbidx++]; p; p = p->next) {
-                pp = ATBL(tbl, p->row + deltar, p->col + deltac);
-                if (*pp && !((*pp)->flags & IS_LOCKED)) {
-                    free_ent(dbidx, *pp, 1);
-                    *pp = NULL;
-                }
+                killcell(sht, p->row + deltar, p->col + deltac, dbidx, 0, 1);
             }
         }
         /* move the cells from delbuf to destination */
-        for (p = delbuf[dbidx - 1]; p; p = p->next) {
-            pp = ATBL(tbl, p->row + deltar, p->col + deltac);
-            // XXX: leak if (*pp && !((*pp)->flags & IS_LOCKED)) ?
-            *pp = p;
+        for (p = delbuf[dbidx - 1]; p; p = next) {
+            next = p->next;
+            // XXX: leak if destination is locked ?
             p->row += deltar;
             p->col += deltac;
             p->flags &= ~IS_DELETED;
+            setcell(sht, p->row, p->col, p);
         }
         /* leave original cells at top of stack */
         delbuf[dbidx - 1] = delbuf[dbidx];
@@ -1019,7 +1034,6 @@ void pullcells(int to_insert, cellref_t cr) {
 
 /* delete numrow rows, starting with rs */
 void closerow(int rs, int numrow) {
-    struct ent **pp;
     int r, c, i;
     struct ent **tmprow;
 
@@ -1033,27 +1047,23 @@ void closerow(int rs, int numrow) {
     for (i = 0; i < numrow; i++) {
         r = rs + i;
 
-        /* save the first row of the group and empty it out */
-        tmprow = tbl[r];
-        pp = ATBL(tbl, r, 0);
-        for (c = maxcol + 1; c --> 0; pp++) {
-            if (*pp) {
-                free_ent(dbidx, *pp, 1);
-                *pp = NULL;
-            }
+        /* empty the first row of the group */
+        for (c = 0; c < maxcol; c++) {
+            killcell(sht, r, c, dbidx, 1, 1);
         }
 
         /* move the rows, put the deleted, but now empty, row at the end */
+        tmprow = sht->tbl[r];
         for (; r + numrow < maxrows - 1; r += numrow) {
             row_hidden[r] = row_hidden[r + numrow];
-            tbl[r] = tbl[r + numrow];
+            sht->tbl[r] = sht->tbl[r + numrow];
             for (c = 0; c < maxcols; c++) {
-                struct ent *p = *ATBL(tbl, r, c);
+                struct ent *p = getcell(sht, r, c);
                 if (p)
                     p->row = r;
             }
         }
-        tbl[r] = tmprow;
+        sht->tbl[r] = tmprow;
     }
 
     /* Update all marked cells. */
@@ -1087,7 +1097,7 @@ void closerow(int rs, int numrow) {
     /* Update note links. */
     for (r = 0; r <= maxrow; r++) {
         for (c = 0; c <= maxcol; c++) {
-            struct ent *p = *ATBL(tbl, r, c);
+            struct ent *p = getcell(sht, r, c);
             if (p && (p->flags & HAS_NOTE)) {
                 if (p->nrr.left.row >= rs && p->nrr.left.row < rs + numrow)
                     p->nrr.left.row = rs;
@@ -1144,15 +1154,12 @@ void deletecols(int c1, int c2) {
 #if 0
         // XXX: all cells should have been erased already
         for (c = c1; c <= c2; c++) {
-            pp = ATBL(tbl, r, c);
-            if (*pp) {
-                free_ent(dbidx, *pp, 1);
-                *pp = NULL;
-            }
+            killcell(sht, r, c, dbidx, 1, 1);
         }
 #endif
         for (c = c1; c <= maxcol - ncols; c++) {
-            pp = ATBL(tbl, r, c);
+            // XXX: should factorize as movecell()
+            pp = ATBL(sht, r, c);
             if ((*pp = pp[ncols])) {
                 (*pp)->col -= ncols;
                 pp[ncols] = NULL;
@@ -1204,7 +1211,7 @@ void deletecols(int c1, int c2) {
     /* Update note links. */
     for (r = 0; r <= maxrow; r++) {
         for (c = 0; c <= maxcol; c++) {
-            p = *ATBL(tbl, r, c);
+            p = getcell(sht, r, c);
             if (p && (p->flags & HAS_NOTE)) {
                 if (p->nrr.left.col >= c1 && p->nrr.left.col <= c2)
                     p->nrr.left.col = c1;
@@ -1230,8 +1237,8 @@ void cmd_format(int c1, int c2, int w, int p, int r) {
     int crows = 0;
     int ccols = c2;
 
-    if (c1 >= maxcols && !growtbl(GROWCOL, 0, c1)) c1 = maxcols-1;
-    if (c2 >= maxcols && !growtbl(GROWCOL, 0, c2)) c2 = maxcols-1;
+    if (c1 >= maxcols && !growtbl(sht, GROWCOL, 0, c1)) c1 = maxcols-1;
+    if (c2 >= maxcols && !growtbl(sht, GROWCOL, 0, c2)) c2 = maxcols-1;
 
     if (w == 0) {
         error("Width too small - setting to 1");
@@ -1251,7 +1258,7 @@ void cmd_format(int c1, int c2, int w, int p, int r) {
         p = w;
     }
 
-    checkbounds(&crows, &ccols);
+    checkbounds(sht, &crows, &ccols);
     if (ccols < c2) {
         error("Format statement failed to create implied column %d", c2);
         return;
@@ -1272,7 +1279,7 @@ void range_align(rangeref_t rr, int align) {
     range_normalize(&rr);
     for (r = rr.left.row; r <= rr.right.row; r++) {
         for (c = rr.left.col; c <= rr.right.col; c++) {
-            struct ent *p = *ATBL(tbl, r, c);
+            struct ent *p = getcell(sht, r, c);
             if (p && (p->flags & ALIGN_MASK) != align) {
                 p->flags &= ~ALIGN_MASK;
                 p->flags |= IS_CHANGED | align;
@@ -1293,7 +1300,7 @@ static void copydbuf(int deltar, int deltac) {
     while (p) {
         vr = p->row + deltar;
         vc = p->col + deltac;
-        n = lookat(vr, vc);
+        n = lookat(sht, vr, vc);
         if (n->flags & IS_LOCKED)
             continue;
         copyent(n, p, deltar, deltac, 0, 0, maxrow, maxcol, 0);
@@ -1366,7 +1373,7 @@ void copy(int flags, rangeref_t drr, rangeref_t srr) {
         return;
     }
 
-    checkbounds(&maxdr, &maxdc);
+    checkbounds(sht, &maxdr, &maxdc);
 
     if (maxdr - mindr < maxsr - minsr) maxdr = mindr + (maxsr - minsr);
     if (maxdc - mindc < maxsc - minsc) maxdc = mindc + (maxsc - minsc);
@@ -1472,7 +1479,7 @@ void fillr(rangeref_t rr, double start, double inc, int bycols) {
     if (bycols) {
         for (c = rr.left.col; c <= rr.right.col; c++) {
             for (r = rr.left.row; r <= rr.right.row; r++) {
-                struct ent *n = lookat(r, c);
+                struct ent *n = lookat(sht, r, c);
                 if (n->flags & IS_LOCKED)
                     continue;
                 // XXX: why clear the format and alignment?
@@ -1487,7 +1494,7 @@ void fillr(rangeref_t rr, double start, double inc, int bycols) {
     } else {
         for (r = rr.left.row; r <= rr.right.row; r++) {
             for (c = rr.left.col; c <= rr.right.col; c++) {
-                struct ent *n = lookat(r, c);
+                struct ent *n = lookat(sht, r, c);
                 if (n->flags & IS_LOCKED)
                     continue;
                 // XXX: why clear the format and alignment?
@@ -1512,7 +1519,7 @@ void lock_cells(rangeref_t rr) {
     range_normalize(&rr);
     for (r = rr.left.row; r <= rr.right.row; r++) {
         for (c = rr.left.col; c <= rr.right.col; c++) {
-            struct ent *n = lookat(r, c);
+            struct ent *n = lookat(sht, r, c);
             // XXX: update IS_CHANGED?
             n->flags |= IS_LOCKED;
         }
@@ -1527,7 +1534,7 @@ void unlock_cells(rangeref_t rr) {
     range_normalize(&rr);
     for (r = rr.left.row; r <= rr.right.row; r++) {
         for (c = rr.left.col; c <= rr.right.col; c++) {
-            struct ent *n = lookat_nc(r, c);
+            struct ent *n = getcell(sht, r, c);
             if (n) {
                 // XXX: update IS_CHANGED?
                 n->flags &= ~IS_LOCKED;
@@ -1550,7 +1557,7 @@ void format_cells(rangeref_t rr, SCXMEM string_t *s) {
     range_normalize(&rr);
     for (r = rr.left.row; r <= rr.right.row; r++) {
         for (c = rr.left.col; c <= rr.right.col; c++) {
-            struct ent *p = lookat(r, c);
+            struct ent *p = lookat(sht, r, c);
             if (p->flags & IS_LOCKED)
                 continue;
             string_set(&p->format, string_dup(s));
@@ -1574,8 +1581,8 @@ static void sync_expr(enode_t *e) {
 
     switch (e->type) {
     case OP_TYPE_RANGE:
-        e->e.r.left.vp = lookat(e->e.r.left.vp->row, e->e.r.left.vp->col);
-        e->e.r.right.vp = lookat(e->e.r.right.vp->row, e->e.r.right.vp->col);
+        e->e.r.left.vp = lookat(sht, e->e.r.left.vp->row, e->e.r.left.vp->col);
+        e->e.r.right.vp = lookat(sht, e->e.r.right.vp->row, e->e.r.right.vp->col);
         break;
     case OP_TYPE_VAR:
         if (e->e.v.vp->flags & IS_CLEARED) {
@@ -1584,7 +1591,7 @@ static void sync_expr(enode_t *e) {
             e->e.error = ERROR_REF;
         } else
         if (e->e.v.vp->flags & MAY_SYNC) {
-            e->e.v.vp = lookat(e->e.v.vp->row, e->e.v.vp->col);
+            e->e.v.vp = lookat(sht, e->e.v.vp->row, e->e.v.vp->col);
         }
         break;
     case OP_TYPE_FUNC: {
@@ -1605,7 +1612,7 @@ void sync_refs(void) {
     // XXX: sync_ranges() already does sync_enode(p->expr)
     for (i = 0; i <= maxrow; i++) {
         for (j = 0; j <= maxcol; j++) {
-            if ((p = *ATBL(tbl, i, j)) && p->expr)
+            if ((p = getcell(sht, i, j)) && p->expr)
                 sync_expr(p->expr);
         }
     }
@@ -1627,7 +1634,7 @@ void hiderows(int r1, int r2) {
         return;
     }
     if (r2 + 1 >= maxrows) {
-        if (!growtbl(GROWROW, r2 + 1, 0)) {
+        if (!growtbl(sht, GROWROW, r2 + 1, 0)) {
             // XXX: should remove this restriction
             error("You cannot hide the last row");
             return;
@@ -1656,7 +1663,7 @@ void hidecols(int c1, int c2) {
         return;
     }
     if (c2 + 1 >= maxcols) {
-        if (!growtbl(GROWCOL, 0, c2 + 1)) {
+        if (!growtbl(sht, GROWCOL, 0, c2 + 1)) {
             // XXX: should remove this restriction
             error("You cannot hide the last column");
             return;
@@ -1754,7 +1761,7 @@ void copyent(struct ent *n, struct ent *p, int dr, int dc,
     n->flags |= IS_CHANGED;
 }
 
-/* erase the database (tbl, etc.) */
+/* erase the database (sht, etc.) */
 void erasedb(int load_scrc) {
     int r, c, fd;
     char *home;
@@ -1769,7 +1776,8 @@ void erasedb(int load_scrc) {
     for (r = 0; r <= maxrow; r++) {
         row_hidden[r] = 0;
         for (c = 0; c <= maxcol; c++) {
-            struct ent **pp = ATBL(tbl, r, c);
+            // XXX: should factorize as erasecell()
+            struct ent **pp = ATBL(sht, r, c);
             if (*pp) {
                 efree((*pp)->expr);
                 (*pp)->expr = NULL;
@@ -1842,15 +1850,15 @@ void erasedb(int load_scrc) {
     } else {
         /* free all sheet data */
         for (r = 0; r < maxrows; r++) {
-            scxfree(tbl[r]);
+            scxfree(sht->tbl[r]);
         }
-        scxfree(tbl);
+        scxfree(sht->tbl);
         scxfree(fwidth);
         scxfree(precision);
         scxfree(realfmt);
         scxfree(col_hidden);
         scxfree(row_hidden);
-        tbl = NULL;
+        sht->tbl = NULL;
         fwidth = NULL;
         precision = NULL;
         realfmt = NULL;
@@ -1866,7 +1874,7 @@ void erasedb(int load_scrc) {
 
 /* Returns 1 if cell is locked, 0 otherwise */
 int locked_cell(int row, int col) {
-    struct ent *p = *ATBL(tbl, row, col);
+    struct ent *p = getcell(sht, row, col);
     if (p && (p->flags & IS_LOCKED)) {
         error("Cell %s%d is locked", coltoa(col), row);
         return 1;
@@ -1881,7 +1889,7 @@ static int any_locked_cells(int r1, int c1, int r2, int c2) {
 
     for (r = r1; r <= r2; r++) {
         for (c = c1; c <= c2; c++) {
-            p = *ATBL(tbl, r, c);
+            p = getcell(sht, r, c);
             if (p && (p->flags & IS_LOCKED))
                 return 1;
         }
@@ -1948,7 +1956,7 @@ void cmd_run(SCXMEM string_t *str) {
 }
 
 void addnote(cellref_t cr, rangeref_t rr) {
-    struct ent *p = lookat(cr.row, cr.col);
+    struct ent *p = lookat(sht, cr.row, cr.col);
     if (p) {
         range_normalize(&rr);
         p->nrr = rr;
@@ -1959,7 +1967,7 @@ void addnote(cellref_t cr, rangeref_t rr) {
 }
 
 void delnote(cellref_t cr) {
-    struct ent *p = lookat_nc(cr.row, cr.col);
+    struct ent *p = getcell(sht, cr.row, cr.col);
     if (p && (p->flags & HAS_NOTE)) {
         p->nrr = rangeref_empty();
         p->flags ^= HAS_NOTE;

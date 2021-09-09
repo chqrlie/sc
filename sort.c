@@ -141,8 +141,8 @@ int compare(const void *a1, const void *a2) {
         if (i >= howmany)
             return (row1 > row2) - (row1 < row2);
 
-        p1 = *ATBL(tbl, row1, sort[i].column);
-        p2 = *ATBL(tbl, row2, sort[i].column);
+        p1 = getcell(sht, row1, sort[i].column);
+        p2 = getcell(sht, row2, sort[i].column);
 
         // XXX: comparison algorithm should be the same as for expressions
         /* mixed types are sorted in this order:

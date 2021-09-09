@@ -63,7 +63,7 @@ void moveto(rangeref_t rr, cellref_t st) {
     if (!loading && rr.left.row != -1 && (rr.left.row != currow || rr.left.col != curcol))
         remember(0);
 
-    lookat(rr.left.row, rr.left.col);
+    lookat(sht, rr.left.row, rr.left.col);
     currow = rr.left.row;
     curcol = rr.left.col;
     go_free();
@@ -143,7 +143,7 @@ int num_search(int g_type, rangeref_t rr, double n) {
                 row = firstrow;
             }
         }
-        if (!col_hidden[col] && (p = *ATBL(tbl, row, col))) {
+        if (!col_hidden[col] && (p = getcell(sht, row, col))) {
             if ((!errsearch && p->type == SC_NUMBER && p->v == n)
             ||  (errsearch & (1 << p->cellerror))) {
                 found = 1;
@@ -254,7 +254,7 @@ int str_search(int g_type, rangeref_t rr, SCXMEM string_t *str) {
                 row = firstrow;
             }
         }
-        if (!col_hidden[col] && (p = *ATBL(tbl, row, col))) {
+        if (!col_hidden[col] && (p = getcell(sht, row, col))) {
             /* convert cell contents, do not test width, ignore alignment */
             const char *s1 = field;
             int align = ALIGN_DEFAULT;
@@ -443,7 +443,7 @@ void forwcol(int arg) {
         if (curcol < maxcols - 1)
             curcol++;
         else
-        if (!growtbl(GROWCOL, 0, arg))  /* get as much as needed */
+        if (!growtbl(sht, GROWCOL, 0, arg))  /* get as much as needed */
             break;
         else
             curcol++;
@@ -492,7 +492,7 @@ void forwrow(int arg) {
         if (currow < maxrows - 1)
             currow++;
         else
-        if (!growtbl(GROWROW, maxrows + arg, 0))  /* get as much as needed */
+        if (!growtbl(sht, GROWROW, maxrows + arg, 0))  /* get as much as needed */
             break;
         else
             currow++;
@@ -517,7 +517,7 @@ void backrow(int arg) {
 void gotonote(void) {
     struct ent *p;
 
-    p = lookat(currow, curcol);
+    p = lookat(sht, currow, curcol);
     if (p->flags & HAS_NOTE) {
         moveto(p->nrr, cellref(-1, -1));
     } else {

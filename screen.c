@@ -756,7 +756,7 @@ void update(int anychanged) {          /* did any cell really change in value? *
                     continue;
                 fieldlen = fwidth[col];
 
-                p = *ATBL(tbl, row, col);
+                p = getcell(sht, row, col);
 
                 select_style(STYLE_CELL, 0);
                 /*
@@ -994,7 +994,7 @@ void update(int anychanged) {          /* did any cell really change in value? *
         if (showtop) {                  /* show top line */
             printw("%s%d: ", coltoa(curcol), currow);
 
-            p = *ATBL(tbl, currow, curcol);
+            p = getcell(sht, currow, curcol);
 
             /* show the current cell format */
             if (p && p->format) {
@@ -1108,7 +1108,7 @@ void repaint_cursor(int set) {
 
         if ((cr = find_crange(row, col)))
             style = cr->r_color;
-        p = *ATBL(tbl, row, col);
+        p = getcell(sht, row, col);
         if (p) {
             if (colorneg && (p->type == SC_NUMBER) && p->v < 0) {
                 if (cr)

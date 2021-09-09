@@ -18,30 +18,31 @@
  * current size if we can.
  */
 
-void checkbounds(int *rowp, int *colp) {
+int checkbounds(sheet_t *sp, int *rowp, int *colp) {
     if (*rowp < 0)
         *rowp = 0;
     else
     if (*rowp >= maxrows) {
         if (*colp >= maxcols) {
-            if (!growtbl(GROWBOTH, *rowp, *colp)) {
+            if (!growtbl(sp, GROWBOTH, *rowp, *colp)) {
                 *rowp = maxrows - 1;
                 *colp = maxcols - 1;
             }
-            return;
+            return 0;
         } else {
-            if (!growtbl(GROWROW, *rowp, 0))
+            if (!growtbl(sp, GROWROW, *rowp, 0))
                 *rowp = maxrows - 1;
-            return;
+            return 0;
         }
     }
     if (*colp < 0)
         *colp = 0;
     else
     if (*colp >= maxcols) {
-        if (!growtbl(GROWCOL, 0, *colp))
+        if (!growtbl(sp, GROWCOL, 0, *colp))
             *colp = maxcols - 1;
     }
+    return 0;
 }
 
 /* scxrealloc will just scxmalloc if oldptr is == NULL */
@@ -62,7 +63,7 @@ static const char nowider[] = "The table cannot be any wider";
  * toprow &&/|| topcol tell us a better guess of how big to become.
  * we return TRUE if we could grow, FALSE if not....
  */
-int growtbl(int mode, int toprow, int topcol) {
+int growtbl(sheet_t *sp, int mode, int toprow, int topcol) {
     int row, col, curcols, currows, newrows, newcols;
 
     newrows = currows = maxrows;
@@ -104,9 +105,9 @@ int growtbl(int mode, int toprow, int topcol) {
     if (newrows > currows) {
         GROWALLOC(row_hidden, newrows, unsigned char, nolonger);
         memzero(row_hidden + currows, (newrows - currows) * sizeof(*row_hidden));
-        GROWALLOC(tbl, newrows, struct ent **, nolonger);
+        GROWALLOC(sp->tbl, newrows, struct ent **, nolonger);
         for (row = currows; row < newrows; row++) {
-            tbl[row] = NULL;
+            sp->tbl[row] = NULL;
         }
     }
 
@@ -124,12 +125,12 @@ int growtbl(int mode, int toprow, int topcol) {
 
         /* [re]alloc the space for each row */
         for (row = 0; row < currows; row++) {
-            struct ent **rowptr = scxrealloc(tbl[row], sizeof(*tbl[row]) * newcols);
+            struct ent **rowptr = scxrealloc(sp->tbl[row], sizeof(*sp->tbl[row]) * newcols);
             if (rowptr == NULL) {
                 error(nowider);
                 return FALSE;
             }
-            tbl[row] = rowptr;
+            sp->tbl[row] = rowptr;
             for (col = curcols; col < newcols; col++)
                 rowptr[col] = NULL;
         }
@@ -137,12 +138,12 @@ int growtbl(int mode, int toprow, int topcol) {
 
     /* fill in the bottom of the table */
     for (row = currows; row < newrows; row++) {
-        struct ent **rowptr = scxmalloc(sizeof(*tbl[row]) * newcols);
+        struct ent **rowptr = scxmalloc(sizeof(*sp->tbl[row]) * newcols);
         if (rowptr == NULL) {
             error(nolonger);
             return FALSE;
         }
-        tbl[row] = rowptr;
+        sp->tbl[row] = rowptr;
         for (col = 0; col < newcols; col++)
             rowptr[col] = NULL;
     }

@@ -30,7 +30,9 @@ static void settcattr(void);
 
 /* Globals declared in sc.h */
 
-SCXMEM struct ent ***tbl;
+static sheet_t cur_sheet;
+sheet_t *sht = &cur_sheet;
+
 int strow = 0, stcol = 0;
 int currow = 0, curcol = 0;
 cellref_t savedcr[37];     /* stack of marked cells */
@@ -177,7 +179,7 @@ int main(int argc, char **argv) {
         case 'P':
         case 'W':   popt = 1;                       break;
         case 'v':                                   break;
-        case 'q':   qopt = 1;                       break;
+        case 'q':   qopt++;                         break;
         case 'M':   Mopt = 1;                       break;
         case 'D':   Dopt = 1;                       break;
         default:
@@ -203,14 +205,14 @@ int main(int argc, char **argv) {
         }
     }
 
-    if (!isatty(STDOUT_FILENO) || popt || qopt) usecurses = FALSE;
+    if (!isatty(STDOUT_FILENO) || popt || qopt == 1) usecurses = FALSE;
     startdisp();
     signals();
     settcattr();
     read_hist();
 
     /* setup the spreadsheet arrays, initscr() will get the screen size */
-    if (!growtbl(GROWNEW, 0, 0)) {
+    if (!growtbl(sht, GROWNEW, 0, 0)) {
         stopdisp();
         exit(1);
     }
@@ -262,7 +264,7 @@ int main(int argc, char **argv) {
     if (!(popt || isatty(STDIN_FILENO)))
         readfile("-", 0);
 
-    if (qopt) {
+    if (qopt == 1) {
         stopdisp();
         exit(0);
     }
@@ -322,7 +324,8 @@ int main(int argc, char **argv) {
 #ifdef VENIX
     setbuf(stdin, NULL);
 #endif
-    vi_interaction();
+    if (!qopt)
+        vi_interaction();
     stopdisp();
     write_hist();
 
