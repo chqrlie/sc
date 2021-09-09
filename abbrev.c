@@ -35,7 +35,7 @@ static void free_abbr(SCXMEM struct abbrev *a) {
 }
 
 /* add an abbreviation */
-void add_abbr(SCXMEM string_t *name, SCXMEM string_t *exp) {
+void add_abbr(sheet_t *sp, SCXMEM string_t *name, SCXMEM string_t *exp) {
     struct abbrev *a, *prev;
     const char *p;
     int i;
@@ -95,7 +95,7 @@ void add_abbr(SCXMEM string_t *name, SCXMEM string_t *exp) {
         return;
     }
 
-    a = find_abbr(s2c(name), -1, &prev);
+    a = find_abbr(sp, s2c(name), -1, &prev);
 
     // no expansion: lookup abbreviation
     if (sempty(exp)) {
@@ -138,20 +138,20 @@ void add_abbr(SCXMEM string_t *name, SCXMEM string_t *exp) {
     }
 }
 
-void del_abbr(SCXMEM string_t *name) {
+void del_abbr(sheet_t *sp, SCXMEM string_t *name) {
     struct abbrev *a, *prev;
 
-    if (name && (a = find_abbr(s2c(name), -1, &prev)) != NULL)
+    if (name && (a = find_abbr(sp, s2c(name), -1, &prev)) != NULL)
         free_abbr(a);
     string_free(name);
 }
 
-void clean_abbrevs(void) {
+void clean_abbrevs(sheet_t *sp) {
     while (abbr_base)
         free_abbr(abbr_base);
 }
 
-struct abbrev *find_abbr(const char *name, int len, struct abbrev **prev) {
+struct abbrev *find_abbr(sheet_t *sp, const char *name, int len, struct abbrev **prev) {
     struct abbrev *a;
     int cmp;
     int exact = FALSE;
@@ -174,7 +174,7 @@ struct abbrev *find_abbr(const char *name, int len, struct abbrev **prev) {
     return NULL;
 }
 
-void write_abbrevs(FILE *f) {
+void write_abbrevs(sheet_t *sp, FILE *f) {
     struct abbrev *a;
 
     for (a = abbr_base; a; a = a->next) {

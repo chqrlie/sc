@@ -38,13 +38,6 @@ int currow = 0, curcol = 0;
 cellref_t savedcr[37];     /* stack of marked cells */
 cellref_t savedst[37];
 int FullUpdate = 0;
-int maxrow, maxcol;
-int maxrows, maxcols;
-SCXMEM int *fwidth;
-SCXMEM int *precision;
-SCXMEM int *realfmt;
-SCXMEM unsigned char *col_hidden;
-SCXMEM unsigned char *row_hidden;
 int changed;
 int cslop;
 int qbuf;       /* buffer no. specified by " command */
@@ -119,6 +112,7 @@ static FILE *ftrace;
 #endif
 
 int main(int argc, char **argv) {
+    sheet_t *sp = sht;
     int c;
     const char *revi;
 
@@ -212,7 +206,7 @@ int main(int argc, char **argv) {
     read_hist();
 
     /* setup the spreadsheet arrays, initscr() will get the screen size */
-    if (!growtbl(sht, GROWNEW, 0, 0)) {
+    if (!growtbl(sp, GROWNEW, 0, 0)) {
         stopdisp();
         exit(1);
     }
@@ -238,20 +232,20 @@ int main(int argc, char **argv) {
         pstrcpy(curfile, sizeof curfile, argv[optind]);
 
     if (usecurses)
-        initcolor(0);
+        initcolor(sp, 0);
 
     if (optind < argc) {
-        if (!readfile(argv[optind], 1) && (optind == argc - 1))
+        if (!readfile(sp, argv[optind], 1) && (optind == argc - 1))
             error("New file: \"%s\"", curfile);
-        EvalAll(); // XXX: should delay until after all files have been loaded
+        EvalAll(sp); // XXX: should delay until after all files have been loaded
         optind++;
     } else {
-        erasedb(TRUE);
+        erasedb(sp, TRUE);
     }
 
     while (optind < argc) {
         /* merge other files into the current db */
-        readfile(argv[optind], 0);
+        readfile(sp, argv[optind], 0);
         optind++;
     }
 
@@ -259,10 +253,10 @@ int main(int argc, char **argv) {
     savedst[0] = cellref(strow, stcol);
     // XXX: potentially redundant
     // XXX: should check for autocalc
-    EvalAll();
+    EvalAll(sp);
 
     if (!(popt || isatty(STDIN_FILENO)))
-        readfile("-", 0);
+        readfile(sp, "-", 0);
 
     if (qopt == 1) {
         stopdisp();
@@ -272,7 +266,7 @@ int main(int argc, char **argv) {
     screen_rebuild();
 
     // XXX: potentially redundant
-    EvalAll();
+    EvalAll(sp);
 
     if (mopt) autocalc = 0;
     if (oopt) optimize = 1;
@@ -299,7 +293,7 @@ int main(int argc, char **argv) {
                 Vopt = 1;
                 break;
             case 'P':
-                sc_cmd_put(optarg, Vopt);
+                sc_cmd_put(sp, optarg, Vopt);
                 if (optarg && *optarg == '/')
                     redraw = "recalc\nredraw\n";
                 Vopt = 0;
@@ -317,7 +311,7 @@ int main(int argc, char **argv) {
 
     if (!isatty(STDOUT_FILENO)) {
         stopdisp();
-        write_fd(stdout, rangeref_total(), DCP_DEFAULT);
+        write_fd(sp, stdout, rangeref_total(sp), DCP_DEFAULT);
         return EXIT_SUCCESS;
     }
 
@@ -325,14 +319,14 @@ int main(int argc, char **argv) {
     setbuf(stdin, NULL);
 #endif
     if (!qopt)
-        vi_interaction();
+        vi_interaction(sp);
     stopdisp();
     write_hist();
 
     if (Dopt) {
         /* free all memory and check for remaining blocks */
-        erasedb(FALSE);
-        go_free();
+        erasedb(sp, FALSE);
+        go_free(sp);
         free_ent_list();
         free_enode_list();
         free_styles();
@@ -354,13 +348,14 @@ int main(int argc, char **argv) {
 
 /* try to save the current spreadsheet if we can */
 static void diesave(void) {
+    sheet_t *sp = sht;
     char path[PATHLEN];
 
-    if (modcheck(" before Spreadsheet dies") == 1) {
+    if (modcheck(sp, " before Spreadsheet dies") == 1) {
         snprintf(path, sizeof path, "~/%s", SAVENAME);
-        if (writefile(path, rangeref_total(), DCP_DEFAULT) < 0) {
+        if (writefile(sp, path, rangeref_total(sp), DCP_DEFAULT) < 0) {
             snprintf(path, sizeof path, "/tmp/%s", SAVENAME);
-            if (writefile(path, rangeref_total(), DCP_DEFAULT) < 0)
+            if (writefile(sp, path, rangeref_total(sp), DCP_DEFAULT) < 0)
                 error("Could not save current spreadsheet, Sorry");
         }
     }
@@ -387,8 +382,10 @@ sigret_t nopipe(int i) {
 }
 
 sigret_t winchg(int i) {
+    sheet_t *sp = sht;
+
     (void)i;
-    screen_resize();
+    screen_resize(sp);
 #ifdef SIGWINCH
     signal(SIGWINCH, winchg);
 #endif

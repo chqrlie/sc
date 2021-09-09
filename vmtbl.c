@@ -22,25 +22,25 @@ int checkbounds(sheet_t *sp, int *rowp, int *colp) {
     if (*rowp < 0)
         *rowp = 0;
     else
-    if (*rowp >= maxrows) {
-        if (*colp >= maxcols) {
+    if (*rowp >= sp->maxrows) {
+        if (*colp >= sp->maxcols) {
             if (!growtbl(sp, GROWBOTH, *rowp, *colp)) {
-                *rowp = maxrows - 1;
-                *colp = maxcols - 1;
+                *rowp = sp->maxrows - 1;
+                *colp = sp->maxcols - 1;
             }
             return 0;
         } else {
             if (!growtbl(sp, GROWROW, *rowp, 0))
-                *rowp = maxrows - 1;
+                *rowp = sp->maxrows - 1;
             return 0;
         }
     }
     if (*colp < 0)
         *colp = 0;
     else
-    if (*colp >= maxcols) {
+    if (*colp >= sp->maxcols) {
         if (!growtbl(sp, GROWCOL, 0, *colp))
-            *colp = maxcols - 1;
+            *colp = sp->maxcols - 1;
     }
     return 0;
 }
@@ -66,8 +66,8 @@ static const char nowider[] = "The table cannot be any wider";
 int growtbl(sheet_t *sp, int mode, int toprow, int topcol) {
     int row, col, curcols, currows, newrows, newcols;
 
-    newrows = currows = maxrows;
-    newcols = curcols = maxcols;
+    newrows = currows = sp->maxrows;
+    newcols = curcols = sp->maxcols;
 
     if (mode == GROWNEW) {
         /* when we first start up, fill the screen w/ cells */
@@ -81,19 +81,19 @@ int growtbl(sheet_t *sp, int mode, int toprow, int topcol) {
 
     /* set how much to grow */
     if (mode & GROWROW) {
-        if (toprow >= maxrows)
+        if (toprow >= sp->maxrows)
             newrows = toprow + GROWAMT;
         else
             newrows += GROWAMT;
     }
 
     if (mode & GROWCOL) {
-        if ((mode == GROWCOL) && ((maxcols == ABSMAXCOLS) || (topcol >= ABSMAXCOLS))) {
+        if ((mode == GROWCOL) && ((sp->maxcols == ABSMAXCOLS) || (topcol >= ABSMAXCOLS))) {
             error(nowider);
             return FALSE;
         }
 
-        if (topcol >= maxcols)
+        if (topcol >= sp->maxcols)
             newcols = topcol + GROWAMT;
         else
             newcols += GROWAMT;
@@ -103,8 +103,8 @@ int growtbl(sheet_t *sp, int mode, int toprow, int topcol) {
     }
 
     if (newrows > currows) {
-        GROWALLOC(row_hidden, newrows, unsigned char, nolonger);
-        memzero(row_hidden + currows, (newrows - currows) * sizeof(*row_hidden));
+        GROWALLOC(sp->row_hidden, newrows, unsigned char, nolonger);
+        memzero(sp->row_hidden + currows, (newrows - currows) * sizeof(*sp->row_hidden));
         GROWALLOC(sp->tbl, newrows, struct ent **, nolonger);
         for (row = currows; row < newrows; row++) {
             sp->tbl[row] = NULL;
@@ -112,15 +112,15 @@ int growtbl(sheet_t *sp, int mode, int toprow, int topcol) {
     }
 
     if (newcols > curcols) {
-        GROWALLOC(fwidth, newcols, int, nowider);
-        GROWALLOC(precision, newcols, int, nowider);
-        GROWALLOC(realfmt, newcols, int, nowider);
-        GROWALLOC(col_hidden, newcols, unsigned char, nowider);
+        GROWALLOC(sp->fwidth, newcols, int, nowider);
+        GROWALLOC(sp->precision, newcols, int, nowider);
+        GROWALLOC(sp->realfmt, newcols, int, nowider);
+        GROWALLOC(sp->col_hidden, newcols, unsigned char, nowider);
         for (col = curcols; col < newcols; col++) {
-            fwidth[col] = DEFWIDTH;
-            precision[col] = DEFPREC;
-            realfmt[col] = DEFREFMT;
-            col_hidden[col] = 0;
+            sp->fwidth[col] = DEFWIDTH;
+            sp->precision[col] = DEFPREC;
+            sp->realfmt[col] = DEFREFMT;
+            sp->col_hidden[col] = 0;
         }
 
         /* [re]alloc the space for each row */
@@ -149,8 +149,8 @@ int growtbl(sheet_t *sp, int mode, int toprow, int topcol) {
     }
 
     FullUpdate++;
-    maxrows = newrows;
-    maxcols = newcols;
+    sp->maxrows = newrows;
+    sp->maxcols = newcols;
 
     for (rescol = 4; newrows >= 1000; rescol++) {
         newrows /= 10;

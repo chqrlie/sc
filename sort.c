@@ -19,7 +19,7 @@ struct sortcrit {
 static SCXMEM struct sortcrit *sort;
 static int howmany;
 
-void sortrange(rangeref_t rr, SCXMEM string_t *criteria) {
+void sortrange(sheet_t *sp, rangeref_t rr, SCXMEM string_t *criteria) {
     SCXMEM int *rows;
     int minr, minc, maxr, maxc;
     int i, r, nrows, col, len, qtmp;
@@ -92,11 +92,11 @@ void sortrange(rangeref_t rr, SCXMEM string_t *criteria) {
 
     qsort(rows, nrows, sizeof(int), compare);
     /* move cell range to subsheet delbuf[++dbidx] */
-    erase_area(++dbidx, minr, minc, maxr, maxc, 1);
+    erase_area(sp, ++dbidx, minr, minc, maxr, maxc, 1);
     // XXX: make formulas that refer to the sort range
     //      point to empty cells
     // XXX: should we use sync_refs() instead?
-    sync_ranges();
+    sync_ranges(sp);
     for (i = 0, p = delbuf[dbidx]; p; p = p->next) {
         if (rows[i] != p->row) {
             /* find destination row */
@@ -114,7 +114,7 @@ void sortrange(rangeref_t rr, SCXMEM string_t *criteria) {
     // XXX: Achtung! pullcells uses qbuf if set
     qtmp = qbuf;
     qbuf = 0;
-    pullcells('m', cellref(minr, minc));    /* PULLMERGE */
+    pullcells(sp, 'm', cellref(minr, minc));    /* PULLMERGE */
     qbuf = qtmp;
     /* free delbuf[dbidx--] */
     flush_saved(dbidx--);
@@ -130,6 +130,7 @@ fail:
 }
 
 int compare(const void *a1, const void *a2) {
+    sheet_t *sp = sht;
     int row1 = *(const int *)a1;
     int row2 = *(const int *)a2;
     struct ent *p1;
@@ -141,8 +142,8 @@ int compare(const void *a1, const void *a2) {
         if (i >= howmany)
             return (row1 > row2) - (row1 < row2);
 
-        p1 = getcell(sht, row1, sort[i].column);
-        p2 = getcell(sht, row2, sort[i].column);
+        p1 = getcell(sp, row1, sort[i].column);
+        p2 = getcell(sp, row2, sort[i].column);
 
         // XXX: comparison algorithm should be the same as for expressions
         /* mixed types are sorted in this order:

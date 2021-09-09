@@ -14,7 +14,7 @@
 
 #define DEFCOLDELIM ':'
 
-void printfile(SCXMEM string_t *str, rangeref_t rr) {
+void printfile(sheet_t *sp, SCXMEM string_t *str, rangeref_t rr) {
     char field[FBUFLEN];
     buf_t(buf, FBUFLEN);
     FILE *f;
@@ -59,23 +59,23 @@ void printfile(SCXMEM string_t *str, rangeref_t rr) {
     for (row = rr.left.row; row <= rr.right.row; row++) {
         int w = 0;
 
-        if (row_hidden[row])
+        if (sp->row_hidden[row])
             continue;
 
         buf_reset(buf);
         for (col = rr.left.col; col <= rr.right.col; col = nextcol, w += fieldlen) {
-            struct ent *p = getcell(sht, row, col);
+            struct ent *p = getcell(sp, row, col);
             const char *s;
             int align, len;
 
             fieldlen = 0;
             nextcol = col + 1;
-            if (col_hidden[col]) {
+            if (sp->col_hidden[col]) {
                 continue;
             }
 
             // XXX: should handle cell fusion
-            fieldlen = fwidth[col];
+            fieldlen = sp->fwidth[col];
             if (!p)
                 continue;
 
@@ -99,9 +99,9 @@ void printfile(SCXMEM string_t *str, rangeref_t rr) {
                         align = ALIGN_CENTER;
                 } else {
                     if (p->format) {
-                        len = format(field, sizeof field, s2c(p->format), precision[col], p->v, &align);
+                        len = format(field, sizeof field, s2c(p->format), sp->precision[col], p->v, &align);
                     } else {
-                        len = engformat(field, sizeof field, realfmt[col], precision[col], p->v, &align);
+                        len = engformat(field, sizeof field, sp->realfmt[col], sp->precision[col], p->v, &align);
                     }
                 }
                 if ((int)buf->len < w) {
@@ -150,11 +150,11 @@ void printfile(SCXMEM string_t *str, rangeref_t rr) {
                 }
                 /* Figure out if the label slops over to a blank field. */
                 while (slen > fieldlen && nextcol <= rr.right.col) {
-                    if (!col_hidden[nextcol]) {
-                        struct ent *nc = getcell(sht, row, nextcol);
+                    if (!sp->col_hidden[nextcol]) {
+                        struct ent *nc = getcell(sp, row, nextcol);
                         if (nc && (nc->type || nc->expr))
                             break;
-                        fieldlen += fwidth[nextcol];
+                        fieldlen += sp->fwidth[nextcol];
                     }
                     nextcol++;
                 }
@@ -166,7 +166,7 @@ void printfile(SCXMEM string_t *str, rangeref_t rr) {
                         slen = fieldlen;
                     break;
                 case ALIGN_CENTER:
-                    pad = w - buf->len + (fwidth[nextcol] - slen) / 2;
+                    pad = w - buf->len + (sp->fwidth[nextcol] - slen) / 2;
                     if (pad < 0) {
                         soff = -pad;
                         slen -= soff;
@@ -220,7 +220,7 @@ static void unspecial(FILE *f, const char *str, int delim) {
     }
 }
 
-void tblprintfile(SCXMEM string_t *str, rangeref_t rr) {
+void tblprintfile(sheet_t *sp, SCXMEM string_t *str, rangeref_t rr) {
     FILE *f;
     int pid;
     int row, col, ncols = rr.right.col - rr.left.col + 1;
@@ -341,7 +341,7 @@ void tblprintfile(SCXMEM string_t *str, rangeref_t rr) {
         }
 
         for (col = rr.left.col; col <= rr.right.col; col++) {
-            struct ent *p = getcell(sht, row, col);
+            struct ent *p = getcell(sp, row, col);
 
             // XXX: print hidden columns?
             // XXX: should handle cell fusion
@@ -368,9 +368,9 @@ void tblprintfile(SCXMEM string_t *str, rangeref_t rr) {
                             align = ALIGN_CENTER;
                     } else {
                         if (p->format) {
-                            format(field, sizeof field, s2c(p->format), precision[col], p->v, &align);
+                            format(field, sizeof field, s2c(p->format), sp->precision[col], p->v, &align);
                         } else {
-                            engformat(field, sizeof field, realfmt[col], precision[col], p->v, &align);
+                            engformat(field, sizeof field, sp->realfmt[col], sp->precision[col], p->v, &align);
                         }
                     }
                     // XXX: should fill fieldlen with * if too long

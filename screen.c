@@ -47,7 +47,7 @@ struct termio tmio;
 #endif
 
 static void repaint(int x, int y, int len, int attron, int attroff);
-static void showstring(const char *string, int align, int hasvalue, int row,
+static void showstring(sheet_t *sp, const char *string, int align, int hasvalue, int row,
                        int col, int *nextcolp, int mxcol, int *fieldlenp, int r, int c,
                        struct frange *fr, int frightcols, int flcols, int frcols);
 
@@ -130,28 +130,28 @@ void select_style(int n, int rev) {
     }
 }
 
-int rows_height(int r, int n) {
+int rows_height(sheet_t *sp, int r, int n) {
     int height = 0;
-    while (n --> 0 && r < maxrows) {
-        if (!row_hidden[r])
+    while (n --> 0 && r < sp->maxrows) {
+        if (!sp->row_hidden[r])
             height += 1;
         r++;
     }
     return height;
 }
 
-int cols_width(int c, int n) {
+int cols_width(sheet_t *sp, int c, int n) {
     int width = 0;
-    while (n --> 0 && c < maxcols) {
-        if (!col_hidden[c])
-            width += fwidth[c];
+    while (n --> 0 && c < sp->maxcols) {
+        if (!sp->col_hidden[c])
+            width += sp->fwidth[c];
         c++;
     }
     return width;
 }
 
 /* update() does general screen update */
-void update(int anychanged) {          /* did any cell really change in value? */
+void update(sheet_t *sp, int anychanged) {          /* did any cell really change in value? */
     char field[FBUFLEN];
     int row, col;
     struct ent *p;
@@ -186,13 +186,13 @@ void update(int anychanged) {          /* did any cell really change in value? *
     framerows = framecols = 0;
     if (fr) {
         ftoprows = fr->ir_left->row - fr->or_left->row;
-        ftrows = rows_height(fr->or_left->row, ftoprows);
+        ftrows = rows_height(sp, fr->or_left->row, ftoprows);
         fbottomrows = fr->or_right->row - fr->ir_right->row;
-        fbrows = rows_height(fr->ir_right->row + 1, fbottomrows);
+        fbrows = rows_height(sp, fr->ir_right->row + 1, fbottomrows);
         fleftcols = fr->ir_left->col - fr->or_left->col;
-        flcols = cols_width(fr->or_left->col, fleftcols);
+        flcols = cols_width(sp, fr->or_left->col, fleftcols);
         frightcols = fr->or_right->col - fr->ir_right->col;
-        frcols = cols_width(fr->ir_right->col + 1, frightcols);
+        frcols = cols_width(sp, fr->ir_right->col + 1, frightcols);
         framerows = RESROW + ftrows + fbrows;
         framecols = rescol + flcols + frcols;
         if (framerows >= lines || framecols >= cols) {
@@ -236,8 +236,8 @@ void update(int anychanged) {          /* did any cell really change in value? *
             else
                 frightcols = fr->or_right->col - curcol;
         }
-        fbrows = rows_height(fr->ir_right->row + 1, fbottomrows);
-        frcols = cols_width(fr->ir_right->col + 1, frightcols);
+        fbrows = rows_height(sp, fr->ir_right->row + 1, fbottomrows);
+        frcols = cols_width(sp, fr->ir_right->col + 1, frightcols);
     }
     if (fr != lastfr && !gs.stflag && lastfr) {
         if (strow >= lastfr->ir_left->row)
@@ -252,13 +252,13 @@ void update(int anychanged) {          /* did any cell really change in value? *
      */
     if ((curcol != sc_lastcol) || FullUpdate) {
         // XXX: update should not have a side effect on currow/curcol
-        while (col_hidden[curcol])   /* You can't hide the last row or col */
+        while (sp->col_hidden[curcol])   /* You can't hide the last row or col */
             curcol++;
-        if (fwidth[curcol] > cols - rescol - 2) {
+        if (sp->fwidth[curcol] > cols - rescol - 2) {
             // XXX: update should not have a side effect on the database
             error("column %s too wide - resizing", coltoa(curcol));
-            cmd_format(curcol, curcol, cols - rescol - 2,
-                       precision[curcol], realfmt[curcol]);
+            cmd_format(sp, curcol, curcol, cols - rescol - 2,
+                       sp->precision[curcol], sp->realfmt[curcol]);
         }
 
         /* First see if the last display still covers curcol */
@@ -286,40 +286,40 @@ void update(int anychanged) {          /* did any cell really change in value? *
                 else
                     col += flcols;
             }
-            for (; i < maxcols &&
-                    (col + fwidth[i] < cols - 1 || col_hidden[i] || i < curcol);
+            for (; i < sp->maxcols &&
+                    (col + sp->fwidth[i] < cols - 1 || sp->col_hidden[i] || i < curcol);
                  i++) {
                 lcols++;
                 if (fr && i == fr->ir_right->col + 1) {
                     col -= frcols;
                     frcols = frightcols = 0;
                 }
-                if (col_hidden[i])
+                if (sp->col_hidden[i])
                     continue;
 
                 /* If there isn't room for more columns, and we haven't yet
                  * reached the current column, start removing columns from
                  * the left.
                  */
-                while (col + fwidth[i] > cols - 2) {
+                while (col + sp->fwidth[i] > cols - 2) {
                     lcols--;
-                    col -= fwidth[stcol];
-                    while (col_hidden[++stcol])
+                    col -= sp->fwidth[stcol];
+                    while (sp->col_hidden[++stcol])
                         continue;
                     FullUpdate++;
                     c++;
                 }
-                col += fwidth[i];
+                col += sp->fwidth[i];
             }
             if (!frTooLarge && fr && curcol <= stcol + lcols &&
                     fr->ir_left->col >= stcol + lcols) {
                 while (stcol + lcols < fr->ir_left->col) {
-                    col -= fwidth[stcol];
+                    col -= sp->fwidth[stcol];
                     lcols--;
-                    while (col_hidden[++stcol])
+                    while (sp->col_hidden[++stcol])
                         lcols--;
-                    while (col + fwidth[stcol + lcols] < cols - 1) {
-                        col += fwidth[stcol + lcols];
+                    while (col + sp->fwidth[stcol + lcols] < cols - 1) {
+                        col += sp->fwidth[stcol + lcols];
                         lcols++;
                     }
                 }
@@ -328,11 +328,11 @@ void update(int anychanged) {          /* did any cell really change in value? *
         }
 
         if (!rowsinrange) rowsinrange = 1;
-        if (!colsinrange) colsinrange = fwidth[curcol];
+        if (!colsinrange) colsinrange = sp->fwidth[curcol];
 
         // XXX: should compute goto target area and shift screen?
         while (stcol < 0 || curcol < stcol || stcol + lcols - 1 < curcol ||
-                (colsinrange != fwidth[curcol] && stcol != curcol &&
+                (colsinrange != sp->fwidth[curcol] && stcol != curcol &&
                 stcol + lcols - 1 < gs.g_rr.right.col)) {
 
             FullUpdate++;
@@ -348,9 +348,9 @@ void update(int anychanged) {          /* did any cell really change in value? *
                        curcol <= stcol + lcols + fr->ir_left->col -
                             fr->or_left->col) {
                 while ((stcol + lcols < fr->ir_left->col && !frTooLarge) ||
-                        (colsinrange != fwidth[curcol] && stcol != curcol &&
+                        (colsinrange != sp->fwidth[curcol] && stcol != curcol &&
                         stcol + lcols - 1 < gs.g_rr.right.col)) {
-                    if (col_hidden[++stcol]) lcols--;
+                    if (sp->col_hidden[++stcol]) lcols--;
                 }
             } else {
                 /* Try to put the cursor in the center of the screen.
@@ -363,12 +363,12 @@ void update(int anychanged) {          /* did any cell really change in value? *
                 stcol = curcol;
                 for (i = curcol - 1;
                      i >= (fr ? fr->or_left->col + fleftcols : 0) &&
-                         (col - fwidth[i] > 0 || col_hidden[i]);
+                         (col - sp->fwidth[i] > 0 || sp->col_hidden[i]);
                      i--) {
                     stcol--;
-                    if (col_hidden[i])
+                    if (sp->col_hidden[i])
                         continue;
-                    col -= fwidth[i];
+                    col -= sp->fwidth[i];
                 }
                 if (fr && stcol < fr->or_left->col + fleftcols) {
                     stcol = fr->or_left->col + fleftcols;
@@ -386,18 +386,18 @@ void update(int anychanged) {          /* did any cell really change in value? *
                 else
                     col += flcols;
             }
-            for (; i < maxcols &&
-                    (col + fwidth[i] < cols-1 || col_hidden[i] || i < curcol);
+            for (; i < sp->maxcols &&
+                    (col + sp->fwidth[i] < cols-1 || sp->col_hidden[i] || i < curcol);
                     i++) {
                 lcols++;
                 if (fr && i == fr->ir_right->col + 1) {
                     col -= frcols;
                     frcols = frightcols = 0;
                 }
-                if (col_hidden[i])
+                if (sp->col_hidden[i])
                     continue;
 
-                col += fwidth[i];
+                col += sp->fwidth[i];
             }
         }
     }
@@ -411,7 +411,7 @@ void update(int anychanged) {          /* did any cell really change in value? *
     /* Now - same process on the rows as the columns */
     if ((currow != sc_lastrow) || FullUpdate) {
         // XXX: update should not have a side effect on currow/curcol
-        while (row_hidden[currow])   /* You can't hide the last row or col */
+        while (sp->row_hidden[currow])   /* You can't hide the last row or col */
             currow++;
         if (strow >= 0 && strow <= currow) {
             int c = 0;
@@ -437,13 +437,13 @@ void update(int anychanged) {          /* did any cell really change in value? *
                 else
                     row += ftrows;
             }
-            for (; (row < lines || row_hidden[i] || i < currow) && i < maxrows; i++) {
+            for (; (row < lines || sp->row_hidden[i] || i < currow) && i < sp->maxrows; i++) {
                 rows++;
                 if (fr && i == fr->ir_right->row + 1) {
                     row -= fbrows;
                     fbrows = fbottomrows = 0;
                 }
-                if (row_hidden[i])
+                if (sp->row_hidden[i])
                     continue;
 
                 /* If there isn't room for more rows, and we haven't yet
@@ -453,7 +453,7 @@ void update(int anychanged) {          /* did any cell really change in value? *
                 if (row >= lines) {
                     rows--;
                     row--;
-                    while (row_hidden[++strow])
+                    while (sp->row_hidden[++strow])
                         continue;
                     FullUpdate++;
                     c++;
@@ -463,7 +463,7 @@ void update(int anychanged) {          /* did any cell really change in value? *
             if (!frTooLarge && fr && currow <= strow + rows &&
                 fr->ir_left->row >= strow + rows) {
                 while (strow + rows < fr->ir_left->row) {
-                    while (row_hidden[++strow])
+                    while (sp->row_hidden[++strow])
                         continue;
                 }
             } else if (c && currow > lastendrow)
@@ -488,7 +488,7 @@ void update(int anychanged) {          /* did any cell really change in value? *
                 while ((strow + rows < fr->ir_left->row && !frTooLarge) ||
                        (rowsinrange > 1 && strow != currow &&
                         strow + rows - 1 < gs.g_rr.right.row)) {
-                    if (row_hidden[++strow]) rows--;
+                    if (sp->row_hidden[++strow]) rows--;
                 }
             } else {
                 /* Try to put the cursor in the center of the screen.
@@ -501,9 +501,9 @@ void update(int anychanged) {          /* did any cell really change in value? *
                 strow = currow;
                 for (i = currow - 1;
                      i >= (fr ? fr->or_left->row + ftoprows : 0) &&
-                         (row > 0 || row_hidden[i]); i--) {
+                         (row > 0 || sp->row_hidden[i]); i--) {
                     strow--;
-                    if (row_hidden[i])
+                    if (sp->row_hidden[i])
                         continue;
                     row--;
                 }
@@ -523,13 +523,13 @@ void update(int anychanged) {          /* did any cell really change in value? *
                 else
                     row += ftrows;
             }
-            for (; (row < lines || row_hidden[i] || i < currow) && i < maxrows; i++) {
+            for (; (row < lines || sp->row_hidden[i] || i < currow) && i < sp->maxrows; i++) {
                 rows++;
                 if (fr && i == fr->ir_right->row + 1) {
                     row -= fbrows;
                     fbrows = fbottomrows = 0;
                 }
-                if (row_hidden[i])
+                if (sp->row_hidden[i])
                     continue;
                 row++;
             }
@@ -555,16 +555,16 @@ void update(int anychanged) {          /* did any cell really change in value? *
 
     /* Get rid of cursor standout on the cell at previous cursor position */
     if (!FullUpdate) {
-        repaint_cursor(-showcell);
+        repaint_cursor(sp, -showcell);
 
         // XXX: check this stuff
-        move(lastmy, lastmx + fwidth[sc_lastcol]);
+        move(lastmy, lastmx + sp->fwidth[sc_lastcol]);
         if ((inch() & A_CHARTEXT) == '<')
             addch(under_cursor | (inch() & A_ATTRIBUTES));
 
         /* remove the frame cursor */
         select_style(STYLE_FRAME, 0);
-        repaint(lastmx, RESROW - 1, fwidth[sc_lastcol], 0/*A_STANDOUT*/, A_COLOR);
+        repaint(lastmx, RESROW - 1, sp->fwidth[sc_lastcol], 0/*A_STANDOUT*/, A_COLOR);
         repaint(0, lastmy, rescol - 1, 0/*A_STANDOUT*/, A_COLOR);
         select_style(STYLE_CELL, 0);
     }
@@ -581,7 +581,7 @@ void update(int anychanged) {          /* did any cell really change in value? *
         else
             lastmy += ftrows;
     }
-    lastmy += rows_height(row, currow - row);
+    lastmy += rows_height(sp, row, currow - row);
     lastmx = rescol;
     col = stcol;
     if (fr && col >= fr->or_left->col) {
@@ -590,7 +590,7 @@ void update(int anychanged) {          /* did any cell really change in value? *
         else
             lastmx += flcols;
     }
-    lastmx += cols_width(col, curcol - col);
+    lastmx += cols_width(sp, col, curcol - col);
     select_style(STYLE_CELL, 0);
 
     if (FullUpdate || standlast) {
@@ -606,7 +606,7 @@ void update(int anychanged) {          /* did any cell really change in value? *
                 i = strow < i ? i : strow;
             if (fbottomrows && row == lines - fbrows)
                 i = fr->or_right->row - fbottomrows + 1;
-            if (row_hidden[i])
+            if (sp->row_hidden[i])
                 continue;
             move(row, 0);
             if (i == currow)
@@ -638,9 +638,9 @@ void update(int anychanged) {          /* did any cell really change in value? *
 
             if (fleftcols && stcol >= fr->or_left->col && col == rescol + flcols)
                 i = stcol < i ? i : stcol;
-            if (frightcols && col + fwidth[i] >= cols - 1 - frcols && i < fr->or_right->col - frightcols + 1)
+            if (frightcols && col + sp->fwidth[i] >= cols - 1 - frcols && i < fr->or_right->col - frightcols + 1)
                 i = fr->or_right->col - frightcols + 1;
-            if (col_hidden[i])
+            if (sp->col_hidden[i])
                 continue;
             if (i == curcol)
                 select_style(STYLE_FRAME_CUR, 0);
@@ -649,9 +649,9 @@ void update(int anychanged) {          /* did any cell really change in value? *
             move(2, col);
             colname = coltoa(i);
             len = strlen(colname);
-            width = fwidth[i];
+            width = sp->fwidth[i];
             if (width <= len) {
-                printw("%s", colname + len - fwidth[i]);
+                printw("%s", colname + len - sp->fwidth[i]);
             } else
             if (braille) {
                 printw("%-*s", width, colname);
@@ -671,7 +671,7 @@ void update(int anychanged) {          /* did any cell really change in value? *
             minsr = showsr < currow ? showsr : currow;
             minsc = fr ? fr->or_left->col : 0;
             maxsr = showsr > currow ? showsr : currow;
-            maxsc = fr ? fr->or_right->col : maxcols;
+            maxsc = fr ? fr->or_right->col : sp->maxcols;
 
             if (showtop && !message) {
                 clrtoeol();
@@ -680,7 +680,7 @@ void update(int anychanged) {          /* did any cell really change in value? *
         } else if (showrange == SHOWCOLS) {
             minsr = 0;
             minsc = showsc < curcol ? showsc : curcol;
-            maxsr = maxrows;
+            maxsr = sp->maxrows;
             maxsc = showsc > curcol ? showsc : curcol;
 
             if (showtop && !message) {
@@ -728,7 +728,7 @@ void update(int anychanged) {          /* did any cell really change in value? *
                 continue;
             }
 #endif
-            if (row_hidden[row])
+            if (sp->row_hidden[row])
                 continue;
             if (ftoprows && strow >= fr->or_left->row && r == RESROW + ftrows)
                 row = (strow < row ? row : strow);
@@ -741,22 +741,22 @@ void update(int anychanged) {          /* did any cell really change in value? *
                 if (fleftcols && stcol >= fr->or_left->col && c == rescol + flcols) {
                     col = (stcol < col ? col : stcol);
                 }
-                if (frightcols && c + fwidth[col] >= cols - 1 - frcols && col < fr->or_right->col - frightcols + 1) {
+                if (frightcols && c + sp->fwidth[col] >= cols - 1 - frcols && col < fr->or_right->col - frightcols + 1) {
                     col = fr->or_right->col - frightcols + 1;
                 }
                 nextcol = col + 1;
                 fieldlen = 0;
 #if 0
-                if (col < 0 || col >= maxcols) {
+                if (col < 0 || col >= sp->maxcols) {
                     fprintf(stderr, "invalid cell: %d.%d\n", col, row);
                     continue;
                 }
 #endif
-                if (col_hidden[col])
+                if (sp->col_hidden[col])
                     continue;
-                fieldlen = fwidth[col];
+                fieldlen = sp->fwidth[col];
 
-                p = getcell(sht, row, col);
+                p = getcell(sp, row, col);
 
                 select_style(STYLE_CELL, 0);
                 /*
@@ -780,7 +780,7 @@ void update(int anychanged) {          /* did any cell really change in value? *
                 {
                     move(r, c);
                     //standout();
-                    if ((cr = find_crange(row, col)))
+                    if ((cr = find_crange(sp, row, col)))
                         select_style(cr->r_color, 0);
                     else
                         select_style(STYLE_RANGE, 0);
@@ -795,7 +795,7 @@ void update(int anychanged) {          /* did any cell really change in value? *
                     do_stand = 0;
                 }
 
-                if ((cr = find_crange(row, col)))
+                if ((cr = find_crange(sp, row, col)))
                     select_style(cr->r_color, 0);
 
                 if (p && ((p->flags & IS_CHANGED) || FullUpdate || do_stand)) {
@@ -814,8 +814,8 @@ void update(int anychanged) {          /* did any cell really change in value? *
                     } else
                     if (p->expr && showexpr) {
                         /* Show expression; takes priority over other displays */
-                        decompile(field, sizeof field, p->expr, 0, 0, DCP_DEFAULT);
-                        showstring(field, ALIGN_LEFT, /* hasvalue = */ 0,
+                        decompile(sp, field, sizeof field, p->expr, 0, 0, DCP_DEFAULT);
+                        showstring(sp, field, ALIGN_LEFT, /* hasvalue = */ 0,
                                    row, col, &nextcol, mxcol, &fieldlen, r, c,
                                    fr, frightcols, flcols, frcols);
                     } else
@@ -838,9 +838,9 @@ void update(int anychanged) {          /* did any cell really change in value? *
                             /* convert cell contents, do not test width, should not align */
                             *field = '\0';
                             if (p->format) {
-                                len = format(field, sizeof field, s2c(p->format), precision[col], p->v, &align);
+                                len = format(field, sizeof field, s2c(p->format), sp->precision[col], p->v, &align);
                             } else {
-                                len = engformat(field, sizeof field, realfmt[col], precision[col], p->v, &align);
+                                len = engformat(field, sizeof field, sp->realfmt[col], sp->precision[col], p->v, &align);
                             }
                         }
                         if (align & ALIGN_CLIP) {
@@ -923,7 +923,7 @@ void update(int anychanged) {          /* did any cell really change in value? *
                     if (p->type == SC_STRING) {
                         /* Show cell's label string: */
                         // XXX: should handle notes too */
-                        showstring(s2str(p->label),
+                        showstring(sp, s2str(p->label),
                                    p->flags & ALIGN_MASK,
                                    /* hasvalue = */ 0,
                                    row, col, &nextcol, mxcol, &fieldlen,
@@ -952,16 +952,16 @@ void update(int anychanged) {          /* did any cell really change in value? *
 
     /* place 'cursor marker' */
     if (showcell && !showneed && !showexpr && !shownote) {
-        repaint_cursor(showcell);
+        repaint_cursor(sp, showcell);
     }
 
     /* highlite the frame cursor */
     select_style(STYLE_FRAME_CUR, 0);
-    repaint(lastmx, RESROW - 1, fwidth[sc_lastcol], 0, A_COLOR | A_STANDOUT);
+    repaint(lastmx, RESROW - 1, sp->fwidth[sc_lastcol], 0, A_COLOR | A_STANDOUT);
     repaint(0, lastmy, rescol - 1, 0, A_COLOR | A_STANDOUT);
     select_style(STYLE_CELL, 0);
 
-    move(lastmy, lastmx + fwidth[sc_lastcol]);
+    move(lastmy, lastmx + sp->fwidth[sc_lastcol]);
     under_cursor = (inch() & A_CHARTEXT);
     if (!showcell)
         addch('<' | (inch() & A_ATTRIBUTES));
@@ -994,14 +994,14 @@ void update(int anychanged) {          /* did any cell really change in value? *
         if (showtop) {                  /* show top line */
             printw("%s%d: ", coltoa(curcol), currow);
 
-            p = getcell(sht, currow, curcol);
+            p = getcell(sp, currow, curcol);
 
             /* show the current cell format */
             if (p && p->format) {
                 printw("(%s) ", s2c(p->format));
             } else {
-                printw("(%d %d %d) ", fwidth[curcol], precision[curcol],
-                                      realfmt[curcol]);
+                printw("(%d %d %d) ", sp->fwidth[curcol], sp->precision[curcol],
+                                      sp->realfmt[curcol]);
             }
             if (p) {
                 /* display cell notes */
@@ -1019,7 +1019,7 @@ void update(int anychanged) {          /* did any cell really change in value? *
                 }
                 if (p->expr) {
                     // XXX: should pass currow, curcol as the cell reference
-                    decompile(field, sizeof field, p->expr, 0, 0, DCP_DEFAULT);
+                    decompile(sp, field, sizeof field, p->expr, 0, 0, DCP_DEFAULT);
                     addch('[');
                     addustr(field);
                     addch(']');
@@ -1058,7 +1058,7 @@ void update(int anychanged) {          /* did any cell really change in value? *
         } else if (showcell)
             move(lines - 1, cols - 1);
         else
-            move(lastmy, lastmx + fwidth[sc_lastcol]);
+            move(lastmy, lastmx + sp->fwidth[sc_lastcol]);
     }
 
     select_style(STYLE_CELL, 0);
@@ -1078,7 +1078,7 @@ void update(int anychanged) {          /* did any cell really change in value? *
         } else if (showcell)
             move(lines - 1, cols - 1);
         else
-            move(lastmy, lastmx + fwidth[sc_lastcol]);
+            move(lastmy, lastmx + sp->fwidth[sc_lastcol]);
     }
 
     FullUpdate = FALSE;
@@ -1093,9 +1093,9 @@ static void repaint(int x, int y, int len, int attron, int attroff) {
     }
 }
 
-void repaint_cursor(int set) {
+void repaint_cursor(sheet_t *sp, int set) {
     int col = sc_lastcol;
-    int width = fwidth[col];
+    int width = sp->fwidth[col];
 
     if (!usecurses) return;
 
@@ -1108,7 +1108,7 @@ void repaint_cursor(int set) {
 
         if ((cr = find_crange(row, col)))
             style = cr->r_color;
-        p = getcell(sht, row, col);
+        p = getcell(sp, row, col);
         if (p) {
             if (colorneg && (p->type == SC_NUMBER) && p->v < 0) {
                 if (cr)
@@ -1367,7 +1367,8 @@ void screen_hidecursor(void) {
  */
 
 static
-void showstring(const char *string,         /* to display */
+void showstring(sheet_t *sp,
+                const char *string,         /* to display */
                 int align,                  /* ALIGN_xxx */
                 int hasvalue,               /* is there a numeric value? */
                 int row, int col,           /* spreadsheet location */
@@ -1387,7 +1388,7 @@ void showstring(const char *string,         /* to display */
     struct ent *nc;
     struct crange *cr;
 
-    cr = find_crange(row, col);
+    cr = find_crange(sp, row, col);
 
     /* This figures out if the label is allowed to
        slop over into the next blank field */
@@ -1395,23 +1396,23 @@ void showstring(const char *string,         /* to display */
     slen = strlen(string);
     /* handle repeating patterns */
     if (*string == '\\' && string[1] != '\0')
-        slen = fwidth[col];
+        slen = sp->fwidth[col];
     if (c + fieldlen == rescol + flcols && nextcol < stcol)
         nextcol = stcol;
     if (frightcols &&
-            c + fieldlen + fwidth[nextcol] >= cols - 1 - frcols &&
+            c + fieldlen + sp->fwidth[nextcol] >= cols - 1 - frcols &&
             nextcol < fr->or_right->col - frightcols + 1)
         nextcol = fr->or_right->col - frightcols + 1;
 
-    while (slen > fieldlen && nextcol <= mxcol && !VALID_CELL(nc, row, nextcol)
-       &&  (cslop || find_crange(row, nextcol) == cr)) {
-        if (!col_hidden[nextcol])
-            fieldlen += fwidth[nextcol];
+    while (slen > fieldlen && nextcol <= mxcol && !VALID_CELL(sp, nc, row, nextcol)
+       &&  (cslop || find_crange(sp, row, nextcol) == cr)) {
+        if (!sp->col_hidden[nextcol])
+            fieldlen += sp->fwidth[nextcol];
         nextcol++;
         if (c + fieldlen == rescol + flcols && nextcol < stcol)
             nextcol = stcol;
         if (frightcols &&
-                c + fieldlen + fwidth[nextcol] >= cols - 1 - frcols &&
+                c + fieldlen + sp->fwidth[nextcol] >= cols - 1 - frcols &&
                 nextcol < fr->or_right->col - frightcols + 1)
             nextcol = fr->or_right->col - frightcols + 1;
     }
@@ -1421,7 +1422,7 @@ void showstring(const char *string,         /* to display */
     /* Now justify and print */
     // XXX: should allow center and right to bleed to the left over empty cells
     if (align == ALIGN_CENTER)
-        start = field + ((slen < fwidth[col]) ? (fieldlen - slen) / 2 : 0);
+        start = field + ((slen < sp->fwidth[col]) ? (fieldlen - slen) / 2 : 0);
     else
         start = (align == ALIGN_RIGHT) ? field + fieldlen - slen : field;
     last = field + fieldlen;
@@ -1444,7 +1445,7 @@ void showstring(const char *string,         /* to display */
         }
     }
 
-    if (!hasvalue || fieldlen != fwidth[col]) {
+    if (!hasvalue || fieldlen != sp->fwidth[col]) {
         while (fp < last)
             *fp++ = ' ';
     }
@@ -1456,10 +1457,10 @@ void showstring(const char *string,         /* to display */
     *fieldlenp = fieldlen;
 }
 
-void cmd_redraw(void) {
+void cmd_redraw(sheet_t *sp) {
     if (usecurses) {
         screen_rebuild();
-        update(1);
+        update(sp, 1);
         screen_refresh();
         changed = 0;
     }
@@ -1864,7 +1865,7 @@ int nmungetch(int c) {
 }
 
 /* called upon receiving the SIGWINCH signal */
-void screen_resize(void) {
+void screen_resize(sheet_t *sp) {
     if (usecurses) {
         stopdisp();
         startdisp();
@@ -1876,7 +1877,7 @@ void screen_resize(void) {
         screen_refresh();
         FullUpdate++;
         screen_rebuild();
-        update(1);
+        update(sp, 1);
         screen_refresh();
     }
 }

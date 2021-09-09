@@ -39,10 +39,6 @@ const char *progname;
 static sheet_t cur_sheet;
 sheet_t *sht = &cur_sheet;
 
-int *fwidth;
-int *precision;
-int *realfmt;
-int maxcols;
 int curcol;
 int currow;
 
@@ -87,6 +83,7 @@ void error(const char *fmt, ...) {
 }
 
 int main(int argc, char **argv) {
+    sheet_t *sp = sht;
     int exit_status = EXIT_SUCCESS;
     int c;
     int i, j;
@@ -161,7 +158,7 @@ int main(int argc, char **argv) {
     }
 
     /* setup the spreadsheet arrays */
-    if (!growtbl(sht, GROWNEW, 0, 0))
+    if (!growtbl(sp, GROWNEW, 0, 0))
         return EXIT_FAILURE;
 
     curlen = 0;
@@ -178,10 +175,10 @@ int main(int argc, char **argv) {
         case END:
             if (drop_format) exit(exit_status);
 
-            for (i = 0; i < maxcols; i++) {
-                if (fwidth[i]) {
+            for (i = 0; i < sp->maxcols; i++) {
+                if (sp->fwidth[i]) {
                     if (printf("format %s %d %d %d\n", coltoa(i),
-                               fwidth[i] + 1, precision[i], REFMTFIX) < 0)
+                               sp->fwidth[i] + 1, sp->precision[i], REFMTFIX) < 0)
                     {
                         fprintf(stderr, "%s: Column %d" PRINTF_CMD_ERR("format"),
                                 progname, i, strerror(errno));
@@ -201,8 +198,8 @@ int main(int argc, char **argv) {
                 exit_status = EXIT_FAILURE;
             }
 
-            if (effc >= maxcols - 1) {
-                if (!growtbl(sht, GROWCOL, 0, effc)) {
+            if (effc >= sp->maxcols - 1) {
+                if (!growtbl(sp, GROWCOL, 0, effc)) {
                     fprintf(stderr, "Invalid column used: %s\n", coltoa(effc));
                     exit_status = EXIT_FAILURE;
                     continue;
@@ -228,13 +225,13 @@ int main(int argc, char **argv) {
             {
                 int ow, nw;
 
-                ow = fwidth[effc] - precision[effc];
+                ow = sp->fwidth[effc] - sp->precision[effc];
 
-                if (precision[effc] < j)
-                    precision[effc] = j;
+                if (sp->precision[effc] < j)
+                    sp->precision[effc] = j;
 
-                if (fwidth[effc] < i)
-                    fwidth[effc] = i;
+                if (sp->fwidth[effc] < i)
+                    sp->fwidth[effc] = i;
 
                 /* now make sure:
                  *       1234.567890 (format 11 6)
@@ -243,7 +240,7 @@ int main(int argc, char **argv) {
                  *               (really it uses 15 6 to separate columns)
                  */
                 if ((nw = i - j) > ow)
-                    fwidth[effc] += nw - (fwidth[effc] - precision[effc]);
+                    sp->fwidth[effc] += nw - (sp->fwidth[effc] - sp->precision[effc]);
             }
             break;
         case ALPHA:
@@ -259,7 +256,7 @@ int main(int argc, char **argv) {
                 }
             }
 
-            if (effc >= maxcols - 1 && !growtbl(sht, GROWCOL, 0, effc)) {
+            if (effc >= sp->maxcols - 1 && !growtbl(sp, GROWCOL, 0, effc)) {
                 fprintf(stderr, "Invalid column used: %s\n", coltoa(effc));
                 exit_status = EXIT_FAILURE;
                 continue;
@@ -267,8 +264,8 @@ int main(int argc, char **argv) {
 
             i = strlen(token);
 
-            if (i > fwidth[effc]) {
-                fwidth[effc] = i;
+            if (i > sp->fwidth[effc]) {
+                sp->fwidth[effc] = i;
             }
             break;
         case SPACE:
@@ -438,18 +435,18 @@ int growtbl(sheet_t *sp, int rowcol, int toprow, int topcol) {
     int newcols;
 
     (void)toprow; /* unused */
-    newcols = maxcols;
+    newcols = sp->maxcols;
     if (rowcol == GROWNEW) {
         newcols = MINCOLS;
-        maxcols = topcol = 0;
+        sp->maxcols = topcol = 0;
     }
     if (rowcol & GROWCOL) {
-        if ((rowcol == GROWCOL) && ((maxcols == ABSMAXCOLS) || (topcol >= ABSMAXCOLS))) {
+        if ((rowcol == GROWCOL) && ((sp->maxcols == ABSMAXCOLS) || (topcol >= ABSMAXCOLS))) {
             error(nowider);
             return FALSE;
         }
 
-        if (topcol > maxcols)
+        if (topcol > sp->maxcols)
             newcols = GROWAMT + topcol;
         else
             newcols += GROWAMT;
@@ -459,15 +456,15 @@ int growtbl(sheet_t *sp, int rowcol, int toprow, int topcol) {
     }
 
     if ((rowcol == GROWCOL) || (rowcol == GROWBOTH) || (rowcol == GROWNEW)) {
-        GROWALLOC(fwidth, newcols, int, nowider);
-        GROWALLOC(precision, newcols, int, nowider);
-        GROWALLOC(realfmt, newcols, int, nowider);
+        GROWALLOC(sp->fwidth, newcols, int, nowider);
+        GROWALLOC(sp->precision, newcols, int, nowider);
+        GROWALLOC(sp->realfmt, newcols, int, nowider);
 
-        memzero(fwidth + maxcols, (newcols - maxcols) * sizeof(*fwidth));
-        memzero(precision + maxcols, (newcols - maxcols) * sizeof(*precision));
-        memzero(realfmt + maxcols, (newcols - maxcols) * sizeof(*realfmt));
+        memzero(sp->fwidth + sp->maxcols, (newcols - sp->maxcols) * sizeof(*sp->fwidth));
+        memzero(sp->precision + sp->maxcols, (newcols - sp->maxcols) * sizeof(*sp->precision));
+        memzero(sp->realfmt + sp->maxcols, (newcols - sp->maxcols) * sizeof(*sp->realfmt));
     }
 
-    maxcols = newcols;
+    sp->maxcols = newcols;
     return TRUE;
 }

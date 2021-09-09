@@ -51,8 +51,8 @@ static SCXMEM enode_t *new_node(int op, int nargs);
 extern scvalue_t eval_node(eval_ctx_t *cp, enode_t *e);
 extern scvalue_t eval_node_value(eval_ctx_t *cp, enode_t *e);
 static scvalue_t scvalue_getcell(eval_ctx_t *cp, int row, int col);
-static int RealEvalAll(void);
-static int RealEvalOne(struct ent *p, enode_t *e, int i, int j);
+static int RealEvalAll(sheet_t *sp);
+static int RealEvalOne(sheet_t *sp, struct ent *p, enode_t *e, int i, int j);
 
 #ifdef RINT
 double rint(double d);
@@ -496,7 +496,7 @@ static double fin_pmt(double v1, double v2, double v3) {
 /*---------------- range lookup functions ----------------*/
 
 static scvalue_t scvalue_getcell(eval_ctx_t *cp, int row, int col) {
-    struct ent *p = getcell(sht, row, col);
+    struct ent *p = getcell(cp->sp, row, col);
     if (p) {
         if (p->flags & IS_DELETED)
             return scvalue_error(ERROR_REF);
@@ -704,7 +704,7 @@ static scvalue_t eval_lookup(eval_ctx_t *cp, enode_t *e) {
 
             r = rr.u.rr.left.row + i * incr;
             c = rr.u.rr.left.col + i * incc;
-            p = getcell(sht, r, c);
+            p = getcell(cp->sp, r, c);
             if (!p || p->type == SC_EMPTY) {
                 cmp = (a.type == SC_EMPTY) ? 0 : 1;
             } else
@@ -785,7 +785,7 @@ static scvalue_t eval_isformula(eval_ctx_t *cp, enode_t *e) {
         int col = res.u.rr.left.col;
         if ((row == res.u.rr.right.row || ((row = cp->gmyrow) >= res.u.rr.left.row && row <= res.u.rr.right.row))
         &&  (col == res.u.rr.right.col || ((col = cp->gmycol) >= res.u.rr.left.col && col <= res.u.rr.right.col))) {
-            struct ent *p = getcell(sht, row, col);
+            struct ent *p = getcell(cp->sp, row, col);
             t = (p && p->expr);
         }
     }
@@ -801,9 +801,9 @@ static scvalue_t eval_formula(eval_ctx_t *cp, enode_t *e) {
         int col = res.u.rr.left.col;
         if ((row == res.u.rr.right.row || ((row = cp->gmyrow) >= res.u.rr.left.row && row <= res.u.rr.right.row))
         &&  (col == res.u.rr.right.col || ((col = cp->gmycol) >= res.u.rr.left.col && col <= res.u.rr.right.col))) {
-            struct ent *p = getcell(sht, row, col);
+            struct ent *p = getcell(cp->sp, row, col);
             if (p && p->expr) {
-                decompile(buff, sizeof buff, p->expr, 0, 0, DCP_DEFAULT);
+                decompile(cp->sp, buff, sizeof buff, p->expr, 0, 0, DCP_DEFAULT);
                 return scvalue_string(string_new(buff));
             }
         }
@@ -1009,7 +1009,7 @@ static scvalue_t eval_aggregate(eval_ctx_t *cp, enode_t *ep,
                 struct ent *p;
                 for (r = res.u.rr.left.row; r <= res.u.rr.right.row; r++) {
                     for (c = res.u.rr.left.col; c <= res.u.rr.right.col; c++) {
-                        if ((p = getcell(sht, r, c))) {
+                        if ((p = getcell(cp->sp, r, c))) {
                             switch (p->type) {
                             case SC_BOOLEAN: if (!allvalues) break; FALLTHROUGH;
                             case SC_NUMBER:  fun(&pack, p->v); break;
@@ -1191,7 +1191,7 @@ static scvalue_t eval_aggregateif(eval_ctx_t *cp, enode_t *e,
     criterion_setup(&crit, eval_node_value(cp, e->e.args[1]));
     for (r = res.u.rr.left.row; r <= res.u.rr.right.row; r++) {
         for (c = res.u.rr.left.col; c <= res.u.rr.right.col; c++) {
-            p = getcell(sht, r, c);
+            p = getcell(cp->sp, r, c);
             if (criterion_test(&crit, p)) {
                 if (!fun) {
                     pack.count++;
@@ -1199,7 +1199,7 @@ static scvalue_t eval_aggregateif(eval_ctx_t *cp, enode_t *e,
                 }
                 if (dr | dc) {
                     /* Get values from optional value range */
-                    p = getcell(sht, r + dr, c + dc);
+                    p = getcell(cp->sp, r + dr, c + dc);
                 }
                 if (p && p->type == SC_NUMBER) {
                     fun(&pack, p->v);
@@ -1221,7 +1221,7 @@ static scvalue_t eval_countblank(eval_ctx_t *cp, enode_t *ep) {
         case SC_RANGE:
             for (r = res.u.rr.left.row; r <= res.u.rr.right.row; r++) {
                 for (c = res.u.rr.left.col; c <= res.u.rr.right.col; c++) {
-                    struct ent *p = getcell(sht, r, c);
+                    struct ent *p = getcell(cp->sp, r, c);
                     if (!p || p->type == SC_EMPTY)
                         count++;
                 }
@@ -1329,7 +1329,7 @@ static scvalue_t eval_sumproduct(eval_ctx_t *cp, enode_t *e) {
         for (dc = 0; dc < ncols; dc++) {
             double prod = 1.0;
             for (i = 0; i < n; i++) {
-                struct ent *p = getcell(sht, range[i].left.row + dr, range[i].left.col + dc);
+                struct ent *p = getcell(cp->sp, range[i].left.row + dr, range[i].left.col + dc);
                 if (!p || p->type == SC_EMPTY || p->type == SC_STRING)
                     goto done1;
                 if (p->type == SC_ERROR) {
@@ -1377,7 +1377,7 @@ static scvalue_t eval_sumxy(eval_ctx_t *cp, enode_t *e) {
         for (dc = 0; dc < ncols; dc++) {
             double v1 = 0.0, v2 = 0.0;
             struct ent *p;
-            if ((p = getcell(sht, a.u.rr.left.row + dr, a.u.rr.left.col + dc))) {
+            if ((p = getcell(cp->sp, a.u.rr.left.row + dr, a.u.rr.left.col + dc))) {
                 if (p->type == SC_ERROR) {
                     err = p->cellerror;
                     goto done;
@@ -1385,7 +1385,7 @@ static scvalue_t eval_sumxy(eval_ctx_t *cp, enode_t *e) {
                 if (p->type == SC_NUMBER || p->type == SC_BOOLEAN)
                     v1 = p->v;
             }
-            if ((p = getcell(sht, b.u.rr.left.row + dr, b.u.rr.left.col + dc))) {
+            if ((p = getcell(cp->sp, b.u.rr.left.row + dr, b.u.rr.left.col + dc))) {
                 if (p->type == SC_ERROR) {
                     err = p->cellerror;
                     goto done;
@@ -1409,10 +1409,10 @@ done:
 
 /*---------------- datebase functions ----------------*/
 
-static int db_lookup_field(rangeref_t rr, const char *name) {
+static int db_lookup_field(eval_ctx_t *cp, rangeref_t rr, const char *name) {
     int col;
     for (col = rr.left.col; col <= rr.right.col; col++) {
-        struct ent *p = getcell(sht, rr.left.row, col);
+        struct ent *p = getcell(cp->sp, rr.left.row, col);
         if (!p || p->type != SC_STRING)
             break;
         if (!sc_strcasecmp(name, s2c(p->label)))
@@ -1453,7 +1453,7 @@ static scvalue_t eval_db(eval_ctx_t *cp, enode_t *e,
         }
         /* look up field (except count) */
         if (field.type == SC_STRING) {
-            col = db_lookup_field(db.u.rr, s2c(field.u.str));
+            col = db_lookup_field(cp, db.u.rr, s2c(field.u.str));
         } else
         if (field.type == SC_NUMBER) {
             col = db.u.rr.left.col + (int)floor(field.u.v) - 1;
@@ -1476,9 +1476,9 @@ static scvalue_t eval_db(eval_ctx_t *cp, enode_t *e,
         }
         for (i = 0; i < ncrit; i++) {
             int fcol = -1;
-            if ((p = getcell(sht, crit.u.rr.left.row, crit.u.rr.left.col + i))) {
+            if ((p = getcell(cp->sp, crit.u.rr.left.row, crit.u.rr.left.col + i))) {
                 if (p->type == SC_STRING) {
-                    fcol = db_lookup_field(db.u.rr, s2c(p->label));
+                    fcol = db_lookup_field(cp, db.u.rr, s2c(p->label));
                 } else
                 if (p->type == SC_NUMBER) {
                     fcol = db.u.rr.left.col + (int)floor(field.u.v) - 1;
@@ -1494,7 +1494,7 @@ static scvalue_t eval_db(eval_ctx_t *cp, enode_t *e,
         for (r = db.u.rr.left.row + 1; r <= db.u.rr.left.row; r++) {
             /* apply criteria */
             for (i = 0; i < ncrit; i++) {
-                p = getcell(sht, r, critp[i].col);
+                p = getcell(cp->sp, r, critp[i].col);
                 if (!criterion_test(&critp[i], p))
                     break;
             }
@@ -1506,7 +1506,7 @@ static scvalue_t eval_db(eval_ctx_t *cp, enode_t *e,
                 pack.count++;
                 continue;
             }
-            p = getcell(sht, r, col);
+            p = getcell(cp->sp, r, col);
             if (p) {
                 switch (p->type) {
                 case SC_BOOLEAN:    if (!allvalues) break; FALLTHROUGH;
@@ -2831,8 +2831,8 @@ static scvalue_t eval_other(eval_ctx_t *cp, enode_t *e) {
     switch (e->op) {
     case OP_MYROW:      val = cp->gmyrow + cp->rowoffset; break;
     case OP_MYCOL:      val = cp->gmycol + cp->coloffset; break;
-    case OP_LASTROW:    val = maxrow;           break;
-    case OP_LASTCOL:    val = maxcol;           break;
+    case OP_LASTROW:    val = cp->sp->maxrow;   break;
+    case OP_LASTCOL:    val = cp->sp->maxcol;   break;
     case OP_NUMITER:    val = repct;            break;
     case OP_BLACK:      val = SC_COLOR_BLACK;   break;
     case OP_RED:        val = SC_COLOR_RED;     break;
@@ -2892,18 +2892,18 @@ scvalue_t eval_node_value(eval_ctx_t *cp, enode_t *e) {
 }
 
 // XXX: unused?
-scvalue_t eval_at(enode_t *e, int row, int col) {
-    eval_ctx_t cp[1] = {{ row, col, 0, 0 }};
+scvalue_t eval_at(sheet_t *sp, enode_t *e, int row, int col) {
+    eval_ctx_t cp[1] = {{ sp, row, col, 0, 0 }};
     return eval_node_value(cp, e);
 }
 
-double neval_at(enode_t *e, int row, int col, int *errp) {
-    eval_ctx_t cp[1] = {{ row, col, 0, 0 }};
+double neval_at(sheet_t *sp, enode_t *e, int row, int col, int *errp) {
+    eval_ctx_t cp[1] = {{ sp, row, col, 0, 0 }};
     return eval_num(cp, e, errp);
 }
 
-SCXMEM string_t *seval_at(enode_t *e, int row, int col, int *errp) {
-    eval_ctx_t cp[1] = {{ row, col, 0, 0 }};
+SCXMEM string_t *seval_at(sheet_t *sp, enode_t *e, int row, int col, int *errp) {
+    eval_ctx_t cp[1] = {{ sp, row, col, 0, 0 }};
     return eval_str(cp, e, errp);
 }
 
@@ -2927,12 +2927,12 @@ void setiterations(int i) {
         propagation = i;
 }
 
-void EvalAll(void) {
+void EvalAll(sheet_t *sp) {
     int lastcnt, pair, v, err = 0;
 
     signal(SIGFPE, eval_fpe);
 
-    for (repct = 1; (lastcnt = RealEvalAll()) && repct < propagation; repct++)
+    for (repct = 1; (lastcnt = RealEvalAll(sp)) && repct < propagation; repct++)
         continue;
 
     if (propagation > 1 && lastcnt > 0)
@@ -2941,7 +2941,7 @@ void EvalAll(void) {
     if (usecurses && color) {
         for (pair = 1; pair <= CPAIRS; pair++) {
             if (cpairs[pair] && cpairs[pair]->expr) {
-                eval_ctx_t cp[1] = {{ 0, 0, 0, 0 }};
+                eval_ctx_t cp[1] = {{ sp, 0, 0, 0, 0 }};
                 v = eval_int(cp, cpairs[pair]->expr, 0, 0x77, &err);
                 if (!err) {
                     /* ignore value if expression error */
@@ -2965,24 +2965,24 @@ void EvalAll(void) {
  * values.  Return the number of cells which changed.
  */
 
-static int RealEvalAll(void) {
+static int RealEvalAll(sheet_t *sp) {
     int i, j;
     int chgct = 0;
     struct ent *p;
 
     if (calc_order == BYROWS) {
-        for (i = 0; i <= maxrow; i++) {
-            for (j = 0; j <= maxcol; j++) {
-                if ((p = getcell(sht, i, j)) && p->expr)
-                    chgct += RealEvalOne(p, p->expr, i, j);
+        for (i = 0; i <= sp->maxrow; i++) {
+            for (j = 0; j <= sp->maxcol; j++) {
+                if ((p = getcell(sp, i, j)) && p->expr)
+                    chgct += RealEvalOne(sp, p, p->expr, i, j);
             }
         }
     } else
     if (calc_order == BYCOLS) {
-        for (j = 0; j <= maxcol; j++) {
-            for (i = 0; i <= maxrow; i++) {
-                if ((p = getcell(sht, i, j)) && p->expr)
-                    chgct += RealEvalOne(p, p->expr, i, j);
+        for (j = 0; j <= sp->maxcol; j++) {
+            for (i = 0; i <= sp->maxrow; i++) {
+                if ((p = getcell(sp, i, j)) && p->expr)
+                    chgct += RealEvalOne(sp, p, p->expr, i, j);
             }
         }
     } else {
@@ -2992,8 +2992,8 @@ static int RealEvalAll(void) {
     return chgct;
 }
 
-static int RealEvalOne(struct ent *p, enode_t *e, int row, int col) {
-    eval_ctx_t cp[1] = {{ row, col, 0, 0 }};
+static int RealEvalOne(sheet_t *sp, struct ent *p, enode_t *e, int row, int col) {
+    eval_ctx_t cp[1] = {{ sp, row, col, 0, 0 }};
     scvalue_t res;
 
     if (setjmp(fpe_save)) {
@@ -3153,28 +3153,28 @@ SCXMEM enode_t *new_op3(int op, SCXMEM enode_t *a1, SCXMEM enode_t *a2,
     return e;
 }
 
-SCXMEM enode_t *new_var(cellref_t cr) {
+SCXMEM enode_t *new_var(sheet_t *sp, cellref_t cr) {
     SCXMEM enode_t *p = scxmalloc(sizeof(enode_t));
     if (p) {
         p->op = OP__VAR;
         p->type = OP_TYPE_VAR;
         p->nargs = 0;
         p->e.v.vf = cr.vf;
-        p->e.v.vp = lookat(sht, cr.row, cr.col);
+        p->e.v.vp = lookat(sp, cr.row, cr.col);
     }
     return p;
 }
 
-SCXMEM enode_t *new_range(rangeref_t rr) {
+SCXMEM enode_t *new_range(sheet_t *sp, rangeref_t rr) {
     SCXMEM enode_t *p = scxmalloc(sizeof(enode_t));
     if (p) {
         p->op = OP__RANGE;
         p->type = OP_TYPE_RANGE;
         p->nargs = 0;
         p->e.r.left.vf = rr.left.vf;
-        p->e.r.left.vp = lookat(sht, rr.left.row, rr.left.col);
+        p->e.r.left.vp = lookat(sp, rr.left.row, rr.left.col);
         p->e.r.right.vf = rr.right.vf;
-        p->e.r.right.vp = lookat(sht, rr.right.row, rr.right.col);
+        p->e.r.right.vp = lookat(sp, rr.right.row, rr.right.col);
     }
     return p;
 }
@@ -3217,7 +3217,7 @@ SCXMEM enode_t *new_str(SCXMEM string_t *s) {
     return p;
 }
 
-enode_t *copye(enode_t *e, int Rdelta, int Cdelta,
+enode_t *copye(sheet_t *sp, enode_t *e, int Rdelta, int Cdelta,
                int r1, int c1, int r2, int c2, int transpose)
 {
     enode_t *ret;
@@ -3239,7 +3239,7 @@ enode_t *copye(enode_t *e, int Rdelta, int Cdelta,
         newcol = ((vf & FIX_COL) || row < r1 || row > r2 || col < c1 || col > c2 ?
               col : transpose ? c1 + Cdelta + row - r1 : col + Cdelta);
         ret->e.r.left.vf = vf;
-        ret->e.r.left.vp = lookat(sht, newrow, newcol);
+        ret->e.r.left.vp = lookat(sp, newrow, newcol);
         vf = e->e.r.right.vf;
         row = e->e.r.right.vp->row;
         col = e->e.r.right.vp->col;
@@ -3248,7 +3248,7 @@ enode_t *copye(enode_t *e, int Rdelta, int Cdelta,
         newcol = ((vf & FIX_COL) || row < r1 || row > r2 || col < c1 || col > c2 ?
               col : transpose ? c1 + Cdelta + row - r1 : col + Cdelta);
         ret->e.r.right.vf = vf;
-        ret->e.r.right.vp = lookat(sht, newrow, newcol);
+        ret->e.r.right.vp = lookat(sp, newrow, newcol);
     } else
     if (e->type == OP_TYPE_VAR) {
         int newrow, newcol, row, col, vf;
@@ -3260,7 +3260,7 @@ enode_t *copye(enode_t *e, int Rdelta, int Cdelta,
               row : transpose ? r1 + Rdelta + col - c1 : row + Rdelta);
         newcol = ((vf & FIX_COL) || row < r1 || row > r2 || col < c1 || col > c2 ?
               col : transpose ? c1 + Cdelta + row - r1 : col + Cdelta);
-        ret->e.v.vp = lookat(sht, newrow, newcol);
+        ret->e.v.vp = lookat(sp, newrow, newcol);
         ret->e.v.vf = vf;
     } else
     if (e->type == OP_TYPE_DOUBLE) {
@@ -3275,7 +3275,7 @@ enode_t *copye(enode_t *e, int Rdelta, int Cdelta,
     if (e->type == OP_TYPE_FUNC) {
         int i;
         for (i = 0; i < e->nargs; i++) {
-            if (!(ret->e.args[i] = copye(e->e.args[i], Rdelta, Cdelta, r1, c1, r2, c2, transpose))) {
+            if (!(ret->e.args[i] = copye(sp, e->e.args[i], Rdelta, Cdelta, r1, c1, r2, c2, transpose))) {
                 efree(ret);
                 return NULL;
             }
@@ -3325,8 +3325,8 @@ static int constant_expr(enode_t *e, int full) {
 // XXX: all these should go to cmds.c
 
 /* clear the value and expression of a cell */
-void unlet(cellref_t cr) {
-    struct ent *p = getcell(sht, cr.row, cr.col);
+void unlet(sheet_t *sp, cellref_t cr) {
+    struct ent *p = getcell(sp, cr.row, cr.col);
     if (p && p->type != SC_EMPTY) {
         // XXX: what if the cell is locked?
         string_set(&p->label, NULL);
@@ -3357,8 +3357,8 @@ static void push_mark(int row, int col) {
 }
 
 /* set the expression and/or value part of a cell */
-void let(cellref_t cr, SCXMEM enode_t *e, int align) {
-    struct ent *v = lookat(sht, cr.row, cr.col);
+void let(sheet_t *sp, cellref_t cr, SCXMEM enode_t *e, int align) {
+    struct ent *v = lookat(sp, cr.row, cr.col);
     int isconstant = constant_expr(e, optimize);
 
     /* prescale input unless it has a decimal */
@@ -3379,7 +3379,7 @@ void let(cellref_t cr, SCXMEM enode_t *e, int align) {
     // XXX: test for constant expression is potentially incorrect
     if (!loading || isconstant) {
         signal(SIGFPE, eval_fpe);
-        RealEvalOne(v, e, cr.row, cr.col);
+        RealEvalOne(sp, v, e, cr.row, cr.col);
         signal(SIGFPE, doquit);
     }
 
@@ -3425,6 +3425,7 @@ typedef struct decomp_t decomp_t;
 struct decomp_t {
     struct buf_t *buf;
     int dr, dc, flags;
+    sheet_t *sp;
 };
 
 static void decompile_node(decomp_t *dcp, enode_t *e, int priority);
@@ -3587,21 +3588,21 @@ static void decompile_node(decomp_t *dcp, enode_t *e, int priority) {
 }
 
 /* decompile an expression with an optional cell offset and options */
-int decompile_expr(buf_t buf, enode_t *e, int dr, int dc, int flags) {
-    decomp_t ctx = { buf, dr, dc, flags };
+int decompile_expr(sheet_t *sp, buf_t buf, enode_t *e, int dr, int dc, int flags) {
+    decomp_t ctx = { buf, dr, dc, flags, sp };
     decompile_node(&ctx, e, 0);
     return buf->len;
 }
 
 /* decompile an expression with an optional cell offset and options */
-int decompile(char *dest, size_t size, enode_t *e, int dr, int dc, int flags) {
+int decompile(sheet_t *sp, char *dest, size_t size, enode_t *e, int dr, int dc, int flags) {
     buf_t buf;
     buf_init(buf, dest, size);
-    return decompile_expr(buf, e, dr, dc, flags);
+    return decompile_expr(sp, buf, e, dr, dc, flags);
 }
 
-void cmd_recalc(void) {
-    EvalAll();
-    update(1);
+void cmd_recalc(sheet_t *sp) {
+    EvalAll(sp);
+    update(sp, 1);
     changed = 0;
 }

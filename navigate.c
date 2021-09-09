@@ -28,26 +28,26 @@ struct go_save gs;
 
 /* Goto subroutines */
 
-void go_free(void) {
+void go_free(sheet_t *sp) {
     gs.g_type = G_NONE;
     string_set(&gs.g_s, NULL);
 }
 
 /* repeat the last goto command */
-void go_last(void) {
+void go_last(sheet_t *sp) {
     switch (gs.g_type) {
     case G_CELL:
-        moveto(gs.g_rr, gs.st);
+        moveto(sp, gs.g_rr, gs.st);
         break;
     case G_NUM:
     case G_ERROR:
     case G_INVALID:
-        num_search(gs.g_type, gs.g_rr, gs.g_n);
+        num_search(sp, gs.g_type, gs.g_rr, gs.g_n);
         break;
     case G_STR:
     case G_NSTR:
     case G_XSTR:
-        str_search(gs.g_type, gs.g_rr, string_dup(gs.g_s));
+        str_search(sp, gs.g_type, gs.g_rr, string_dup(gs.g_s));
         break;
     default:
         error("Nothing to repeat");
@@ -59,14 +59,14 @@ void go_last(void) {
  * at row st.row and column st.col in the upper left corner of the
  * screen if possible.
  */
-void moveto(rangeref_t rr, cellref_t st) {
+void moveto(sheet_t *sp, rangeref_t rr, cellref_t st) {
     if (!loading && rr.left.row != -1 && (rr.left.row != currow || rr.left.col != curcol))
         remember(0);
 
-    lookat(sht, rr.left.row, rr.left.col);
+    lookat(sp, rr.left.row, rr.left.col);
     currow = rr.left.row;
     curcol = rr.left.col;
-    go_free();
+    go_free(sp);
     gs.g_type = G_CELL;
     gs.g_rr = rr;
     gs.st = st;
@@ -77,13 +77,13 @@ void moveto(rangeref_t rr, cellref_t st) {
     } else {
         gs.stflag = 0;
     }
-    rowsinrange = rows_height(rr.left.row, rr.right.row - rr.left.row + 1);
-    colsinrange = cols_width(rr.left.col, rr.right.col - rr.left.col + 1);
+    rowsinrange = rows_height(sp, rr.left.row, rr.right.row - rr.left.row + 1);
+    colsinrange = cols_width(sp, rr.left.col, rr.right.col - rr.left.col + 1);
 
     FullUpdate++;
     if (loading) {
         // XXX: shy update the screen now?
-        update(1);
+        update(sp, 1);
         changed = 0;
     } else {
         remember(1);
@@ -95,7 +95,7 @@ void moveto(rangeref_t rr, cellref_t st) {
  */
 //int do_search(int g_type, rangeref_t rr, ... {double n or SCXMEM char *str})
 
-int num_search(int g_type, rangeref_t rr, double n) {
+int num_search(sheet_t *sp, int g_type, rangeref_t rr, double n) {
     struct ent *p;
     int firstrow, firstcol, lastrow, lastcol;
     int row, col, endr, endc;
@@ -111,7 +111,7 @@ int num_search(int g_type, rangeref_t rr, double n) {
     if (g_type == G_INVALID)
         errsearch = -1;
 
-    go_free();
+    go_free(sp);
     gs.g_type = g_type;
     gs.g_rr = rr;
     gs.g_n = n;
@@ -137,13 +137,13 @@ int num_search(int g_type, rangeref_t rr, double n) {
         } else {
             col = firstcol;
             if (row < lastrow) {
-                while (++row < lastrow && row_hidden[row])
+                while (++row < lastrow && sp->row_hidden[row])
                     continue;
             } else {
                 row = firstrow;
             }
         }
-        if (!col_hidden[col] && (p = getcell(sht, row, col))) {
+        if (!sp->col_hidden[col] && (p = getcell(sp, row, col))) {
             if ((!errsearch && p->type == SC_NUMBER && p->v == n)
             ||  (errsearch & (1 << p->cellerror))) {
                 found = 1;
@@ -158,7 +158,7 @@ int num_search(int g_type, rangeref_t rr, double n) {
         currow = row;
         curcol = col;
         if (loading) {
-            update(1);
+            update(sp, 1);
             changed = 0;
         } else {
             remember(1);
@@ -174,7 +174,7 @@ int num_search(int g_type, rangeref_t rr, double n) {
 }
 
 /* 'goto' a cell containing a matching string */
-int str_search(int g_type, rangeref_t rr, SCXMEM string_t *str) {
+int str_search(sheet_t *sp, int g_type, rangeref_t rr, SCXMEM string_t *str) {
     char field[FBUFLEN];
     struct ent *p;
     int firstrow, firstcol, lastrow, lastcol;
@@ -222,7 +222,7 @@ int str_search(int g_type, rangeref_t rr, SCXMEM string_t *str) {
     if (!loading)
         remember(0);
 
-    go_free();
+    go_free(sp);
     gs.g_type = g_type;
     gs.g_rr = rr;
     string_set(&gs.g_s, str);
@@ -248,13 +248,13 @@ int str_search(int g_type, rangeref_t rr, SCXMEM string_t *str) {
         } else {
             col = firstcol;
             if (row < lastrow) {
-                while (++row < lastrow && row_hidden[row])
+                while (++row < lastrow && sp->row_hidden[row])
                     continue;
             } else {
                 row = firstrow;
             }
         }
-        if (!col_hidden[col] && (p = getcell(sht, row, col))) {
+        if (!sp->col_hidden[col] && (p = getcell(sp, row, col))) {
             /* convert cell contents, do not test width, ignore alignment */
             const char *s1 = field;
             int align = ALIGN_DEFAULT;
@@ -266,15 +266,15 @@ int str_search(int g_type, rangeref_t rr, SCXMEM string_t *str) {
                 } else
                 if (p->type == SC_NUMBER) {
                     if (p->format) {
-                        format(field, sizeof field, s2c(p->format), precision[col], p->v, &align);
+                        format(field, sizeof field, s2c(p->format), sp->precision[col], p->v, &align);
                     } else {
-                        engformat(field, sizeof field, realfmt[col], precision[col], p->v, &align);
+                        engformat(field, sizeof field, sp->realfmt[col], sp->precision[col], p->v, &align);
                     }
                 }
             } else if (gs.g_type == G_XSTR) {
                 if (p->expr) {
                     // XXX: should pass row, col as the cell reference
-                    decompile(field, sizeof field, p->expr, 0, 0, DCP_DEFAULT);
+                    decompile(sp, field, sizeof field, p->expr, 0, 0, DCP_DEFAULT);
                     if (*field == '?')
                         *field = '\0';
                 }
@@ -311,7 +311,7 @@ int str_search(int g_type, rangeref_t rr, SCXMEM string_t *str) {
         currow = row;
         curcol = col;
         if (loading) {
-            update(1);
+            update(sp, 1);
             changed = 0;
         } else {
             remember(1);
@@ -322,42 +322,42 @@ int str_search(int g_type, rangeref_t rr, SCXMEM string_t *str) {
     return found;
 }
 
-void doend(int rowinc, int colinc) {
+void doend(sheet_t *sp, int rowinc, int colinc) {
     struct ent *p;
     int r, c;
 
     if (!loading)
         remember(0);
 
-    if (VALID_CELL(p, currow, curcol)) {
+    if (VALID_CELL(sp, p, currow, curcol)) {
         r = currow + rowinc;
         c = curcol + colinc;
-        if (r >= 0 && r < maxrows &&
-            c >= 0 && c < maxcols &&
-            !VALID_CELL(p, r, c)) {
+        if (r >= 0 && r < sp->maxrows &&
+            c >= 0 && c < sp->maxcols &&
+            !VALID_CELL(sp, p, r, c)) {
                 currow = r;
                 curcol = c;
         }
     }
 
-    if (!VALID_CELL(p, currow, curcol)) {
+    if (!VALID_CELL(sp, p, currow, curcol)) {
         switch (rowinc) {
         case -1:
-            while (!VALID_CELL(p, currow, curcol) && currow > 0)
+            while (!VALID_CELL(sp, p, currow, curcol) && currow > 0)
                 currow--;
             break;
         case  1:
-            while (!VALID_CELL(p, currow, curcol) && currow < maxrows - 1)
+            while (!VALID_CELL(sp, p, currow, curcol) && currow < sp->maxrows - 1)
                 currow++;
             break;
         case  0:
             switch (colinc) {
             case -1:
-                while (!VALID_CELL(p, currow, curcol) && curcol > 0)
+                while (!VALID_CELL(sp, p, currow, curcol) && curcol > 0)
                     curcol--;
                 break;
             case  1:
-                while (!VALID_CELL(p, currow, curcol) && curcol < maxcols - 1)
+                while (!VALID_CELL(sp, p, currow, curcol) && curcol < sp->maxcols - 1)
                     curcol++;
                 break;
             }
@@ -370,27 +370,27 @@ void doend(int rowinc, int colinc) {
 
     switch (rowinc) {
     case -1:
-        while (VALID_CELL(p, currow, curcol) && currow > 0)
+        while (VALID_CELL(sp, p, currow, curcol) && currow > 0)
             currow--;
         break;
     case  1:
-        while (VALID_CELL(p, currow, curcol) && currow < maxrows - 1)
+        while (VALID_CELL(sp, p, currow, curcol) && currow < sp->maxrows - 1)
             currow++;
         break;
     case  0:
         switch (colinc) {
         case -1:
-            while (VALID_CELL(p, currow, curcol) && curcol > 0)
+            while (VALID_CELL(sp, p, currow, curcol) && curcol > 0)
                 curcol--;
             break;
         case  1:
-            while (VALID_CELL(p, currow, curcol) && curcol < maxcols - 1)
+            while (VALID_CELL(sp, p, currow, curcol) && curcol < sp->maxcols - 1)
                 curcol++;
             break;
         }
         break;
     }
-    if (!VALID_CELL(p, currow, curcol)) {
+    if (!VALID_CELL(sp, p, currow, curcol)) {
         // XXX: this is bogus if already on maxcol or maxrow
         currow -= rowinc;
         curcol -= colinc;
@@ -398,18 +398,18 @@ void doend(int rowinc, int colinc) {
 }
 
 /* moves currow down one page */
-void forwpage(int arg) {
+void forwpage(sheet_t *sp, int arg) {
     int ps = pagesize ? pagesize : (screen_LINES - RESROW - framerows) / 2;
-    forwrow(arg * ps);
+    forwrow(sp, arg * ps);
     // XXX: hidden row issue
     strow = strow + arg * ps;
     FullUpdate++;
 }
 
 /* moves currow up one page */
-void backpage(int arg) {
+void backpage(sheet_t *sp, int arg) {
     int ps = pagesize ? pagesize : (screen_LINES - RESROW - framerows) / 2;
-    backrow(arg * ps);
+    backrow(sp, arg * ps);
     // XXX: hidden row issue
     strow = strow - arg * ps;
     if (strow < 0) strow = 0;
@@ -417,109 +417,111 @@ void backpage(int arg) {
 }
 
 /* moves curcol forward to the next cell, wrapping at maxcols - 1 */
-void forwcell(int arg) {
+void forwcell(sheet_t *sp, int arg) {
     struct ent *p;
+
     while (arg --> 0) {
         do {
-            if (curcol < maxcols - 1) {
+            if (curcol < sp->maxcols - 1) {
                 curcol++;
             } else
-            if (currow < maxrows - 1) {
+            if (currow < sp->maxrows - 1) {
                 curcol = 0;
-                while (++currow < maxrows - 1 && row_hidden[currow])
+                while (++currow < sp->maxrows - 1 && sp->row_hidden[currow])
                     continue;
             } else {
                 error("At end of table");
                 arg = 0;
                 break;
             }
-        } while (col_hidden[curcol] || !VALID_CELL(p, currow, curcol));
+        } while (sp->col_hidden[curcol] || !VALID_CELL(sp, p, currow, curcol));
     }
 }
 
 /* moves curcol forward one displayed column */
-void forwcol(int arg) {
+void forwcol(sheet_t *sp, int arg) {
     while (arg --> 0) {
-        if (curcol < maxcols - 1)
+        if (curcol < sp->maxcols - 1)
             curcol++;
         else
-        if (!growtbl(sht, GROWCOL, 0, arg))  /* get as much as needed */
+        if (!growtbl(sp, GROWCOL, 0, arg))  /* get as much as needed */
             break;
         else
             curcol++;
-        while (col_hidden[curcol] && (curcol < maxcols - 1))
+        while (sp->col_hidden[curcol] && (curcol < sp->maxcols - 1))
             curcol++;
     }
 }
 
 /* moves curcol backward to the previous cell, wrapping at 0 */
-void backcell(int arg) {
+void backcell(sheet_t *sp, int arg) {
     struct ent *p;
+
     while (arg --> 0) {
         do {
             if (curcol) {
                 curcol--;
             } else
             if (currow) {
-                curcol = maxcols - 1;
-                while (--currow && row_hidden[currow])
+                curcol = sp->maxcols - 1;
+                while (--currow && sp->row_hidden[currow])
                     continue;
             } else {
                 error("At start of table");
                 arg = 0;
                 break;
             }
-        } while (col_hidden[curcol] || !VALID_CELL(p, currow, curcol));
+        } while (sp->col_hidden[curcol] || !VALID_CELL(sp, p, currow, curcol));
     }
 }
 
 /* moves curcol back one displayed column */
-void backcol(int arg) {
+void backcol(sheet_t *sp, int arg) {
     while (arg --> 0) {
         if (!curcol) {
             error("At column A");
             break;
         }
         curcol--;
-        while (curcol && col_hidden[curcol])
+        while (curcol && sp->col_hidden[curcol])
             curcol--;
     }
 }
 
 /* moves currow forward one displayed row */
-void forwrow(int arg) {
+void forwrow(sheet_t *sp, int arg) {
     while (arg --> 0) {
-        if (currow < maxrows - 1)
+        if (currow < sp->maxrows - 1)
             currow++;
         else
-        if (!growtbl(sht, GROWROW, maxrows + arg, 0))  /* get as much as needed */
+        if (!growtbl(sp, GROWROW, sp->maxrows + arg, 0))  /* get as much as needed */
             break;
         else
             currow++;
-        while (row_hidden[currow] && (currow < maxrows - 1))
+        while (sp->row_hidden[currow] && (currow < sp->maxrows - 1))
             currow++;
     }
 }
 
 /* moves currow backward one displayed row */
-void backrow(int arg) {
+void backrow(sheet_t *sp, int arg) {
     while (arg --> 0) {
         if (!currow) {
             error("At row zero");
             break;
         }
         currow--;
-        while (currow && row_hidden[currow])
+        while (currow && sp->row_hidden[currow])
             currow--;
     }
 }
 
-void gotonote(void) {
+void gotonote(sheet_t *sp) {
     struct ent *p;
 
-    p = lookat(sht, currow, curcol);
+    p = lookat(sp, currow, curcol);
     if (p->flags & HAS_NOTE) {
-        moveto(p->nrr, cellref(-1, -1));
+        moveto(sp, p->nrr, cellref(-1, -1));
     } else {
         error("No note attached");
     }

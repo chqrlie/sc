@@ -73,7 +73,7 @@ void free_styles(void) {
     }
 }
 
-void initcolor(int colornum) {
+void initcolor(sheet_t *sp, int colornum) {
     int i;
     if (colornum < 0 || colornum > CPAIRS) {
         error("Invalid color number %d", colornum);
@@ -86,7 +86,7 @@ void initcolor(int colornum) {
     select_style(STYLE_CELL, 0);
 }
 
-void change_color(int pair, enode_t *e) {
+void change_color(sheet_t *sp, int pair, enode_t *e) {
     int v, err = 0;
 
     if (pair < 1 || pair > CPAIRS) {
@@ -94,7 +94,7 @@ void change_color(int pair, enode_t *e) {
         return;
     }
 
-    v = (int)neval_at(e, 0, 0, &err);
+    v = (int)neval_at(sp, e, 0, 0, &err);
     if (!err) {
         init_style(pair, v & 7, (v >> 3) & 7, e);
         modflg++;
@@ -102,7 +102,7 @@ void change_color(int pair, enode_t *e) {
     }
 }
 
-void del_crange(struct crange *r) {
+void del_crange(sheet_t *sp, struct crange *r) {
     if (r) {
         if (r->r_next)
             r->r_next->r_prev = r->r_prev;
@@ -116,7 +116,7 @@ void del_crange(struct crange *r) {
     }
 }
 
-void add_crange(rangeref_t rr, int pair) {
+void add_crange(sheet_t *sp, rangeref_t rr, int pair) {
     struct crange *r;
 
     range_normalize(&rr);
@@ -127,7 +127,7 @@ void add_crange(rangeref_t rr, int pair) {
             if ((r->r_left->row == rr.left.row) && (r->r_left->col == rr.left.col)
             &&  (r->r_right->row == rr.right.row) && (r->r_right->col == rr.right.col))
             {
-                del_crange(r);
+                del_crange(sp, r);
                 modflg++;
                 FullUpdate++;
                 return;
@@ -138,8 +138,8 @@ void add_crange(rangeref_t rr, int pair) {
     }
 
     r = scxmalloc(sizeof(struct crange));
-    r->r_left = lookat(sht, rr.left.row, rr.left.col);
-    r->r_right = lookat(sht, rr.right.row, rr.right.col);
+    r->r_left = lookat(sp, rr.left.row, rr.left.col);
+    r->r_right = lookat(sp, rr.right.row, rr.right.col);
     r->r_color = pair;
 
     r->r_prev = NULL;
@@ -154,7 +154,7 @@ void add_crange(rangeref_t rr, int pair) {
     FullUpdate++;
 }
 
-void clean_crange(void) {
+void clean_crange(sheet_t *sp) {
     struct crange *cr;
 
     cr = color_base;
@@ -166,7 +166,7 @@ void clean_crange(void) {
     }
 }
 
-struct crange *find_crange(int row, int col) {
+struct crange *find_crange(sheet_t *sp, int row, int col) {
     struct crange *r;
 
     for (r = color_base; r; r = r->r_next) {
@@ -177,16 +177,16 @@ struct crange *find_crange(int row, int col) {
     return r;
 }
 
-void sync_cranges(void) {
+void sync_cranges(sheet_t *sp) {
     struct crange *cr;
 
     for (cr = color_base; cr; cr = cr->r_next) {
-        cr->r_left = lookat(sht, cr->r_left->row, cr->r_left->col);
-        cr->r_right = lookat(sht, cr->r_right->row, cr->r_right->col);
+        cr->r_left = lookat(sp, cr->r_left->row, cr->r_left->col);
+        cr->r_right = lookat(sp, cr->r_right->row, cr->r_right->col);
     }
 }
 
-void write_cranges(FILE *f) {
+void write_cranges(sheet_t *sp, FILE *f) {
     struct crange *r;
 
     for (r = color_tail; r; r = r->r_prev) {
@@ -197,7 +197,7 @@ void write_cranges(FILE *f) {
     }
 }
 
-void write_colors(FILE *f, int indent) {
+void write_colors(sheet_t *sp, FILE *f, int indent) {
     int i, count = 0;
     buf_t(buf, FBUFLEN);
 
@@ -205,7 +205,7 @@ void write_colors(FILE *f, int indent) {
         if (cpairs[i] && cpairs[i]->expr) {
             buf_setf(buf, "color %d = ", i);
             // XXX: what is the current cell?
-            decompile_expr(buf, cpairs[i]->expr, 0, 0, DCP_NO_LOCALE);
+            decompile_expr(sp, buf, cpairs[i]->expr, 0, 0, DCP_NO_LOCALE);
             fprintf(f, "%*s%s\n", indent, "", buf->buf);
             if (brokenpipe) return;
             count++;
@@ -214,10 +214,10 @@ void write_colors(FILE *f, int indent) {
     if (indent && count) fprintf(f, "\n");
 }
 
-void list_colors(FILE *f) {
+void list_colors(sheet_t *sp, FILE *f) {
     struct crange *r;
 
-    write_colors(f, 2);
+    write_colors(sp, f, 2);
     if (brokenpipe) return;
 
     if (!are_colors()) {
@@ -237,7 +237,7 @@ void list_colors(FILE *f) {
     }
 }
 
-void fix_colors(int row1, int col1, int row2, int col2,
+void fix_colors(sheet_t *sp, int row1, int col1, int row2, int col2,
                 int delta1, int delta2, struct frange *fr)
 {
     int r1, c1, r2, c2;
@@ -264,10 +264,10 @@ void fix_colors(int row1, int col1, int row2, int col2,
             (row1 >= 0 && row2 >= 0 && r1 >= row1 && r2 <= row2) ||
             (col1 >= 0 && col2 >= 0 && c1 >= col1 && c2 <= col2))
         {
-            del_crange(cr);
+            del_crange(sp, cr);
         } else {
-            cr->r_left = lookat(sht, r1, c1);
-            cr->r_right = lookat(sht, r2, c2);
+            cr->r_left = lookat(sp, r1, c1);
+            cr->r_right = lookat(sp, r2, c2);
         }
     }
 }

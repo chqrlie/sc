@@ -12,14 +12,14 @@
 static struct nrange *rng_base;
 static struct nrange *rng_tail;
 
-static void fix_enode(struct enode *e, int row1, int col1, int row2, int col2,
+static void fix_enode(sheet_t *sp, struct enode *e, int row1, int col1, int row2, int col2,
                       int delta1, int delta2, struct frange *fr);
 
 int are_nranges(void) {
     return rng_base != NULL;
 }
 
-void add_nrange(SCXMEM string_t *name, rangeref_t rr, int is_range) {
+void add_nrange(sheet_t *sp, SCXMEM string_t *name, rangeref_t rr, int is_range) {
     struct nrange *r;
     const char *p, *p0;
     struct nrange *prev = NULL;
@@ -78,7 +78,7 @@ void add_nrange(SCXMEM string_t *name, rangeref_t rr, int is_range) {
     }
 
     if (autolabel && rr.left.col > 0 && !is_range) {
-        struct ent *cp = lookat(sht, rr.left.row, rr.left.col - 1);
+        struct ent *cp = lookat(sp, rr.left.row, rr.left.col - 1);
         if (!cp->type && !cp->expr) {
             /* empty cell to the left of the defined cell:
                set the cell label to the name.
@@ -94,9 +94,9 @@ void add_nrange(SCXMEM string_t *name, rangeref_t rr, int is_range) {
 
     r = scxmalloc(sizeof(struct nrange));
     r->r_name = name;
-    r->r_left.vp = lookat(sht, rr.left.row, rr.left.col);
+    r->r_left.vp = lookat(sp, rr.left.row, rr.left.col);
     r->r_left.vf = rr.left.vf;
-    r->r_right.vp = lookat(sht, rr.right.row, rr.right.col);
+    r->r_right.vp = lookat(sp, rr.right.row, rr.right.col);
     r->r_right.vf = rr.right.vf;
     r->r_is_range = is_range;
     // link in doubly linked list
@@ -116,7 +116,7 @@ void add_nrange(SCXMEM string_t *name, rangeref_t rr, int is_range) {
     modflg++;
 }
 
-void del_nrange(rangeref_t rr) {
+void del_nrange(sheet_t *sp, rangeref_t rr) {
     struct nrange *r;
 
     range_normalize(&rr);
@@ -191,47 +191,47 @@ struct nrange *find_nrange_coords(rangeref_t rr) {
     return r;
 }
 
-void sync_nranges(void) {
+void sync_nranges(sheet_t *sp) {
     struct nrange *r;
 
     for (r = rng_base; r; r = r->r_next) {
-        r->r_left.vp = lookat(sht, r->r_left.vp->row, r->r_left.vp->col);
-        r->r_right.vp = lookat(sht, r->r_right.vp->row, r->r_right.vp->col);
+        r->r_left.vp = lookat(sp, r->r_left.vp->row, r->r_left.vp->col);
+        r->r_right.vp = lookat(sp, r->r_right.vp->row, r->r_right.vp->col);
     }
 }
 
 // XXX: this duplicates sync_expr() ?
-static void sync_enode(struct enode *e) {
+static void sync_enode(sheet_t *sp, struct enode *e) {
     if (e) {
         // XXX: should sync 'v' nodes too?
         if (e->type == OP_TYPE_RANGE) {
-            e->e.r.left.vp = lookat(sht, e->e.r.left.vp->row, e->e.r.left.vp->col);
-            e->e.r.right.vp = lookat(sht, e->e.r.right.vp->row, e->e.r.right.vp->col);
+            e->e.r.left.vp = lookat(sp, e->e.r.left.vp->row, e->e.r.left.vp->col);
+            e->e.r.right.vp = lookat(sp, e->e.r.right.vp->row, e->e.r.right.vp->col);
         } else
         if (e->type == OP_TYPE_FUNC) {
             int i;
             for (i = 0; i < e->nargs; i++)
-                sync_enode(e->e.args[i]);
+                sync_enode(sp, e->e.args[i]);
         }
     }
 }
 
-void sync_ranges(void) {
+void sync_ranges(sheet_t *sp) {
     int i, j;
     struct ent *p;
 
-    sync_nranges();
-    for (i = 0; i <= maxrow; i++) {
-        for (j = 0; j <= maxcol; j++) {
-            if ((p = getcell(sht, i, j)) && p->expr)
-                sync_enode(p->expr);
+    sync_nranges(sp);
+    for (i = 0; i <= sp->maxrow; i++) {
+        for (j = 0; j <= sp->maxcol; j++) {
+            if ((p = getcell(sp, i, j)) && p->expr)
+                sync_enode(sp, p->expr);
         }
     }
-    sync_franges();
-    sync_cranges();
+    sync_franges(sp);
+    sync_cranges(sp);
 }
 
-void write_nranges(FILE *f) {
+void write_nranges(sheet_t *sp, FILE *f) {
     struct nrange *r;
 
     for (r = rng_tail; r; r = r->r_prev) {
@@ -252,7 +252,7 @@ void write_nranges(FILE *f) {
     }
 }
 
-void list_nranges(FILE *f) {
+void list_nranges(sheet_t *sp, FILE *f) {
     struct nrange *r;
 
     if (!are_nranges()) {
@@ -333,7 +333,7 @@ const char *r_name(int r1, int c1, int r2, int c2) {
     }
 }
 
-void fix_ranges(int row1, int col1, int row2, int col2,
+void fix_ranges(sheet_t *sp, int row1, int col1, int row2, int col2,
                 int delta1, int delta2, struct frange *fr)
 {
     int r1, c1, r2, c2, i, j;
@@ -355,25 +355,26 @@ void fix_ranges(int row1, int col1, int row2, int col2,
             if (r2 >= row1 && r2 <= row2) r2 = row1 + delta2;
             if (c2 >= col1 && c2 <= col2) c2 = col1 + delta2;
         }
-        r->r_left.vp = lookat(sht, r1, c1);
-        r->r_right.vp = lookat(sht, r2, c2);
+        r->r_left.vp = lookat(sp, r1, c1);
+        r->r_right.vp = lookat(sp, r2, c2);
     }
 
     /* Next, we go through all valid cells with expressions and fix any ranges
      * that need fixing.
      */
-    for (i = 0; i <= maxrow; i++) {
-        for (j = 0; j <= maxcol; j++) {
-            struct ent *p = getcell(sht, i, j);
+    for (i = 0; i <= sp->maxrow; i++) {
+        for (j = 0; j <= sp->maxcol; j++) {
+            struct ent *p = getcell(sp, i, j);
             if (p && p->expr)
-                fix_enode(p->expr, row1, col2, row2, col2, delta1, delta2, fr);
+                fix_enode(sp, p->expr, row1, col2, row2, col2, delta1, delta2, fr);
         }
     }
-    fix_frames(row1, col1, row2, col2, delta1, delta2, fr);
-    fix_colors(row1, col1, row2, col2, delta1, delta2, fr);
+    fix_frames(sp, row1, col1, row2, col2, delta1, delta2, fr);
+    fix_colors(sp, row1, col1, row2, col2, delta1, delta2, fr);
 }
 
-static void fix_enode(struct enode *e, int row1, int col1, int row2, int col2,
+static void fix_enode(sheet_t *sp, struct enode *e,
+                      int row1, int col1, int row2, int col2,
                       int delta1, int delta2, struct frange *fr)
 {
     if (e) {
@@ -395,13 +396,13 @@ static void fix_enode(struct enode *e, int row1, int col1, int row2, int col2,
                 if (r1 != r2 && r2 >= row1 && r2 <= row2) r2 = row1 + delta2;
                 if (c1 != c2 && c2 >= col1 && c2 <= col2) c2 = col1 + delta2;
             }
-            e->e.r.left.vp = lookat(sht, r1, c1);
-            e->e.r.right.vp = lookat(sht, r2, c2);
+            e->e.r.left.vp = lookat(sp, r1, c1);
+            e->e.r.right.vp = lookat(sp, r2, c2);
         } else
         if (e->type == OP_TYPE_FUNC) {
             int i;
             for (i = 0; i < e->nargs; i++)
-                fix_enode(e->e.args[i], row1, col1, row2, col2, delta1, delta2, fr);
+                fix_enode(sp, e->e.args[i], row1, col1, row2, col2, delta1, delta2, fr);
         }
     }
 }
