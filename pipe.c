@@ -147,11 +147,11 @@ void cmd_getframe(sheet_t *sp, int fd) {
     int len;
 
     *buf = '\0';
-    if ((fr = get_current_frange())) {
+    if ((fr = get_current_frange(sp))) {
         snprintf(buf, sizeof buf - 1, "%s %s",
-                 r_name(fr->or_left->row, fr->or_left->col,
+                 r_name(sp, fr->or_left->row, fr->or_left->col,
                         fr->or_right->row, fr->or_right->col),
-                 r_name(fr->ir_left->row, fr->ir_left->col,
+                 r_name(sp, fr->ir_left->row, fr->ir_left->col,
                         fr->ir_right->row, fr->ir_right->col));
     }
     len = pstrcat(buf, sizeof buf, "\n");
@@ -164,7 +164,7 @@ void cmd_getrange(sheet_t *sp, SCXMEM string_t *name, int fd) {
     int len;
 
     *buf = '\0';
-    if (name && !find_nrange_name(s2c(name), slen(name), &r)) {
+    if (name && !find_nrange_name(sp, s2c(name), slen(name), &r)) {
         snprintf(buf, sizeof buf - 1, "%s%s%s%d",
                 r->r_left.vf & FIX_COL ? "$" : "",
                 coltoa(r->r_left.vp->col),
@@ -233,7 +233,7 @@ void cmd_query(sheet_t *sp, SCXMEM string_t *s, SCXMEM string_t *data, int fd) {
     string_free(data);
 }
 
-void cmd_getkey(int fd) {
+void cmd_getkey(sheet_t *sp, int fd) {
     char buf[32];
     int c, len;
 
@@ -245,10 +245,10 @@ void cmd_getkey(int fd) {
     write(fd, buf, len);
 }
 
-void cmd_status(int fd) {
+void cmd_status(sheet_t *sp, int fd) {
     char buf[8];
     char *p = buf;
-    if (modflg)                 *p++ = 'm';
+    if (sp->modflg)             *p++ = 'm';
     if (isatty(STDIN_FILENO))   *p++ = 'i';
     if (isatty(STDOUT_FILENO))  *p++ = 'o';
     *p++ = '\n';
@@ -259,6 +259,6 @@ void cmd_status(int fd) {
 void cmd_whereami(sheet_t *sp, int fd) {
     char buf[64];
     snprintf(buf, sizeof buf, "%s%d %s%d\n",
-             coltoa(curcol), currow, coltoa(stcol), strow);
+             coltoa(sp->curcol), sp->currow, coltoa(sp->stcol), sp->strow);
     write(fd, buf, strlen(buf));
 }

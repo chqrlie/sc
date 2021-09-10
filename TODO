@@ -47,6 +47,7 @@ Parser:
 [ ] add format info in scvalue_t
 
 Database:
+[ ] fix format numbering, col, row, cell format precedence
 [ ] support strings up to 32KB long
 [ ] start column and row numbers at 1
 [ ] set maximum rows and cols > 702
@@ -56,7 +57,7 @@ Database:
 [ ] remove cell pointers
 [ ] add sheet number in cell references
 [ ] move more global data to sheet structure
-[.] group sheet data in sheet_t structures
+[+] group sheet data in sheet_t structures
 [ ] make delbufs sheet_t instances
 [ ] make delbufs point to sheet_t instances, handle duplicates
 [?] hash sc_string_t in a dictionary

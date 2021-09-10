@@ -12,11 +12,8 @@
 
 struct SCXMEM colorpair *cpairs[1 + CPAIRS];
 
-static SCXMEM struct crange *color_base;
-static struct crange *color_tail;
-
-int are_colors(void) {
-    return color_base != NULL;
+int are_colors(sheet_t *sp) {
+    return sp->color_base != NULL;
 }
 
 struct rgb_color {
@@ -97,7 +94,7 @@ void change_color(sheet_t *sp, int pair, enode_t *e) {
     v = (int)neval_at(sp, e, 0, 0, &err);
     if (!err) {
         init_style(pair, v & 7, (v >> 3) & 7, e);
-        modflg++;
+        sp->modflg++;
         FullUpdate++;
     }
 }
@@ -107,11 +104,11 @@ void del_crange(sheet_t *sp, struct crange *r) {
         if (r->r_next)
             r->r_next->r_prev = r->r_prev;
         else
-            color_tail = r->r_prev;
+            sp->color_tail = r->r_prev;
         if (r->r_prev)
             r->r_prev->r_next = r->r_next;
         else
-            color_base = r->r_next;
+            sp->color_base = r->r_next;
         scxfree(r);
     }
 }
@@ -123,12 +120,12 @@ void add_crange(sheet_t *sp, rangeref_t rr, int pair) {
 
     if (!pair) {
         /* remove color range */
-        for (r = color_base; r; r = r->r_next) {
+        for (r = sp->color_base; r; r = r->r_next) {
             if ((r->r_left->row == rr.left.row) && (r->r_left->col == rr.left.col)
             &&  (r->r_right->row == rr.right.row) && (r->r_right->col == rr.right.col))
             {
                 del_crange(sp, r);
-                modflg++;
+                sp->modflg++;
                 FullUpdate++;
                 return;
             }
@@ -143,22 +140,22 @@ void add_crange(sheet_t *sp, rangeref_t rr, int pair) {
     r->r_color = pair;
 
     r->r_prev = NULL;
-    r->r_next = color_base;
-    color_base = r;
+    r->r_next = sp->color_base;
+    sp->color_base = r;
     if (r->r_next)
         r->r_next->r_prev = r;
     else
-        color_tail = r;
+        sp->color_tail = r;
 
-    modflg++;
+    sp->modflg++;
     FullUpdate++;
 }
 
 void clean_crange(sheet_t *sp) {
     struct crange *cr;
 
-    cr = color_base;
-    color_base = color_tail = NULL;
+    cr = sp->color_base;
+    sp->color_base = sp->color_tail = NULL;
     while (cr) {
         struct crange *nextcr = cr->r_next;
         scxfree(cr);
@@ -169,7 +166,7 @@ void clean_crange(sheet_t *sp) {
 struct crange *find_crange(sheet_t *sp, int row, int col) {
     struct crange *r;
 
-    for (r = color_base; r; r = r->r_next) {
+    for (r = sp->color_base; r; r = r->r_next) {
         if ((r->r_left->row <= row) && (r->r_left->col <= col) &&
             (r->r_right->row >= row) && (r->r_right->col >= col))
             break;
@@ -180,7 +177,7 @@ struct crange *find_crange(sheet_t *sp, int row, int col) {
 void sync_cranges(sheet_t *sp) {
     struct crange *cr;
 
-    for (cr = color_base; cr; cr = cr->r_next) {
+    for (cr = sp->color_base; cr; cr = cr->r_next) {
         cr->r_left = lookat(sp, cr->r_left->row, cr->r_left->col);
         cr->r_right = lookat(sp, cr->r_right->row, cr->r_right->col);
     }
@@ -189,9 +186,9 @@ void sync_cranges(sheet_t *sp) {
 void write_cranges(sheet_t *sp, FILE *f) {
     struct crange *r;
 
-    for (r = color_tail; r; r = r->r_prev) {
+    for (r = sp->color_tail; r; r = r->r_prev) {
         fprintf(f, "color %s %d\n",
-                r_name(r->r_left->row, r->r_left->col,
+                r_name(sp, r->r_left->row, r->r_left->col,
                        r->r_right->row, r->r_right->col),
                 r->r_color);
     }
@@ -220,7 +217,7 @@ void list_colors(sheet_t *sp, FILE *f) {
     write_colors(sp, f, 2);
     if (brokenpipe) return;
 
-    if (!are_colors()) {
+    if (!are_colors(sp)) {
         fprintf(f, "  No color ranges");
         return;
     }
@@ -228,9 +225,9 @@ void list_colors(sheet_t *sp, FILE *f) {
     fprintf(f, "  %-30s %s\n", "Range", "Color");
     if (!brokenpipe) fprintf(f, "  %-30s %s\n", "-----", "-----");
 
-    for (r = color_tail; r; r = r->r_prev) {
+    for (r = sp->color_tail; r; r = r->r_prev) {
         fprintf(f, "  %-32s %d\n",
-                r_name(r->r_left->row, r->r_left->col,
+                r_name(sp, r->r_left->row, r->r_left->col,
                        r->r_right->row, r->r_right->col),
                 r->r_color);
         if (brokenpipe) return;
@@ -243,7 +240,7 @@ void fix_colors(sheet_t *sp, int row1, int col1, int row2, int col2,
     int r1, c1, r2, c2;
     struct crange *cr, *ncr;
 
-    for (cr = color_base; cr; cr = ncr) {
+    for (cr = sp->color_base; cr; cr = ncr) {
         ncr = cr->r_next;
         r1 = cr->r_left->row;
         c1 = cr->r_left->col;

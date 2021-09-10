@@ -271,15 +271,15 @@ command:  S_LET var_or_range '=' e      { let(sht, $2.left, $4, -1); }
         | S_LEFTSTRING var_or_range '=' e  { let(sht, $2.left, $4, ALIGN_LEFT); }
         | S_RIGHTSTRING var_or_range '=' e  { let(sht, $2.left, $4, ALIGN_RIGHT); }
         | S_LEFTJUSTIFY var_or_range    { range_align(sht, $2, ALIGN_LEFT); }
-        | S_LEFTJUSTIFY                 { range_align(sht, rangeref_current(), ALIGN_LEFT); }
+        | S_LEFTJUSTIFY                 { range_align(sht, rangeref_current(sht), ALIGN_LEFT); }
         | S_RIGHTJUSTIFY var_or_range   { range_align(sht, $2, ALIGN_RIGHT); }
-        | S_RIGHTJUSTIFY                { range_align(sht, rangeref_current(), ALIGN_RIGHT); }
+        | S_RIGHTJUSTIFY                { range_align(sht, rangeref_current(sht), ALIGN_RIGHT); }
         | S_CENTER var_or_range         { range_align(sht, $2, ALIGN_CENTER); }
-        | S_CENTER                      { range_align(sht, rangeref_current(), ALIGN_CENTER); }
-        | S_ADDNOTE var                 { addnote(sht, $2, rangeref_current()); }
+        | S_CENTER                      { range_align(sht, rangeref_current(sht), ALIGN_CENTER); }
+        | S_ADDNOTE var                 { addnote(sht, $2, rangeref_current(sht)); }
         | S_ADDNOTE var var_or_range    { addnote(sht, $2, $3); }
         | S_DELNOTE var                 { delnote(sht, $2); }
-        | S_DELNOTE                     { delnote(sht, cellref_current()); }
+        | S_DELNOTE                     { delnote(sht, cellref_current(sht)); }
         | S_FORMAT COL ':' COL NUMBER NUMBER NUMBER  { cmd_format(sht, $2, $4, $5, $6, $7); }
         | S_FORMAT COL NUMBER NUMBER NUMBER  { cmd_format(sht, $2, $2, $3, $4, $5); }
         | S_FORMAT COL ':' COL NUMBER NUMBER  { cmd_format(sht, $2, $4, $5, $6, REFMTFIX); }
@@ -287,9 +287,9 @@ command:  S_LET var_or_range '=' e      { let(sht, $2.left, $4, -1); }
         | S_FORMAT NUMBER '=' STRING    { cmd_setformat(sht, $2, $4); }
         | S_GET strarg                  { cmd_readfile(sht, $2, 1); }
         | S_MERGE strarg                { cmd_readfile(sht, $2, 0); }
-        | S_MDIR strarg                 { set_mdir($2); }
-        | S_AUTORUN strarg              { set_autorun($2); }
-        | S_FKEY NUMBER '=' strarg      { set_fkey($2, $4); }
+        | S_MDIR strarg                 { set_mdir(sht, $2); }
+        | S_AUTORUN strarg              { set_autorun(sht, $2); }
+        | S_FKEY NUMBER '=' strarg      { set_fkey(sht, $2, $4); }
         | S_HISTFILE strarg             { string_set(&histfile, $2); }
         | S_SCEXT strarg                { string_set(&scext, $2); }
         | S_ASCEXT strarg               { string_set(&ascext, $2); }
@@ -303,7 +303,7 @@ command:  S_LET var_or_range '=' e      { let(sht, $2.left, $4, -1); }
         | S_PUT range noval             { write_cells(sht, stdout, $2, $2.left, $3 | DCP_NO_NAME); }
         | S_PUT range '/' var noval     { write_cells(sht, stdout, $2, $4, $5 | DCP_NO_NAME); }
         | S_PUT '%' '/' var noval       { write_cells(sht, stdout, rangeref_total(sht), $4, $5 | DCP_NO_NAME); }
-        | S_PUT '/' var noval           { write_cells(sht, stdout, rangeref_current(), $3, $4 | DCP_NO_NAME); }
+        | S_PUT '/' var noval           { write_cells(sht, stdout, rangeref_current(sht), $3, $4 | DCP_NO_NAME); }
         | S_PUT '%' noval               { write_cells(sht, stdout, rangeref_total(sht), cellref(0, 0), $3 | DCP_NO_NAME); }
         | S_PUT noval                   { write_cells(sht, stdout, rangeref_total(sht), cellref(0, 0), $2 | DCP_NO_NAME); }
         | S_WRITE strarg range          { printfile(sht, $2, $3); }
@@ -320,27 +320,27 @@ command:  S_LET var_or_range '=' e      { let(sht, $2.left, $4, -1); }
         | S_HIDE COL ':' COL            { hidecols(sht, $2, $4); }
         | S_HIDE NUMBER                 { hiderows(sht, $2, $2); }
         | S_HIDE NUMBER ':' NUMBER      { hiderows(sht, $2, $4); }
-        | S_COPY                        { copy(sht, COPY_FROM_DEF, rangeref_current(), rangeref_empty()); }
+        | S_COPY                        { copy(sht, COPY_FROM_DEF, rangeref_current(sht), rangeref_empty()); }
         | S_COPY range                  { copy(sht, COPY_FROM_DEF, $2, rangeref_empty()); }
         | S_COPY range var_or_range     { copy(sht, COPY_FROM_RANGE, $2, $3); }
-        | S_MOVE var                    { mover(sht, $2, rangeref_current()); }
+        | S_MOVE var                    { mover(sht, $2, rangeref_current(sht)); }
         | S_MOVE var var_or_range       { mover(sht, $2, $3); }
-        | S_ERASE                       { eraser(sht, rangeref_current()); }
+        | S_ERASE                       { eraser(sht, rangeref_current(sht)); }
         | S_ERASE var_or_range          { eraser(sht, $2); }
-        | S_YANK                        { yankr(sht, rangeref_current()); }
+        | S_YANK                        { yankr(sht, rangeref_current(sht)); }
         | S_YANK var_or_range           { yankr(sht, $2); }
-        | S_VALUE                       { valueize_area(sht, rangeref_current()); }
+        | S_VALUE                       { valueize_area(sht, rangeref_current(sht)); }
         | S_VALUE var_or_range          { valueize_area(sht, $2); }
-        | S_FILL var_or_range num num   { fillr(sht, $2, $3, $4, calc_order == BYCOLS); }
-        | S_FILL var_or_range num       { fillr(sht, $2, $3, 0, calc_order == BYCOLS); }
-        | S_FILL var_or_range           { fillr(sht, $2, 0, 0, calc_order == BYCOLS); }
-        | S_SORT                        { sortrange(sht, rangeref_current(), NULL); }
+        | S_FILL var_or_range num num   { fillr(sht, $2, $3, $4, sht->calc_order == BYCOLS); }
+        | S_FILL var_or_range num       { fillr(sht, $2, $3, 0, sht->calc_order == BYCOLS); }
+        | S_FILL var_or_range           { fillr(sht, $2, 0, 0, sht->calc_order == BYCOLS); }
+        | S_SORT                        { sortrange(sht, rangeref_current(sht), NULL); }
         | S_SORT range                  { sortrange(sht, $2, NULL); }
         | S_SORT range strarg           { sortrange(sht, $2, $3); }
         | S_FMT var_or_range STRING     { format_cells(sht, $2, $3); }
-        | S_LOCK                        { lock_cells(sht, rangeref_current()); }
+        | S_LOCK                        { lock_cells(sht, rangeref_current(sht)); }
         | S_LOCK var_or_range           { lock_cells(sht, $2); }
-        | S_UNLOCK                      { unlock_cells(sht, rangeref_current()); }
+        | S_UNLOCK                      { unlock_cells(sht, rangeref_current(sht)); }
         | S_UNLOCK var_or_range         { unlock_cells(sht, $2); }
         | S_GOTO var_or_range var_or_range { moveto(sht, $2, $3.left); }
         | S_GOTO var_or_range           { moveto(sht, $2, cellref(-1, -1)); }
@@ -358,7 +358,7 @@ command:  S_LET var_or_range '=' e      { let(sht, $2.left, $4, -1); }
         | S_GOTO '%' STRING             { str_search(sht, G_XSTR, rangeref_total(sht), $3); }
         | S_GOTO                        { go_last(sht); }
         | S_GOTO WORD                   { /* don't repeat last goto on "unintelligible word" */ }
-        | S_DEFINE strarg               { add_nrange(sht, $2, rangeref_current(), -1); }
+        | S_DEFINE strarg               { add_nrange(sht, $2, rangeref_current(sht), -1); }
         | S_DEFINE strarg range         { add_nrange(sht, $2, $3, 1); }  // XXX: why distinguish this way?
         | S_DEFINE strarg var           { add_nrange(sht, $2, rangeref2($3, $3), 0); }
         | S_UNDEFINE var_or_range       { del_nrange(sht, $2); }
@@ -368,19 +368,19 @@ command:  S_LET var_or_range '=' e      { let(sht, $2.left, $4, -1); }
         | S_UNABBREV STRING             { del_abbr(sht, $2); }
         | S_FRAME range range           { add_frange(sht, FRANGE_DIRECT | FRANGE_INNER,
                                                      $2, $3, 0, 0, 0, 0); }
-        | S_FRAME range                 { if (showrange) {
+        | S_FRAME range                 { if (sht->showrange) {
                                             add_frange(sht, FRANGE_DIRECT | FRANGE_INNER,
-                                                       $2, rangeref_current(), 0, 0, 0, 0);
+                                                       $2, rangeref_current(sht), 0, 0, 0, 0);
                                           } else {
                                             add_frange(sht, FRANGE_FIND | FRANGE_INNER,
-                                                       rangeref_current(),
+                                                       rangeref_current(sht),
                                                        $2, 0, 0, 0, 0);
                                           }
                                         }
-        | S_FRAME                       { if (showrange && get_current_frange()) {
+        | S_FRAME                       { if (sht->showrange && get_current_frange(sht)) {
                                             add_frange(sht, FRANGE_FIND | FRANGE_INNER,
-                                                       rangeref(currow, curcol, currow, curcol),
-                                                       rangeref_current(), 0, 0, 0, 0);
+                                                       rangeref_curcell(sht),
+                                                       rangeref_current(sht), 0, 0, 0, 0);
                                           } else {
                                               error("Need both outer and inner"
                                                     " ranges to create frame");
@@ -389,32 +389,32 @@ command:  S_LET var_or_range '=' e      { let(sht, $2.left, $4, -1); }
         | S_FRAMETOP range NUMBER       { add_frange(sht, FRANGE_DIRECT,
                                                      $2, rangeref_empty(), $3, -1, -1, -1); }
         | S_FRAMETOP NUMBER             { add_frange(sht, FRANGE_FIND,
-                                                     rangeref(currow, curcol, currow, curcol),
+                                                     rangeref_curcell(sht),
                                                      rangeref_empty(), $2, -1, -1, -1); }
         | S_FRAMEBOTTOM range NUMBER    { add_frange(sht, FRANGE_DIRECT, $2,
                                                      rangeref_empty(), -1, $3, -1, -1); }
         | S_FRAMEBOTTOM NUMBER          { add_frange(sht, FRANGE_FIND,
-                                                     rangeref(currow, curcol, currow, curcol),
+                                                     rangeref_curcell(sht),
                                                      rangeref_empty(), -1, $2, -1, -1); }
         | S_FRAMELEFT range NUMBER      { add_frange(sht, FRANGE_DIRECT, $2,
                                                      rangeref_empty(), -1, -1, $3, -1); }
         | S_FRAMELEFT NUMBER            { add_frange(sht, FRANGE_FIND,
-                                                     rangeref(currow, curcol, currow, curcol),
+                                                     rangeref_curcell(sht),
                                                      rangeref_empty(), -1, -1, $2, -1); }
         | S_FRAMERIGHT range NUMBER     { add_frange(sht, FRANGE_DIRECT, $2,
                                                      rangeref_empty(), -1, -1, -1, $3); }
         | S_FRAMERIGHT NUMBER           { add_frange(sht, FRANGE_FIND,
-                                                     rangeref(currow, curcol, currow, curcol),
+                                                     rangeref_curcell(sht),
                                                      rangeref_empty(), -1, -1, -1, $2); }
         | S_UNFRAME range               { add_frange(sht, FRANGE_DIRECT, $2,
                                                      rangeref_empty(), 0, 0, 0, 0); }
         | S_UNFRAME                     { add_frange(sht, FRANGE_FIND,
-                                                     rangeref(currow, curcol, currow, curcol),
+                                                     rangeref_curcell(sht),
                                                      rangeref_empty(), 0, 0, 0, 0); }
         | S_COLOR NUMBER '='            { initcolor(sht, $2); }
         | S_COLOR NUMBER '=' e          { change_color(sht, $2, $4); }
         | S_COLOR range NUMBER          { add_crange(sht, $2, $3); }
-        | S_SET setlist                 { modflg++; }
+        | S_SET setlist                 { sht->modflg++; }
         | S_UP                          { backrow(sht, 1); }
         | S_UP NUMBER                   { backrow(sht, $2); }
         | S_DOWN                        { forwrow(sht, 1); }
@@ -428,79 +428,79 @@ command:  S_LET var_or_range '=' e      { let(sht, $2.left, $4, -1); }
         | S_ENDLEFT                     { doend(sht,  0, -1); }
         | S_ENDRIGHT                    { doend(sht,  0,  1); }
         | S_SELECT STRING               { cmd_select_qbuf(string_to_char($2)); }
-        | S_INSERTROW                   { insertrow(sht, cellref_current(),  1, 0); }
-        | S_INSERTROW '*' NUMBER        { insertrow(sht, cellref_current(), $3, 0); }
-        | S_INSERTCOL                   { insertcol(sht, cellref_current(),  1, 0); }
-        | S_INSERTCOL '*' NUMBER        { insertcol(sht, cellref_current(), $3, 0); }
-        | S_OPENROW                     { currow += insertrow(sht, cellref_current(),  1, 1); }
-        | S_OPENROW '*' NUMBER          { currow += insertrow(sht, cellref_current(), $3, 1); }
-        | S_OPENCOL                     { curcol += insertcol(sht, cellref_current(),  1, 1); }
-        | S_OPENCOL '*' NUMBER          { curcol += insertcol(sht, cellref_current(), $3, 1); }
-        | S_DELETEROW                   { if (showrange == SHOWROWS)
-                                            deletecols(sht, showsr, currow);
+        | S_INSERTROW                   { insertrow(sht, cellref_current(sht),  1, 0); }
+        | S_INSERTROW '*' NUMBER        { insertrow(sht, cellref_current(sht), $3, 0); }
+        | S_INSERTCOL                   { insertcol(sht, cellref_current(sht),  1, 0); }
+        | S_INSERTCOL '*' NUMBER        { insertcol(sht, cellref_current(sht), $3, 0); }
+        | S_OPENROW                     { sht->currow += insertrow(sht, cellref_current(sht),  1, 1); }
+        | S_OPENROW '*' NUMBER          { sht->currow += insertrow(sht, cellref_current(sht), $3, 1); }
+        | S_OPENCOL                     { sht->curcol += insertcol(sht, cellref_current(sht),  1, 1); }
+        | S_OPENCOL '*' NUMBER          { sht->curcol += insertcol(sht, cellref_current(sht), $3, 1); }
+        | S_DELETEROW                   { if (sht->showrange == SHOWROWS)
+                                            deletecols(sht, sht->showsr, sht->currow);
                                           else
-                                            deletecols(sht, currow, currow);
+                                            deletecols(sht, sht->currow, sht->currow);
                                         }
-        | S_DELETEROW '*' NUMBER        { deleterows(sht, currow, currow + $3 - 1); }
+        | S_DELETEROW '*' NUMBER        { deleterows(sht, sht->currow, sht->currow + $3 - 1); }
         | S_DELETEROW NUMBER            { deleterows(sht, $2, $2); }
         | S_DELETEROW NUMBER ':' NUMBER { deleterows(sht, $2, $4); }
-        | S_DELETECOL                   { if (showrange == SHOWCOLS)
-                                            deletecols(sht, showsc, curcol);
+        | S_DELETECOL                   { if (sht->showrange == SHOWCOLS)
+                                            deletecols(sht, sht->showsc, sht->curcol);
                                           else
-                                            deletecols(sht, curcol, curcol);
+                                            deletecols(sht, sht->curcol, sht->curcol);
                                         }
         | S_DELETECOL COL               { deletecols(sht, $2, $2); }
-        | S_DELETECOL '*' NUMBER        { deletecols(sht, curcol, curcol + $3 - 1); }
+        | S_DELETECOL '*' NUMBER        { deletecols(sht, sht->curcol, sht->curcol + $3 - 1); }
         | S_DELETECOL COL ':' COL       { deletecols(sht, $2, $4); }
-        | S_YANKROW                     { if (showrange == SHOWROWS)
-                                            yankrows(sht, showsr, currow);
+        | S_YANKROW                     { if (sht->showrange == SHOWROWS)
+                                            yankrows(sht, sht->showsr, sht->currow);
                                           else
-                                            yankrows(sht, currow, currow);
+                                            yankrows(sht, sht->currow, sht->currow);
                                         }
-        | S_YANKROW '*' NUMBER          { yankrows(sht, currow, currow + $3 - 1); }
+        | S_YANKROW '*' NUMBER          { yankrows(sht, sht->currow, sht->currow + $3 - 1); }
         | S_YANKROW NUMBER              { yankrows(sht, $2, $2); }
         | S_YANKROW NUMBER ':' NUMBER   { yankrows(sht, $2, $4); }
-        | S_YANKCOL                     { if (showrange == SHOWCOLS)
-                                            yankcols(sht, showsc, curcol);
+        | S_YANKCOL                     { if (sht->showrange == SHOWCOLS)
+                                            yankcols(sht, sht->showsc, sht->curcol);
                                           else
-                                            yankcols(sht, curcol, curcol);
+                                            yankcols(sht, sht->curcol, sht->curcol);
                                         }
         | S_YANKCOL NUMBER              { yankcols(sht, $2, $2); }
-        | S_YANKCOL '*' NUMBER          { yankcols(sht, curcol, curcol + $3 - 1); }
+        | S_YANKCOL '*' NUMBER          { yankcols(sht, sht->curcol, sht->curcol + $3 - 1); }
         | S_YANKCOL COL ':' COL         { yankcols(sht, $2, $4); }
-        | S_PULL                        { pullcells(sht, 'p', cellref_current()); }
-        | S_PULLMERGE                   { pullcells(sht, 'm', cellref_current()); }
-        | S_PULLROWS                    { pullcells(sht, 'r', cellref_current()); }
-        | S_PULLCOLS                    { pullcells(sht, 'c', cellref_current()); }
-        | S_PULLXCHG                    { pullcells(sht, 'x', cellref_current()); }
-        | S_PULLTP                      { pullcells(sht, 't', cellref_current()); }
-        | S_PULLFMT                     { pullcells(sht, 'f', cellref_current()); }
-        | S_PULLCOPY                    { copy(sht, COPY_FROM_QBUF, rangeref_current(), rangeref_empty()); }
+        | S_PULL                        { pullcells(sht, 'p', cellref_current(sht)); }
+        | S_PULLMERGE                   { pullcells(sht, 'm', cellref_current(sht)); }
+        | S_PULLROWS                    { pullcells(sht, 'r', cellref_current(sht)); }
+        | S_PULLCOLS                    { pullcells(sht, 'c', cellref_current(sht)); }
+        | S_PULLXCHG                    { pullcells(sht, 'x', cellref_current(sht)); }
+        | S_PULLTP                      { pullcells(sht, 't', cellref_current(sht)); }
+        | S_PULLFMT                     { pullcells(sht, 'f', cellref_current(sht)); }
+        | S_PULLCOPY                    { copy(sht, COPY_FROM_QBUF, rangeref_current(sht), rangeref_empty()); }
         | S_PULLCOPY var_or_range       { copy(sht, COPY_FROM_QBUF, $2, rangeref_empty()); }
 
         | S_WHEREAMI outfd              { cmd_whereami(sht, $2); }
         | S_GETNUM var_or_range outfd   { cmd_getnum(sht, $2, $3); }
-        | S_GETNUM outfd                { cmd_getnum(sht, rangeref_current(), $2); }
+        | S_GETNUM outfd                { cmd_getnum(sht, rangeref_current(sht), $2); }
         | S_FGETNUM var_or_range outfd  { cmd_fgetnum(sht, $2, $3); }
-        | S_FGETNUM outfd               { cmd_fgetnum(sht, rangeref_current(), $2); }
+        | S_FGETNUM outfd               { cmd_fgetnum(sht, rangeref_current(sht), $2); }
         | S_GETSTRING var_or_range outfd  { cmd_getstring(sht, $2, $3); }
-        | S_GETSTRING outfd             { cmd_getstring(sht, rangeref_current(), $2); }
+        | S_GETSTRING outfd             { cmd_getstring(sht, rangeref_current(sht), $2); }
         | S_GETEXP var_or_range outfd   { cmd_getexp(sht, $2, $3); }
-        | S_GETEXP outfd                { cmd_getexp(sht, rangeref_current(), $2); }
+        | S_GETEXP outfd                { cmd_getexp(sht, rangeref_current(sht), $2); }
         | S_GETFORMAT COL outfd         { cmd_getformat(sht, $2, $3); }
-        | S_GETFORMAT outfd             { cmd_getformat(sht, curcol, $2); }
+        | S_GETFORMAT outfd             { cmd_getformat(sht, sht->curcol, $2); }
         | S_GETFMT var_or_range outfd   { cmd_getfmt(sht, $2, $3); }
-        | S_GETFMT outfd                { cmd_getfmt(sht, rangeref_current(), $2); }
+        | S_GETFMT outfd                { cmd_getfmt(sht, rangeref_current(sht), $2); }
         | S_GETFRAME outfd              { cmd_getframe(sht, $2); }
         | S_GETRANGE STRING outfd       { cmd_getrange(sht, $2, $3); }
-        | S_EVAL e outfd                { cmd_eval(sht, $2, NULL, currow, curcol, $3); }
-        | S_EVAL e STRING outfd         { cmd_eval(sht, $2, $3, currow, curcol, $4); }
-        | S_SEVAL e outfd               { cmd_seval(sht, $2, currow, curcol, $3); }
+        | S_EVAL e outfd                { cmd_eval(sht, $2, NULL, sht->currow, sht->curcol, $3); }
+        | S_EVAL e STRING outfd         { cmd_eval(sht, $2, $3, sht->currow, sht->curcol, $4); }
+        | S_SEVAL e outfd               { cmd_seval(sht, $2, sht->currow, sht->curcol, $3); }
         | S_QUERY STRING STRING outfd   { cmd_query(sht, $2, $3, $4); }
         | S_QUERY STRING outfd          { cmd_query(sht, $2, NULL, $3); }
         | S_QUERY outfd                 { cmd_query(sht, NULL, NULL, $2); }
-        | S_GETKEY outfd                { cmd_getkey($2); }
-        | S_STATUS outfd                { cmd_status($2); }
+        | S_GETKEY outfd                { cmd_getkey(sht, $2); }
+        | S_STATUS outfd                { cmd_status(sht, $2); }
 
         | S_RECALC                      { cmd_recalc(sht); }
         | S_REDRAW                      { cmd_redraw(sht); }
@@ -614,55 +614,55 @@ setlist :
         ;
 
 /* things that you can 'set' */
-setitem : K_AUTO                    { setautocalc(1); }
-        | K_AUTOCALC                { setautocalc(1); }
-        | not K_AUTO                { setautocalc(0); }
-        | not K_AUTOCALC            { setautocalc(0); }
-        | K_BYCOLS                  { setcalcorder(BYCOLS); }
-        | K_BYROWS                  { setcalcorder(BYROWS); }
-        | K_OPTIMIZE                { optimize = 1; }
-        | not K_OPTIMIZE            { optimize = 0; }
-        | K_NUMERIC                 { numeric = 1; }
-        | not K_NUMERIC             { numeric = 0; }
-        | K_PRESCALE                { prescale = 0.01; } // XXX: should use 100.0
-        | not K_PRESCALE            { prescale = 1.0; }
-        | K_EXTFUN                  { extfunc = 1; }
-        | not K_EXTFUN              { extfunc = 0; }
+setitem : K_AUTO                    { setautocalc(sht, 1); }
+        | K_AUTOCALC                { setautocalc(sht, 1); }
+        | not K_AUTO                { setautocalc(sht, 0); }
+        | not K_AUTOCALC            { setautocalc(sht, 0); }
+        | K_BYCOLS                  { setcalcorder(sht, BYCOLS); }
+        | K_BYROWS                  { setcalcorder(sht, BYROWS); }
+        | K_OPTIMIZE                { sht->optimize = 1; }
+        | not K_OPTIMIZE            { sht->optimize = 0; }
+        | K_NUMERIC                 { sht->numeric = 1; }
+        | not K_NUMERIC             { sht->numeric = 0; }
+        | K_PRESCALE                { sht->prescale = 0.01; } // XXX: should use 100.0
+        | not K_PRESCALE            { sht->prescale = 1.0; }
+        | K_EXTFUN                  { sht->extfunc = 1; }
+        | not K_EXTFUN              { sht->extfunc = 0; }
         | K_CELLCUR                 { showcell = 1; }
         | not K_CELLCUR             { showcell = 0; }
-        | K_TOPROW                  { showtop = 1; }
-        | not K_TOPROW              { showtop = 0; }
-        | K_AUTOINSERT              { autoinsert = 1; }
-        | not K_AUTOINSERT          { autoinsert = 0; }
-        | K_AUTOWRAP                { autowrap = 1; }
-        | not K_AUTOWRAP            { autowrap = 0; }
-        | K_CSLOP                   { cslop = 1; FullUpdate++; }
-        | not K_CSLOP               { cslop = 0; FullUpdate++; }
+        | K_TOPROW                  { sht->showtop = 1; }
+        | not K_TOPROW              { sht->showtop = 0; }
+        | K_AUTOINSERT              { sht->autoinsert = 1; }
+        | not K_AUTOINSERT          { sht->autoinsert = 0; }
+        | K_AUTOWRAP                { sht->autowrap = 1; }
+        | not K_AUTOWRAP            { sht->autowrap = 0; }
+        | K_CSLOP                   { sht->cslop = 1; FullUpdate++; }
+        | not K_CSLOP               { sht->cslop = 0; FullUpdate++; }
         | K_COLOR                   { sc_setcolor(1); }
         | not K_COLOR               { sc_setcolor(0); }
-        | K_COLORNEG                { colorneg = 1; }
-        | not K_COLORNEG            { colorneg = 0; }
-        | K_COLORERR                { colorerr = 1; }
-        | not K_COLORERR            { colorerr = 0; }
+        | K_COLORNEG                { sht->colorneg = 1; }
+        | not K_COLORNEG            { sht->colorneg = 0; }
+        | K_COLORERR                { sht->colorerr = 1; }
+        | not K_COLORERR            { sht->colorerr = 0; }
         | K_BRAILLE                 { braille = 1; }
         | not K_BRAILLE             { braille = 0; }
         | K_BACKUP                  { dobackups = 1; }
         | not K_BACKUP              { dobackups = 0; }
         | K_MOUSE                   { screen_mouseon(); }
         | not K_MOUSE               { screen_mouseoff(); }
-        | K_ITERATIONS '=' NUMBER   { setiterations($3); }
-        | K_TBLSTYLE '=' NUMBER     { tbl_style = $3; }
-        | K_TBLSTYLE '=' K_TBL      { tbl_style = TBL; }
-        | K_TBLSTYLE '=' K_LATEX    { tbl_style = LATEX; }
-        | K_TBLSTYLE '=' K_SLATEX   { tbl_style = SLATEX; }
-        | K_TBLSTYLE '=' K_TEX      { tbl_style = TEX; }
-        | K_TBLSTYLE '=' K_FRAME    { tbl_style = FRAME; }
-        | K_RNDTOEVEN               { rndtoeven = 1; FullUpdate++; }
-        | not K_RNDTOEVEN           { rndtoeven = 0; FullUpdate++; }
-        | K_CRACTION '=' NUMBER     { craction = $3; }
-        | K_ROWLIMIT '=' NUMBER     { rowlimit = $3; }
-        | K_COLLIMIT '=' NUMBER     { collimit = $3; }
-        | K_PAGESIZE '=' NUMBER     { pagesize = $3; }
+        | K_ITERATIONS '=' NUMBER   { setiterations(sht, $3); }
+        | K_TBLSTYLE '=' NUMBER     { sht->tbl_style = $3; }
+        | K_TBLSTYLE '=' K_TBL      { sht->tbl_style = TBL; }
+        | K_TBLSTYLE '=' K_LATEX    { sht->tbl_style = LATEX; }
+        | K_TBLSTYLE '=' K_SLATEX   { sht->tbl_style = SLATEX; }
+        | K_TBLSTYLE '=' K_TEX      { sht->tbl_style = TEX; }
+        | K_TBLSTYLE '=' K_FRAME    { sht->tbl_style = FRAME; }
+        | K_RNDTOEVEN               { sht->rndtoeven = 1; FullUpdate++; }
+        | not K_RNDTOEVEN           { sht->rndtoeven = 0; FullUpdate++; }
+        | K_CRACTION '=' NUMBER     { sht->craction = $3; }
+        | K_ROWLIMIT '=' NUMBER     { sht->rowlimit = $3; }
+        | K_COLLIMIT '=' NUMBER     { sht->collimit = $3; }
+        | K_PAGESIZE '=' NUMBER     { sht->pagesize = $3; }
         | K_SCRC                    { scrc++; }
         | K_LOCALE                  { sc_set_locale(1); }
         | not K_LOCALE              { sc_set_locale(0); }

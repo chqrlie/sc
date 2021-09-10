@@ -27,10 +27,7 @@
 #include "sc.h"
 
 static jmp_buf fpe_save;
-double prescale = 1.0;  /* Prescale for constants in let() */
-int extfunc = 0;        /* Enable/disable external functions */
 int loading = 0;        /* Set when readfile() is active */
-int propagation = 10;   /* max number of times to try calculation */
 static int repct = 1;   /* Make repct a global variable so that the
                            function @numiter can access it */
 
@@ -574,7 +571,7 @@ static scvalue_t eval_indirect(eval_ctx_t *cp, enode_t *e) {
             maxr = rr.right.row;
             maxc = rr.right.col;
         } else
-        if (find_nrange_name(s, len, &r)) {
+        if (find_nrange_name(cp->sp, s, len, &r)) {
             minr = r->r_left.vp->row;
             minc = r->r_left.vp->col;
             maxr = r->r_right.vp->row;
@@ -2022,7 +2019,9 @@ double rint(double d) {
 #endif
 
 static double dornd(double d) {
-    if (rndtoeven) {
+    // XXX: clean this mess
+    sheet_t *sp = sht;
+    if (sp->rndtoeven) {
         return rint(d);
     } else {
         return (d - floor(d) < 0.5 ? floor(d) : ceil(d));
@@ -2141,7 +2140,7 @@ static scvalue_t eval_ext(eval_ctx_t *cp, enode_t *e) {
             cmd = left->e.args[1];
         }
 
-        if (!extfunc) {
+        if (!cp->sp->extfunc) {
             // XXX: should probably be N/A if no previous value
             error("Warning: external functions disabled; using %s value",
                   prev ? "previous" : "null");
@@ -2919,12 +2918,13 @@ SCXMEM string_t *seval_at(sheet_t *sp, enode_t *e, int row, int col, int *errp) 
  * evaluation count expires.
  */
 
-void setiterations(int i) {
+void setiterations(sheet_t *sp, int i) {
     if (i < 1) {
         error("iteration count must be at least 1");
-        propagation = 1;
-    } else
-        propagation = i;
+        sp->propagation = 1;
+    } else {
+        sp->propagation = i;
+    }
 }
 
 void EvalAll(sheet_t *sp) {
@@ -2932,10 +2932,10 @@ void EvalAll(sheet_t *sp) {
 
     signal(SIGFPE, eval_fpe);
 
-    for (repct = 1; (lastcnt = RealEvalAll(sp)) && repct < propagation; repct++)
+    for (repct = 1; (lastcnt = RealEvalAll(sp)) && repct < sp->propagation; repct++)
         continue;
 
-    if (propagation > 1 && lastcnt > 0)
+    if (sp->propagation > 1 && lastcnt > 0)
         error("Still changing after %d iterations", repct);
 
     if (usecurses && color) {
@@ -2970,7 +2970,7 @@ static int RealEvalAll(sheet_t *sp) {
     int chgct = 0;
     struct ent *p;
 
-    if (calc_order == BYROWS) {
+    if (sp->calc_order == BYROWS) {
         for (i = 0; i <= sp->maxrow; i++) {
             for (j = 0; j <= sp->maxcol; j++) {
                 if ((p = getcell(sp, i, j)) && p->expr)
@@ -2978,7 +2978,7 @@ static int RealEvalAll(sheet_t *sp) {
             }
         }
     } else
-    if (calc_order == BYCOLS) {
+    if (sp->calc_order == BYCOLS) {
         for (j = 0; j <= sp->maxcol; j++) {
             for (i = 0; i <= sp->maxrow; i++) {
                 if ((p = getcell(sp, i, j)) && p->expr)
@@ -2997,7 +2997,7 @@ static int RealEvalOne(sheet_t *sp, struct ent *p, enode_t *e, int row, int col)
     scvalue_t res;
 
     if (setjmp(fpe_save)) {
-        error("Floating point exception at %s", v_name(row, col));
+        error("Floating point exception at %s", v_name(sp, row, col));
         res = scvalue_error(ERROR_NUM);
     } else {
         res = eval_node_value(cp, e);
@@ -3046,13 +3046,13 @@ static int RealEvalOne(sheet_t *sp, struct ent *p, enode_t *e, int row, int col)
 }
 
 /* set the calculation order */
-void setcalcorder(int i) {
+void setcalcorder(sheet_t *sp, int i) {
     if (i == BYROWS || i == BYCOLS)
-        calc_order = i;
+        sp->calc_order = i;
 }
 
-void setautocalc(int i) {
-    autocalc = i;
+void setautocalc(sheet_t *sp, int i) {
+    sp->autocalc = i;
 }
 
 /*---------------- expression tree construction ----------------*/
@@ -3338,7 +3338,7 @@ void unlet(sheet_t *sp, cellref_t cr) {
         p->flags |= IS_CHANGED;
         FullUpdate++;
         changed++;
-        modflg++;
+        sp->modflg++;
     }
 }
 
@@ -3359,14 +3359,14 @@ static void push_mark(int row, int col) {
 /* set the expression and/or value part of a cell */
 void let(sheet_t *sp, cellref_t cr, SCXMEM enode_t *e, int align) {
     struct ent *v = lookat(sp, cr.row, cr.col);
-    int isconstant = constant_expr(e, optimize);
+    int isconstant = constant_expr(e, sp->optimize);
 
     /* prescale input unless it has a decimal */
     if (!loading) {
         // XXX: sc_decimal is a horrible hack!
         //      should use a flag in the expression node
-        if (e->op == OP__NUMBER && !sc_decimal && prescale < 0.9999999)
-            e->e.k *= prescale;
+        if (e->op == OP__NUMBER && !sc_decimal && sp->prescale < 0.9999999)
+            e->e.k *= sp->prescale;
         sc_decimal = FALSE;
     }
 
@@ -3396,7 +3396,7 @@ void let(sheet_t *sp, cellref_t cr, SCXMEM enode_t *e, int align) {
     }
 
     changed++;
-    modflg++;
+    sp->modflg++;
 
     if (!loading)
         push_mark(cr.row, cr.col);
@@ -3464,7 +3464,7 @@ static void out_var(decomp_t *dcp, struct ent_ptr v, int usename) {
         buf_puts(dcp->buf, "@ERR");
     } else
     if (!(dcp->flags & DCP_NO_NAME) && usename
-    &&  (r = find_nrange_coords(rangeref(v.vp->row, v.vp->col, v.vp->row, v.vp->col))) != NULL
+    &&  (r = find_nrange_coords(dcp->sp, rangeref(v.vp->row, v.vp->col, v.vp->row, v.vp->col))) != NULL
     &&  !r->r_is_range) {
         // XXX: this is incorrect if the named range has different flags
         buf_puts(dcp->buf, s2c(r->r_name));
@@ -3479,8 +3479,8 @@ static void out_range(decomp_t *dcp, enode_t *e) {
     struct nrange *r;
 
     if (!(dcp->flags & DCP_NO_NAME)
-    &&  (r = find_nrange_coords(rangeref(e->e.r.left.vp->row, e->e.r.left.vp->col,
-                                         e->e.r.right.vp->row, e->e.r.right.vp->col))) != NULL
+    &&  (r = find_nrange_coords(dcp->sp, rangeref(e->e.r.left.vp->row, e->e.r.left.vp->col,
+                                                  e->e.r.right.vp->row, e->e.r.right.vp->col))) != NULL
     &&  r->r_is_range) {
         // XXX: this is incorrect if the named range has different flags
         buf_puts(dcp->buf, s2c(r->r_name));

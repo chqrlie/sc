@@ -211,7 +211,7 @@ void clearent(struct ent *p) {
         //      next
         FullUpdate++;  // XXX: really?
         changed++;
-        modflg++;
+        //sp->modflg++;
     }
 }
 
@@ -310,7 +310,7 @@ int duprow(sheet_t *sp, cellref_t cr) {
     int c2 = sp->maxcol;
     struct frange *fr;
 
-    if ((fr = find_frange(cr.row, cr.col))) {
+    if ((fr = find_frange(sp, cr.row, cr.col))) {
         c1 = fr->or_left->col;
         c2 = fr->or_right->col;
     }
@@ -318,7 +318,7 @@ int duprow(sheet_t *sp, cellref_t cr) {
     if (!insertrow(sp, cr, 1, 1))
         return 0;
 
-    modflg++;
+    sp->modflg++;
     // XXX: should use copy_area(row + 1, c1, row + 1, c2, row, c1, row, c2)
     for (col = c1; col <= c2; col++) {
         struct ent *p = getcell(sp, row, col);
@@ -337,7 +337,7 @@ int dupcol(sheet_t *sp, cellref_t cr) {
     if (!insertcol(sp, cr, 1, 1))
         return 0;
 
-    modflg++;
+    sp->modflg++;
     // XXX: should use copy_area(0, col + 1, maxrow, col + 1,
     //                           0, col, maxrow, col)
     for (row = 0; row <= sp->maxrow; row++) {
@@ -377,7 +377,7 @@ int insertrow(sheet_t *sp, cellref_t cr, int arg, int delta) {
     lim = cr.row + delta + arg - 1;  /* last inserted row */
     sp->maxrow += arg;
 
-    if ((fr = find_frange(cr.row, cr.col))) {
+    if ((fr = find_frange(sp, cr.row, cr.col))) {
         // XXX: should verify if cr.row + delta is inside the frange
         // XXX: inconsistent source range: marks are updated beyond rr.right.row
         rr = rangeref(cr.row + delta, fr->or_left->col,
@@ -472,14 +472,14 @@ int insertrow(sheet_t *sp, cellref_t cr, int arg, int delta) {
         }
     }
     // XXX: cell coordinates have been updated
-    fr = find_frange(cr.row, cr.col);
+    fr = find_frange(sp, cr.row, cr.col);
     if (delta) {
         fix_ranges(sp, cr.row, -1, cr.row, -1, 0, arg, fr);
     } else {
         fix_ranges(sp, cr.row + arg, -1, cr.row + arg, -1, arg, 0, fr);
     }
     FullUpdate++;
-    modflg++;
+    sp->modflg++;
     return 1;
 }
 
@@ -554,7 +554,7 @@ int insertcol(sheet_t *sp, cellref_t cr, int arg, int delta) {
     }
 
     // XXX: cell coordinates have been updated
-    fr = find_frange(cr.row, cr.col);
+    fr = find_frange(sp, cr.row, cr.col);
     if (delta) {
         if (fr && fr->ir_right->col == cr.col)
             fr->ir_right = lookat(sp, fr->ir_right->row, fr->ir_right->col + arg);
@@ -565,7 +565,7 @@ int insertcol(sheet_t *sp, cellref_t cr, int arg, int delta) {
         fix_ranges(sp, -1, cr.col + arg, -1, cr.col + arg, arg, 0, fr);
     }
     FullUpdate++;
-    modflg++;
+    sp->modflg++;
     return 1;
 }
 
@@ -586,14 +586,14 @@ void deleterows(sheet_t *sp, int r1, int r2) {
 
     nrows = r2 - r1 + 1;
 
-    if (currow == r1 && (fr = get_current_frange())) {
+    if (sp->currow == r1 && (fr = get_current_frange(sp))) {
         c1 = fr->or_left->col;
         c2 = fr->or_right->col;
         if (any_locked_cells(sp, r1, c1, r2, c2)) {
             error("Locked cells encountered. Nothing changed");
         } else {
             FullUpdate++;
-            modflg++;
+            sp->modflg++;
 
             /* discard named buffer '9' and qbuf if any */
             deldata_discard(DELBUFSIZE - 1);
@@ -612,7 +612,7 @@ void deleterows(sheet_t *sp, int r1, int r2) {
                 move_area(sp, r1, c1, rangeref(r1 + nrows, c1, fr->or_right->row, c2));
             }
             if (fr->ir_left->row > fr->ir_right->row) {
-                del_frange(fr);
+                del_frange(sp, fr);
                 fr = NULL;
             }
             /* Update all marked cells. */
@@ -667,9 +667,9 @@ void deleterows(sheet_t *sp, int r1, int r2) {
             deldata_store(DELBUFSIZE - 9, DELBUFSIZE - 1, DD_UNSYNC);
         }
     }
-    /* currow will not become > maxrow because maxrow was not decremented */
-    if (currow > r1)
-        currow = (currow <= r2) ? r1 : currow - nrows;
+    /* sp->currow will not become > maxrow because maxrow was not decremented */
+    if (sp->currow > r1)
+        sp->currow = (sp->currow <= r2) ? r1 : sp->currow - nrows;
 }
 
 void yankrows(sheet_t *sp, int r1, int r2) {
@@ -682,7 +682,7 @@ void yankrows(sheet_t *sp, int r1, int r2) {
     nrows = sp->maxrow - r1 + 1;
 
     // XXX: should check if r1 and r2 are inside current frange
-    if (r1 == currow && (fr = get_current_frange())) {
+    if (r1 == sp->currow && (fr = get_current_frange(sp))) {
         nrows = fr->or_right->row - r1 + 1;
         c1 = fr->or_left->col;
         c2 = fr->or_right->col;
@@ -834,7 +834,7 @@ void valueize_area(sheet_t *sp, rangeref_t rr) {
             }
         }
     }
-    modflg++;  // XXX: should be done only upon modification
+    sp->modflg++;  // XXX: should be done only upon modification
 }
 
 /* copy/move cell range from subsheet delbuf[qbuf] via delbuf[++dbidx] or delbuf[dbidx] */
@@ -900,7 +900,7 @@ void pullcells(sheet_t *sp, int to_insert, cellref_t cr) {
     if (to_insert == 'r') {     /* PULLROWS */
         if (!insertrow(sp, cr, numrows, 0))
             return;
-        if ((fr = find_frange(cr.row, cr.col))) {
+        if ((fr = find_frange(sp, cr.row, cr.col))) {
             deltac = fr->or_left->col - mincol;
         } else {
             for (i = 0; i < numrows; i++) {
@@ -952,7 +952,7 @@ void pullcells(sheet_t *sp, int to_insert, cellref_t cr) {
     }
 
     FullUpdate++;
-    modflg++;
+    sp->modflg++;
 
     /* At this point, we copy the cells from the delete buffer into the
      * destination range.
@@ -1113,12 +1113,12 @@ void closerow(sheet_t *sp, int rs, int numrow) {
         }
     }
     FullUpdate++;
-    modflg++;
+    sp->modflg++;
 }
 
 /* delete group of columns (1 or more) */
 void deletecols(sheet_t *sp, int c1, int c2) {
-    int r, c, ncols, i, save = curcol;
+    int r, c, ncols, i, save = sp->curcol;
     struct ent **pp;
     struct ent *p;
 
@@ -1137,7 +1137,7 @@ void deletecols(sheet_t *sp, int c1, int c2) {
     ncols = c2 - c1 + 1;
     // XXX: probably useless and counterproductive
     //      this is for get_current_frange() which is questionable
-    curcol = c1;
+    sp->curcol = c1;
 
     /* discard named buffer '9' and qbuf if any */
     deldata_discard(DELBUFSIZE - 1);
@@ -1145,7 +1145,7 @@ void deletecols(sheet_t *sp, int c1, int c2) {
     /* move cell range to subsheet delbuf[++dbidx] */
     erase_area(sp, ++dbidx, 0, c1, sp->maxrow, c2, 0);
     // XXX: should use sync_refs() to flag invalid references
-    fix_ranges(sp, -1, c1, -1, c2, -1, -1, get_current_frange());
+    fix_ranges(sp, -1, c1, -1, c2, -1, -1, get_current_frange(sp));
     /* store delbuf[dbidx--] to named buffer '1' after rotation and qbuf if any */
     deldata_store(DELBUFSIZE - 9, DELBUFSIZE - 1, DD_UNSYNC);
 
@@ -1227,8 +1227,8 @@ void deletecols(sheet_t *sp, int c1, int c2) {
         }
     }
     FullUpdate++;
-    modflg++;
-    curcol = save < c1 ? save : (save <= c2) ? c1 : save - ncols;
+    sp->modflg++;
+    sp->curcol = save < c1 ? save : (save <= c2) ? c1 : save - ncols;
 }
 
 /* Modified 9/17/90 THA to handle more formats */
@@ -1246,7 +1246,7 @@ void cmd_format(sheet_t *sp, int c1, int c2, int w, int p, int r) {
     }
 
     if (usecurses) {
-        int maxwidth = screen_COLS - rescol - 2;
+        int maxwidth = screen_COLS - sp->rescol - 2;
         if (w > maxwidth) {
             error("Width too large - Maximum = %d", maxwidth);
             w = maxwidth;
@@ -1270,7 +1270,7 @@ void cmd_format(sheet_t *sp, int c1, int c2, int w, int p, int r) {
         sp->realfmt[i] = r;
     }
     FullUpdate++;
-    modflg++;
+    sp->modflg++;
 }
 
 void range_align(sheet_t *sp, rangeref_t rr, int align) {
@@ -1284,7 +1284,7 @@ void range_align(sheet_t *sp, rangeref_t rr, int align) {
                 p->flags &= ~ALIGN_MASK;
                 p->flags |= IS_CHANGED | align;
                 changed++;
-                modflg++;
+                sp->modflg++;
             }
         }
     }
@@ -1450,7 +1450,7 @@ void eraser(sheet_t *sp, rangeref_t rr) {
     deldata_store(DELBUFSIZE - 9, DELBUFSIZE - 1, 0);
 
     FullUpdate++;
-    modflg++;
+    sp->modflg++;
 }
 
 /* YANK a Range of cells */
@@ -1509,7 +1509,7 @@ void fillr(sheet_t *sp, rangeref_t rr, double start, double inc, int bycols) {
     }
     FullUpdate++;
     changed++;
-    modflg++;
+    sp->modflg++;
 }
 
 /* lock a range of cells */
@@ -1524,7 +1524,7 @@ void lock_cells(sheet_t *sp, rangeref_t rr) {
             n->flags |= IS_LOCKED;
         }
     }
-    modflg++;
+    sp->modflg++;
 }
 
 /* unlock a range of cells */
@@ -1541,7 +1541,7 @@ void unlock_cells(sheet_t *sp, rangeref_t rr) {
             }
         }
     }
-    modflg++;
+    sp->modflg++;
 }
 
 void format_cells(sheet_t *sp, rangeref_t rr, SCXMEM string_t *s) {
@@ -1566,7 +1566,7 @@ void format_cells(sheet_t *sp, rangeref_t rr, SCXMEM string_t *s) {
     }
     string_free(s);
     FullUpdate++;
-    modflg++;
+    sp->modflg++;
 }
 
 /*
@@ -1646,11 +1646,11 @@ void hiderows(sheet_t *sp, int r1, int r2) {
     for (r = r1; r <= r2; r++)
         sp->row_hidden[r] = 1;
 
-    if (currow >= r1)
-        currow = (currow <= r2) ? r2 + 1 : currow - (r2 - r1 + 1);
+    if (sp->currow >= r1)
+        sp->currow = (sp->currow <= r2) ? r2 + 1 : sp->currow - (r2 - r1 + 1);
 
     FullUpdate++;
-    modflg++;
+    sp->modflg++;
 }
 
 /* mark columns as hidden */
@@ -1675,19 +1675,19 @@ void hidecols(sheet_t *sp, int c1, int c2) {
     for (c = c1; c <= c2; c++)
         sp->col_hidden[c] = TRUE;
 
-    if (curcol >= c1)
-        curcol = (curcol <= c2) ? c2 + 1 : curcol - (c2 - c1 + 1);
+    if (sp->curcol >= c1)
+        sp->curcol = (sp->curcol <= c2) ? c2 + 1 : sp->curcol - (c2 - c1 + 1);
 
     FullUpdate++;
-    modflg++;
+    sp->modflg++;
 }
 
 void dohide(sheet_t *sp) {
-    if (showrange == SHOWROWS) {
-        hiderows(sp, currow, showsr);
+    if (sp->showrange == SHOWROWS) {
+        hiderows(sp, sp->currow, sht->showsr);
     } else
-    if (showrange == SHOWCOLS) {
-        hidecols(sp, curcol, showsc);
+    if (sp->showrange == SHOWCOLS) {
+        hidecols(sp, sp->curcol, sht->showsc);
     }
 }
 
@@ -1702,7 +1702,7 @@ void showrow(sheet_t *sp, int r1, int r2) {
         r2 = sp->maxrow;
 
     FullUpdate++;
-    modflg++;
+    sp->modflg++;
     while (r1 <= r2)
         sp->row_hidden[r1++] = 0;
 }
@@ -1718,7 +1718,7 @@ void showcol(sheet_t *sp, int c1, int c2) {
         c2 = sp->maxcol;
 
     FullUpdate++;
-    modflg++;
+    sp->modflg++;
     while (c1 <= c2)
         sp->col_hidden[c1++] = FALSE;
 }
@@ -1789,42 +1789,47 @@ void erasedb(sheet_t *sp, int load_scrc) {
             }
         }
     }
+    /* free all sheet data */
+    for (r = 0; r < sp->maxrows; r++) {
+        scxfree(sp->tbl[r]);
+    }
+    scxfree(sp->tbl);
+    scxfree(sp->fwidth);
+    scxfree(sp->precision);
+    scxfree(sp->realfmt);
+    scxfree(sp->col_hidden);
+    scxfree(sp->row_hidden);
+    sp->tbl = NULL;
+    sp->fwidth = NULL;
+    sp->precision = NULL;
+    sp->realfmt = NULL;
+    sp->col_hidden = NULL;
+    sp->row_hidden = NULL;
 
     for (c = 0; c < COLFORMATS; c++)
-        string_set(&colformat[c], NULL);
+        string_set(&sp->colformat[c], NULL);
 
-    sp->maxrow = 0;
-    sp->maxcol = 0;
-    clean_nrange();
-    clean_frange();
+    clean_nrange(sp);
+    clean_frange(sp);
     clean_crange(sp);
     clean_abbrevs(sp);
 
-    propagation = 10;
-    calc_order = BYROWS;
-    prescale = 1.0;
-    tbl_style = 0;
-    craction = 0;
-    rowlimit = collimit = -1;
-    qbuf = 0;
-
-    autocalc = showcell = showtop = color = colorneg = colorerr = 1;
-    autoinsert = autowrap = optimize = numeric = extfunc = cslop = 0;
-    currow = curcol = strow = stcol = 0;
-    if (usecurses)
-        select_style(STYLE_NONE, 0);
+    string_set(&sp->mdir, NULL);
+    string_set(&sp->autorun, NULL);
+    for (c = 0; c < FKEYS; c++)
+        string_set(&sp->fkey[c], NULL);
 
     /* unset all marks */
     for (c = 0; c < 37; c++) {
         savedcr[c] = cellref(-1, -1);
         savedst[c] = cellref(-1, -1);
     }
+    qbuf = 0;
 
-    string_set(&mdir, NULL);
-    string_set(&autorun, NULL);
+    sheet_init(sp);
 
-    for (c = 0; c < FKEYS; c++)
-        string_set(&fkey[c], NULL);
+    if (usecurses)
+        select_style(STYLE_NONE, 0);
 
     if (load_scrc) {
         // XXX: this should be in a different function
@@ -1847,26 +1852,6 @@ void erasedb(sheet_t *sp, int load_scrc) {
             close(fd);
             readfile(sp, ".scrc", 0);
         }
-    } else {
-        /* free all sheet data */
-        for (r = 0; r < sp->maxrows; r++) {
-            scxfree(sp->tbl[r]);
-        }
-        scxfree(sp->tbl);
-        scxfree(sp->fwidth);
-        scxfree(sp->precision);
-        scxfree(sp->realfmt);
-        scxfree(sp->col_hidden);
-        scxfree(sp->row_hidden);
-        sp->tbl = NULL;
-        sp->fwidth = NULL;
-        sp->precision = NULL;
-        sp->realfmt = NULL;
-        sp->col_hidden = NULL;
-        sp->row_hidden = NULL;
-        sp->maxrows = sp->maxcols = 0;
-        sp->maxrow = sp->maxcol = -1;
-        currow = curcol = strow = stcol = 0;
     }
     *curfile = '\0';
     FullUpdate++;
@@ -1897,20 +1882,20 @@ static int any_locked_cells(sheet_t *sp, int r1, int c1, int r2, int c2) {
     return 0;
 }
 
-void set_mdir(SCXMEM string_t *str) {
-    string_set(&mdir, str);
-    modflg++;
+void set_mdir(sheet_t *sp, SCXMEM string_t *str) {
+    string_set(&sp->mdir, str);
+    sp->modflg++;
 }
 
-void set_autorun(SCXMEM string_t *str) {
-    string_set(&autorun, str);
-    modflg++;
+void set_autorun(sheet_t *sp, SCXMEM string_t *str) {
+    string_set(&sp->autorun, str);
+    sp->modflg++;
 }
 
-void set_fkey(int n, SCXMEM string_t *str) {
+void set_fkey(sheet_t *sp, int n, SCXMEM string_t *str) {
     if (n >= 0 && n < FKEYS) {
-        string_set(&fkey[n], str);
-        modflg++;
+        string_set(&sp->fkey[n], str);
+        sp->modflg++;
     } else {
         string_free(str);
         error("Invalid function key");
@@ -1935,9 +1920,9 @@ void cmd_setformat(sheet_t *sp, int n, SCXMEM string_t *str) {
             string_free(str);
             str = NULL;
         }
-        string_set(&colformat[n], str);
+        string_set(&sp->colformat[n], str);
         FullUpdate++;
-        modflg++;
+        sp->modflg++;
     } else {
         error("Invalid format number");
         string_free(str);
@@ -1962,7 +1947,7 @@ void addnote(sheet_t *sp, cellref_t cr, rangeref_t rr) {
         p->nrr = rr;
         p->flags |= HAS_NOTE | IS_CHANGED;
         FullUpdate++;
-        modflg++;
+        sp->modflg++;
     }
 }
 
@@ -1972,6 +1957,6 @@ void delnote(sheet_t *sp, cellref_t cr) {
         p->nrr = rangeref_empty();
         p->flags ^= HAS_NOTE;
         p->flags |= IS_CHANGED;
-        modflg++;
+        sp->modflg++;
     }
 }

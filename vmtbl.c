@@ -73,7 +73,7 @@ int growtbl(sheet_t *sp, int mode, int toprow, int topcol) {
         /* when we first start up, fill the screen w/ cells */
         newrows = screen_LINES - RESROW;
         if (newrows < MINROWS) newrows = MINROWS;
-        newcols = ((screen_COLS) - rescol) / DEFWIDTH;
+        newcols = (screen_COLS - sp->rescol) / DEFWIDTH;
         if (newcols < MINCOLS) newcols = MINCOLS;
         currows = toprow = 0;
         curcols = topcol = 0;
@@ -152,7 +152,7 @@ int growtbl(sheet_t *sp, int mode, int toprow, int topcol) {
     sp->maxrows = newrows;
     sp->maxcols = newcols;
 
-    for (rescol = 4; newrows >= 1000; rescol++) {
+    for (sp->rescol = 4; newrows >= 1000; sp->rescol++) {
         newrows /= 10;
     }
     return TRUE;

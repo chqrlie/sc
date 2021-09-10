@@ -60,19 +60,19 @@ void go_last(sheet_t *sp) {
  * screen if possible.
  */
 void moveto(sheet_t *sp, rangeref_t rr, cellref_t st) {
-    if (!loading && rr.left.row != -1 && (rr.left.row != currow || rr.left.col != curcol))
-        remember(0);
+    if (!loading && rr.left.row != -1 && (rr.left.row != sp->currow || rr.left.col != sp->curcol))
+        remember(sp, 0);
 
     lookat(sp, rr.left.row, rr.left.col);
-    currow = rr.left.row;
-    curcol = rr.left.col;
+    sp->currow = rr.left.row;
+    sp->curcol = rr.left.col;
     go_free(sp);
     gs.g_type = G_CELL;
     gs.g_rr = rr;
     gs.st = st;
     if (st.row >= 0) {
-        strow = st.row;
-        stcol = st.col;
+        sp->strow = st.row;
+        sp->stcol = st.col;
         gs.stflag = 1;
     } else {
         gs.stflag = 0;
@@ -86,7 +86,7 @@ void moveto(sheet_t *sp, rangeref_t rr, cellref_t st) {
         update(sp, 1);
         changed = 0;
     } else {
-        remember(1);
+        remember(sp, 1);
     }
 }
 
@@ -103,7 +103,7 @@ int num_search(sheet_t *sp, int g_type, rangeref_t rr, double n) {
     int errsearch = 0;
 
     if (!loading)
-        remember(0);
+        remember(sp, 0);
 
     // XXX: refine this, find all errors for now
     if (g_type == G_ERROR)
@@ -121,10 +121,10 @@ int num_search(sheet_t *sp, int g_type, rangeref_t rr, double n) {
     lastrow = rr.right.row;
     lastcol = rr.right.col;
 
-    if (currow >= firstrow && currow <= lastrow &&
-            curcol >= firstcol && curcol <= lastcol) {
-        endr = currow;
-        endc = curcol;
+    if (sp->currow >= firstrow && sp->currow <= lastrow &&
+        sp->curcol >= firstcol && sp->curcol <= lastcol) {
+        endr = sp->currow;
+        endc = sp->curcol;
     } else {
         endr = lastrow;
         endc = lastcol;
@@ -155,13 +155,13 @@ int num_search(sheet_t *sp, int g_type, rangeref_t rr, double n) {
     }
 
     if (found) {
-        currow = row;
-        curcol = col;
+        sp->currow = row;
+        sp->curcol = col;
         if (loading) {
             update(sp, 1);
             changed = 0;
         } else {
-            remember(1);
+            remember(sp, 1);
         }
     } else {
         if (errsearch) {
@@ -220,7 +220,7 @@ int str_search(sheet_t *sp, int g_type, rangeref_t rr, SCXMEM string_t *str) {
     /* otherwise nothing to do, will just use strcmp() */
 #endif
     if (!loading)
-        remember(0);
+        remember(sp, 0);
 
     go_free(sp);
     gs.g_type = g_type;
@@ -232,9 +232,9 @@ int str_search(sheet_t *sp, int g_type, rangeref_t rr, SCXMEM string_t *str) {
     lastrow = rr.right.row;
     lastcol = rr.right.col;
 
-    if (currow >= firstrow && currow <= lastrow && curcol >= firstcol && curcol <= lastcol) {
-        endr = currow;
-        endc = curcol;
+    if (sp->currow >= firstrow && sp->currow <= lastrow && sp->curcol >= firstcol && sp->curcol <= lastcol) {
+        endr = sp->currow;
+        endc = sp->curcol;
     } else {
         endr = lastrow;
         endc = lastcol;
@@ -308,13 +308,13 @@ int str_search(sheet_t *sp, int g_type, rangeref_t rr, SCXMEM string_t *str) {
 #else
 #endif
     if (found) {
-        currow = row;
-        curcol = col;
+        sp->currow = row;
+        sp->curcol = col;
         if (loading) {
             update(sp, 1);
             changed = 0;
         } else {
-            remember(1);
+            remember(sp, 1);
         }
     } else {
         error("String not found");
@@ -327,92 +327,92 @@ void doend(sheet_t *sp, int rowinc, int colinc) {
     int r, c;
 
     if (!loading)
-        remember(0);
+        remember(sp, 0);
 
-    if (VALID_CELL(sp, p, currow, curcol)) {
-        r = currow + rowinc;
-        c = curcol + colinc;
+    if (VALID_CELL(sp, p, sp->currow, sp->curcol)) {
+        r = sp->currow + rowinc;
+        c = sp->curcol + colinc;
         if (r >= 0 && r < sp->maxrows &&
             c >= 0 && c < sp->maxcols &&
             !VALID_CELL(sp, p, r, c)) {
-                currow = r;
-                curcol = c;
+                sp->currow = r;
+                sp->curcol = c;
         }
     }
 
-    if (!VALID_CELL(sp, p, currow, curcol)) {
+    if (!VALID_CELL(sp, p, sp->currow, sp->curcol)) {
         switch (rowinc) {
         case -1:
-            while (!VALID_CELL(sp, p, currow, curcol) && currow > 0)
-                currow--;
+            while (!VALID_CELL(sp, p, sp->currow, sp->curcol) && sp->currow > 0)
+                sp->currow--;
             break;
         case  1:
-            while (!VALID_CELL(sp, p, currow, curcol) && currow < sp->maxrows - 1)
-                currow++;
+            while (!VALID_CELL(sp, p, sp->currow, sp->curcol) && sp->currow < sp->maxrows - 1)
+                sp->currow++;
             break;
         case  0:
             switch (colinc) {
             case -1:
-                while (!VALID_CELL(sp, p, currow, curcol) && curcol > 0)
-                    curcol--;
+                while (!VALID_CELL(sp, p, sp->currow, sp->curcol) && sp->curcol > 0)
+                    sp->curcol--;
                 break;
             case  1:
-                while (!VALID_CELL(sp, p, currow, curcol) && curcol < sp->maxcols - 1)
-                    curcol++;
+                while (!VALID_CELL(sp, p, sp->currow, sp->curcol) && sp->curcol < sp->maxcols - 1)
+                    sp->curcol++;
                 break;
             }
             break;
         }
         if (!loading)
-            remember(1);
+            remember(sp, 1);
         return;
     }
 
     switch (rowinc) {
     case -1:
-        while (VALID_CELL(sp, p, currow, curcol) && currow > 0)
-            currow--;
+        while (VALID_CELL(sp, p, sp->currow, sp->curcol) && sp->currow > 0)
+            sp->currow--;
         break;
     case  1:
-        while (VALID_CELL(sp, p, currow, curcol) && currow < sp->maxrows - 1)
-            currow++;
+        while (VALID_CELL(sp, p, sp->currow, sp->curcol) && sp->currow < sp->maxrows - 1)
+            sp->currow++;
         break;
     case  0:
         switch (colinc) {
         case -1:
-            while (VALID_CELL(sp, p, currow, curcol) && curcol > 0)
-                curcol--;
+            while (VALID_CELL(sp, p, sp->currow, sp->curcol) && sp->curcol > 0)
+                sp->curcol--;
             break;
         case  1:
-            while (VALID_CELL(sp, p, currow, curcol) && curcol < sp->maxcols - 1)
-                curcol++;
+            while (VALID_CELL(sp, p, sp->currow, sp->curcol) && sp->curcol < sp->maxcols - 1)
+                sp->curcol++;
             break;
         }
         break;
     }
-    if (!VALID_CELL(sp, p, currow, curcol)) {
+    if (!VALID_CELL(sp, p, sp->currow, sp->curcol)) {
         // XXX: this is bogus if already on maxcol or maxrow
-        currow -= rowinc;
-        curcol -= colinc;
+        sp->currow -= rowinc;
+        sp->curcol -= colinc;
     }
 }
 
 /* moves currow down one page */
 void forwpage(sheet_t *sp, int arg) {
-    int ps = pagesize ? pagesize : (screen_LINES - RESROW - framerows) / 2;
+    int ps = sp->pagesize ? sp->pagesize : (screen_LINES - RESROW - framerows) / 2;
     forwrow(sp, arg * ps);
     // XXX: hidden row issue
-    strow = strow + arg * ps;
+    sp->strow = sp->strow + arg * ps;
     FullUpdate++;
 }
 
 /* moves currow up one page */
 void backpage(sheet_t *sp, int arg) {
-    int ps = pagesize ? pagesize : (screen_LINES - RESROW - framerows) / 2;
+    int ps = sp->pagesize ? sp->pagesize : (screen_LINES - RESROW - framerows) / 2;
     backrow(sp, arg * ps);
     // XXX: hidden row issue
-    strow = strow - arg * ps;
-    if (strow < 0) strow = 0;
+    sp->strow = sp->strow - arg * ps;
+    if (sp->strow < 0) sp->strow = 0;
     FullUpdate++;
 }
 
@@ -422,34 +422,34 @@ void forwcell(sheet_t *sp, int arg) {
 
     while (arg --> 0) {
         do {
-            if (curcol < sp->maxcols - 1) {
-                curcol++;
+            if (sp->curcol < sp->maxcols - 1) {
+                sp->curcol++;
             } else
-            if (currow < sp->maxrows - 1) {
-                curcol = 0;
-                while (++currow < sp->maxrows - 1 && sp->row_hidden[currow])
+            if (sp->currow < sp->maxrows - 1) {
+                sp->curcol = 0;
+                while (++sp->currow < sp->maxrows - 1 && sp->row_hidden[sp->currow])
                     continue;
             } else {
                 error("At end of table");
                 arg = 0;
                 break;
             }
-        } while (sp->col_hidden[curcol] || !VALID_CELL(sp, p, currow, curcol));
+        } while (sp->col_hidden[sp->curcol] || !VALID_CELL(sp, p, sp->currow, sp->curcol));
     }
 }
 
 /* moves curcol forward one displayed column */
 void forwcol(sheet_t *sp, int arg) {
     while (arg --> 0) {
-        if (curcol < sp->maxcols - 1)
-            curcol++;
+        if (sp->curcol < sp->maxcols - 1)
+            sp->curcol++;
         else
         if (!growtbl(sp, GROWCOL, 0, arg))  /* get as much as needed */
             break;
         else
-            curcol++;
-        while (sp->col_hidden[curcol] && (curcol < sp->maxcols - 1))
-            curcol++;
+            sp->curcol++;
+        while (sp->col_hidden[sp->curcol] && (sp->curcol < sp->maxcols - 1))
+            sp->curcol++;
     }
 }
 
@@ -459,67 +459,67 @@ void backcell(sheet_t *sp, int arg) {
 
     while (arg --> 0) {
         do {
-            if (curcol) {
-                curcol--;
+            if (sp->curcol) {
+                sp->curcol--;
             } else
-            if (currow) {
-                curcol = sp->maxcols - 1;
-                while (--currow && sp->row_hidden[currow])
+            if (sp->currow) {
+                sp->curcol = sp->maxcols - 1;
+                while (--sp->currow && sp->row_hidden[sp->currow])
                     continue;
             } else {
                 error("At start of table");
                 arg = 0;
                 break;
             }
-        } while (sp->col_hidden[curcol] || !VALID_CELL(sp, p, currow, curcol));
+        } while (sp->col_hidden[sp->curcol] || !VALID_CELL(sp, p, sp->currow, sp->curcol));
     }
 }
 
 /* moves curcol back one displayed column */
 void backcol(sheet_t *sp, int arg) {
     while (arg --> 0) {
-        if (!curcol) {
+        if (!sp->curcol) {
             error("At column A");
             break;
         }
-        curcol--;
-        while (curcol && sp->col_hidden[curcol])
-            curcol--;
+        sp->curcol--;
+        while (sp->curcol && sp->col_hidden[sp->curcol])
+            sp->curcol--;
     }
 }
 
 /* moves currow forward one displayed row */
 void forwrow(sheet_t *sp, int arg) {
     while (arg --> 0) {
-        if (currow < sp->maxrows - 1)
-            currow++;
+        if (sp->currow < sp->maxrows - 1)
+            sp->currow++;
         else
         if (!growtbl(sp, GROWROW, sp->maxrows + arg, 0))  /* get as much as needed */
             break;
         else
-            currow++;
-        while (sp->row_hidden[currow] && (currow < sp->maxrows - 1))
-            currow++;
+            sp->currow++;
+        while (sp->row_hidden[sp->currow] && (sp->currow < sp->maxrows - 1))
+            sp->currow++;
     }
 }
 
 /* moves currow backward one displayed row */
 void backrow(sheet_t *sp, int arg) {
     while (arg --> 0) {
-        if (!currow) {
+        if (!sp->currow) {
             error("At row zero");
             break;
         }
-        currow--;
-        while (currow && sp->row_hidden[currow])
-            currow--;
+        sp->currow--;
+        while (sp->currow && sp->row_hidden[sp->currow])
+            sp->currow--;
     }
 }
 
 void gotonote(sheet_t *sp) {
     struct ent *p;
 
-    p = lookat(sp, currow, curcol);
+    p = lookat(sp, sp->currow, sp->curcol);
     if (p->flags & HAS_NOTE) {
         moveto(sp, p->nrr, cellref(-1, -1));
     } else {

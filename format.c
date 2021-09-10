@@ -111,9 +111,6 @@
 #include <time.h>
 #include "sc.h"
 
-// XXX: should allocate and reallocate this array
-SCXMEM string_t *colformat[COLFORMATS];
-
 /*****************************************************************************/
 
 // XXX: should take buf_t destination
@@ -613,8 +610,9 @@ int engformat(char *buf, size_t size, int fmt, int lprecision, double val, int *
     time_t secs;
 
     // XXX: should ignore empty colformat?
-    if (fmt >= 0 && fmt < COLFORMATS && colformat[fmt])
-        return format(buf, size, s2c(colformat[fmt]), lprecision, val, alignp);
+    // XXX: fix this mess
+    //if (fmt >= 0 && fmt < COLFORMATS && sp->colformat[fmt])
+    //    return format(buf, size, s2c(sp->colformat[fmt]), lprecision, val, alignp);
     switch (fmt) {
     case REFMTFIX:
         return snprintf(buf, size, "%.*f", lprecision, val);

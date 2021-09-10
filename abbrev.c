@@ -10,24 +10,21 @@
 
 #include "sc.h"
 
-static SCXMEM struct abbrev *abbr_base;
-static struct abbrev *abbr_tail;
-
-static int are_abbrevs(void) {
-    return abbr_base != NULL;
+static int are_abbrevs(sheet_t *sp) {
+    return sp->abbr_base != NULL;
 }
 
 /* unlink and free an abbrev */
-static void free_abbr(SCXMEM struct abbrev *a) {
+static void free_abbr(sheet_t *sp, SCXMEM struct abbrev *a) {
     if (a) {
         if (a->next)
             a->next->prev = a->prev;
         else
-            abbr_tail = a->prev;
+            sp->abbr_tail = a->prev;
         if (a->prev)
             a->prev->next = a->next;
         else
-            abbr_base = a->next;
+            sp->abbr_base = a->next;
         string_free(a->name);
         string_free(a->exp);
         scxfree(a);
@@ -43,7 +40,7 @@ void add_abbr(sheet_t *sp, SCXMEM string_t *name, SCXMEM string_t *exp) {
     // XXX: should have other commands to list abbrevs
     // null or empty string: list abbreviations to the PAGER
     if (sempty(name)) {
-        if (!are_abbrevs()) {
+        if (!are_abbrevs(sp)) {
             error("No abbreviations defined");
         } else {
             FILE *f;
@@ -62,7 +59,7 @@ void add_abbr(sheet_t *sp, SCXMEM string_t *name, SCXMEM string_t *exp) {
                 if (!brokenpipe)
                     fprintf(f, "%-15s %s\n", "------------", "--------");
 
-                for (a = abbr_base; a && !brokenpipe; a = a->next) {
+                for (a = sp->abbr_base; a && !brokenpipe; a = a->next) {
                     fprintf(f, "%-15s %s\n", s2c(a->name), s2c(a->exp));
                 }
                 closefile(f, pid, 0);
@@ -113,7 +110,6 @@ void add_abbr(sheet_t *sp, SCXMEM string_t *name, SCXMEM string_t *exp) {
     if (a) {
         string_set(&a->exp, exp);
         string_free(name);
-        return;
     } else {
         /* insert in lexicographical order */
         a = scxmalloc(sizeof(struct abbrev));
@@ -125,16 +121,15 @@ void add_abbr(sheet_t *sp, SCXMEM string_t *name, SCXMEM string_t *exp) {
             a->next = prev->next;
             prev->next = a;
         } else {
-            a->next = abbr_base;
-            abbr_base = a;
+            a->next = sp->abbr_base;
+            sp->abbr_base = a;
         }
         if (a->next)
             a->next->prev = a;
         else
-            abbr_tail = a;
+            sp->abbr_tail = a;
 
-        modflg++;
-        return;
+        sp->modflg++;
     }
 }
 
@@ -142,13 +137,13 @@ void del_abbr(sheet_t *sp, SCXMEM string_t *name) {
     struct abbrev *a, *prev;
 
     if (name && (a = find_abbr(sp, s2c(name), -1, &prev)) != NULL)
-        free_abbr(a);
+        free_abbr(sp, a);
     string_free(name);
 }
 
 void clean_abbrevs(sheet_t *sp) {
-    while (abbr_base)
-        free_abbr(abbr_base);
+    while (sp->abbr_base)
+        free_abbr(sp, sp->abbr_base);
 }
 
 struct abbrev *find_abbr(sheet_t *sp, const char *name, int len, struct abbrev **prev) {
@@ -162,7 +157,7 @@ struct abbrev *find_abbr(sheet_t *sp, const char *name, int len, struct abbrev *
     }
 
     *prev = NULL;
-    for (a = abbr_base; a; *prev = a, a = a->next) {
+    for (a = sp->abbr_base; a; *prev = a, a = a->next) {
         const char *a_name = s2c(a->name);
         if ((cmp = strncmp(name, a_name, len)) < 0)
             return NULL;
@@ -177,7 +172,7 @@ struct abbrev *find_abbr(sheet_t *sp, const char *name, int len, struct abbrev *
 void write_abbrevs(sheet_t *sp, FILE *f) {
     struct abbrev *a;
 
-    for (a = abbr_base; a; a = a->next) {
+    for (a = sp->abbr_base; a; a = a->next) {
         // XXX: should quote expansion string
         fprintf(f, "abbrev \"%s %s\"\n", s2c(a->name), s2c(a->exp));
     }

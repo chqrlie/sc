@@ -328,6 +328,7 @@ int yylex(void) {
     int ret = -1, len, op;
     sc_bool_t isfunc = 0;
     struct nrange *r;
+    sheet_t *sp = sht;
 
     for (;;) {
         if (isspacechar(*p)) {
@@ -424,7 +425,7 @@ int yylex(void) {
                 if ((ret = lookup_name(settingres, countof(settingres), p0, p - p0, &yylval.ival)) >= 0)
                     break;
             }
-            if (!find_nrange_name(p0, p - p0, &r)) {
+            if (!find_nrange_name(sp, p0, p - p0, &r)) {
                 if (r->r_is_range) {
                     yylval.rval = rangeref(r->r_left.vp->row, r->r_left.vp->col,
                                            r->r_right.vp->row, r->r_right.vp->col);

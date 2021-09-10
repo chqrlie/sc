@@ -89,7 +89,7 @@ int creadfile(const char *fname, int eraseflg) {
         continue;
     if (eraseflg) {
         pstrcpy(curfile, sizeof curfile, save);
-        modflg = 0;
+        sp->modflg = 0;
     }
     return 1;
 }
@@ -167,7 +167,7 @@ int cwritefile(const char *fname, rangeref_t rr, int dcp_flags) {
     while (pid != wait(&fildes))
         continue;
     pstrcpy(curfile, sizeof curfile, path);
-    modflg = 0;
+    sp->modflg = 0;
     error("File \"%s\" written (encrypted).", curfile);
     return 0;
 }

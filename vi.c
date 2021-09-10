@@ -41,7 +41,7 @@ static void doabbrev(sheet_t *sp);
 static void dogoto(sheet_t *sp);
 static void dotab(sheet_t *sp);
 static void dotcmd(sheet_t *sp);
-static void doshell(void);
+static void doshell(sheet_t *sp);
 static int find_char(sheet_t *sp, int start, int arg, int dir);
 static void find_char2(sheet_t *sp, int arg, int dir);
 static void forw_hist(void);
@@ -70,16 +70,16 @@ static void scroll_down(sheet_t *sp);
 static void scroll_up(sheet_t *sp, int x);
 static void colshow_op(sheet_t *sp);
 static void rowshow_op(sheet_t *sp);
-static int setmark(int c);  /* convert and set the mark and return index or complain and return -1 */
+static int setmark(sheet_t *sp, int c);  /* convert and set the mark and return index or complain and return -1 */
 static int checkmark(int c);  /* convert mark char to index or complain and return -1 */
-static void markcell(void);
-static void dotick(int tick);
+static void markcell(sheet_t *sp);
+static void dotick(sheet_t *sp, int tick);
 static int get_rcqual(sheet_t *sp, int ch);
 static void formatcol(sheet_t *sp, int arg);
 static void edit_mode(void);
 static void insert_mode(void);
 static void toggle_navigate_mode(void);
-static void startshow(void);
+static void startshow(sheet_t *sp);
 static void showdr(sheet_t *sp);
 static void gotobottom(sheet_t *sp);
 static void gototop(sheet_t *sp);
@@ -175,7 +175,7 @@ void vi_interaction(sheet_t *sp) {
     struct ent *p;
     buf_t buf;
 
-    modflg = 0;
+    sp->modflg = 0;
     if (linelim < 0)
         cellassign = 0;
 
@@ -186,7 +186,7 @@ void vi_interaction(sheet_t *sp) {
             sp = sht;
             nedistate = -1;
             narg = 1;
-            if (edistate < 0 && linelim < 0 && autocalc && (changed || FullUpdate)) {
+            if (edistate < 0 && linelim < 0 && sp->autocalc && (changed || FullUpdate)) {
                 EvalAll(sp);
                 if (changed)    /* if EvalAll changed or was before */
                     anychanged = TRUE;
@@ -326,7 +326,7 @@ void vi_interaction(sheet_t *sp) {
                     break;
 
                 case ctl('g'):
-                    showrange = 0;
+                    sp->showrange = 0;
                     linelim = -1;
                     screen_clear_line(1);
                     break;
@@ -363,10 +363,10 @@ void vi_interaction(sheet_t *sp) {
                 case ctl('n'):
                     if (numeric_field) {
                         // XXX: should avoid global variable hacking
-                        c = craction;
-                        craction = 0;
+                        c = sp->craction;
+                        sp->craction = 0;
                         write_line(sp, ctl('m'));
-                        craction = c;
+                        sp->craction = c;
                         numeric_field = 0;
                     }
                     if (linelim < 0)
@@ -378,10 +378,10 @@ void vi_interaction(sheet_t *sp) {
                 case ctl('p'):
                     if (numeric_field) {
                         // XXX: should avoid global variable hacking
-                        c = craction;
-                        craction = 0;
+                        c = sp->craction;
+                        sp->craction = 0;
                         write_line(sp, ctl('m'));
-                        craction = c;
+                        sp->craction = c;
                         numeric_field = 0;
                     }
                     if (linelim < 0)
@@ -422,15 +422,15 @@ void vi_interaction(sheet_t *sp) {
                     switch (nmgetch(1)) {
                     case 'a': case 'A':
                     case 'm': case 'M':
-                        autocalc ^= 1;
+                        sp->autocalc ^= 1;
                         error("Automatic recalculation %s.",
-                              autocalc ? "enabled" : "disabled");
+                              sp->autocalc ? "enabled" : "disabled");
                         break;
                     case 'b':
                         braille ^= 1;
                         error("Braille enhancement %s.",
                               braille ? "enabled" : "disabled");
-                        --modflg;   /* negate the modflg++ */
+                        --sp->modflg;   /* negate the sp->modflg++ */
                         break;
                     case 'c':
                         repaint_cursor(sp, -showcell);
@@ -438,26 +438,26 @@ void vi_interaction(sheet_t *sp) {
                         repaint_cursor(sp, showcell);
                         error("Cell highlighting %s.",
                               showcell ? "enabled" : "disabled");
-                        --modflg;   /* negate the modflg++ */
+                        --sp->modflg;   /* negate the sp->modflg++ */
                         break;
                     case 'C':
                         sc_setcolor(!color);
                         error("Color %s.", color ? "enabled" : "disabled");
                         break;
                     case 'e':
-                        extfunc = !extfunc;
+                        sp->extfunc = !sp->extfunc;
                         error("External functions %s.",
-                              extfunc? "enabled" : "disabled");
+                              sp->extfunc? "enabled" : "disabled");
                         break;
                     case 'E':
-                        colorerr = !colorerr;
+                        sp->colorerr = !sp->colorerr;
                         error("Color changing of cells with errors %s.",
-                              colorerr ? "enabled" : "disabled");
+                              sp->colorerr ? "enabled" : "disabled");
                         break;
                     case 'i': case 'I':
-                        autoinsert = !autoinsert;
+                        sp->autoinsert = !sp->autoinsert;
                         error("Autoinsert %s.",
-                              autoinsert? "enabled" : "disabled");
+                              sp->autoinsert? "enabled" : "disabled");
                         break;
                     case 'l': case 'L':
                         autolabel = !autolabel;
@@ -465,37 +465,37 @@ void vi_interaction(sheet_t *sp) {
                               autolabel ? "enabled" : "disabled");
                         break;
                     case 'n':
-                        numeric = !numeric;
+                        sp->numeric = !sp->numeric;
                         error("Numeric input %s.",
-                              numeric ? "enabled" : "disabled");
+                              sp->numeric ? "enabled" : "disabled");
                         break;
                     case 'N':
-                        colorneg = !colorneg;
+                        sp->colorneg = !sp->colorneg;
                         error("Color changing of negative numbers %s.",
-                              colorneg ? "enabled" : "disabled");
+                              sp->colorneg ? "enabled" : "disabled");
                         break;
                     case 'o': case 'O':
-                        optimize ^= 1;
+                        sp->optimize ^= 1;
                         error("%s expressions upon entry.",
-                              optimize ? "Optimize" : "Do not optimize");
+                              sp->optimize ? "Optimize" : "Do not optimize");
                         break;
                     case 'r': case 'R':
                         error("Which direction after return key?");
                         switch (nmgetch(1)) {
                         case ctl('m'):
-                            craction = 0;
+                            sp->craction = 0;
                             error("No action after new line");
                             break;
                         case 'j':
                         case ctl('n'):
                         case SC_KEY_DOWN:
-                            craction = CRROWS;
+                            sp->craction = CRROWS;
                             error("Down row after new line");
                             break;
                         case 'l':
                         case ' ':
                         case SC_KEY_RIGHT:
-                            craction = CRCOLS;
+                            sp->craction = CRCOLS;
                             error("Right column after new line");
                             break;
                         case ESC:
@@ -506,14 +506,14 @@ void vi_interaction(sheet_t *sp) {
                         }
                         break;
                     case 's':
-                        cslop ^= 1;
+                        sp->cslop ^= 1;
                         error("Color slop %s.",
-                              cslop ? "enabled" : "disabled");
+                              sp->cslop ? "enabled" : "disabled");
                         break;
                     case 't': case 'T':
-                        showtop = !showtop;
+                        sp->showtop = !sp->showtop;
                         error("Top line %s.",
-                              showtop ? "enabled" : "disabled");
+                              sp->showtop ? "enabled" : "disabled");
                         break;
                     case 'v':
                         emacs_bindings = !emacs_bindings;
@@ -521,9 +521,9 @@ void vi_interaction(sheet_t *sp) {
                               emacs_bindings ? "enabled" : "disabled");
                         break;
                     case 'w': case 'W':
-                        autowrap = !autowrap;
+                        sp->autowrap = !sp->autowrap;
                         error("Autowrap %s.",
-                              autowrap? "enabled" : "disabled");
+                              sp->autowrap? "enabled" : "disabled");
                         break;
                     case 'x': case 'X':
 #ifdef NOCRYPT
@@ -534,29 +534,29 @@ void vi_interaction(sheet_t *sp) {
 #endif
                         break;
                     case 'z': case 'Z':
-                        rowlimit = currow;
-                        collimit = curcol;
+                        sp->rowlimit = sp->currow;
+                        sp->collimit = sp->curcol;
                         error("Row and column limits set");
                         break;
                     case '$':
-                        if (prescale == 1.0) {
+                        if (sp->prescale == 1.0) {
                             error("Prescale enabled.");
-                            prescale = 0.01;
+                            sp->prescale = 0.01;
                         } else {
-                            prescale = 1.0;
+                            sp->prescale = 1.0;
                             error("Prescale disabled.");
                         }
                         break;
                     case ESC:
                     case ctl('g'):
-                        --modflg;   /* negate the modflg++ */
+                        --sp->modflg;   /* negate the sp->modflg++ */
                         break;
                     default:
                         error("Invalid toggle command");
-                        --modflg;   /* negate the modflg++ */
+                        --sp->modflg;   /* negate the sp->modflg++ */
                     }
                     FullUpdate++;
-                    modflg++;
+                    sp->modflg++;
                     break;
 
                 case ctl('u'):
@@ -576,10 +576,10 @@ void vi_interaction(sheet_t *sp) {
                 case ctl('w'):  /* insert variable expression */
                     if (linelim >= 0) {
                         buf_init2(buf, line, sizeof line, linelen);
-                        p = lookat(sp, currow, curcol);
+                        p = lookat(sp, sp->currow, sp->curcol);
                         /* decompile expression into line array */
                         // XXX: insert expression instead of appending?
-                        // XXX: should pass currow, curcol as the cell reference
+                        // XXX: should pass sp->currow, sp->curcol as the cell reference
                         linelim = linelen = decompile_expr(sp, buf, p->expr, 0, 0, DCP_DEFAULT);
                     }
                     break;
@@ -593,10 +593,10 @@ void vi_interaction(sheet_t *sp) {
                     if (linelim >= 0) {
                         write_line(sp, c);
                     } else {
-                        remember(0);
-                        currow = 0;
-                        curcol = 0;
-                        remember(1);
+                        remember(sp, 0);
+                        sp->currow = 0;
+                        sp->curcol = 0;
+                        remember(sp, 1);
                         FullUpdate++;
                     }
                     break;
@@ -610,7 +610,7 @@ void vi_interaction(sheet_t *sp) {
                 } /* End of the control char switch stmt */
             } else
             if (ISBYTE(c) && isdigit(c) &&
-                ((!numeric && linelim < 0) ||
+                ((!sp->numeric && linelim < 0) ||
                  (linelim >= 0 && (mode_ind == 'e' || mode_ind == 'v')) ||
                  edistate >= 0))
             {
@@ -632,7 +632,7 @@ void vi_interaction(sheet_t *sp) {
                     narg = uarg * 10 + (c - '0');
                 }
             } else
-            if (c == SC_KEY_F(1) && sempty(fkey[c - SC_KEY_F0])) {
+            if (c == SC_KEY_F(1) && sempty(sp->fkey[c - SC_KEY_F0])) {
                 screen_deraw(1);
                 system("man sc");
                 screen_goraw();
@@ -643,7 +643,7 @@ void vi_interaction(sheet_t *sp) {
                 switch (c) {
                 case ')':
                 case ',':
-                    if (showrange)
+                    if (sp->showrange)
                         showdr(sp);
                     break;
                 default:
@@ -653,10 +653,10 @@ void vi_interaction(sheet_t *sp) {
             } else
             if (c >= SC_KEY_F0 && c <= SC_KEY_F(FKEYS-1)) {
                 /* a function key was pressed */
-                if (!sempty(fkey[c - SC_KEY_F0])) {
+                if (!sempty(sp->fkey[c - SC_KEY_F0])) {
                     int i;
 
-                    pstrcpy(line, sizeof line, s2c(fkey[c - SC_KEY_F0]));
+                    pstrcpy(line, sizeof line, s2c(sp->fkey[c - SC_KEY_F0]));
                     for (i = 0; line[i]; i++) {
                         // XXX: string should have been unescaped already
                         if (line[i] == '\\' && line[i+1] == '"') {
@@ -666,7 +666,7 @@ void vi_interaction(sheet_t *sp) {
                             // XXX: could use v_name()
                             char mycell[16];
                             size_t len;
-                            len = snprintf(mycell, sizeof(mycell), "%s%d", coltoa(curcol), currow);
+                            len = snprintf(mycell, sizeof(mycell), "%s%d", coltoa(sp->curcol), sp->currow);
                             strsplice(line, sizeof line, i, 2, mycell, len);
                             i += len - 1;
                         }
@@ -699,9 +699,9 @@ void vi_interaction(sheet_t *sp) {
                 case '0': case '1': case '2': case '3': case '4':
                 case '5': case '6': case '7': case '8': case '9':
                 case '.':
-                    if (!locked_cell(sp, currow, curcol)) {
-                        set_line("let %s = %c", v_name(currow, curcol), c);
-                        setmark('0');
+                    if (!locked_cell(sp, sp->currow, sp->curcol)) {
+                        set_line("let %s = %c", v_name(sp, sp->currow, sp->curcol), c);
+                        setmark(sp, '0');
                         numeric_field = 1;
                         cellassign = 1;
                         insert_mode();
@@ -710,23 +710,23 @@ void vi_interaction(sheet_t *sp) {
 
                 case '+':
                 case '-':
-                    if (!locked_cell(sp, currow, curcol)) {
-                        p = getcell(sp, currow, curcol);
-                        if (!numeric && p && p->type == SC_NUMBER) {
+                    if (!locked_cell(sp, sp->currow, sp->curcol)) {
+                        p = getcell(sp, sp->currow, sp->curcol);
+                        if (!sp->numeric && p && p->type == SC_NUMBER) {
                             /* increment/decrement numeric cell by uarg */
                             if (c == '+')
                                 p->v += (double)uarg;
                             else
                                 p->v -= (double)uarg;
                             FullUpdate++;
-                            modflg++;
+                            sp->modflg++;
                             continue;
                         }
                         /* copy cell contents into line array */
                         buf_init(buf, line, sizeof line);
                         // XXX: the conversion should be localized
-                        linelim = linelen = edit_cell(sp, buf, currow, curcol, p, DCP_DEFAULT, 0);
-                        setmark('0');
+                        linelim = linelen = edit_cell(sp, buf, sp->currow, sp->curcol, p, DCP_DEFAULT, 0);
+                        setmark(sp, '0');
                         numeric_field = 1;
                         cellassign = 1;
                         insert_mode();
@@ -738,16 +738,16 @@ void vi_interaction(sheet_t *sp) {
                     break;
 
                 case '=':
-                    if (!locked_cell(sp, currow, curcol)) {
-                        set_line("let %s = ", v_name(currow, curcol));
-                        setmark('0');
+                    if (!locked_cell(sp, sp->currow, sp->curcol)) {
+                        set_line("let %s = ", v_name(sp, sp->currow, sp->curcol));
+                        setmark(sp, '0');
                         cellassign = 1;
                         insert_mode();
                     }
                     break;
 
                 case '!':
-                    doshell();
+                    doshell(sp);
                     break;
 
                 /*
@@ -762,42 +762,42 @@ void vi_interaction(sheet_t *sp) {
                     case 'l':
                         set_line("lock [range] ");
                         insert_mode();
-                        startshow();
+                        startshow(sp);
                         break;
                     case 'U':
                         set_line("unlock [range] ");
                         insert_mode();
-                        startshow();
+                        startshow(sp);
                         break;
                     case 'c':
                         set_line("copy [dest_range src_range] ");
                         insert_mode();
-                        startshow();
+                        startshow(sp);
                         break;
                     case 'm':
-                        set_line("move [destination src_range] %s ", v_name(currow, curcol));
+                        set_line("move [destination src_range] %s ", v_name(sp, sp->currow, sp->curcol));
                         insert_mode();
                         write_line(sp, ctl('v'));
                         break;
                     case 'x':
                         set_line("erase [range] ");
                         insert_mode();
-                        startshow();
+                        startshow(sp);
                         break;
                     case 'y':
                         set_line("yank [range] ");
                         insert_mode();
-                        startshow();
+                        startshow(sp);
                         break;
                     case 'v':
                         set_line("value [range] ");
                         insert_mode();
-                        startshow();
+                        startshow(sp);
                         break;
                     case 'f':
                         set_line("fill [range start inc] ");
                         insert_mode();
-                        startshow();
+                        startshow(sp);
                         break;
                     case 'd':
                         set_line("define [string range] \"");
@@ -831,12 +831,12 @@ void vi_interaction(sheet_t *sp) {
                         case 'a':
                             set_line("frame [<outrange> inrange] ");
                             insert_mode();
-                            startshow();
+                            startshow(sp);
                             break;
                         case 'u':
                             set_line("unframe [<range>] ");
                             insert_mode();
-                            startshow();
+                            startshow(sp);
                             break;
                         case ESC:
                         case ctl('g'):
@@ -851,12 +851,12 @@ void vi_interaction(sheet_t *sp) {
                     case 's':
                         set_line("sort [range \"criteria\"] ");
                         insert_mode();
-                        startshow();
+                        startshow(sp);
                         break;
                     case 'C':
                         set_line("color [range color#] ");
                         insert_mode();
-                        startshow();
+                        startshow(sp);
                         break;
                     case 'S':
                         list_all(sp);
@@ -864,24 +864,24 @@ void vi_interaction(sheet_t *sp) {
                     case 'F':
                         set_line("fmt [range \"format\"] ");
                         insert_mode();
-                        startshow();
+                        startshow(sp);
                         break;
                     case '{':
                         set_line("leftjustify [range] ");
                         insert_mode();
-                        startshow();
+                        startshow(sp);
                         break;
                     case '}':
                         set_line("rightjustify [range] ");
                         cellassign = 1;
                         insert_mode();
-                        startshow();
+                        startshow(sp);
                         break;
                     case '|':
                         set_line("center [range] ");
                         cellassign = 1;
                         insert_mode();
-                        startshow();
+                        startshow(sp);
                         break;
                     case ESC:
                     case ctl('g'):
@@ -938,37 +938,37 @@ void vi_interaction(sheet_t *sp) {
 
                         switch (c) {
                         case 'i':
-                            if (ch2 == 'r') insertrow(sp, cellref_current(), uarg, 0);
-                            else            insertcol(sp, cellref_current(), uarg, 0);
+                            if (ch2 == 'r') insertrow(sp, cellref_current(sp), uarg, 0);
+                            else            insertcol(sp, cellref_current(sp), uarg, 0);
                             break;
 
                         case 'o':
-                            if (ch2 == 'r') currow += insertrow(sp, cellref_current(), uarg, 1);
-                            else            curcol += insertcol(sp, cellref_current(), uarg, 1);
+                            if (ch2 == 'r') sp->currow += insertrow(sp, cellref_current(sp), uarg, 1);
+                            else            sp->curcol += insertcol(sp, cellref_current(sp), uarg, 1);
                             break;
 
                         case 'a':
-                            if (ch2 == 'r') while (uarg --> 0 && duprow(sp, cellref_current()))
-                                                currow++;
-                            else            while (uarg --> 0 && dupcol(sp, cellref_current()))
-                                                curcol++;
+                            if (ch2 == 'r') while (uarg --> 0 && duprow(sp, cellref_current(sp)))
+                                                sp->currow++;
+                            else            while (uarg --> 0 && dupcol(sp, cellref_current(sp)))
+                                                sp->curcol++;
                             break;
 
                         case 'd':
-                            if (ch2 == 'r') deleterows(sp, currow, currow + uarg - 1);
-                            else            deletecols(sp, curcol, curcol + uarg - 1);
+                            if (ch2 == 'r') deleterows(sp, sp->currow, sp->currow + uarg - 1);
+                            else            deletecols(sp, sp->curcol, sp->curcol + uarg - 1);
                             break;
 
                         case 'y':
-                            if (ch2 == 'r') yankrows(sp, currow, currow + uarg - 1);
-                            else            yankcols(sp, curcol, curcol + uarg - 1);
+                            if (ch2 == 'r') yankrows(sp, sp->currow, sp->currow + uarg - 1);
+                            else            yankcols(sp, sp->curcol, sp->curcol + uarg - 1);
                             break;
 
                         case 'p':
                             if (ch2 == '.') {
                                 set_line("pullcopy [range] ");
                                 insert_mode();
-                                startshow();
+                                startshow(sp);
                                 break;
                             }
                             while (uarg--) {
@@ -977,12 +977,12 @@ void vi_interaction(sheet_t *sp) {
                                 //      'px' and 'pt' for performance tests
                                 //      'pp' to paste/pop multiple levels
                                 // XXX: Achtung! pullcells uses qbuf if set
-                                pullcells(sp, ch2, cellref_current());
+                                pullcells(sp, ch2, cellref_current(sp));
                             }
                             break;
 
                             /*
-                             * turn an area starting at currow/curcol into
+                             * turn an area starting at sp->currow/sp->curcol into
                              * constants vs expressions - non reversible
                              */
                         case 'v':
@@ -990,24 +990,24 @@ void vi_interaction(sheet_t *sp) {
                             if (ch2 == 'r') {
                                 int c1 = 0, c2 = sp->maxcol;
                                 struct frange *fr;
-                                if ((fr = get_current_frange())) {
+                                if ((fr = get_current_frange(sp))) {
                                     c1 = fr->or_left->col;
                                     c2 = fr->or_right->col;
                                 }
-                                valueize_area(sp, rangeref(currow, c1, currow + uarg - 1, c2));
+                                valueize_area(sp, rangeref(sp->currow, c1, sp->currow + uarg - 1, c2));
                             } else {
-                                valueize_area(sp, rangeref(0, curcol, sp->maxrow, curcol + uarg - 1));
+                                valueize_area(sp, rangeref(0, sp->curcol, sp->maxrow, sp->curcol + uarg - 1));
                             }
                             break;
 
                         case 'Z':
                             switch (ch2) {
-                            case 'r':   hiderows(sp, currow, currow + uarg - 1); break;
-                            case 'c':   hidecols(sp, curcol, curcol + uarg - 1); break;
-                            case 'Z':   if (modflg && curfile[0]) {
+                            case 'r':   hiderows(sp, sp->currow, sp->currow + uarg - 1); break;
+                            case 'c':   hidecols(sp, sp->curcol, sp->curcol + uarg - 1); break;
+                            case 'Z':   if (sp->modflg && curfile[0]) {
                                             writefile(sp, curfile, rangeref_total(sp), DCP_DEFAULT);
                                             running = 0;
-                                        } else if (modflg) {
+                                        } else if (sp->modflg) {
                                             error("No file name.");
                                         } else
                                             running = 0;
@@ -1050,49 +1050,49 @@ void vi_interaction(sheet_t *sp) {
                     //      sp->maxrow, sp->maxcol, sp->maxrows, sp->maxcols, rescol);
                     break;
                 case '\\':
-                    if (!locked_cell(sp, currow, curcol)) {
-                        set_line("label %s = \"\\", v_name(currow, curcol));
-                        setmark('0');
+                    if (!locked_cell(sp, sp->currow, sp->curcol)) {
+                        set_line("label %s = \"\\", v_name(sp, sp->currow, sp->curcol));
+                        setmark(sp, '0');
                         cellassign = 1;
                         insert_mode();
                     }
                     break;
 
                 case '<':
-                    if (!locked_cell(sp, currow, curcol)) {
-                        set_line("leftstring %s = \"", v_name(currow, curcol));
-                        setmark('0');
+                    if (!locked_cell(sp, sp->currow, sp->curcol)) {
+                        set_line("leftstring %s = \"", v_name(sp, sp->currow, sp->curcol));
+                        setmark(sp, '0');
                         cellassign = 1;
                         insert_mode();
                     }
                     break;
 
                 case '>':
-                    if (!locked_cell(sp, currow, curcol)) {
-                        set_line("rightstring %s = \"", v_name(currow, curcol));
-                        setmark('0');
+                    if (!locked_cell(sp, sp->currow, sp->curcol)) {
+                        set_line("rightstring %s = \"", v_name(sp, sp->currow, sp->curcol));
+                        setmark(sp, '0');
                         cellassign = 1;
                         insert_mode();
                     }
                     break;
                 case '{':
-                    range_align(sp, rangeref_current(), ALIGN_LEFT);
+                    range_align(sp, rangeref_current(sp), ALIGN_LEFT);
                     break;
                 case '}':
-                    range_align(sp, rangeref_current(), ALIGN_RIGHT);
+                    range_align(sp, rangeref_current(sp), ALIGN_RIGHT);
                     break;
                 case '|':
-                    range_align(sp, rangeref_current(), ALIGN_CENTER);
+                    range_align(sp, rangeref_current(sp), ALIGN_CENTER);
                     break;
                 case 'e':
                 case 'E':
-                    if (!locked_cell(sp, currow, curcol)) {
-                        p = lookat(sp, currow, curcol);
+                    if (!locked_cell(sp, sp->currow, sp->curcol)) {
+                        p = lookat(sp, sp->currow, sp->curcol);
                         /* copy cell contents into line array */
                         buf_init(buf, line, sizeof line);
                         // XXX: the conversion should be localized
-                        linelim = linelen = edit_cell(sp, buf, currow, curcol, p, DCP_DEFAULT, '"');
-                        setmark('0');
+                        linelim = linelen = edit_cell(sp, buf, sp->currow, sp->curcol, p, DCP_DEFAULT, '"');
+                        setmark(sp, '0');
                         cellassign = 1;
                         if (c == 'e' && (p->flags != SC_NUMBER)) {
                             insert_mode();
@@ -1104,15 +1104,15 @@ void vi_interaction(sheet_t *sp) {
                     formatcol(sp, uarg);
                     break;
                 case 'F':
-                    p = getcell(sp, currow, curcol);
+                    p = getcell(sp, sp->currow, sp->curcol);
                     if (p && p->format) {
                         buf_init(buf, line, sizeof line);
-                        buf_setf(buf, "fmt [format] %s \"", v_name(currow, curcol));
+                        buf_setf(buf, "fmt [format] %s \"", v_name(sp, sp->currow, sp->curcol));
                         buf_quotestr(buf, 0, s2c(p->format), 0);
                         linelim = linelen = buf->len;
                         edit_mode();
                     } else {
-                        set_line("fmt [format] %s \"", v_name(currow, curcol));
+                        set_line("fmt [format] %s \"", v_name(sp, sp->currow, sp->curcol));
                         insert_mode();
                     }
                     break;
@@ -1168,8 +1168,8 @@ void vi_interaction(sheet_t *sp) {
                     insert_mode();
                     break;
                 case 'R':
-                    if (!sempty(mdir))
-                        set_line("merge [\"macro_file\"] \"%s", s2c(mdir));
+                    if (!sempty(sp->mdir))
+                        set_line("merge [\"macro_file\"] \"%s", s2c(sp->mdir));
                     else
                         set_line("merge [\"macro_file\"] \"");
                     insert_mode();
@@ -1179,8 +1179,8 @@ void vi_interaction(sheet_t *sp) {
                     insert_mode();
                     break;
                 case 'A':
-                    if (!sempty(autorun))
-                        set_line("autorun [\"macro_file\"] \"%s", s2c(autorun));
+                    if (!sempty(sp->autorun))
+                        set_line("autorun [\"macro_file\"] \"%s", s2c(sp->autorun));
                     else
                         set_line("autorun [\"macro_file\"] \"");
                     insert_mode();
@@ -1216,23 +1216,23 @@ void vi_interaction(sheet_t *sp) {
                         /* keep the extension unless .sc or scext */
                         if (strcmp(ext, ".sc") && !(scext && !strcmp(ext, s2c(scext))))
                             ext += strlen(ext);
-                        if (tbl_style == 0) {
+                        if (sp->tbl_style == 0) {
                             error("Default file is \"%.*s.%s\"",
                                   (int)(ext - curfile), curfile,
                                   tbl0ext ? s2c(tbl0ext) : "cln");
-                        } else if (tbl_style == TBL) {
+                        } else if (sp->tbl_style == TBL) {
                             error("Default file is \"%.*s.%s\"",
                                   (int)(ext - curfile), curfile,
                                   tblext ? s2c(tblext) : "tbl");
-                        } else if (tbl_style == LATEX) {
+                        } else if (sp->tbl_style == LATEX) {
                             error("Default file is \"%.*s.%s\"",
                                   (int)(ext - curfile), curfile,
                                   latexext ? s2c(latexext) : "lat");
-                        } else if (tbl_style == SLATEX) {
+                        } else if (sp->tbl_style == SLATEX) {
                             error("Default file is \"%.*s.%s\"",
                                   (int)(ext - curfile), curfile,
                                   slatexext ? s2c(slatexext) : "stx");
-                        } else if (tbl_style == TEX) {
+                        } else if (sp->tbl_style == TEX) {
                             error("Default file is \"%.*s.%s\"",
                                   (int)(ext - curfile), curfile,
                                   texext ? s2c(texext) : "tex");
@@ -1242,10 +1242,10 @@ void vi_interaction(sheet_t *sp) {
                     break;
                 case SC_KEY_DC:
                 case 'x':
-                    if (calc_order == BYROWS) {
-                        eraser(sp, rangeref(currow, curcol, currow, curcol + uarg - 1));
+                    if (sp->calc_order == BYROWS) {
+                        eraser(sp, rangeref(sp->currow, sp->curcol, sp->currow, sp->curcol + uarg - 1));
                     } else {
-                        eraser(sp, rangeref(currow, curcol, currow + uarg - 1, curcol));
+                        eraser(sp, rangeref(sp->currow, sp->curcol, sp->currow + uarg - 1, sp->curcol));
                     }
                     break;
                 case 'Q':
@@ -1265,7 +1265,7 @@ void vi_interaction(sheet_t *sp) {
                     backrow(sp, uarg);
                     break;
                 case 'H':
-                    backcol(sp, curcol - stcol + 2);
+                    backcol(sp, sp->curcol - sp->stcol + 2);
                     break;
                 case SC_KEY_NPAGE:                 /* next page */
                 case 'J':
@@ -1280,7 +1280,7 @@ void vi_interaction(sheet_t *sp) {
                     gohome(sp);
                     break;
                 case 'L':
-                    forwcol(sp, lcols - (curcol - stcol) + 1);
+                    forwcol(sp, lcols - (sp->curcol - sp->stcol) + 1);
                     break;
                 case SC_KEY_RIGHT:
                 case ' ':
@@ -1288,7 +1288,7 @@ void vi_interaction(sheet_t *sp) {
                     forwcol(sp, uarg);
                     break;
                 case 'm':
-                    markcell();
+                    markcell(sp);
                     break;
                 case 'c':
                     error("Copy marked cell:");
@@ -1300,10 +1300,10 @@ void vi_interaction(sheet_t *sp) {
                         // XXX: horrible hack to set the copy()'s internal
                         // static variables for the default source range
                         // should get rid of this
-                        copy_set_source_range(currow, curcol, currow, curcol);
+                        copy_set_source_range(sp->currow, sp->curcol, sp->currow, sp->curcol);
                         set_line("copy [dest_range src_range] ");
                         insert_mode();
-                        startshow();
+                        startshow(sp);
                         break;
                     }
                     if ((c = checkmark(c)) < 0)
@@ -1318,12 +1318,12 @@ void vi_interaction(sheet_t *sp) {
                         // XXX: incorrect: should first check for locked cells
                         //      in destination area
                         // XXX: should just use
-                        // copy(currow, curcol, currow, curcol + uarg - 1,
+                        // copy(sp->currow, sp->curcol, sp->currow, sp->curcol + uarg - 1,
                         //      savedcr[c].row, savedcr[c].col, savedcr[c].row, savedcr[c].col);
 
                         p = getcell(sp, savedcr[c].row, savedcr[c].col);
-                        for (c1 = curcol; uarg-- && c1 < sp->maxcols; c1++) {
-                            if ((n = getcell(sp, currow, c1))) {
+                        for (c1 = sp->curcol; uarg-- && c1 < sp->maxcols; c1++) {
+                            if ((n = getcell(sp, sp->currow, c1))) {
                                 if (n->flags & IS_LOCKED)
                                     continue;
                                 if (!p) {
@@ -1332,18 +1332,18 @@ void vi_interaction(sheet_t *sp) {
                                 }
                             } else {
                                 if (!p) break;
-                                n = lookat(sp, currow, c1);
+                                n = lookat(sp, sp->currow, c1);
                             }
-                            copyent(sp, n, p, currow - savedcr[c].row, c1 - savedcr[c].col,
+                            copyent(sp, n, p, sp->currow - savedcr[c].row, c1 - savedcr[c].col,
                                     0, 0, sp->maxrow, sp->maxcol, 0);
                         }
                         FullUpdate++;
-                        modflg++;
+                        sp->modflg++;
                         break;
                     }
                 case '`':
                 case '\'':
-                    dotick(c);
+                    dotick(sp, c);
                     break;
                 case '*':
                     error("Note: Add/Delete/Show/*(go to note)?");
@@ -1352,18 +1352,18 @@ void vi_interaction(sheet_t *sp) {
                         break;
                     }
                     if (c == 'a' || c == 'A') {
-                        set_line("addnote [target range] %s ", v_name(currow, curcol));
+                        set_line("addnote [target range] %s ", v_name(sp, sp->currow, sp->curcol));
                         insert_mode();
                         write_line(sp, ctl('v'));
                         FullUpdate++;
                         break;
                     }
                     if (c == 'd' || c == 'D') {
-                        p = getcell(sp, currow, curcol);
+                        p = getcell(sp, sp->currow, sp->curcol);
                         if (p && (p->flags & HAS_NOTE)) {
                             p->flags ^= HAS_NOTE;
                             p->flags |= IS_CHANGED;
-                            modflg++;
+                            sp->modflg++;
                             FullUpdate++;
                         }
                         break;
@@ -1384,17 +1384,17 @@ void vi_interaction(sheet_t *sp) {
                 case 'z':
                     switch (c = nmgetch(1)) {
                     case ctl('m'):
-                        strow = currow;
+                        sp->strow = sp->currow;
                         FullUpdate++;
                         screen_rebuild();
                         break;
                     case '.':
-                        strow = -1;
+                        sp->strow = -1;
                         FullUpdate++;
                         screen_rebuild();
                         break;
                     case '|':
-                        stcol = -1;
+                        sp->stcol = -1;
                         FullUpdate++;
                         screen_rebuild();
                         break;
@@ -1403,8 +1403,8 @@ void vi_interaction(sheet_t *sp) {
                          * we've just jumped to a new range with the goto
                          * command).
                          */
-                        strow = -1;
-                        stcol = -1;
+                        sp->strow = -1;
+                        sp->stcol = -1;
                         FullUpdate++;
                         screen_rebuild();
                         break;
@@ -1437,22 +1437,22 @@ void vi_interaction(sheet_t *sp) {
 }
 
 static void scroll_down(sheet_t *sp) {
-    strow++;
+    sp->strow++;
     // XXX: check maximum row?
-    while (sp->row_hidden[strow])
-        strow++;
-    if (currow < strow)
-        currow = strow;
+    while (sp->row_hidden[sp->strow])
+        sp->strow++;
+    if (sp->currow < sp->strow)
+        sp->currow = sp->strow;
 }
 
 static void scroll_up(sheet_t *sp, int x) {
-    if (strow) {
-        strow--;
-        while (strow && sp->row_hidden[strow])
-            strow--;
+    if (sp->strow) {
+        sp->strow--;
+        while (sp->strow && sp->row_hidden[sp->strow])
+            sp->strow--;
     }
     forwrow(sp, x);
-    if (currow >= lastendrow)
+    if (sp->currow >= lastendrow)
         backrow(sp, 1);
     backrow(sp, x);
 }
@@ -1505,29 +1505,29 @@ static int checkmark(int c) {
     return -1;
 }
 
-static int setmark(int c) {
+static int setmark(sheet_t *sp, int c) {
     int n = checkmark(c);
     if (n >= 0) {
-        savedcr[n] = cellref(currow, curcol);
-        savedst[n] = cellref(strow, stcol);
+        savedcr[n] = cellref(sp->currow, sp->curcol);
+        savedst[n] = cellref(sp->strow, sp->stcol);
     }
     return n;
 }
 
-static void markcell(void) {
+static void markcell(sheet_t *sp) {
     int c;
 
     error("Mark cell:");
     c = nmgetch(1);
     if (c == ESC || c == ctl('g'))
         return;
-    setmark(c);
+    setmark(sp, c);
 }
 
-static void dotick(int tick) {
+static void dotick(sheet_t *sp, int tick) {
     int c;
 
-    remember(0);
+    remember(sp, 0);
 
     error("Go to marked cell:");
     c = nmgetch(1);
@@ -1541,16 +1541,16 @@ static void dotick(int tick) {
         error("Mark not set");
         return;
     }
-    currow = savedcr[c].row;
-    curcol = savedcr[c].col;
+    sp->currow = savedcr[c].row;
+    sp->curcol = savedcr[c].col;
     if (tick == '\'') {
-        strow = savedst[c].row;
-        stcol = savedst[c].col;
+        sp->strow = savedst[c].row;
+        sp->stcol = savedst[c].col;
         gs.stflag = 1;
     } else {
         gs.stflag = 0;
     }
-    remember(1);
+    remember(sp, 1);
 
     FullUpdate++;
 }
@@ -1585,7 +1585,7 @@ static void write_line(sheet_t *sp, int c) {
         case ctl('h'):  linelim = back_line(uarg);                      break;
         case ctl('i'):  dotab(sp);                                      break;
         case ctl('m'):  if (search_ind == ' ')
-                            cr_line(sp, craction);
+                            cr_line(sp, sp->craction);
                         else
                             search_hist();
                         break;
@@ -1598,7 +1598,7 @@ static void write_line(sheet_t *sp, int c) {
         case ctl('e'):
         case '$':       last_col();                                     break;
         case '.':       dotcmd(sp);                                     break;
-        case '!':       doshell();                                      break;
+        case '!':       doshell(sp);                                    break;
         case ';':       find_char2(sp, uarg, finddir);                  break;
         case ',':       find_char2(sp, uarg, -finddir);                 break;
         case '~':       u_save(c); change_case(uarg);                   break;
@@ -1671,7 +1671,7 @@ static void write_line(sheet_t *sp, int c) {
         case SC_KEY_BACKSPACE:
         case ctl('h'):      back_space();                           break;
         case ctl('i'):      dotab(sp);                              break;
-        case ctl('m'):      cr_line(sp, craction);                  break;
+        case ctl('m'):      cr_line(sp, sp->craction);                  break;
         case ctl('v'):      toggle_navigate_mode();                 break;
         case SC_KEY_LEFT:
         case ctl('b'):      if (numeric_field) {
@@ -1739,7 +1739,7 @@ static void write_line(sheet_t *sp, int c) {
                                 linelim = back_line(1);
                                 line[linelim] = undo_line[linelim];
                             }                                       break;
-        case ctl('m'):      cr_line(sp, craction);                  break;
+        case ctl('m'):      cr_line(sp, sp->craction);                  break;
         case ESC:           edit_mode();                            break;
         default:            replace_in_line(c);                     break;
         }
@@ -1747,9 +1747,9 @@ static void write_line(sheet_t *sp, int c) {
         switch (c) {
         case '.':
         case ':':
-        case ctl('i'):      if (!showrange) {
+        case ctl('i'):      if (!sp->showrange) {
                                 toggle_navigate_mode();
-                                startshow();
+                                startshow(sp);
                             } else
                             if (linelim == linelen
                             &&  ((c1 = prev_line_char(1)) == '+' || c1 == '-' ||
@@ -1762,7 +1762,7 @@ static void write_line(sheet_t *sp, int c) {
                                 showdr(sp);
                                 ins_in_line(sp, ' ');
                             }                                       break;
-        case ' ':           if (showrange) {
+        case ' ':           if (sp->showrange) {
                                 showdr(sp);
                                 ins_in_line(sp, ' ');
                                 toggle_navigate_mode();
@@ -1770,8 +1770,8 @@ static void write_line(sheet_t *sp, int c) {
                                 forwcol(sp, uarg);
                             }                                       break;
         case '+':
-        case '-':           if (!showrange) {
-                                ins_string(sp, v_name(currow, curcol));
+        case '-':           if (!sp->showrange) {
+                                ins_string(sp, v_name(sp, sp->currow, sp->curcol));
                                 ins_in_line(sp, c);
                             } else
                             if (linelim == linelen
@@ -1788,50 +1788,50 @@ static void write_line(sheet_t *sp, int c) {
                                 ins_in_line(sp, ')');
                                 ins_in_line(sp, c);
                             }                                       break;
-        case ctl('m'):      if (!showrange) {
-                                ins_string(sp, v_name(currow, curcol));
+        case ctl('m'):      if (!sp->showrange) {
+                                ins_string(sp, v_name(sp, sp->currow, sp->curcol));
                                 toggle_navigate_mode();
                             } else {
                                 toggle_navigate_mode();
-                                cr_line(sp, craction);
+                                cr_line(sp, sp->craction);
                             }                                       break;
         case 'v':           {   /* insert variable value */
                                 char temp[100];
 
-                                p = getcell(sp, currow, curcol);
+                                p = getcell(sp, sp->currow, sp->curcol);
                                 if (p && (p->flags == SC_NUMBER)) {
                                     snprintf(temp, sizeof temp, "%.*f",
-                                             sp->precision[curcol], p->v);
+                                             sp->precision[sp->curcol], p->v);
                                     ins_string(sp, temp);
                                     toggle_navigate_mode();
                                 }
                             }                                       break;
-        case 'c':           if ((cr = find_crange(sp, currow, curcol))) {
-                                ins_string(sp, r_name(cr->r_left->row,
+        case 'c':           if ((cr = find_crange(sp, sp->currow, sp->curcol))) {
+                                ins_string(sp, r_name(sp, cr->r_left->row,
                                                       cr->r_left->col,
                                                       cr->r_right->row,
                                                       cr->r_right->col));
                                 toggle_navigate_mode();
                                 ins_in_line(sp, ' ');
-                                showrange = 0;
+                                sp->showrange = 0;
                             }                                       break;
-        case 'f':           if ((fr = get_current_frange())) {
-                                ins_string(sp, r_name(fr->or_left->row,
+        case 'f':           if ((fr = get_current_frange(sp))) {
+                                ins_string(sp, r_name(sp, fr->or_left->row,
                                                       fr->or_left->col,
                                                       fr->or_right->row,
                                                       fr->or_right->col));
                                 toggle_navigate_mode();
                                 ins_in_line(sp, ' ');
-                                showrange = 0;
+                                sp->showrange = 0;
                             }                                       break;
-        case 'r':           if ((fr = get_current_frange())) {
-                                ins_string(sp, r_name(fr->ir_left->row,
+        case 'r':           if ((fr = get_current_frange(sp))) {
+                                ins_string(sp, r_name(sp, fr->ir_left->row,
                                                       fr->ir_left->col,
                                                       fr->ir_right->row,
                                                       fr->ir_right->col));
                                 toggle_navigate_mode();
                                 ins_in_line(sp, ' ');
-                                showrange = 0;
+                                sp->showrange = 0;
                             }                                       break;
         case SC_KEY_LEFT:
         case 'h':           backcol(sp, uarg);                      break;
@@ -1847,8 +1847,8 @@ static void write_line(sheet_t *sp, int c) {
         case ctl('g'):
         case ctl('v'):
         case ESC:           toggle_navigate_mode();
-                            showrange = 0;                          break;
-        case 'H':           backcol(sp, curcol - stcol + 2);
+                            sp->showrange = 0;                      break;
+        case 'H':           backcol(sp, sp->curcol - sp->stcol + 2);
                                                                     break;
         case SC_KEY_NPAGE:     /* next page */
         case ctl('f'):
@@ -1856,20 +1856,20 @@ static void write_line(sheet_t *sp, int c) {
         case SC_KEY_PPAGE:     /* previous page */
         case ctl('b'):
         case 'K':           backpage(sp, uarg);                     break;
-        case 'L':           forwcol(sp, lcols - (curcol - stcol) + 1);  break;
+        case 'L':           forwcol(sp, lcols - (sp->curcol - sp->stcol) + 1);  break;
         case ctl('a'):
         case SC_KEY_HOME:   gohome(sp);                             break;
         case '0':           leftlimit(sp);                          break;
         case '$':           rightlimit(sp);                         break;
         case '^':           gototop(sp);                            break;
         case '#':           gotobottom(sp);                         break;
-        case 'o':           if (showrange) {
-                                SWAPINT(currow, showsr);
-                                SWAPINT(curcol, showsc);
+        case 'o':           if (sp->showrange) {
+                                SWAPINT(sp->currow, sp->showsr);
+                                SWAPINT(sp->curcol, sp->showsc);
                             }                                       break;
-        case 'm':           markcell();                             break;
+        case 'm':           markcell(sp);                           break;
         case '`':
-        case '\'':          dotick(c);                              break;
+        case '\'':          dotick(sp, c);                          break;
         case '*':           if (nmgetch(0) == '*') gotonote(sp);    break;
         case 'g':           dogoto(sp);                             break;
         case 'n':           go_last(sp);                            break;
@@ -1971,7 +1971,7 @@ static void dotab(sheet_t *sp) {
                 continue;
             completethis = line + i;
             len = linelim - i;
-            if (!find_nrange_name(completethis, -len, &lastmatch)) {
+            if (!find_nrange_name(sp, completethis, -len, &lastmatch)) {
                 firstmatch = lastmatch;
                 while (firstmatch->r_next &&
                        !strncmp(completethis, s2c(firstmatch->r_next->r_name), len))
@@ -1995,36 +1995,36 @@ static void dotab(sheet_t *sp) {
                 nextmatch = nextmatch->r_prev;
         }
     } else
-        startshow();
+        startshow(sp);
 }
 
 /* show the current range (see ^I), we are moving around to define a range */
-static void startshow(void) {
-    showrange = 1;
-    showsr = currow;
-    showsc = curcol;
+static void startshow(sheet_t *sp) {
+    sp->showrange = 1;
+    sp->showsr = sp->currow;
+    sp->showsc = sp->curcol;
     toggle_navigate_mode();
 }
 
-/* insert the range we defined by moving around the screen, see startshow() */
+/* insert the range we defined by moving around the screen, see startshow(sp) */
 static void showdr(sheet_t *sp) {
     char buf[32];
     const char *r = buf;
-    int minsr = showsr < currow ? showsr : currow;
-    int minsc = showsc < curcol ? showsc : curcol;
-    int maxsr = showsr > currow ? showsr : currow;
-    int maxsc = showsc > curcol ? showsc : curcol;
+    int minsr = sp->showsr < sp->currow ? sp->showsr : sp->currow;
+    int minsc = sp->showsc < sp->curcol ? sp->showsc : sp->curcol;
+    int maxsr = sp->showsr > sp->currow ? sp->showsr : sp->currow;
+    int maxsc = sp->showsc > sp->curcol ? sp->showsc : sp->curcol;
 
-    if (showrange == SHOWROWS) {
+    if (sp->showrange == SHOWROWS) {
         snprintf(buf, sizeof buf, "%d:%d", minsr, maxsr);
-    } else if (showrange == SHOWCOLS) {
+    } else if (sp->showrange == SHOWCOLS) {
         snprintf(buf, sizeof buf, "%s:%s", coltoa(minsc), coltoa(maxsc));
     } else {
-        r = r_name(minsr, minsc, maxsr, maxsc);
+        r = r_name(sp, minsr, minsc, maxsr, maxsc);
     }
     ins_string(sp, r);
     toggle_navigate_mode();
-    showrange = 0;
+    sp->showrange = 0;
 }
 
 /* dot command functions.  Saves info so we can redo on a '.' command */
@@ -2120,7 +2120,7 @@ static void stop_edit(sheet_t *sp) {
         // XXX: update linelim?
         write_line(sp, 'G');
     } else {
-        showrange = 0;
+        sp->showrange = 0;
         numeric_field = 0;
         linelim = -1;
         screen_clear_line(1);
@@ -2489,7 +2489,7 @@ static void cr_line(sheet_t *sp, int action) {
     numeric_field = 0;
     if (linelim == -1) {    /* '\n' alone will put you into insert mode */
         init_line();        /* unless numeric and action are both set */
-        if (numeric && action)
+        if (sp->numeric && action)
             cellassign = 1;
         else
             return;
@@ -2497,68 +2497,68 @@ static void cr_line(sheet_t *sp, int action) {
     save_hist();
     nosavedot = 1;
     parse_line(line);
-    showrange = 0;
+    sp->showrange = 0;
     linelim = -1;
     if (cellassign) {
         cellassign = 0;
         switch (action) {
         case CRROWS:
-            if ((rowlimit >= 0) && (currow >= rowlimit)) {
+            if ((sp->rowlimit >= 0) && (sp->currow >= sp->rowlimit)) {
                 forwcol(sp, 1);
-                currow = 0;
+                sp->currow = 0;
             } else {
-                if ((fr = get_current_frange())) {
+                if ((fr = get_current_frange(sp))) {
                     forwrow(sp, 1);
-                    if (currow > fr->ir_right->row) {
+                    if (sp->currow > fr->ir_right->row) {
                         backrow(sp, 1);
-                        if (autowrap) {
+                        if (sp->autowrap) {
                             forwcol(sp, 1);
-                            currow = fr->ir_left->row;
-                            if (sp->row_hidden[currow])
+                            sp->currow = fr->ir_left->row;
+                            if (sp->row_hidden[sp->currow])
                                 forwrow(sp, 1);
-                            if (curcol > fr->ir_right->col) {
+                            if (sp->curcol > fr->ir_right->col) {
                                 backcol(sp, 1);
-                                if (autoinsert)
-                                    curcol += insertcol(sp, cellref_current(), 1, 1);
+                                if (sp->autoinsert)
+                                    sp->curcol += insertcol(sp, cellref_current(sp), 1, 1);
                                 else {
-                                    currow = fr->ir_right->row;
-                                    if (sp->row_hidden[currow])
+                                    sp->currow = fr->ir_right->row;
+                                    if (sp->row_hidden[sp->currow])
                                         backrow(sp, 1);
                                 }
                             }
-                        } else if (autoinsert)
-                            currow += insertrow(sp, cellref_current(), 1, 1);
+                        } else if (sp->autoinsert)
+                            sp->currow += insertrow(sp, cellref_current(sp), 1, 1);
                     }
                 } else
                     forwrow(sp, 1);
             }
             break;
         case CRCOLS:
-            if ((collimit >= 0) && (curcol >= collimit)) {
+            if ((sp->collimit >= 0) && (sp->curcol >= sp->collimit)) {
                 forwrow(sp, 1);
-                curcol = 0;
+                sp->curcol = 0;
             } else {
-                if ((fr = get_current_frange())) {
+                if ((fr = get_current_frange(sp))) {
                     forwcol(sp, 1);
-                    if (curcol > fr->ir_right->col) {
+                    if (sp->curcol > fr->ir_right->col) {
                         backcol(sp, 1);
-                        if (autowrap) {
+                        if (sp->autowrap) {
                             forwrow(sp, 1);
-                            curcol = fr->ir_left->col;
-                            if (sp->col_hidden[curcol])
+                            sp->curcol = fr->ir_left->col;
+                            if (sp->col_hidden[sp->curcol])
                                 forwcol(sp, 1);
-                            if (currow > fr->ir_right->row) {
+                            if (sp->currow > fr->ir_right->row) {
                                 backrow(sp, 1);
-                                if (autoinsert)
-                                    currow += insertrow(sp, cellref_current(), 1, 1);
+                                if (sp->autoinsert)
+                                    sp->currow += insertrow(sp, cellref_current(sp), 1, 1);
                                 else {
-                                    curcol = fr->ir_right->col;
-                                    if (sp->col_hidden[curcol])
+                                    sp->curcol = fr->ir_right->col;
+                                    if (sp->col_hidden[sp->curcol])
                                         backcol(sp, 1);
                                 }
                             }
-                        } else if (autoinsert)
-                            curcol += insertcol(sp, cellref_current(), 1, 1);
+                        } else if (sp->autoinsert)
+                            sp->curcol += insertcol(sp, cellref_current(sp), 1, 1);
                     }
                 } else
                     forwcol(sp, 1);
@@ -2570,7 +2570,7 @@ static void cr_line(sheet_t *sp, int action) {
     }
 }
 
-static void doshell(void) {
+static void doshell(sheet_t *sp) {
     /*
     *  "! command"  executes command
     *  "!"      forks a shell
@@ -2598,7 +2598,7 @@ static void doshell(void) {
     else
         pstrcpy(lastcmd, sizeof lastcmd, cmd);
 
-    if (modflg) {
+    if (sp->modflg) {
         puts("[No write since last change]");
         fflush(stdout);
     }
@@ -2629,7 +2629,7 @@ static void list_all(sheet_t *sp) {
 
     /* Show color definitions and various types of ranges */
     // XXX: deal with raw mode switch?
-    if (!are_nranges() && !are_frames() && !are_colors()) {
+    if (!are_nranges(sp) && !are_frames(sp) && !are_colors(sp)) {
         error("Nothing to show");
         return;
     }
@@ -2644,7 +2644,7 @@ static void list_all(sheet_t *sp) {
     if (!brokenpipe) fprintf(f, "Named Ranges:\n=============\n\n");
     if (!brokenpipe) list_nranges(sp, f);
     if (!brokenpipe) fprintf(f, "\n\nFrames:\n=======\n\n");
-    if (!brokenpipe) list_frames(f);
+    if (!brokenpipe) list_frames(sp, f);
     if (!brokenpipe) fprintf(f, "\n\nColors:\n=======\n\n");
     if (!brokenpipe) list_colors(sp, f);
     closefile(f, pid, 0);
@@ -3037,145 +3037,145 @@ static void match_paren(void) {
 }
 
 /* If save is 0, remember the current position.  Otherwise, if the current
- * cell has changed since the last remember(0), save the remembered location
+ * cell has changed since the last remember(sp, 0), save the remembered location
  * for the `, ', and c comands.
  */
 // XXX: move out of vi.c (maybe navigate.c ?)
-void remember(int save) {
+void remember(sheet_t *sp, int save) {
     static int remrow, remcol, remstrow, remstcol;
 
-    if (save && (currow != remrow || curcol != remcol ||
-                 strow != remstrow || stcol != remstcol)) {
+    if (save && (sp->currow != remrow || sp->curcol != remcol ||
+                 sp->strow != remstrow || sp->stcol != remstcol)) {
         savedcr[0] = cellref(remrow, remcol);
         savedst[0] = cellref(remstrow, remstcol);
     } else {
-        remrow = currow;
-        remcol = curcol;
-        remstrow = strow;
-        remstcol = stcol;
+        remrow = sp->currow;
+        remcol = sp->curcol;
+        remstrow = sp->strow;
+        remstcol = sp->stcol;
     }
 }
 
 static void gohome(sheet_t *sp) {
     struct frange *fr;
 
-    remember(0);
-    if ((fr = get_current_frange())) {
-        if (currow >= fr->ir_left->row && currow <= fr->ir_right->row &&
-            curcol >= fr->ir_left->col && curcol <= fr->ir_right->col &&
-            (currow > fr->ir_left->row || curcol > fr->ir_left->col)) {
-            currow = fr->ir_left->row;
-            curcol = fr->ir_left->col;
+    remember(sp, 0);
+    if ((fr = get_current_frange(sp))) {
+        if (sp->currow >= fr->ir_left->row && sp->currow <= fr->ir_right->row &&
+            sp->curcol >= fr->ir_left->col && sp->curcol <= fr->ir_right->col &&
+            (sp->currow > fr->ir_left->row || sp->curcol > fr->ir_left->col)) {
+            sp->currow = fr->ir_left->row;
+            sp->curcol = fr->ir_left->col;
         } else
-        if (currow > fr->or_left->row || curcol > fr->or_left->col) {
-            currow = fr->or_left->row;
-            curcol = fr->or_left->col;
+        if (sp->currow > fr->or_left->row || sp->curcol > fr->or_left->col) {
+            sp->currow = fr->or_left->row;
+            sp->curcol = fr->or_left->col;
         } else {
-            currow = 0;
-            curcol = 0;
+            sp->currow = 0;
+            sp->curcol = 0;
         }
     } else {
-        currow = 0;
-        curcol = 0;
+        sp->currow = 0;
+        sp->curcol = 0;
     }
-    remember(1);
+    remember(sp, 1);
     FullUpdate++;
 }
 
 static void leftlimit(sheet_t *sp) {
     struct frange *fr;
 
-    remember(0);
-    if ((fr = get_current_frange())) {
-        if (currow >= fr->ir_left->row && currow <= fr->ir_right->row &&
-            curcol > fr->ir_left->col && curcol <= fr->ir_right->col)
-            curcol = fr->ir_left->col;
+    remember(sp, 0);
+    if ((fr = get_current_frange(sp))) {
+        if (sp->currow >= fr->ir_left->row && sp->currow <= fr->ir_right->row &&
+            sp->curcol > fr->ir_left->col && sp->curcol <= fr->ir_right->col)
+            sp->curcol = fr->ir_left->col;
         else
-        if (curcol > fr->or_left->col && curcol <= fr->or_right->col)
-            curcol = fr->or_left->col;
+        if (sp->curcol > fr->or_left->col && sp->curcol <= fr->or_right->col)
+            sp->curcol = fr->or_left->col;
         else
-            curcol = 0;
+            sp->curcol = 0;
     } else
-        curcol = 0;
-    remember(1);
+        sp->curcol = 0;
+    remember(sp, 1);
 }
 
 static void rightlimit(sheet_t *sp) {
     struct ent *p;
     struct frange *fr;
 
-    remember(0);
-    if ((fr = get_current_frange())) {
-        if (currow >= fr->ir_left->row && currow <= fr->ir_right->row &&
-            curcol >= fr->ir_left->col && curcol < fr->ir_right->col)
-            curcol = fr->ir_right->col;
+    remember(sp, 0);
+    if ((fr = get_current_frange(sp))) {
+        if (sp->currow >= fr->ir_left->row && sp->currow <= fr->ir_right->row &&
+            sp->curcol >= fr->ir_left->col && sp->curcol < fr->ir_right->col)
+            sp->curcol = fr->ir_right->col;
         else
-        if (curcol >= fr->or_left->col && curcol < fr->or_right->col)
-            curcol = fr->or_right->col;
+        if (sp->curcol >= fr->or_left->col && sp->curcol < fr->or_right->col)
+            sp->curcol = fr->or_right->col;
         else {
-            curcol = sp->maxcols - 1;
-            while (!VALID_CELL(sp, p, currow, curcol) &&
-                   curcol > fr->or_right->col)
-                curcol--;
-            if ((fr = get_current_frange()))
-                curcol = fr->or_right->col;
+            sp->curcol = sp->maxcols - 1;
+            while (!VALID_CELL(sp, p, sp->currow, sp->curcol) &&
+                   sp->curcol > fr->or_right->col)
+                sp->curcol--;
+            if ((fr = get_current_frange(sp)))
+                sp->curcol = fr->or_right->col;
         }
     } else {
-        curcol = sp->maxcols - 1;
-        while (!VALID_CELL(sp, p, currow, curcol) && curcol > 0)
-            curcol--;
-        if ((fr = get_current_frange()))
-            curcol = fr->or_right->col;
+        sp->curcol = sp->maxcols - 1;
+        while (!VALID_CELL(sp, p, sp->currow, sp->curcol) && sp->curcol > 0)
+            sp->curcol--;
+        if ((fr = get_current_frange(sp)))
+            sp->curcol = fr->or_right->col;
     }
-    remember(1);
+    remember(sp, 1);
 }
 
 static void gototop(sheet_t *sp) {
     struct frange *fr;
 
-    remember(0);
-    if ((fr = get_current_frange())) {
-        if (curcol >= fr->ir_left->col && curcol <= fr->ir_right->col &&
-            currow > fr->ir_left->row && currow <= fr->ir_right->row)
-            currow = fr->ir_left->row;
+    remember(sp, 0);
+    if ((fr = get_current_frange(sp))) {
+        if (sp->curcol >= fr->ir_left->col && sp->curcol <= fr->ir_right->col &&
+            sp->currow > fr->ir_left->row && sp->currow <= fr->ir_right->row)
+            sp->currow = fr->ir_left->row;
         else
-        if (currow > fr->or_left->row && currow <= fr->or_right->row)
-            currow = fr->or_left->row;
+        if (sp->currow > fr->or_left->row && sp->currow <= fr->or_right->row)
+            sp->currow = fr->or_left->row;
         else
-            currow = 0;
+            sp->currow = 0;
     } else
-        currow = 0;
-    remember(1);
+        sp->currow = 0;
+    remember(sp, 1);
 }
 
 static void gotobottom(sheet_t *sp) {
     struct ent *p;
     struct frange *fr;
 
-    remember(0);
-    if ((fr = get_current_frange())) {
-        if (curcol >= fr->ir_left->col && curcol <= fr->ir_right->col &&
-            currow >= fr->ir_left->row && currow < fr->ir_right->row)
-            currow = fr->ir_right->row;
+    remember(sp, 0);
+    if ((fr = get_current_frange(sp))) {
+        if (sp->curcol >= fr->ir_left->col && sp->curcol <= fr->ir_right->col &&
+            sp->currow >= fr->ir_left->row && sp->currow < fr->ir_right->row)
+            sp->currow = fr->ir_right->row;
         else
-        if (currow >= fr->or_left->row && currow < fr->or_right->row)
-            currow = fr->or_right->row;
+        if (sp->currow >= fr->or_left->row && sp->currow < fr->or_right->row)
+            sp->currow = fr->or_right->row;
         else {
-            currow = sp->maxrows - 1;
-            while (!VALID_CELL(sp, p, currow, curcol) &&
-                   currow > fr->or_right->row)
-                currow--;
-            if ((fr = get_current_frange()))
-                currow = fr->or_right->row;
+            sp->currow = sp->maxrows - 1;
+            while (!VALID_CELL(sp, p, sp->currow, sp->curcol) &&
+                   sp->currow > fr->or_right->row)
+                sp->currow--;
+            if ((fr = get_current_frange(sp)))
+                sp->currow = fr->or_right->row;
         }
     } else {
-        currow = sp->maxrows - 1;
-        while (!VALID_CELL(sp, p, currow, curcol) && currow > 0)
-            currow--;
-        if ((fr = get_current_frange()))
-            currow = fr->or_right->row;
+        sp->currow = sp->maxrows - 1;
+        while (!VALID_CELL(sp, p, sp->currow, sp->curcol) && sp->currow > 0)
+            sp->currow--;
+        if ((fr = get_current_frange(sp)))
+            sp->currow = fr->or_right->row;
     }
-    remember(1);
+    remember(sp, 1);
 }
 
 static void dogoto(sheet_t *sp) {
@@ -3209,7 +3209,7 @@ static void dogoto(sheet_t *sp) {
      */
     mode_ind = 'v';
     mode = NAVIGATE_MODE;
-    if (!showrange)
+    if (!sp->showrange)
         toggle_navigate_mode();
 }
 
@@ -3276,15 +3276,15 @@ static int mouse_sel_cell(sheet_t *sp) { /* 0: set, 1: save, 2: cmp and set */
         update(sp, 0);
         return 1;
     }
-    if ((y = mevent.y - RESROW) < 0 || (x = mevent.x - rescol) < 0)
+    if ((y = mevent.y - RESROW) < 0 || (x = mevent.x - sp->rescol) < 0)
         return 1;
-    for (ty = strow, i = y;; ty++) {
+    for (ty = sp->strow, i = y;; ty++) {
         if (sp->row_hidden[ty])
             continue;
         if (--i < 0)
             break;
     }
-    for (tx = stcol, i = x;; tx++) {
+    for (tx = sp->stcol, i = x;; tx++) {
         if (sp->col_hidden[tx])
             continue;
         if ((i -= sp->fwidth[tx]) < 0)
@@ -3300,8 +3300,8 @@ static int mouse_sel_cell(sheet_t *sp) { /* 0: set, 1: save, 2: cmp and set */
             break;
         FALLTHROUGH;
     default:
-        currow = ty;
-        curcol = tx;
+        sp->currow = ty;
+        sp->curcol = tx;
         res = 0;
         break;
     }
@@ -3376,13 +3376,13 @@ static int get_rcqual(sheet_t *sp, int ch) {
                         return 0;
 
     case 'y':       if (ch == 'y') {
-                        yankr(sp, rangeref_current());
+                        yankr(sp, rangeref_current(sp));
                         return ESC;
                     } else
                         return 0;
 
     case 'v':       if (ch == 'v') {
-                        valueize_area(sp, rangeref_current());
+                        valueize_area(sp, rangeref_current(sp));
                         return ESC;
                     } else
                         return 0;
@@ -3408,9 +3408,9 @@ static int get_rcqual(sheet_t *sp, int ch) {
                         return 0;
                     edit_mode();
                     write_line(sp, 'A');
-                    startshow();
-                    showrange = SHOWROWS;
-                    showsr = currow;
+                    startshow(sp);
+                    sp->showrange = SHOWROWS;
+                    sp->showsr = sp->currow;
                     nmungetch(c);
                     return ESC;
 
@@ -3431,9 +3431,9 @@ static int get_rcqual(sheet_t *sp, int ch) {
                         return 0;
                     edit_mode();
                     write_line(sp, 'A');
-                    startshow();
-                    showrange = SHOWCOLS;
-                    showsc = curcol;
+                    startshow(sp);
+                    sp->showrange = SHOWCOLS;
+                    sp->showsc = sp->curcol;
                     nmungetch(c);
                     return ESC;
 
@@ -3444,26 +3444,26 @@ static int get_rcqual(sheet_t *sp, int ch) {
 
 static void formatcol(sheet_t *sp, int arg) {
     int c, i;
-    int mf = modflg;
+    int mf = sp->modflg;
     int *oldformat;
     buf_t buf;
 
     if (arg < 0)
         arg = 0;
     else
-    if (arg > sp->maxcol - curcol + 1)
-        arg = sp->maxcol - curcol + 1;
+    if (arg > sp->maxcol - sp->curcol + 1)
+        arg = sp->maxcol - sp->curcol + 1;
 
     /* save column widths and formats */
     // XXX: should check for maxcol?
     oldformat = scxmalloc(sizeof(*oldformat) * arg * 3);
     for (i = 0; i < arg; i++) {
-        oldformat[i * 3 + 0] = sp->fwidth[i + curcol];
-        oldformat[i * 3 + 1] = sp->precision[i + curcol];
-        oldformat[i * 3 + 2] = sp->realfmt[i + curcol];
+        oldformat[i * 3 + 0] = sp->fwidth[i + sp->curcol];
+        oldformat[i * 3 + 1] = sp->precision[i + sp->curcol];
+        oldformat[i * 3 + 2] = sp->realfmt[i + sp->curcol];
     }
     error("Current format is %d %d %d",
-          sp->fwidth[curcol], sp->precision[curcol], sp->realfmt[curcol]);
+          sp->fwidth[sp->curcol], sp->precision[sp->curcol], sp->realfmt[sp->curcol]);
     screen_refresh();
     c = nmgetch(0);
     //screen_clear_line(1);     // XXX: clear line?
@@ -3472,68 +3472,68 @@ static void formatcol(sheet_t *sp, int arg) {
             c == ctl('g') || linelim >= 0)
             break;
         if (c >= '0' && c <= '9') {
-            for (i = curcol; i < curcol + arg; i++)
+            for (i = sp->curcol; i < sp->curcol + arg; i++)
                 sp->realfmt[i] = c - '0';
         } else {
             switch (c) {
             case SC_KEY_LEFT:
             case '<':
             case 'h':
-                for (i = curcol; i < curcol + arg; i++) {
+                for (i = sp->curcol; i < sp->curcol + arg; i++) {
                     sp->fwidth[i]--;
                     if (sp->fwidth[i] < 1)
                         sp->fwidth[i] = 1;
                 }
-                modflg++;
+                sp->modflg++;
                 break;
             case SC_KEY_RIGHT:
             case '>':
             case 'l':
-                for (i = curcol; i < curcol + arg; i++) {
+                for (i = sp->curcol; i < sp->curcol + arg; i++) {
                     sp->fwidth[i]++;
-                    if (sp->fwidth[i] > screen_COLS - rescol - 2)
-                        sp->fwidth[i] = screen_COLS - rescol - 2;
+                    if (sp->fwidth[i] > screen_COLS - sp->rescol - 2)
+                        sp->fwidth[i] = screen_COLS - sp->rescol - 2;
                 }
-                modflg++;
+                sp->modflg++;
                 break;
             case SC_KEY_DOWN:
             case '-':
             case 'j':
-                for (i = curcol; i < curcol + arg; i++) {
+                for (i = sp->curcol; i < sp->curcol + arg; i++) {
                     sp->precision[i]--;
                     if (sp->precision[i] < 0)
                         sp->precision[i] = 0;
                 }
-                modflg++;
+                sp->modflg++;
                 break;
             case SC_KEY_UP:
             case '+':
             case 'k':
-                for (i = curcol; i < curcol + arg; i++)
+                for (i = sp->curcol; i < sp->curcol + arg; i++)
                     sp->precision[i]++;
-                modflg++;
+                sp->modflg++;
                 break;
             case ' ':
                 // XXX: should use current format?
                 if (arg == 1) {
-                    set_line("format [for column] %s ", coltoa(curcol));
+                    set_line("format [for column] %s ", coltoa(sp->curcol));
                 } else {
                     set_line("format [for columns] %s:%s ",
-                             coltoa(curcol), coltoa(curcol + arg - 1));
+                             coltoa(sp->curcol), coltoa(sp->curcol + arg - 1));
                 }
                 insert_mode();
                 error("Current format is %d %d %d",
-                      sp->fwidth[curcol], sp->precision[curcol], sp->realfmt[curcol]);
+                      sp->fwidth[sp->curcol], sp->precision[sp->curcol], sp->realfmt[sp->curcol]);
                 continue;
             case '=':
                 error("Define format type (0-9):");
                 screen_refresh();
                 c = nmgetch(1);
                 if (c >= '0' && c <= '9') {
-                    if (colformat[c - '0']) {
+                    if (sp->colformat[c - '0']) {
                         buf_init(buf, line, sizeof line);
                         buf_setf(buf, "format %c = \"", c);
-                        buf_quotestr(buf, 0, s2c(colformat[c - '0']), 0);
+                        buf_quotestr(buf, 0, s2c(sp->colformat[c - '0']), 0);
                         linelim = linelen = buf->len;
                         edit_mode();
                     } else {
@@ -3554,7 +3554,7 @@ static void formatcol(sheet_t *sp, int arg) {
             }
         }
         error("Current format is %d %d %d",
-              sp->fwidth[curcol], sp->precision[curcol], sp->realfmt[curcol]);
+              sp->fwidth[sp->curcol], sp->precision[sp->curcol], sp->realfmt[sp->curcol]);
         FullUpdate++;
         update(sp, 1);
         screen_refresh();
@@ -3563,11 +3563,11 @@ static void formatcol(sheet_t *sp, int arg) {
             if (c == ESC || c == ctl('g') || c == 'q') {
                 /* restore column widths and formats */
                 for (i = 0; i < arg; i++) {
-                    sp->fwidth[i + curcol] = oldformat[i * 3 + 0];
-                    sp->precision[i + curcol] = oldformat[i * 3 + 1];
-                    sp->realfmt[i + curcol] = oldformat[i * 3 + 2];
+                    sp->fwidth[i + sp->curcol] = oldformat[i * 3 + 0];
+                    sp->precision[i + sp->curcol] = oldformat[i * 3 + 1];
+                    sp->realfmt[i + sp->curcol] = oldformat[i * 3 + 2];
                 }
-                modflg = mf;
+                sp->modflg = mf;
                 FullUpdate++;
                 update(sp, 1);
             }
@@ -3595,7 +3595,7 @@ static int vi_select_range(sheet_t *sp, const char *cmd, const char *arg) {
         case '.':
         case ':':
         case ctl('i'):
-            if (!showrange) {
+            if (!sp->showrange) {
                 write_line(sp, c);
                 break;
             }
@@ -3604,7 +3604,7 @@ static int vi_select_range(sheet_t *sp, const char *cmd, const char *arg) {
         case ctl('m'):
             set_line("%s ", cmd);
             write_line(sp, '.');
-            if (showrange)
+            if (sp->showrange)
                 write_line(sp, '.');
             if (arg) {
                 linelim = linelen = pstrcat(line, sizeof line, arg);
@@ -3697,7 +3697,7 @@ int yn_ask(const char *msg) {
 int modcheck(sheet_t *sp, const char *endstr) {
     int yn_ans;
 
-    if (modflg && curfile[0]) {
+    if (sp->modflg && curfile[0]) {
         char lin[100];
 
         snprintf(lin, sizeof lin, "File \"%s\" is modified, save%s? ", curfile, endstr);
@@ -3708,7 +3708,7 @@ int modcheck(sheet_t *sp, const char *endstr) {
             if (writefile(sp, curfile, rangeref_total(sp), DCP_DEFAULT) < 0)
                 return 1;
         }
-    } else if (modflg) {
+    } else if (sp->modflg) {
         if ((yn_ans = yn_ask("Do you want a chance to save the data? ")) < 0)
             return 1;
         else
@@ -3728,7 +3728,7 @@ int edit_cell(sheet_t *sp, buf_t buf, int row, int col, struct ent *p, int dcp_f
     case ALIGN_CENTER:  command = "label";       break;
     case ALIGN_RIGHT:   command = "rightstring"; break;
     }
-    len = buf_setf(buf, "%s %s = ", command, v_name(row, col));
+    len = buf_setf(buf, "%s %s = ", command, v_name(sp, row, col));
     if (p) {
         if (p->expr && !(dcp_flags & DCP_NO_EXPR)) {
             // XXX: should pass row, col as the cell reference

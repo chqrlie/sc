@@ -33,20 +33,12 @@ static void settcattr(void);
 static sheet_t cur_sheet;
 sheet_t *sht = &cur_sheet;
 
-int strow = 0, stcol = 0;
-int currow = 0, curcol = 0;
 cellref_t savedcr[37];     /* stack of marked cells */
 cellref_t savedst[37];
 int FullUpdate = 0;
 int changed;
-int cslop;
 int qbuf;       /* buffer no. specified by " command */
-int modflg;
-int numeric;
-SCXMEM string_t *mdir;
-SCXMEM string_t *autorun;
 int skipautorun;
-SCXMEM string_t *fkey[FKEYS];
 SCXMEM string_t *scext;
 SCXMEM string_t *ascext;
 SCXMEM string_t *tbl0ext;
@@ -55,7 +47,6 @@ SCXMEM string_t *latexext;
 SCXMEM string_t *slatexext;
 SCXMEM string_t *texext;
 int scrc = 0;
-int showsc, showsr;     /* Starting cell for highlighted range */
 int usecurses = TRUE;   /* Use curses unless piping/redirection or using -q */
 int brokenpipe = FALSE; /* Set to true if SIGPIPE is received */
 
@@ -66,9 +57,8 @@ char revmsg[80];
 char dpoint = '.';   /* decimal point */
 char thsep = ',';    /* thousands separator */
 
-int showtop   = 1;     /* Causes current cell value display in top line  */
+//int showtop   = 1;     /* Causes current cell value display in top line  */
 int showcell  = 1;     /* Causes current cell to be highlighted          */
-int showrange = 0;     /* Causes ranges to be highlighted                */
 int showneed  = 0;     /* Causes cells needing values to be highlighted  */
 int showexpr  = 0;     /* Causes cell exprs to be displayed, highlighted */
 int shownote  = 0;     /* Causes cells with attached notes to be
@@ -76,28 +66,10 @@ int shownote  = 0;     /* Causes cells with attached notes to be
 int braille   = 0;     /* Be nice to users of braille displays           */
 int braillealt = 0;    /* Alternate mode for braille users               */
 
-int autocalc  = 1;     /* 1 to calculate after each update */
 int autolabel = 1;     /* If room, causes label to be created after a define */
-int autoinsert = 0;    /* Causes rows to be inserted if craction is non-zero
-                          and the last cell in a row/column of the scrolling
-                          portion of a framed range has been filled      */
-int autowrap = 0;      /* Causes cursor to move to next row/column if craction
-                          is non-zero and the last cell in a row/column of
-                          the scrolling portion of a framed range has been
-                          filled */
-int calc_order = BYROWS;
-int optimize  = 0;     /* Causes numeric expressions to be optimized */
-int tbl_style = 0;     /* headers for T command output */
-int rndtoeven = 0;
 int color     = 1;     /* Use color */ // XXX: should rename as use_color
-int colorneg  = 1;     /* Increment color number for cells with negative numbers */
-int colorerr  = 1;     /* Color cells with errors with color 3 */
-int craction = 0;      /* 1 for down, 2 for right */
-int pagesize = 0;      /* If nonzero, use instead of 1/2 screen height */
 int dobackups;         /* Copy current database file to backup file      */
                        /* before overwriting                             */
-int rowlimit = -1;
-int collimit = -1;
 int rowsinrange;
 int colsinrange;
 int emacs_bindings = 1;      /* use emacs-like bindings */
@@ -167,9 +139,9 @@ int main(int argc, char **argv) {
         case 'n':   nopt = 1;                       break;
         case 'c':   copt = 1;                       break;
         case 'r':   ropt = 1;                       break;
-        case 'C':   Copt = 1; craction = CRCOLS;    break;
-        case 'R':   Ropt = 1; craction = CRROWS;    break;
-        case 'e':   eopt = 1; rndtoeven = 1;        break;
+        case 'C':   Copt = 1; sp->craction = CRCOLS;  break;
+        case 'R':   Ropt = 1; sp->craction = CRROWS;  break;
+        case 'e':   eopt = 1; sp->rndtoeven = 1;    break;
         case 'P':
         case 'W':   popt = 1;                       break;
         case 'v':                                   break;
@@ -198,6 +170,8 @@ int main(int argc, char **argv) {
             return 1;
         }
     }
+
+    sheet_init(sp);
 
     if (!isatty(STDOUT_FILENO) || popt || qopt == 1) usecurses = FALSE;
     startdisp();
@@ -249,8 +223,8 @@ int main(int argc, char **argv) {
         optind++;
     }
 
-    savedcr[0] = cellref(currow, curcol);
-    savedst[0] = cellref(strow, stcol);
+    savedcr[0] = cellref(sp->currow, sp->curcol);
+    savedst[0] = cellref(sp->strow, sp->stcol);
     // XXX: potentially redundant
     // XXX: should check for autocalc
     EvalAll(sp);
@@ -268,14 +242,14 @@ int main(int argc, char **argv) {
     // XXX: potentially redundant
     EvalAll(sp);
 
-    if (mopt) autocalc = 0;
-    if (oopt) optimize = 1;
-    if (nopt) numeric = 1;
-    if (copt) calc_order = BYCOLS;
-    if (ropt) calc_order = BYROWS;
-    if (Copt) craction = CRCOLS;
-    if (Ropt) craction = CRROWS;
-    if (eopt) rndtoeven = 1;
+    if (mopt) sp->autocalc = 0;
+    if (oopt) sp->optimize = 1;
+    if (nopt) sp->numeric = 1;
+    if (copt) sp->calc_order = BYCOLS;
+    if (ropt) sp->calc_order = BYROWS;
+    if (Copt) sp->craction = CRCOLS;
+    if (Ropt) sp->craction = CRROWS;
+    if (eopt) sp->rndtoeven = 1;
     if (Mopt) screen_mouseon();
     if (popt) {
         int Vopt = 0;

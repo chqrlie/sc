@@ -39,9 +39,6 @@ const char *progname;
 static sheet_t cur_sheet;
 sheet_t *sht = &cur_sheet;
 
-int curcol;
-int currow;
-
 static int scan(void);
 static int getrow(const char *p);
 static int getcol(const char *p);
@@ -162,14 +159,14 @@ int main(int argc, char **argv) {
         return EXIT_FAILURE;
 
     curlen = 0;
-    curcol = c0; coff = 0;
-    currow = r0; roff = 0;
+    sp->curcol = c0; coff = 0;
+    sp->currow = r0; roff = 0;
     first = TRUE;
 
     for (;;) {
 
-        effr = currow + roff;
-        effc = curcol + coff;
+        effr = sp->currow + roff;
+        effc = sp->curcol + coff;
 
         switch (scan()) {
         case END:
@@ -283,19 +280,19 @@ int main(int argc, char **argv) {
             first = TRUE;
             if (colfirst) {
                 if (curlen >= len) {
-                    curcol = c0;
-                    currow += rinc;
+                    sp->curcol = c0;
+                    sp->currow += rinc;
                     curlen = 0;
                 } else {
-                    curcol += cinc;
+                    sp->curcol += cinc;
                 }
             } else {
                 if (curlen >= len) {
-                    currow = r0;
-                    curcol += cinc;
+                    sp->currow = r0;
+                    sp->curcol += cinc;
                     curlen = 0;
                 } else {
-                    currow += rinc;
+                    sp->currow += rinc;
                 }
             }
             break;

@@ -29,7 +29,7 @@
 #endif /* !FALSE */
 
 /* macro to swap int variables: fails for expressions */
-#define SWAPINT(x, y) do { int x##__##y = x; x = y; y = x##__##y; } while (0)
+#define SWAPINT(x, y) do { int xy##__LINE__ = x; x = y; y = xy##__LINE__; } while (0)
 
 #define countof(a)  (sizeof(a) / sizeof(*(a)))
 
