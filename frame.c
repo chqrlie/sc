@@ -10,34 +10,34 @@
 
 #include "sc.h"
 
-int are_frames(sheet_t *sp) {
-    return sp->frame_base != NULL;
+int frange_test(sheet_t *sp) {
+    return sp->frange_base != NULL;
 }
 
-void del_frange(sheet_t *sp, struct frange *r) {
+void frange_delete(sheet_t *sp, struct frange *r) {
     if (r) {
         if (r->r_next)
             r->r_next->r_prev = r->r_prev;
         else
-            sp->frame_tail = r->r_prev;
+            sp->frange_tail = r->r_prev;
         if (r->r_prev)
             r->r_prev->r_next = r->r_next;
         else
-            sp->frame_base = r->r_next;
+            sp->frange_base = r->r_next;
         scxfree(r);
         if (lastfr == r)
             lastfr = NULL;
     }
 }
 
-void add_frange(sheet_t *sp, int flags, rangeref_t orr, rangeref_t irr,
+void frange_add(sheet_t *sp, int flags, rangeref_t orr, rangeref_t irr,
                 int toprows, int bottomrows, int leftcols, int rightcols)
 {
     struct ent *or_left, *or_right, *ir_left = NULL, *ir_right = NULL;
     struct frange *r;
 
     if (flags & FRANGE_FIND) {
-        r = find_frange(sp, orr.left.row, orr.left.col);
+        r = frange_find(sp, orr.left.row, orr.left.col);
         if (!r)
             return;
         orr.left.row = r->or_left->row;
@@ -69,7 +69,7 @@ void add_frange(sheet_t *sp, int flags, rangeref_t orr, rangeref_t irr,
      * Has this frange already been created?  If so, any negative
      * parameters mean "don't change this value."
      */
-    for (r = sp->frame_base; r; r = r->r_next) {
+    for (r = sp->frange_base; r; r = r->r_next) {
         if ((r->or_left == or_left) && (r->or_right == or_right)) {
             if (ir_left) {
                 r->ir_left = ir_left;
@@ -91,7 +91,7 @@ void add_frange(sheet_t *sp, int flags, rangeref_t orr, rangeref_t irr,
 
             /* If all frame sides are 0, delete the frange */
             if (r->ir_left == r->or_left && r->ir_right == r->or_right) {
-                del_frange(sp, r);
+                frange_delete(sp, r);
             }
             sp->modflg++;
             FullUpdate++;
@@ -101,7 +101,7 @@ void add_frange(sheet_t *sp, int flags, rangeref_t orr, rangeref_t irr,
     /*
      * See if the specified range overlaps any previously created frange.
      */
-    for (r = sp->frame_base; r; r = r->r_next) {
+    for (r = sp->frange_base; r; r = r->r_next) {
         if (!(r->or_left->row > orr.right.row || r->or_right->row < orr.left.row ||
               r->or_left->col > orr.right.col || r->or_right->col < orr.left.col))
         {
@@ -129,24 +129,24 @@ void add_frange(sheet_t *sp, int flags, rangeref_t orr, rangeref_t irr,
                                  r->or_right->col - rightcols);
         }
 
-        r->r_next = sp->frame_base;
+        r->r_next = sp->frange_base;
         r->r_prev = NULL;
-        if (sp->frame_base)
-            sp->frame_base->r_prev = r;
+        if (sp->frange_base)
+            sp->frange_base->r_prev = r;
         else
-            sp->frame_tail = r;
-        sp->frame_base = r;
+            sp->frange_tail = r;
+        sp->frange_base = r;
 
         sp->modflg++;
         FullUpdate++;
     }
 }
 
-void clean_frange(sheet_t *sp) {
+void frange_clean(sheet_t *sp) {
     struct frange *fr;
 
-    fr = sp->frame_base;
-    sp->frame_base = sp->frame_tail = NULL;
+    fr = sp->frange_base;
+    sp->frange_base = sp->frange_tail = NULL;
 
     while (fr) {
         struct frange *nextfr = fr->r_next;
@@ -156,10 +156,10 @@ void clean_frange(sheet_t *sp) {
     lastfr = NULL;
 }
 
-struct frange *find_frange(sheet_t *sp, int row, int col) {
+struct frange *frange_find(sheet_t *sp, int row, int col) {
     struct frange *r;
 
-    for (r = sp->frame_base; r; r = r->r_next) {
+    for (r = sp->frange_base; r; r = r->r_next) {
         if ((r->or_left->row <= row) && (r->or_left->col <= col) &&
             (r->or_right->row >= row) && (r->or_right->col >= col))
             return r;
@@ -167,10 +167,10 @@ struct frange *find_frange(sheet_t *sp, int row, int col) {
     return 0;
 }
 
-void sync_franges(sheet_t *sp) {
+void frange_sync(sheet_t *sp) {
     struct frange *fr;
 
-    for (fr = sp->frame_base; fr; fr = fr->r_next) {
+    for (fr = sp->frange_base; fr; fr = fr->r_next) {
         fr->or_left  = lookat(sp, fr->or_left->row,  fr->or_left->col);
         fr->or_right = lookat(sp, fr->or_right->row, fr->or_right->col);
         fr->ir_left  = lookat(sp, fr->ir_left->row,  fr->ir_left->col);
@@ -178,10 +178,10 @@ void sync_franges(sheet_t *sp) {
     }
 }
 
-void write_franges(sheet_t *sp, FILE *f) {
+void frange_write(sheet_t *sp, FILE *f) {
     struct frange *r;
 
-    for (r = sp->frame_tail; r; r = r->r_prev) {
+    for (r = sp->frange_tail; r; r = r->r_prev) {
         fprintf(f, "frame %s %s\n",
                 r_name(sp, r->or_left->row, r->or_left->col,
                        r->or_right->row, r->or_right->col),
@@ -190,10 +190,10 @@ void write_franges(sheet_t *sp, FILE *f) {
     }
 }
 
-void list_frames(sheet_t *sp, FILE *f) {
+void frange_list(sheet_t *sp, FILE *f) {
     struct frange *r;
 
-    if (!are_frames(sp)) {
+    if (!frange_test(sp)) {
         fprintf(f, "  No frames");
         return;
     }
@@ -202,7 +202,7 @@ void list_frames(sheet_t *sp, FILE *f) {
     if (!brokenpipe)
         fprintf(f, "  %-30s %s\n", "-----------", "-----------");
 
-    for (r = sp->frame_tail; r; r = r->r_prev) {
+    for (r = sp->frange_tail; r; r = r->r_prev) {
         fprintf(f, "  %-30s %s\n",
                 r_name(sp, r->or_left->row, r->or_left->col,
                        r->or_right->row, r->or_right->col),
@@ -212,13 +212,13 @@ void list_frames(sheet_t *sp, FILE *f) {
     }
 }
 
-void fix_frames(sheet_t *sp, int row1, int col1, int row2, int col2,
+void frange_fix(sheet_t *sp, int row1, int col1, int row2, int col2,
                 int delta1, int delta2, struct frange *fr)
 {
     int r1, c1, r2, c2;
     struct frange *r;
 
-    for (r = sp->frame_base; r; r = r->r_next) {
+    for (r = sp->frange_base; r; r = r->r_next) {
         r1 = r->or_left->row;
         c1 = r->or_left->col;
         r2 = r->or_right->row;

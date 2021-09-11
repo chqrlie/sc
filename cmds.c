@@ -310,7 +310,7 @@ int duprow(sheet_t *sp, cellref_t cr) {
     int c2 = sp->maxcol;
     struct frange *fr;
 
-    if ((fr = find_frange(sp, cr.row, cr.col))) {
+    if ((fr = frange_find(sp, cr.row, cr.col))) {
         c1 = fr->or_left->col;
         c2 = fr->or_right->col;
     }
@@ -377,7 +377,7 @@ int insertrow(sheet_t *sp, cellref_t cr, int arg, int delta) {
     lim = cr.row + delta + arg - 1;  /* last inserted row */
     sp->maxrow += arg;
 
-    if ((fr = find_frange(sp, cr.row, cr.col))) {
+    if ((fr = frange_find(sp, cr.row, cr.col))) {
         // XXX: should verify if cr.row + delta is inside the frange
         // XXX: inconsistent source range: marks are updated beyond rr.right.row
         rr = rangeref(cr.row + delta, fr->or_left->col,
@@ -472,7 +472,7 @@ int insertrow(sheet_t *sp, cellref_t cr, int arg, int delta) {
         }
     }
     // XXX: cell coordinates have been updated
-    fr = find_frange(sp, cr.row, cr.col);
+    fr = frange_find(sp, cr.row, cr.col);
     if (delta) {
         fix_ranges(sp, cr.row, -1, cr.row, -1, 0, arg, fr);
     } else {
@@ -554,7 +554,7 @@ int insertcol(sheet_t *sp, cellref_t cr, int arg, int delta) {
     }
 
     // XXX: cell coordinates have been updated
-    fr = find_frange(sp, cr.row, cr.col);
+    fr = frange_find(sp, cr.row, cr.col);
     if (delta) {
         if (fr && fr->ir_right->col == cr.col)
             fr->ir_right = lookat(sp, fr->ir_right->row, fr->ir_right->col + arg);
@@ -586,7 +586,7 @@ void deleterows(sheet_t *sp, int r1, int r2) {
 
     nrows = r2 - r1 + 1;
 
-    if (sp->currow == r1 && (fr = get_current_frange(sp))) {
+    if (sp->currow == r1 && (fr = frange_get_current(sp))) {
         c1 = fr->or_left->col;
         c2 = fr->or_right->col;
         if (any_locked_cells(sp, r1, c1, r2, c2)) {
@@ -612,7 +612,7 @@ void deleterows(sheet_t *sp, int r1, int r2) {
                 move_area(sp, r1, c1, rangeref(r1 + nrows, c1, fr->or_right->row, c2));
             }
             if (fr->ir_left->row > fr->ir_right->row) {
-                del_frange(sp, fr);
+                frange_delete(sp, fr);
                 fr = NULL;
             }
             /* Update all marked cells. */
@@ -682,7 +682,7 @@ void yankrows(sheet_t *sp, int r1, int r2) {
     nrows = sp->maxrow - r1 + 1;
 
     // XXX: should check if r1 and r2 are inside current frange
-    if (r1 == sp->currow && (fr = get_current_frange(sp))) {
+    if (r1 == sp->currow && (fr = frange_get_current(sp))) {
         nrows = fr->or_right->row - r1 + 1;
         c1 = fr->or_left->col;
         c2 = fr->or_right->col;
@@ -900,7 +900,7 @@ void pullcells(sheet_t *sp, int to_insert, cellref_t cr) {
     if (to_insert == 'r') {     /* PULLROWS */
         if (!insertrow(sp, cr, numrows, 0))
             return;
-        if ((fr = find_frange(sp, cr.row, cr.col))) {
+        if ((fr = frange_find(sp, cr.row, cr.col))) {
             deltac = fr->or_left->col - mincol;
         } else {
             for (i = 0; i < numrows; i++) {
@@ -1136,7 +1136,7 @@ void deletecols(sheet_t *sp, int c1, int c2) {
     }
     ncols = c2 - c1 + 1;
     // XXX: probably useless and counterproductive
-    //      this is for get_current_frange() which is questionable
+    //      this is for frange_get_current(sp) which is questionable
     sp->curcol = c1;
 
     /* discard named buffer '9' and qbuf if any */
@@ -1145,7 +1145,7 @@ void deletecols(sheet_t *sp, int c1, int c2) {
     /* move cell range to subsheet delbuf[++dbidx] */
     erase_area(sp, ++dbidx, 0, c1, sp->maxrow, c2, 0);
     // XXX: should use sync_refs() to flag invalid references
-    fix_ranges(sp, -1, c1, -1, c2, -1, -1, get_current_frange(sp));
+    fix_ranges(sp, -1, c1, -1, c2, -1, -1, frange_get_current(sp));
     /* store delbuf[dbidx--] to named buffer '1' after rotation and qbuf if any */
     deldata_store(DELBUFSIZE - 9, DELBUFSIZE - 1, DD_UNSYNC);
 
@@ -1809,10 +1809,10 @@ void erasedb(sheet_t *sp, int load_scrc) {
     for (c = 0; c < COLFORMATS; c++)
         string_set(&sp->colformat[c], NULL);
 
-    clean_nrange(sp);
-    clean_frange(sp);
-    clean_crange(sp);
-    clean_abbrevs(sp);
+    nrange_clean(sp);
+    frange_clean(sp);
+    crange_clean(sp);
+    abbrev_clean(sp);
 
     string_set(&sp->mdir, NULL);
     string_set(&sp->autorun, NULL);
@@ -1940,7 +1940,7 @@ void cmd_run(SCXMEM string_t *str) {
     string_free(str);
 }
 
-void addnote(sheet_t *sp, cellref_t cr, rangeref_t rr) {
+void note_add(sheet_t *sp, cellref_t cr, rangeref_t rr) {
     struct ent *p = lookat(sp, cr.row, cr.col);
     if (p) {
         range_normalize(&rr);
@@ -1951,7 +1951,7 @@ void addnote(sheet_t *sp, cellref_t cr, rangeref_t rr) {
     }
 }
 
-void delnote(sheet_t *sp, cellref_t cr) {
+void note_delete(sheet_t *sp, cellref_t cr) {
     struct ent *p = getcell(sp, cr.row, cr.col);
     if (p && (p->flags & HAS_NOTE)) {
         p->nrr = rangeref_empty();

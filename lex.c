@@ -425,7 +425,7 @@ int yylex(void) {
                 if ((ret = lookup_name(settingres, countof(settingres), p0, p - p0, &yylval.ival)) >= 0)
                     break;
             }
-            if (!find_nrange_name(sp, p0, p - p0, &r)) {
+            if (!nrange_find_name(sp, p0, p - p0, &r)) {
                 if (r->r_is_range) {
                     yylval.rval = rangeref(r->r_left.vp->row, r->r_left.vp->col,
                                            r->r_right.vp->row, r->r_right.vp->col);

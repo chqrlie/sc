@@ -64,9 +64,6 @@ extern const char *progname;
 
 typedef unsigned char sc_bool_t;
 
-extern void error(const char *fmt, ...) sc__attr_printf(1,2);
-extern void fatal(const char *str);
-
 #define FBUFLEN 1024    /* buffer size for a single field */
 #define PATHLEN (PATH_MAX < 8192 ? 8192 : PATH_MAX) /* maximum path length */
 
@@ -316,17 +313,6 @@ extern struct opdef const opdefs[];
 #define GROWCOL     4   /* add columns */
 #define GROWBOTH    6   /* grow both */
 
-/*---------------- screen stuff ----------------*/
-
-#define SC_COLOR_BLACK     0
-#define SC_COLOR_RED       1
-#define SC_COLOR_GREEN     2
-#define SC_COLOR_YELLOW    3
-#define SC_COLOR_BLUE      4
-#define SC_COLOR_MAGENTA   5
-#define SC_COLOR_CYAN      6
-#define SC_COLOR_WHITE     7
-
 /*---------------- keyboard input stuff ----------------*/
 
 /*
@@ -364,6 +350,8 @@ extern struct opdef const opdefs[];
 
 #define SC_ALT(c)   ((c)|0xE8000)       /* can be combined with all keys */
 
+struct screen_mouse_event { int x, y, bstate; };
+
 /* 5 bits per mouse button, 5 mouse buttons */
 #define SC_BUTTON_RELEASED(n)        (001 << (((n)-1)*5))
 #define SC_BUTTON_PRESSED(n)         (002 << (((n)-1)*5))
@@ -372,10 +360,6 @@ extern struct opdef const opdefs[];
 #define SC_BUTTON_CTRL               (001 << ((6-1)*5))
 #define SC_BUTTON_SHIFT              (002 << ((6-1)*5))
 #define SC_BUTTON_ALT                (004 << ((6-1)*5))
-
-extern int nmgetch(int clearline);
-extern int nmgetch_savepos(int clearline);
-extern int nmungetch(int c);
 
 /*---------------- Context sensitive help ----------------*/
 
@@ -399,7 +383,13 @@ enum help_context {
     HELP_NB,
 };
 
-extern void help(int ctx);
+struct menu_item {
+    const char *option;
+    const char *desc;
+    int (*func)(const void *arg, int n);
+    const void *arg;
+    int n;
+};
 
 /*---------------- Global data ----------------*/
 
@@ -430,10 +420,10 @@ typedef struct sheet {
     SCXMEM string_t *fkey[FKEYS];
     // XXX: should allocate and reallocate this array
     SCXMEM string_t *colformat[COLFORMATS];
-    SCXMEM struct crange *color_base, *color_tail;
-    SCXMEM struct nrange *rng_base, *rng_tail;
     SCXMEM struct abbrev *abbr_base, *abbr_tail;
-    SCXMEM struct frange *frame_base, *frame_tail;
+    SCXMEM struct crange *crange_base, *crange_tail;
+    SCXMEM struct nrange *nrange_base, *nrange_tail;
+    SCXMEM struct frange *frange_base, *frange_tail;
     int autocalc;     /* 1 to calculate after each update */
     int autoinsert;    /* Causes rows to be inserted if craction is non-zero
                           and the last cell in a row/column of the scrolling
@@ -463,9 +453,7 @@ typedef struct sheet {
 
 extern sheet_t *sht;
 
-sheet_t *sheet_init(sheet_t *sp); /* initialize settings to default values */
-
-extern char curfile[PATHLEN];
+extern char curfile[PATHLEN];       // XXX: move to sheet/file
 extern cellref_t savedcr[37];
 extern cellref_t savedst[37];
 extern int FullUpdate;
@@ -475,13 +463,13 @@ extern int colsinrange;         /* Number of cols in target range of a goto */
 extern char line[FBUFLEN];
 extern int linelim;
 extern int changed;
+
 /* temporary sheet fragments: stack of 4 work buffers and 36 named buffers (a-z,0-9) */
 extern SCXMEM struct ent *delbuf[DELBUFSIZE];
 extern SCXMEM unsigned char *delbuffmt[DELBUFSIZE];
 extern int dbidx;
 extern int qbuf;                /* buffer no. specified by `"' command */
 extern int macrofd;
-extern int usecurses;
 extern int brokenpipe;          /* Set to true if SIGPIPE is received */
 extern char dpoint;     /* country-dependent decimal point from locale */
 extern char thsep;      /* country-dependent thousands separator from locale */
@@ -505,6 +493,26 @@ extern SCXMEM string_t *slatexext;
 extern SCXMEM string_t *texext;
 extern struct go_save gs;
 extern const char * const error_name[];
+#ifndef NOCRYPT
+extern int Crypt;
+#endif
+
+extern int skipautorun;
+extern int scrc;
+extern int autolabel;
+extern int showcell;
+extern int color;               /* global setting for terminal handling */
+extern int braille;
+extern int braillealt;
+extern int dobackups;
+extern int loading;
+
+extern char revmsg[80];
+extern int showneed;   /* Causes cells needing values to be highlighted */
+extern int showexpr;   /* Causes cell exprs to be displayed, highlighted */
+extern int shownote;   /* Causes cells with attached notes to be highlighted */
+
+/*---------------- spreadsheet data ----------------*/
 
 static inline cellref_t cellref(int row, int col) {
     cellref_t cell = { row, col, 0, 0 };
@@ -558,19 +566,144 @@ static inline rangeref_t rangeref_empty(void) {
     return rangeref(0, 0, -1, -1);
 }
 
-rangeref_t *range_normalize(rangeref_t *rr);
+extern rangeref_t *range_normalize(rangeref_t *rr);
+extern sheet_t *sheet_init(sheet_t *sp); /* initialize settings to default values */
+extern void erasedb(sheet_t *sp, int load_scrc);
 
 /* check if the cell at r,c has a value */
 /* p must be defined as struct ent *p; */
 #define VALID_CELL(sp, p, r, c) ((p = getcell(sp, r, c)) && (p->type != SC_EMPTY))
 
-/* styles */
+/* a linked list of free [struct ent]'s, uses .next as the pointer */
+extern struct ent *lookat(sheet_t *sp, int row, int col);  /* allocates the cell */
+extern struct ent *getcell(sheet_t *sp, int row, int col); /* does not allocate the cell */
+extern int checkbounds(sheet_t *sp, int *rowp, int *colp);
+extern void clearent(struct ent *v);
+
+/*---------------- expressions ----------------*/
+
+extern int parse_line(const char *buf);
+extern void parse_error(const char *err, const char *src, const char *src_pos);
+extern void yyerror(const char *err);
+extern int parse_cellref(const char *p, cellref_t *cp, int *lenp);
+extern int parse_rangeref(const char *p0, rangeref_t *rp, int *lenp);
+extern int yylex(void);
+extern SCXMEM enode_t *new_op0(int op, int nargs);
+extern SCXMEM enode_t *new_op1(int op, SCXMEM enode_t *a1);
+extern SCXMEM enode_t *new_op1x(int op, SCXMEM enode_t *a1, SCXMEM enode_t *a2);
+extern SCXMEM enode_t *new_op2(int op, SCXMEM enode_t *a1, SCXMEM enode_t *a2);
+extern SCXMEM enode_t *new_op3(int op, SCXMEM enode_t *a1,
+                               SCXMEM enode_t *a2, SCXMEM enode_t *a3);
+extern SCXMEM enode_t *new_const(double v);
+extern SCXMEM enode_t *new_error(int error);
+extern SCXMEM enode_t *new_range(sheet_t *sp, rangeref_t rr);
+extern SCXMEM enode_t *new_str(SCXMEM string_t *s);
+extern SCXMEM enode_t *new_var(sheet_t *sp, cellref_t cr);
+extern enode_t *copye(sheet_t *sp, enode_t *e, int Rdelta, int Cdelta,
+                      int r1, int c1, int r2, int c2, int transpose);
+#define DCP_DEFAULT    0
+#define DCP_NO_NAME    1
+#define DCP_NO_LOCALE  2
+#define DCP_NO_EXPR    4
+extern int decompile(sheet_t *sp, char *dest, size_t size, enode_t *e, int dr, int dc, int dcp_flags);
+extern int decompile_expr(sheet_t *sp, buf_t buf, enode_t *e, int dr, int dc, int flags);
+extern void efree(SCXMEM enode_t *e);
+extern void free_enode_list(void);
+
+extern void EvalAll(sheet_t *sp);
+extern scvalue_t eval_at(sheet_t *sp, enode_t *e, int row, int col);
+extern SCXMEM string_t *seval_at(sheet_t *sp, enode_t *se, int row, int col, int *errp);
+extern double neval_at(sheet_t *sp, enode_t *e, int row, int col, int *errp);
+
+/*---------------- format and cell attributes ----------------*/
+
+extern int engformat(char *buf, size_t size, int fmt, int lprecision, double val, int *alignp);
+extern int format(char *buf, size_t buflen, const char *fmt, int lprecision, double val, int *alignp);
+extern void cmd_format(sheet_t *sp, int c1, int c2, int w, int p, int r);
+extern void cmd_setformat(sheet_t *sp, int n, SCXMEM string_t *str);
+extern void format_cells(sheet_t *sp, rangeref_t rr, SCXMEM string_t *s);
+extern void dohide(sheet_t *sp);
+extern void hidecols(sheet_t *sp, int c1, int c2);
+extern void hiderows(sheet_t *sp, int c1, int c2);
+extern int locked_cell(sheet_t *sp, int row, int col);
+extern void lock_cells(sheet_t *sp, rangeref_t rr);
+extern void unlock_cells(sheet_t *sp, rangeref_t rr);
+extern void showcol(sheet_t *sp, int c1, int c2);
+extern void showrow(sheet_t *sp, int r1, int r2);
+extern void range_align(sheet_t *sp, rangeref_t rr, int align);
+extern void note_add(sheet_t *sp, cellref_t cr, rangeref_t rr);
+extern void note_delete(sheet_t *sp, cellref_t cr);
+extern const char *coltoa(int col);
+extern const char *v_name(sheet_t *sp, int row, int col);
+extern const char *r_name(sheet_t *sp, int r1, int c1, int r2, int c2);
+extern int atocol(const char *s, int *lenp);
+extern int rows_height(sheet_t *sp, int r, int n);
+extern int cols_width(sheet_t *sp, int c, int n);
+
+/*---------------- spreadsheet editing ----------------*/
+
+extern void deletecols(sheet_t *sp, int c1, int c2);
+extern void closerow(sheet_t *sp, int r, int numrow);
+extern void deleterows(sheet_t *sp, int r1, int r2);
+extern void copy_set_source_range(int r1, int c1, int r2, int c2);
+#define COPY_FROM_RANGE   0x01
+#define COPY_FROM_QBUF    0x02
+#define COPY_FROM_DEF     0x04
+extern void copy(sheet_t *sp, int flags, rangeref_t drr, rangeref_t srr);
+extern void copyent(sheet_t *sp, struct ent *n, struct ent *p,
+                    int dr, int dc, int r1, int c1, int r2, int c2, int transpose);
+extern int dupcol(sheet_t *sp, cellref_t cr);
+extern int duprow(sheet_t *sp, cellref_t cr);
+extern void cmd_select_qbuf(char c);
+extern int edit_cell(sheet_t *sp, buf_t buf, int row, int col, struct ent *p, int dcp_flags, int c0);
+extern void erase_area(sheet_t *sp, int idx, int sr, int sc, int er, int ec, int ignorelock);
+extern void eraser(sheet_t *sp, rangeref_t rr);
+extern void fillr(sheet_t *sp, rangeref_t rr, double start, double inc, int bycols);
+extern void free_ent_list(void);
+extern int flush_saved(int idx);  /* free delbuf[idx] */
+extern void fix_ranges(sheet_t *sp, int row1, int col1, int row2, int col2,
+                       int delta1, int delta2, struct frange *fr);
+extern void let(sheet_t *sp, cellref_t cr, SCXMEM enode_t *e, int align);
+extern void unlet(sheet_t *sp, cellref_t cr);
+extern int insertcol(sheet_t *sp, cellref_t cr, int arg, int delta);
+extern int insertrow(sheet_t *sp, cellref_t cr, int arg, int delta);
+extern void move_area(sheet_t *sp, int dr, int dc, rangeref_t rr);
+extern void mover(sheet_t *sp, cellref_t cr, rangeref_t rr);
+extern void moveto(sheet_t *sp, rangeref_t rr, cellref_t st);
+extern void pullcells(sheet_t *sp, int to_insert, cellref_t cr);
+extern void sortrange(sheet_t *sp, rangeref_t rr, SCXMEM string_t *criteria);
+extern void valueize_area(sheet_t *sp, rangeref_t rr);
+extern void yank_area(sheet_t *sp, rangeref_t rr);
+extern void sync_ranges(sheet_t *sp);
+extern void sync_refs(sheet_t *sp);
+extern void yankcols(sheet_t *sp, int c1, int c2);
+extern void yankrows(sheet_t *sp, int r1, int r2);
+extern void yankr(sheet_t *sp, rangeref_t rr);
+extern int growtbl(sheet_t *sp, int rowcol, int toprow, int topcol);
+
+/*---------------- spreadsheet options ----------------*/
+
+extern void setautocalc(sheet_t *sp, int i);
+extern void setiterations(sheet_t *sp, int i);
+extern void setcalcorder(sheet_t *sp, int i);
+extern void set_mdir(sheet_t *sp, SCXMEM string_t *str);
+extern void set_autorun(sheet_t *sp, SCXMEM string_t *str);
+extern void set_fkey(sheet_t *sp, int n, SCXMEM string_t *str);
+
+/*---------------- styles ----------------*/
+
+#define SC_COLOR_BLACK     0
+#define SC_COLOR_RED       1
+#define SC_COLOR_GREEN     2
+#define SC_COLOR_YELLOW    3
+#define SC_COLOR_BLUE      4
+#define SC_COLOR_MAGENTA   5
+#define SC_COLOR_CYAN      6
+#define SC_COLOR_WHITE     7
+
 extern SCXMEM struct colorpair *cpairs[CPAIRS + 1];
-extern int are_colors(sheet_t *sp);
 extern void change_color(sheet_t *sp, int pair, enode_t *e);
 extern void initcolor(sheet_t *sp, int colornum);
-extern void list_colors(sheet_t *sp, FILE *f);
-extern void write_colors(sheet_t *sp, FILE *f, int indent);
 extern void sc_setcolor(int set);
 #define STYLE_NONE      0
 #define STYLE_CELL      1
@@ -583,225 +716,116 @@ extern void sc_setcolor(int set);
 extern int init_style(int n, int fg, int bg, enode_t *expr);
 extern void select_style(int style, int rev);
 extern void free_styles(void);
+extern void colors_write(sheet_t *sp, FILE *f, int indent);
 
-extern FILE *openfile(char *fname, size_t fnamesiz, int *rpid, int *rfd);
-extern char *findhome(char *fname, size_t fnamesiz);
-extern char *findplugin(const char *ext, char type);
-extern const char *coltoa(int col);
-extern const char *v_name(sheet_t *sp, int row, int col);
-extern const char *r_name(sheet_t *sp, int r1, int c1, int r2, int c2);
-extern scvalue_t eval_at(sheet_t *sp, enode_t *e, int row, int col);
-extern SCXMEM string_t *seval_at(sheet_t *sp, enode_t *se, int row, int col, int *errp);
-extern double neval_at(sheet_t *sp, enode_t *e, int row, int col, int *errp);
-extern int are_frames(sheet_t *sp);
-extern int are_nranges(sheet_t *sp);
-extern int atocol(const char *s, int *lenp);
-extern int creadfile(const char *fname, int eraseflg);
-extern int cwritefile(const char *fname, rangeref_t rr, int dcp_flags);
-extern int engformat(char *buf, size_t size, int fmt, int lprecision, double val, int *alignp);
-extern int find_nrange_name(sheet_t *sp, const char *name, int len, struct nrange **rng);
-struct nrange *find_nrange_coords(sheet_t *sp, rangeref_t rr);
-extern int format(char *buf, size_t buflen, const char *fmt, int lprecision, double val, int *alignp);
-extern int growtbl(sheet_t *sp, int rowcol, int toprow, int topcol);
-extern int locked_cell(sheet_t *sp, int row, int col);
-extern int modcheck(sheet_t *sp, const char *endstr);
-extern int plugin_exists(const char *name, int len, char *path, size_t size);
-extern int readfile(sheet_t *sp, const char *fname, int eraseflg);
-extern int writefile(sheet_t *sp, const char *fname, rangeref_t rr, int dcp_flags);
-extern int yn_ask(const char *msg);
-extern struct abbrev *find_abbr(sheet_t *sp, const char *abbrev, int len, struct abbrev **prev);
-extern enode_t *copye(sheet_t *sp, enode_t *e, int Rdelta, int Cdelta,
-                      int r1, int c1, int r2, int c2, int transpose);
+/*---------------- color ranges ----------------*/
 
-extern SCXMEM enode_t *new_op0(int op, int nargs);
-extern SCXMEM enode_t *new_op1(int op, SCXMEM enode_t *a1);
-extern SCXMEM enode_t *new_op1x(int op, SCXMEM enode_t *a1, SCXMEM enode_t *a2);
-extern SCXMEM enode_t *new_op2(int op, SCXMEM enode_t *a1, SCXMEM enode_t *a2);
-extern SCXMEM enode_t *new_op3(int op, SCXMEM enode_t *a1,
-                               SCXMEM enode_t *a2, SCXMEM enode_t *a3);
-extern SCXMEM enode_t *new_const(double v);
-extern SCXMEM enode_t *new_error(int error);
-extern SCXMEM enode_t *new_range(sheet_t *sp, rangeref_t rr);
-extern SCXMEM enode_t *new_str(SCXMEM string_t *s);
-extern SCXMEM enode_t *new_var(sheet_t *sp, cellref_t cr);
-/* a linked list of free [struct ent]'s, uses .next as the pointer */
-extern struct ent *lookat(sheet_t *sp, int row, int col);  /* allocates the cell */
-extern struct ent *getcell(sheet_t *sp, int row, int col); /* does not allocate the cell */
-extern struct crange *find_crange(sheet_t *sp, int row, int col);
-extern struct frange *find_frange(sheet_t *sp, int row, int col);
-extern void EvalAll(sheet_t *sp);
-extern void add_crange(sheet_t *sp, rangeref_t rr, int pair);
-extern void del_crange(sheet_t *sp, struct crange *r);
+extern int crange_test(sheet_t *sp);
+extern void crange_add(sheet_t *sp, rangeref_t rr, int pair);
+extern void crange_clean(sheet_t *sp);
+extern void crange_delete(sheet_t *sp, struct crange *r);
+extern struct crange *crange_find(sheet_t *sp, int row, int col);
+extern void crange_list(sheet_t *sp, FILE *f);
+extern void crange_write(sheet_t *sp, FILE *f);
+extern void crange_sync(sheet_t *sp);
+extern void crange_fix(sheet_t *sp, int row1, int col1, int row2, int col2,
+                       int delta1, int delta2, struct frange *fr);
+
+/*---------------- abbreviations ----------------*/
+
+extern int abbrev_test(sheet_t *sp);
+extern void abbrev_add(sheet_t *sp, SCXMEM string_t *name, SCXMEM string_t *exp);
+extern void abbrev_clean(sheet_t *sp);
+extern void abbrev_delete(sheet_t *sp, SCXMEM string_t *abbrev);
+extern struct abbrev *abbrev_find(sheet_t *sp, const char *abbrev, int len, struct abbrev **prev);
+extern void abbrev_list(sheet_t *sp, FILE *f);
+extern void abbrev_write(sheet_t *sp, FILE *f);
+
+/*---------------- named ranges ----------------*/
+
+extern int nrange_test(sheet_t *sp);
+extern void nrange_add(sheet_t *sp, SCXMEM string_t *name, rangeref_t rr, int is_range);
+extern void nrange_clean(sheet_t *sp);
+extern void nrange_delete(sheet_t *sp, rangeref_t rr);
+extern int nrange_find_name(sheet_t *sp, const char *name, int len, struct nrange **rng);
+extern void nrange_list(sheet_t *sp, FILE *f);
+extern struct nrange *nrange_find_coords(sheet_t *sp, rangeref_t rr);
+extern void nrange_sync(sheet_t *sp);
+extern void nrange_write(sheet_t *sp, FILE *f);
+
+/*---------------- frame ranges ----------------*/
+
+extern int frange_test(sheet_t *sp);
 #define FRANGE_DIRECT  0
 #define FRANGE_FIND    1
 #define FRANGE_INNER   2
-extern void add_frange(sheet_t *sp, int flags, rangeref_t orr, rangeref_t irr,
+extern struct frange *frange_find(sheet_t *sp, int row, int col);
+extern void frange_add(sheet_t *sp, int flags, rangeref_t orr, rangeref_t irr,
                        int toprows, int bottomrows, int leftcols, int rightcols);
-extern void del_frange(sheet_t *sp, struct frange *r);
-extern void add_nrange(sheet_t *sp, SCXMEM string_t *name, rangeref_t rr, int is_range);
-extern void add_plugin(SCXMEM string_t *ext, SCXMEM string_t *plugin, char type);
+extern void frange_clean(sheet_t *sp);
+extern void frange_delete(sheet_t *sp, struct frange *r);
+extern void frange_list(sheet_t *sp, FILE *fp);
+extern void frange_sync(sheet_t *sp);
+extern void frange_write(sheet_t *sp, FILE *f);
+static inline struct frange *frange_get_current(sheet_t *sp) {
+    return frange_find(sp, sp->currow, sp->curcol);
+}
+extern void frange_fix(sheet_t *sp, int row1, int col1, int row2, int col2,
+                       int delta1, int delta2, struct frange *fr);
+
+/*---------------- file reading and writing ----------------*/
+
+extern FILE *openfile(char *fname, size_t fnamesiz, int *rpid, int *rfd);
+extern char *findhome(char *fname, size_t fnamesiz);
+extern int creadfile(const char *fname, int eraseflg);
+extern int cwritefile(const char *fname, rangeref_t rr, int dcp_flags);
+extern int modcheck(sheet_t *sp, const char *endstr);
+extern int readfile(sheet_t *sp, const char *fname, int eraseflg);
+extern int writefile(sheet_t *sp, const char *fname, rangeref_t rr, int dcp_flags);
+extern void closefile(FILE *f, int pid, int rfd);
+extern void printfile(sheet_t *sp, SCXMEM string_t *fname, rangeref_t rr);
+extern void tblprintfile(sheet_t *sp, SCXMEM string_t *fname, rangeref_t rr);
+extern void write_cells(sheet_t *sp, FILE *f, rangeref_t rr, cellref_t cr, int dcp_flags);
+extern void write_fd(sheet_t *sp, FILE *f, rangeref_t rr, int dcp_flags);
+extern int backup_file(const char *path);
+
+/*---------------- navigation ----------------*/
+
 extern void backpage(sheet_t *sp, int arg);
 extern void backcell(sheet_t *sp, int arg);
 extern void backcol(sheet_t *sp, int arg);
 extern void backrow(sheet_t *sp, int arg);
-extern int checkbounds(sheet_t *sp, int *rowp, int *colp);
-extern void clearent(struct ent *v);
-extern void clean_crange(sheet_t *sp);
-extern void clean_frange(sheet_t *sp);
-extern void clean_nrange(sheet_t *sp);
-extern void deletecols(sheet_t *sp, int c1, int c2);
-extern void closefile(FILE *f, int pid, int rfd);
-extern void closerow(sheet_t *sp, int r, int numrow);
-extern void deleterows(sheet_t *sp, int r1, int r2);
-extern void copy_set_source_range(int r1, int c1, int r2, int c2);
-#define COPY_FROM_RANGE   0x01
-#define COPY_FROM_QBUF    0x02
-#define COPY_FROM_DEF     0x04
-extern void copy(sheet_t *sp, int flags, rangeref_t drr, rangeref_t srr);
-extern void copyent(sheet_t *sp, struct ent *n, struct ent *p,
-                    int dr, int dc, int r1, int c1, int r2, int c2, int transpose);
-// XXX: should pass a context with a cell reference
-#define DCP_DEFAULT    0
-#define DCP_NO_NAME    1
-#define DCP_NO_LOCALE  2
-#define DCP_NO_EXPR    4
-extern int decompile(sheet_t *sp, char *dest, size_t size, enode_t *e, int dr, int dc, int dcp_flags);
-// XXX: should pass a context with a cell reference
-extern int decompile_expr(sheet_t *sp, buf_t buf, enode_t *e, int dr, int dc, int flags);
-extern void del_nrange(sheet_t *sp, rangeref_t rr);
-extern void del_abbr(sheet_t *sp, SCXMEM string_t *abbrev);
 extern void doend(sheet_t *sp, int rowinc, int colinc);
-extern void cmd_format(sheet_t *sp, int c1, int c2, int w, int p, int r);
-extern void cmd_setformat(sheet_t *sp, int n, SCXMEM string_t *str);
-extern int cmd_plugin(sheet_t *sp, SCXMEM string_t *str);
-extern void cmd_recalc(sheet_t *sp);
-extern void cmd_redraw(sheet_t *sp);
-extern void cmd_run(SCXMEM string_t *str);
-extern void cmd_select_qbuf(char c);
-extern int dupcol(sheet_t *sp, cellref_t cr);
-extern int duprow(sheet_t *sp, cellref_t cr);
-extern void set_mdir(sheet_t *sp, SCXMEM string_t *str);
-extern void set_autorun(sheet_t *sp, SCXMEM string_t *str);
-extern void set_fkey(sheet_t *sp, int n, SCXMEM string_t *str);
-extern int edit_cell(sheet_t *sp, buf_t buf, int row, int col, struct ent *p, int dcp_flags, int c0);
-extern void efree(SCXMEM enode_t *e);
-extern void free_enode_list(void);
-extern void erase_area(sheet_t *sp, int idx, int sr, int sc, int er, int ec, int ignorelock);
-extern void erasedb(sheet_t *sp, int load_scrc);
-extern void eraser(sheet_t *sp, rangeref_t rr);
-extern void fillr(sheet_t *sp, rangeref_t rr, double start, double inc, int bycols);
-extern void fix_colors(sheet_t *sp, int row1, int col1, int row2, int col2,
-                       int delta1, int delta2, struct frange *fr);
-extern void fix_frames(sheet_t *sp, int row1, int col1, int row2, int col2,
-                       int delta1, int delta2, struct frange *fr);
-extern void fix_ranges(sheet_t *sp, int row1, int col1, int row2, int col2,
-                       int delta1, int delta2, struct frange *fr);
-extern void free_ent_list(void);
-extern int flush_saved(int idx);  /* free delbuf[idx] */
-extern void format_cells(sheet_t *sp, rangeref_t rr, SCXMEM string_t *s);
 extern void forwpage(sheet_t *sp, int arg);
 extern void forwcell(sheet_t *sp, int arg);
 extern void forwcol(sheet_t *sp, int arg);
 extern void forwrow(sheet_t *sp, int arg);
-
 extern void go_free(sheet_t *sp);
 extern void go_last(sheet_t *sp);
-extern void dohide(sheet_t *sp);
-extern void hidecols(sheet_t *sp, int c1, int c2);
-extern void hiderows(sheet_t *sp, int c1, int c2);
-extern void initkbd(void);
-extern int insertcol(sheet_t *sp, cellref_t cr, int arg, int delta);
-extern int insertrow(sheet_t *sp, cellref_t cr, int arg, int delta);
-extern void kbd_again(void);
-extern void unlet(sheet_t *sp, cellref_t cr);
-extern void let(sheet_t *sp, cellref_t cr, SCXMEM enode_t *e, int align);
-extern void list_nranges(sheet_t *sp, FILE *f);
-extern void lock_cells(sheet_t *sp, rangeref_t rr);
-extern void move_area(sheet_t *sp, int dr, int dc, rangeref_t rr);
-extern void mover(sheet_t *sp, cellref_t cr, rangeref_t rr);
-extern void moveto(sheet_t *sp, rangeref_t rr, cellref_t st);
 extern int num_search(sheet_t *sp, int g_type, rangeref_t rr, double n);
-extern void printfile(sheet_t *sp, SCXMEM string_t *fname, rangeref_t rr);
-extern void pullcells(sheet_t *sp, int to_insert, cellref_t cr);
+extern int str_search(sheet_t *sp, int g_type, rangeref_t rr, SCXMEM string_t *str);
+extern void remember(sheet_t *sp, int save);
+extern void gotonote(sheet_t *sp);
+
+/*---------------- interaction ----------------*/
+
+extern void vi_interaction(sheet_t *sp);
+extern int yn_ask(const char *msg);
+extern void help(int ctx);
+extern void lotus_menu(void);
+extern void cmd_recalc(sheet_t *sp);
+extern void cmd_redraw(sheet_t *sp);
+extern void cmd_run(SCXMEM string_t *str);
+extern void sc_cmd_put(sheet_t *sp, const char *arg, int vopt);
+extern void sc_cmd_write(const char *arg);
 extern int query(sheet_t *sp, char *dest, int destsize, const char *s, const char *data);
 extern void free_hist(void);
 extern void read_hist(void);
-extern void remember(sheet_t *sp, int save);
-extern void resetkbd(void);
-extern void setautocalc(sheet_t *sp, int i);
-extern void setiterations(sheet_t *sp, int i);
-extern void setcalcorder(sheet_t *sp, int i);
-
-extern void showcol(sheet_t *sp, int c1, int c2);
-extern void showrow(sheet_t *sp, int r1, int r2);
-extern void signals(void);
-extern void sortrange(sheet_t *sp, rangeref_t rr, SCXMEM string_t *criteria);
-extern void startdisp(void);
-extern void stopdisp(void);
-extern int str_search(sheet_t *sp, int g_type, rangeref_t rr, SCXMEM string_t *str);
-extern void sync_cranges(sheet_t *sp);
-extern void sync_franges(sheet_t *sp);
-extern void sync_nranges(sheet_t *sp);
-extern void sync_ranges(sheet_t *sp);
-extern void sync_refs(sheet_t *sp);
-extern void tblprintfile(sheet_t *sp, SCXMEM string_t *fname, rangeref_t rr);
-extern void unlock_cells(sheet_t *sp, rangeref_t rr);
-extern void update(sheet_t *sp, int anychanged);
-extern void valueize_area(sheet_t *sp, rangeref_t rr);
-extern void write_abbrevs(sheet_t *sp, FILE *f);
-extern void clean_abbrevs(sheet_t *sp);
-extern void write_cells(sheet_t *sp, FILE *f, rangeref_t rr, cellref_t cr, int dcp_flags);
-extern void write_cranges(sheet_t *sp, FILE *f);
-extern void write_fd(sheet_t *sp, FILE *f, rangeref_t rr, int dcp_flags);
-extern void write_franges(sheet_t *sp, FILE *f);
 extern void write_hist(void);
-extern void write_nranges(sheet_t *sp, FILE *f);
-extern void yank_area(sheet_t *sp, rangeref_t rr);
-extern int parse_line(const char *buf);
-extern void parse_error(const char *err, const char *src, const char *src_pos);
-extern void yyerror(const char *err);
-extern int parse_cellref(const char *p, cellref_t *cp, int *lenp);
-extern int parse_rangeref(const char *p0, rangeref_t *rp, int *lenp);
-extern int yylex(void);
-extern int backup_file(const char *path);
 extern void sc_set_locale(int set);
 extern int set_line(const char *fmt, ...) sc__attr_printf(1,2);
-extern int rows_height(sheet_t *sp, int r, int n);
-extern int cols_width(sheet_t *sp, int c, int n);
 
-static inline struct frange *get_current_frange(sheet_t *sp) {
-    return find_frange(sp, sp->currow, sp->curcol);
-}
-
-#ifndef NOCRYPT
-extern int Crypt;
-#endif
-
-extern int skipautorun;
-extern int scrc;
-extern int autolabel;
-extern int showcell;
-extern int color;               /* global setting for terminal handling */
-extern int braille;
-extern int braillealt;
-extern int dobackups;
-extern int loading;
-
-extern char revmsg[80];
-extern int showneed;   /* Causes cells needing values to be highlighted */
-extern int showexpr;   /* Causes cell exprs to be displayed, highlighted */
-extern int shownote;   /* Causes cells with attached notes to be highlighted */
-
-extern void gotonote(sheet_t *sp);
-extern void addnote(sheet_t *sp, cellref_t cr, rangeref_t rr);
-extern void delnote(sheet_t *sp, cellref_t cr);
-extern void range_align(sheet_t *sp, rangeref_t rr, int align);
-extern void yankcols(sheet_t *sp, int c1, int c2);
-extern void yankrows(sheet_t *sp, int r1, int r2);
-extern void list_frames(sheet_t *sp, FILE *fp);
-extern void yankr(sheet_t *sp, rangeref_t rr);
-extern void add_abbr(sheet_t *sp, SCXMEM string_t *name, SCXMEM string_t *exp);
-extern void repaint_cursor(sheet_t *sp, int set);
+extern void signals(void);
 extern sigret_t doquit(int i);
 extern sigret_t time_out(int signo);
 extern sigret_t dump_me(int i);
@@ -809,17 +833,13 @@ extern sigret_t nopipe(int i);
 #ifdef SIGWINCH
 extern sigret_t winchg(int i);
 #endif
-extern void vi_interaction(sheet_t *sp);
-extern void sc_cmd_put(sheet_t *sp, const char *arg, int vopt);
-extern void sc_cmd_write(const char *arg);
-struct menu_item {
-    const char *option;
-    const char *desc;
-    int (*func)(const void *arg, int n);
-    const void *arg;
-    int n;
-};
-extern void lotus_menu(void);
+
+/*---------------- plugins ----------------*/
+
+extern int cmd_plugin(sheet_t *sp, SCXMEM string_t *str);
+extern void plugin_add(SCXMEM string_t *ext, SCXMEM string_t *plugin, char type);
+extern int plugin_exists(const char *name, int len, char *path, size_t size);
+extern char *plugin_find(const char *ext, char type);
 
 /*---------------- piping commands ----------------*/
 
@@ -838,12 +858,31 @@ extern void cmd_getkey(sheet_t *sp, int fd);
 extern void cmd_status(sheet_t *sp, int fd);
 extern void cmd_whereami(sheet_t *sp, int fd);
 
+/*---------------- display ----------------*/
+
+extern void error(const char *fmt, ...) sc__attr_printf(1,2);
+extern void fatal(const char *str);
+extern void update(sheet_t *sp, int anychanged);
+extern void repaint_cursor(sheet_t *sp, int set);
+
 /*---------------- screen and input stuff ----------------*/
 
+extern int usecurses;
+extern int screen_COLS, screen_LINES;
 #ifdef VMS
 extern int VMS_read_raw;   /*sigh*/
 #endif
-extern int screen_COLS, screen_LINES;
+
+extern void initkbd(void);
+extern void kbd_again(void);
+extern void resetkbd(void);
+
+extern int nmgetch(int clearline);
+extern int nmgetch_savepos(int clearline);
+extern int nmungetch(int c);
+
+extern void startdisp(void);
+extern void stopdisp(void);
 
 extern void screen_resize(sheet_t *sp);
 extern void screen_pause(void);
@@ -856,7 +895,6 @@ extern void screen_draw_page(int y, int x, const char * const *screen);
 extern void screen_draw_line(int y, int x, const char *str);
 extern void screen_init_pair(int n, int fg, int bg);
 extern int screen_get_keyname(char *buf, size_t size, int c);
-struct screen_mouse_event { int x, y, bstate; };
 extern void screen_mouseon(void);
 extern void screen_mouseoff(void);
 extern int screen_getmouse(struct screen_mouse_event *event);

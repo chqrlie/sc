@@ -176,7 +176,7 @@ void update(sheet_t *sp, int anychanged) {          /* did any cell really chang
           fr->or_left->col <= sp->curcol &&       /* previous framed range... */
           fr->or_right->row >= sp->currow &&
           fr->or_right->col >= sp->curcol)) {
-        fr = get_current_frange(sp);
+        fr = frange_get_current(sp);
         if (fr != lastfr)
             FullUpdate++;
     }
@@ -779,7 +779,7 @@ void update(sheet_t *sp, int anychanged) {          /* did any cell really chang
                 {
                     move(r, c);
                     //standout();
-                    if ((cr = find_crange(sp, row, col)))
+                    if ((cr = crange_find(sp, row, col)))
                         select_style(cr->r_color, 0);
                     else
                         select_style(STYLE_RANGE, 0);
@@ -794,7 +794,7 @@ void update(sheet_t *sp, int anychanged) {          /* did any cell really chang
                     do_stand = 0;
                 }
 
-                if ((cr = find_crange(sp, row, col)))
+                if ((cr = crange_find(sp, row, col)))
                     select_style(cr->r_color, 0);
 
                 if (p && ((p->flags & IS_CHANGED) || FullUpdate || do_stand)) {
@@ -1105,7 +1105,7 @@ void repaint_cursor(sheet_t *sp, int set) {
         int style = STYLE_CELL;
         int row = sc_lastrow;
 
-        if ((cr = find_crange(row, col)))
+        if ((cr = crange_find(row, col)))
             style = cr->r_color;
         p = getcell(sp, row, col);
         if (p) {
@@ -1387,7 +1387,7 @@ void showstring(sheet_t *sp,
     struct ent *nc;
     struct crange *cr;
 
-    cr = find_crange(sp, row, col);
+    cr = crange_find(sp, row, col);
 
     /* This figures out if the label is allowed to
        slop over into the next blank field */
@@ -1404,7 +1404,7 @@ void showstring(sheet_t *sp,
         nextcol = fr->or_right->col - frightcols + 1;
 
     while (slen > fieldlen && nextcol <= mxcol && !VALID_CELL(sp, nc, row, nextcol)
-       &&  (sp->cslop || find_crange(sp, row, nextcol) == cr)) {
+       &&  (sp->cslop || crange_find(sp, row, nextcol) == cr)) {
         if (!sp->col_hidden[nextcol])
             fieldlen += sp->fwidth[nextcol];
         nextcol++;

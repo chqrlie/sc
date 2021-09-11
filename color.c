@@ -12,10 +12,6 @@
 
 struct SCXMEM colorpair *cpairs[1 + CPAIRS];
 
-int are_colors(sheet_t *sp) {
-    return sp->color_base != NULL;
-}
-
 struct rgb_color {
     unsigned char r, g, b, a;
 };
@@ -99,102 +95,7 @@ void change_color(sheet_t *sp, int pair, enode_t *e) {
     }
 }
 
-void del_crange(sheet_t *sp, struct crange *r) {
-    if (r) {
-        if (r->r_next)
-            r->r_next->r_prev = r->r_prev;
-        else
-            sp->color_tail = r->r_prev;
-        if (r->r_prev)
-            r->r_prev->r_next = r->r_next;
-        else
-            sp->color_base = r->r_next;
-        scxfree(r);
-    }
-}
-
-void add_crange(sheet_t *sp, rangeref_t rr, int pair) {
-    struct crange *r;
-
-    range_normalize(&rr);
-
-    if (!pair) {
-        /* remove color range */
-        for (r = sp->color_base; r; r = r->r_next) {
-            if ((r->r_left->row == rr.left.row) && (r->r_left->col == rr.left.col)
-            &&  (r->r_right->row == rr.right.row) && (r->r_right->col == rr.right.col))
-            {
-                del_crange(sp, r);
-                sp->modflg++;
-                FullUpdate++;
-                return;
-            }
-        }
-        error("Color range not defined");
-        return;
-    }
-
-    r = scxmalloc(sizeof(struct crange));
-    r->r_left = lookat(sp, rr.left.row, rr.left.col);
-    r->r_right = lookat(sp, rr.right.row, rr.right.col);
-    r->r_color = pair;
-
-    r->r_prev = NULL;
-    r->r_next = sp->color_base;
-    sp->color_base = r;
-    if (r->r_next)
-        r->r_next->r_prev = r;
-    else
-        sp->color_tail = r;
-
-    sp->modflg++;
-    FullUpdate++;
-}
-
-void clean_crange(sheet_t *sp) {
-    struct crange *cr;
-
-    cr = sp->color_base;
-    sp->color_base = sp->color_tail = NULL;
-    while (cr) {
-        struct crange *nextcr = cr->r_next;
-        scxfree(cr);
-        cr = nextcr;
-    }
-}
-
-struct crange *find_crange(sheet_t *sp, int row, int col) {
-    struct crange *r;
-
-    for (r = sp->color_base; r; r = r->r_next) {
-        if ((r->r_left->row <= row) && (r->r_left->col <= col) &&
-            (r->r_right->row >= row) && (r->r_right->col >= col))
-            break;
-    }
-    return r;
-}
-
-void sync_cranges(sheet_t *sp) {
-    struct crange *cr;
-
-    for (cr = sp->color_base; cr; cr = cr->r_next) {
-        cr->r_left = lookat(sp, cr->r_left->row, cr->r_left->col);
-        cr->r_right = lookat(sp, cr->r_right->row, cr->r_right->col);
-    }
-}
-
-void write_cranges(sheet_t *sp, FILE *f) {
-    struct crange *r;
-
-    for (r = sp->color_tail; r; r = r->r_prev) {
-        fprintf(f, "color %s %d\n",
-                r_name(sp, r->r_left->row, r->r_left->col,
-                       r->r_right->row, r->r_right->col),
-                r->r_color);
-    }
-}
-
-void write_colors(sheet_t *sp, FILE *f, int indent) {
+void colors_write(sheet_t *sp, FILE *f, int indent) {
     int i, count = 0;
     buf_t(buf, FBUFLEN);
 
@@ -211,13 +112,112 @@ void write_colors(sheet_t *sp, FILE *f, int indent) {
     if (indent && count) fprintf(f, "\n");
 }
 
-void list_colors(sheet_t *sp, FILE *f) {
+int crange_test(sheet_t *sp) {
+    return sp->crange_base != NULL;
+}
+
+void crange_delete(sheet_t *sp, struct crange *r) {
+    if (r) {
+        if (r->r_next)
+            r->r_next->r_prev = r->r_prev;
+        else
+            sp->crange_tail = r->r_prev;
+        if (r->r_prev)
+            r->r_prev->r_next = r->r_next;
+        else
+            sp->crange_base = r->r_next;
+        scxfree(r);
+    }
+}
+
+void crange_add(sheet_t *sp, rangeref_t rr, int pair) {
     struct crange *r;
 
-    write_colors(sp, f, 2);
+    range_normalize(&rr);
+
+    if (!pair) {
+        /* remove color range */
+        for (r = sp->crange_base; r; r = r->r_next) {
+            if ((r->r_left->row == rr.left.row) && (r->r_left->col == rr.left.col)
+            &&  (r->r_right->row == rr.right.row) && (r->r_right->col == rr.right.col))
+            {
+                crange_delete(sp, r);
+                sp->modflg++;
+                FullUpdate++;
+                return;
+            }
+        }
+        error("Color range not defined");
+        return;
+    }
+
+    r = scxmalloc(sizeof(struct crange));
+    r->r_left = lookat(sp, rr.left.row, rr.left.col);
+    r->r_right = lookat(sp, rr.right.row, rr.right.col);
+    r->r_color = pair;
+
+    r->r_prev = NULL;
+    r->r_next = sp->crange_base;
+    sp->crange_base = r;
+    if (r->r_next)
+        r->r_next->r_prev = r;
+    else
+        sp->crange_tail = r;
+
+    sp->modflg++;
+    FullUpdate++;
+}
+
+void crange_clean(sheet_t *sp) {
+    struct crange *cr;
+
+    cr = sp->crange_base;
+    sp->crange_base = sp->crange_tail = NULL;
+    while (cr) {
+        struct crange *nextcr = cr->r_next;
+        scxfree(cr);
+        cr = nextcr;
+    }
+}
+
+struct crange *crange_find(sheet_t *sp, int row, int col) {
+    struct crange *r;
+
+    for (r = sp->crange_base; r; r = r->r_next) {
+        if ((r->r_left->row <= row) && (r->r_left->col <= col) &&
+            (r->r_right->row >= row) && (r->r_right->col >= col))
+            break;
+    }
+    return r;
+}
+
+void crange_sync(sheet_t *sp) {
+    struct crange *cr;
+
+    for (cr = sp->crange_base; cr; cr = cr->r_next) {
+        cr->r_left = lookat(sp, cr->r_left->row, cr->r_left->col);
+        cr->r_right = lookat(sp, cr->r_right->row, cr->r_right->col);
+    }
+}
+
+void crange_write(sheet_t *sp, FILE *f) {
+    struct crange *r;
+
+    for (r = sp->crange_tail; r; r = r->r_prev) {
+        fprintf(f, "color %s %d\n",
+                r_name(sp, r->r_left->row, r->r_left->col,
+                       r->r_right->row, r->r_right->col),
+                r->r_color);
+    }
+}
+
+void crange_list(sheet_t *sp, FILE *f) {
+    struct crange *r;
+
+    colors_write(sp, f, 2); // XXX: inconsistent format
     if (brokenpipe) return;
 
-    if (!are_colors(sp)) {
+    if (!crange_test(sp)) {
         fprintf(f, "  No color ranges");
         return;
     }
@@ -225,7 +225,7 @@ void list_colors(sheet_t *sp, FILE *f) {
     fprintf(f, "  %-30s %s\n", "Range", "Color");
     if (!brokenpipe) fprintf(f, "  %-30s %s\n", "-----", "-----");
 
-    for (r = sp->color_tail; r; r = r->r_prev) {
+    for (r = sp->crange_tail; r; r = r->r_prev) {
         fprintf(f, "  %-32s %d\n",
                 r_name(sp, r->r_left->row, r->r_left->col,
                        r->r_right->row, r->r_right->col),
@@ -234,13 +234,13 @@ void list_colors(sheet_t *sp, FILE *f) {
     }
 }
 
-void fix_colors(sheet_t *sp, int row1, int col1, int row2, int col2,
+void crange_fix(sheet_t *sp, int row1, int col1, int row2, int col2,
                 int delta1, int delta2, struct frange *fr)
 {
     int r1, c1, r2, c2;
     struct crange *cr, *ncr;
 
-    for (cr = sp->color_base; cr; cr = ncr) {
+    for (cr = sp->crange_base; cr; cr = ncr) {
         ncr = cr->r_next;
         r1 = cr->r_left->row;
         c1 = cr->r_left->col;
@@ -261,7 +261,7 @@ void fix_colors(sheet_t *sp, int row1, int col1, int row2, int col2,
             (row1 >= 0 && row2 >= 0 && r1 >= row1 && r2 <= row2) ||
             (col1 >= 0 && col2 >= 0 && c1 >= col1 && c2 <= col2))
         {
-            del_crange(sp, cr);
+            crange_delete(sp, cr);
         } else {
             cr->r_left = lookat(sp, r1, c1);
             cr->r_right = lookat(sp, r2, c2);

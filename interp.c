@@ -571,7 +571,7 @@ static scvalue_t eval_indirect(eval_ctx_t *cp, enode_t *e) {
             maxr = rr.right.row;
             maxc = rr.right.col;
         } else
-        if (find_nrange_name(cp->sp, s, len, &r)) {
+        if (nrange_find_name(cp->sp, s, len, &r)) {
             minr = r->r_left.vp->row;
             minc = r->r_left.vp->col;
             maxr = r->r_right.vp->row;
@@ -3464,7 +3464,7 @@ static void out_var(decomp_t *dcp, struct ent_ptr v, int usename) {
         buf_puts(dcp->buf, "@ERR");
     } else
     if (!(dcp->flags & DCP_NO_NAME) && usename
-    &&  (r = find_nrange_coords(dcp->sp, rangeref(v.vp->row, v.vp->col, v.vp->row, v.vp->col))) != NULL
+    &&  (r = nrange_find_coords(dcp->sp, rangeref(v.vp->row, v.vp->col, v.vp->row, v.vp->col))) != NULL
     &&  !r->r_is_range) {
         // XXX: this is incorrect if the named range has different flags
         buf_puts(dcp->buf, s2c(r->r_name));
@@ -3479,7 +3479,7 @@ static void out_range(decomp_t *dcp, enode_t *e) {
     struct nrange *r;
 
     if (!(dcp->flags & DCP_NO_NAME)
-    &&  (r = find_nrange_coords(dcp->sp, rangeref(e->e.r.left.vp->row, e->e.r.left.vp->col,
+    &&  (r = nrange_find_coords(dcp->sp, rangeref(e->e.r.left.vp->row, e->e.r.left.vp->col,
                                                   e->e.r.right.vp->row, e->e.r.right.vp->col))) != NULL
     &&  r->r_is_range) {
         // XXX: this is incorrect if the named range has different flags

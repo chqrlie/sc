@@ -12,11 +12,11 @@
 static void fix_enode(sheet_t *sp, struct enode *e, int row1, int col1, int row2, int col2,
                       int delta1, int delta2, struct frange *fr);
 
-int are_nranges(sheet_t *sp) {
-    return sp->rng_base != NULL;
+int nrange_test(sheet_t *sp) {
+    return sp->nrange_base != NULL;
 }
 
-void add_nrange(sheet_t *sp, SCXMEM string_t *name, rangeref_t rr, int is_range) {
+void nrange_add(sheet_t *sp, SCXMEM string_t *name, rangeref_t rr, int is_range) {
     struct nrange *r;
     const char *p, *p0;
     struct nrange *prev = NULL;
@@ -27,7 +27,8 @@ void add_nrange(sheet_t *sp, SCXMEM string_t *name, rangeref_t rr, int is_range)
 
     range_normalize(&rr);
 
-    if (!find_nrange_name(sp, s2c(name), slen(name), &prev)) {
+    // XXX: should just redefine existing named range
+    if (!nrange_find_name(sp, s2c(name), slen(name), &prev)) {
         error("Error: range name \"%s\" already defined", s2c(name));
         string_free(name);
         return;
@@ -76,16 +77,14 @@ void add_nrange(sheet_t *sp, SCXMEM string_t *name, rangeref_t rr, int is_range)
 
     if (autolabel && rr.left.col > 0 && !is_range) {
         struct ent *cp = lookat(sp, rr.left.row, rr.left.col - 1);
-        if (!cp->type && !cp->expr) {
+        if (cp->type == SC_EMPTY && !cp->expr && !(cp->flags & IS_LOCKED)) {
             /* empty cell to the left of the defined cell:
                set the cell label to the name.
              */
             string_set(&cp->label, name);
             cp->type = SC_STRING;
-            cp->flags &= ~ALIGN_MASK;
-            cp->flags |= ALIGN_DEFAULT;
-            FullUpdate++;
-            sp->modflg++;
+            sp->modflg++;   // XXX: redundant
+            FullUpdate++;   // XXX: redundant?
         }
     }
 
@@ -101,45 +100,45 @@ void add_nrange(sheet_t *sp, SCXMEM string_t *name, rangeref_t rr, int is_range)
         next = prev->r_next;
         prev->r_next = r;
     } else {
-        next = sp->rng_base;
-        sp->rng_base = r;
+        next = sp->nrange_base;
+        sp->nrange_base = r;
     }
     r->r_prev = prev;
     r->r_next = next;
     if (next)
         next->r_prev = r;
     else
-        sp->rng_tail = r;
+        sp->nrange_tail = r;
     sp->modflg++;
 }
 
-void del_nrange(sheet_t *sp, rangeref_t rr) {
+void nrange_delete(sheet_t *sp, rangeref_t rr) {
     struct nrange *r;
 
     range_normalize(&rr);
-    r = find_nrange_coords(sp, rr);
+    r = nrange_find_coords(sp, rr);
     if (!r)
         return;
 
     if (r->r_next)
         r->r_next->r_prev = r->r_prev;
     else
-        sp->rng_tail = r->r_prev;
+        sp->nrange_tail = r->r_prev;
     if (r->r_prev)
         r->r_prev->r_next = r->r_next;
     else
-        sp->rng_base = r->r_next;
+        sp->nrange_base = r->r_next;
     string_free(r->r_name);
     scxfree(r);
     sp->modflg++;
 }
 
-void clean_nrange(sheet_t *sp) {
+void nrange_clean(sheet_t *sp) {
     struct nrange *r;
     struct nrange *nextr;
 
-    r = sp->rng_base;
-    sp->rng_base = sp->rng_tail = NULL;
+    r = sp->nrange_base;
+    sp->nrange_base = sp->nrange_tail = NULL;
 
     while (r) {
         nextr = r->r_next;
@@ -150,8 +149,7 @@ void clean_nrange(sheet_t *sp) {
 }
 
 /* Match on name or lmatch, rmatch */
-
-int find_nrange_name(sheet_t *sp, const char *name, int len, struct nrange **rng) {
+int nrange_find_name(sheet_t *sp, const char *name, int len, struct nrange **rng) {
     struct nrange *r;
     int cmp;
     int exact = TRUE;
@@ -161,7 +159,7 @@ int find_nrange_name(sheet_t *sp, const char *name, int len, struct nrange **rng
         len = -len;
     }
     *rng = NULL;
-    for (r = sp->rng_base; r; r = r->r_next) {
+    for (r = sp->nrange_base; r; r = r->r_next) {
         const char *r_name = s2c(r->r_name);
         if ((cmp = strncmp(name, r_name, len)) > 0)
             return cmp;
@@ -176,10 +174,10 @@ int find_nrange_name(sheet_t *sp, const char *name, int len, struct nrange **rng
 }
 
 // XXX: should take a boolean to check flags
-struct nrange *find_nrange_coords(sheet_t *sp, rangeref_t rr) {
+struct nrange *nrange_find_coords(sheet_t *sp, rangeref_t rr) {
     struct nrange *r;
 
-    for (r = sp->rng_base; r; r = r->r_next) {
+    for (r = sp->nrange_base; r; r = r->r_next) {
         if (r->r_left.vp->row == rr.left.row && r->r_left.vp->col == rr.left.col
         &&  r->r_right.vp->row == rr.right.row && r->r_right.vp->col == rr.right.col) {
             break;
@@ -188,10 +186,10 @@ struct nrange *find_nrange_coords(sheet_t *sp, rangeref_t rr) {
     return r;
 }
 
-void sync_nranges(sheet_t *sp) {
+void nrange_sync(sheet_t *sp) {
     struct nrange *r;
 
-    for (r = sp->rng_base; r; r = r->r_next) {
+    for (r = sp->nrange_base; r; r = r->r_next) {
         r->r_left.vp = lookat(sp, r->r_left.vp->row, r->r_left.vp->col);
         r->r_right.vp = lookat(sp, r->r_right.vp->row, r->r_right.vp->col);
     }
@@ -217,21 +215,21 @@ void sync_ranges(sheet_t *sp) {
     int i, j;
     struct ent *p;
 
-    sync_nranges(sp);
+    nrange_sync(sp);
     for (i = 0; i <= sp->maxrow; i++) {
         for (j = 0; j <= sp->maxcol; j++) {
             if ((p = getcell(sp, i, j)) && p->expr)
                 sync_enode(sp, p->expr);
         }
     }
-    sync_franges(sp);
-    sync_cranges(sp);
+    frange_sync(sp);
+    crange_sync(sp);
 }
 
-void write_nranges(sheet_t *sp, FILE *f) {
+void nrange_write(sheet_t *sp, FILE *f) {
     struct nrange *r;
 
-    for (r = sp->rng_tail; r; r = r->r_prev) {
+    for (r = sp->nrange_tail; r; r = r->r_prev) {
         fprintf(f, "define \"%s\" %s%s%s%d",
                 s2c(r->r_name),
                 r->r_left.vf & FIX_COL ? "$" : "",
@@ -249,10 +247,10 @@ void write_nranges(sheet_t *sp, FILE *f) {
     }
 }
 
-void list_nranges(sheet_t *sp, FILE *f) {
+void nrange_list(sheet_t *sp, FILE *f) {
     struct nrange *r;
 
-    if (!are_nranges(sp)) {
+    if (!nrange_test(sp)) {
         fprintf(f, "  No ranges defined");
         return;
     }
@@ -260,7 +258,7 @@ void list_nranges(sheet_t *sp, FILE *f) {
     fprintf(f, "  %-30s %s\n","Name","Definition");
     if (!brokenpipe) fprintf(f, "  %-30s %s\n","----","----------");
 
-    for (r = sp->rng_tail; r; r = r->r_prev) {
+    for (r = sp->nrange_tail; r; r = r->r_prev) {
         fprintf(f, "  %-30s %s%s%s%d",
                 s2c(r->r_name),
                 r->r_left.vf & FIX_COL ? "$" : "",
@@ -304,7 +302,7 @@ const char *v_name(sheet_t *sp, int row, int col) {
     static char buf[4][20];
 
     // XXX: should we test the is_range flag?
-    if ((r = find_nrange_coords(sp, rangeref(row, col, row, col)))) {
+    if ((r = nrange_find_coords(sp, rangeref(row, col, row, col)))) {
         return s2c(r->r_name);
     } else {
         char *vname = buf[bufn++ & 3];
@@ -320,7 +318,7 @@ const char *r_name(sheet_t *sp, int r1, int c1, int r2, int c2) {
     static unsigned int bufn;
     static char buf[2][100];
 
-    if ((r = find_nrange_coords(sp, rangeref(r1, c1, r2, c2)))) {
+    if ((r = nrange_find_coords(sp, rangeref(r1, c1, r2, c2)))) {
         return s2c(r->r_name);
     } else {
         char *rname = buf[bufn++ & 1];
@@ -337,7 +335,7 @@ void fix_ranges(sheet_t *sp, int row1, int col1, int row2, int col2,
     struct nrange *r;
 
     /* First we fix all of the named ranges. */
-    for (r = sp->rng_base; r; r = r->r_next) {
+    for (r = sp->nrange_base; r; r = r->r_next) {
         r1 = r->r_left.vp->row;
         c1 = r->r_left.vp->col;
         r2 = r->r_right.vp->row;
@@ -366,8 +364,8 @@ void fix_ranges(sheet_t *sp, int row1, int col1, int row2, int col2,
                 fix_enode(sp, p->expr, row1, col2, row2, col2, delta1, delta2, fr);
         }
     }
-    fix_frames(sp, row1, col1, row2, col2, delta1, delta2, fr);
-    fix_colors(sp, row1, col1, row2, col2, delta1, delta2, fr);
+    frange_fix(sp, row1, col1, row2, col2, delta1, delta2, fr);
+    crange_fix(sp, row1, col1, row2, col2, delta1, delta2, fr);
 }
 
 static void fix_enode(sheet_t *sp, struct enode *e,

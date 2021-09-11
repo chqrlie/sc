@@ -147,7 +147,7 @@ void cmd_getframe(sheet_t *sp, int fd) {
     int len;
 
     *buf = '\0';
-    if ((fr = get_current_frange(sp))) {
+    if ((fr = frange_get_current(sp))) {
         snprintf(buf, sizeof buf - 1, "%s %s",
                  r_name(sp, fr->or_left->row, fr->or_left->col,
                         fr->or_right->row, fr->or_right->col),
@@ -164,7 +164,7 @@ void cmd_getrange(sheet_t *sp, SCXMEM string_t *name, int fd) {
     int len;
 
     *buf = '\0';
-    if (name && !find_nrange_name(sp, s2c(name), slen(name), &r)) {
+    if (name && !nrange_find_name(sp, s2c(name), slen(name), &r)) {
         snprintf(buf, sizeof buf - 1, "%s%s%s%d",
                 r->r_left.vf & FIX_COL ? "$" : "",
                 coltoa(r->r_left.vp->col),

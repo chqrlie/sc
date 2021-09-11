@@ -990,7 +990,7 @@ void vi_interaction(sheet_t *sp) {
                             if (ch2 == 'r') {
                                 int c1 = 0, c2 = sp->maxcol;
                                 struct frange *fr;
-                                if ((fr = get_current_frange(sp))) {
+                                if ((fr = frange_get_current(sp))) {
                                     c1 = fr->or_left->col;
                                     c2 = fr->or_right->col;
                                 }
@@ -1806,7 +1806,7 @@ static void write_line(sheet_t *sp, int c) {
                                     toggle_navigate_mode();
                                 }
                             }                                       break;
-        case 'c':           if ((cr = find_crange(sp, sp->currow, sp->curcol))) {
+        case 'c':           if ((cr = crange_find(sp, sp->currow, sp->curcol))) {
                                 ins_string(sp, r_name(sp, cr->r_left->row,
                                                       cr->r_left->col,
                                                       cr->r_right->row,
@@ -1815,7 +1815,7 @@ static void write_line(sheet_t *sp, int c) {
                                 ins_in_line(sp, ' ');
                                 sp->showrange = 0;
                             }                                       break;
-        case 'f':           if ((fr = get_current_frange(sp))) {
+        case 'f':           if ((fr = frange_get_current(sp))) {
                                 ins_string(sp, r_name(sp, fr->or_left->row,
                                                       fr->or_left->col,
                                                       fr->or_right->row,
@@ -1824,7 +1824,7 @@ static void write_line(sheet_t *sp, int c) {
                                 ins_in_line(sp, ' ');
                                 sp->showrange = 0;
                             }                                       break;
-        case 'r':           if ((fr = get_current_frange(sp))) {
+        case 'r':           if ((fr = frange_get_current(sp))) {
                                 ins_string(sp, r_name(sp, fr->ir_left->row,
                                                       fr->ir_left->col,
                                                       fr->ir_right->row,
@@ -1971,7 +1971,7 @@ static void dotab(sheet_t *sp) {
                 continue;
             completethis = line + i;
             len = linelim - i;
-            if (!find_nrange_name(sp, completethis, -len, &lastmatch)) {
+            if (!nrange_find_name(sp, completethis, -len, &lastmatch)) {
                 firstmatch = lastmatch;
                 while (firstmatch->r_next &&
                        !strncmp(completethis, s2c(firstmatch->r_next->r_name), len))
@@ -2333,7 +2333,7 @@ static void doabbrev(sheet_t *sp) {
     }
 
     len = lim - pos;
-    if (len && (a = find_abbr(sp, line + pos, len, &prev)) != NULL) {
+    if (len && (a = abbrev_find(sp, line + pos, len, &prev)) != NULL) {
         if (len > 1 || pos == 0 || line[pos-1] == ' ') {
             linelim = pos;
             del_in_line(len, 0);
@@ -2507,7 +2507,7 @@ static void cr_line(sheet_t *sp, int action) {
                 forwcol(sp, 1);
                 sp->currow = 0;
             } else {
-                if ((fr = get_current_frange(sp))) {
+                if ((fr = frange_get_current(sp))) {
                     forwrow(sp, 1);
                     if (sp->currow > fr->ir_right->row) {
                         backrow(sp, 1);
@@ -2538,7 +2538,7 @@ static void cr_line(sheet_t *sp, int action) {
                 forwrow(sp, 1);
                 sp->curcol = 0;
             } else {
-                if ((fr = get_current_frange(sp))) {
+                if ((fr = frange_get_current(sp))) {
                     forwcol(sp, 1);
                     if (sp->curcol > fr->ir_right->col) {
                         backcol(sp, 1);
@@ -2629,7 +2629,7 @@ static void list_all(sheet_t *sp) {
 
     /* Show color definitions and various types of ranges */
     // XXX: deal with raw mode switch?
-    if (!are_nranges(sp) && !are_frames(sp) && !are_colors(sp)) {
+    if (!nrange_test(sp) && !frange_test(sp) && !crange_test(sp)) {
         error("Nothing to show");
         return;
     }
@@ -2642,11 +2642,11 @@ static void list_all(sheet_t *sp) {
         return;
     }
     if (!brokenpipe) fprintf(f, "Named Ranges:\n=============\n\n");
-    if (!brokenpipe) list_nranges(sp, f);
+    if (!brokenpipe) nrange_list(sp, f);
     if (!brokenpipe) fprintf(f, "\n\nFrames:\n=======\n\n");
-    if (!brokenpipe) list_frames(sp, f);
+    if (!brokenpipe) frange_list(sp, f);
     if (!brokenpipe) fprintf(f, "\n\nColors:\n=======\n\n");
-    if (!brokenpipe) list_colors(sp, f);
+    if (!brokenpipe) crange_list(sp, f);
     closefile(f, pid, 0);
 }
 
@@ -3060,7 +3060,7 @@ static void gohome(sheet_t *sp) {
     struct frange *fr;
 
     remember(sp, 0);
-    if ((fr = get_current_frange(sp))) {
+    if ((fr = frange_get_current(sp))) {
         if (sp->currow >= fr->ir_left->row && sp->currow <= fr->ir_right->row &&
             sp->curcol >= fr->ir_left->col && sp->curcol <= fr->ir_right->col &&
             (sp->currow > fr->ir_left->row || sp->curcol > fr->ir_left->col)) {
@@ -3086,7 +3086,7 @@ static void leftlimit(sheet_t *sp) {
     struct frange *fr;
 
     remember(sp, 0);
-    if ((fr = get_current_frange(sp))) {
+    if ((fr = frange_get_current(sp))) {
         if (sp->currow >= fr->ir_left->row && sp->currow <= fr->ir_right->row &&
             sp->curcol > fr->ir_left->col && sp->curcol <= fr->ir_right->col)
             sp->curcol = fr->ir_left->col;
@@ -3105,7 +3105,7 @@ static void rightlimit(sheet_t *sp) {
     struct frange *fr;
 
     remember(sp, 0);
-    if ((fr = get_current_frange(sp))) {
+    if ((fr = frange_get_current(sp))) {
         if (sp->currow >= fr->ir_left->row && sp->currow <= fr->ir_right->row &&
             sp->curcol >= fr->ir_left->col && sp->curcol < fr->ir_right->col)
             sp->curcol = fr->ir_right->col;
@@ -3117,14 +3117,14 @@ static void rightlimit(sheet_t *sp) {
             while (!VALID_CELL(sp, p, sp->currow, sp->curcol) &&
                    sp->curcol > fr->or_right->col)
                 sp->curcol--;
-            if ((fr = get_current_frange(sp)))
+            if ((fr = frange_get_current(sp)))
                 sp->curcol = fr->or_right->col;
         }
     } else {
         sp->curcol = sp->maxcols - 1;
         while (!VALID_CELL(sp, p, sp->currow, sp->curcol) && sp->curcol > 0)
             sp->curcol--;
-        if ((fr = get_current_frange(sp)))
+        if ((fr = frange_get_current(sp)))
             sp->curcol = fr->or_right->col;
     }
     remember(sp, 1);
@@ -3134,7 +3134,7 @@ static void gototop(sheet_t *sp) {
     struct frange *fr;
 
     remember(sp, 0);
-    if ((fr = get_current_frange(sp))) {
+    if ((fr = frange_get_current(sp))) {
         if (sp->curcol >= fr->ir_left->col && sp->curcol <= fr->ir_right->col &&
             sp->currow > fr->ir_left->row && sp->currow <= fr->ir_right->row)
             sp->currow = fr->ir_left->row;
@@ -3153,7 +3153,7 @@ static void gotobottom(sheet_t *sp) {
     struct frange *fr;
 
     remember(sp, 0);
-    if ((fr = get_current_frange(sp))) {
+    if ((fr = frange_get_current(sp))) {
         if (sp->curcol >= fr->ir_left->col && sp->curcol <= fr->ir_right->col &&
             sp->currow >= fr->ir_left->row && sp->currow < fr->ir_right->row)
             sp->currow = fr->ir_right->row;
@@ -3165,14 +3165,14 @@ static void gotobottom(sheet_t *sp) {
             while (!VALID_CELL(sp, p, sp->currow, sp->curcol) &&
                    sp->currow > fr->or_right->row)
                 sp->currow--;
-            if ((fr = get_current_frange(sp)))
+            if ((fr = frange_get_current(sp)))
                 sp->currow = fr->or_right->row;
         }
     } else {
         sp->currow = sp->maxrows - 1;
         while (!VALID_CELL(sp, p, sp->currow, sp->curcol) && sp->currow > 0)
             sp->currow--;
-        if ((fr = get_current_frange(sp)))
+        if ((fr = frange_get_current(sp)))
             sp->currow = fr->or_right->row;
     }
     remember(sp, 1);
