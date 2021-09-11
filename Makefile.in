@@ -324,9 +324,10 @@ _LDFLAGS=$(LDFLAGS) $(__CLDBG)
 LDADD=-lm $(LIBDIR_CURSES) $(LIB_CURSES)
 
 # All of the source files for archiving targets (outdated)
-SRCS=Makefile abbrev.c cmds.c color.c crypt.c frame.c format.c gram.y \
-	help.c interp.c lex.c pipe.c psc.c range.c sc.c sc.h screen.c sort.c \
-	util.c version.c vi.c vmtbl.c lotus.c file.c navigate.c print.c
+SRCS=Makefile.in configure compat.h configure gram.y icurses.h sc.h util.h psc.c \
+	abbrev.c cmds.c color.c crypt.c file.c format.c frame.c help.c interp.c \
+	lex.c lotus.c navigate.c pipe.c print.c range.c sc.c screen.c sort.c \
+	util.c version.c vi.c vmtbl.c
 
 # The objects
 OBJS=$O/abbrev.o $O/cmds.o $O/color.o $(CRYPT_OBJ) $O/format.o $O/frame.o $O/gram.o $O/help.o $O/interp.o \
@@ -334,7 +335,8 @@ OBJS=$O/abbrev.o $O/cmds.o $O/color.o $(CRYPT_OBJ) $O/format.o $O/frame.o $O/gra
 	$O/util.o $O/lotus.o $O/file.o $O/navigate.o $O/print.o
 
 # The documents in the Archive
-DOCS=CHANGES README sc.doc psc.doc tutorial.sc VMS_NOTES torev build.com
+DOCS=.gitignore CHANGES CHANGES-git README README.md SC.MACROS TODO VMS_NOTES \
+	build.com huge.sc psc.doc sc-7.16.lsm sc.doc scqref.doc torev tutorial.sc xsc.doc xsc.sh
 
 # The header files and other implicit dependency files
 DEPENDS:= sc.h config.h compat.h util.h opcodes.h Makefile
@@ -361,8 +363,20 @@ p$(name): psc.c version.c $(DEPENDS)
 $(name)qref: help.c $(DEPENDS)
 	$(CC) $(_CFLAGS) -o $@ $(_LDFLAGS) -DQREF $(QREF_FMT) -DSCNAME=\"$(NAME)\" help.c
 
-$O/qhelp.o: help.c $(DEPENDS)
-	$(CC) $(_CFLAGS) -o $@ ${CRYPT} -c help.c
+x$(name): xsc.sh torev
+	name=$(name) sh torev < xsc.sh > x$(name)
+
+tokens.h: gram.y Makefile
+	@echo '/* file generated automatically, do not edit */' > $@
+	@echo 'static struct key const cmdres[] = { /* commands */' >> $@
+	sed -e '/%token.*S_/!d' -e '/%token.*S_\(.*\)/s//    { "\1", S_\1, S_\1 },/' < gram.y | sort >> $@
+	@echo '};' >> $@
+	@echo 'static struct key const gotores[] = { /* goto targets */' >> $@
+	sed -e '/%token.*GO_/!d' -e '/%token.*GO_\(.*\)/s//    { "\1", GO_\1, GO_\1 },/' < gram.y | sort  >> $@
+	@echo '};' >> $@
+	@echo 'static struct key const settingres[] = { /* settings */' >> $@
+	sed -e '/%token.*K_/!d' -e '/%token.*K_\(.*\)/s//    { "\1", K_\1, K_\1 },/' < gram.y | sort  >> $@
+	@echo '};' >> $@
 
 # Objects
 
@@ -386,21 +400,6 @@ $O/format.o: format.c $(DEPENDS)
 
 $O/frame.o: frame.c $(DEPENDS)
 	$(CC) $(_CFLAGS) -o $@ -c frame.c
-
-tokens.h: gram.y Makefile
-	@echo '/* file generated automatically, do not edit */' > $@
-	@echo 'static struct key const cmdres[] = { /* commands */' >> $@
-	sed -e '/%token.*S_/!d' -e '/%token.*S_\(.*\)/s//    { "\1", S_\1, S_\1 },/' < gram.y | sort >> $@
-	@echo '};' >> $@
-	@echo 'static struct key const gotores[] = { /* goto targets */' >> $@
-	sed -e '/%token.*GO_/!d' -e '/%token.*GO_\(.*\)/s//    { "\1", GO_\1, GO_\1 },/' < gram.y | sort  >> $@
-	@echo '};' >> $@
-	@echo 'static struct key const settingres[] = { /* settings */' >> $@
-	sed -e '/%token.*K_/!d' -e '/%token.*K_\(.*\)/s//    { "\1", K_\1, K_\1 },/' < gram.y | sort  >> $@
-	@echo '};' >> $@
-#	@echo 'static struct key const funcres[] = { /* function names */' >> $@
-#	sed -e '/%token.*F_/!d' -e '/%token.*F_\(.*\)/s//    { "\1", F_\1, OP_\1 },/' < gram.y | sort  >> $@
-#	@echo '};' >> $@
 
 $O/gram.o: $(YTAB).c $(YTAB).h $(DEPENDS)
 	$(CC) $(_CFLAGS) -o $@ ${USELOCALE} -c $(YTAB).c
@@ -462,16 +461,13 @@ distclean: clean
 shar: ${SRCS} ${DOCS}
 	shar -c -m 64000 -f shar ${DOCS} ${SRCS}
 
-sshar: ${SRCS}
-	shar -c -m 1000000 -f shar ${SRCS}
-
 lint: lintsc lintqref lintpsc
 
 lintsc: $(YTAB).c
 	lint ${LINTFLAGS} $(_CFLAGS) ${SIMPLE} \
-	    abbrev.c cmds.c color.c crypt.c format.c frame.c help.c interp.c \
-	    lex.c pipe.c range.c sc.c screen.c sort.c version.c vi.c vmtbl.c \
-	    util.c $(YTAB).c lotus.c file.c navigate.c print.c $(LDADD)
+	    abbrev.c cmds.c color.c crypt.c file.c format.c frame.c help.c interp.c \
+	    lex.c lotus.c navigate.c pipe.c print.c range.c sc.c screen.c sort.c \
+	    util.c version.c vi.c vmtbl.c $(YTAB).c $(LDADD)
 
 lintqref:
 	lint ${LINTFLAGS} $(_CFLAGS) ${SIMPLE} -DQREF help.c
@@ -503,9 +499,6 @@ $(EXDIR)/p$(name): p$(name) $(EXDIR)
 
 $(EXDIR)/x$(name): p$(name) $(EXDIR)
 	install x$(name) $(EXDIR)/
-
-x$(name): xsc.sh
-	name=$(name) sh torev < xsc.sh > x$(name)
 
 $(LIBDIR)/tutorial.$(name): tutorial.sc $(LIBDIR) $(LIBDIR)/plugins
 	install -m $(MANMODE) tutorial.sc $(LIBDIR)/tutorial.$(name)
@@ -543,6 +536,3 @@ uninstall:
 	rm -f $(MANDIR)/$(name).$(MANEXT)
 	rm -f $(MANDIR)/p$(name).$(MANEXT)
 	rm -f $(MANDIR)/$(name)qref.$(MANEXT)
-
-files:
-	@find $(DOCS) $(SRCS) -print
