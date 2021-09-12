@@ -50,7 +50,6 @@ int scrc = 0;
 int usecurses = TRUE;   /* Use curses unless piping/redirection or using -q */
 int brokenpipe = FALSE; /* Set to true if SIGPIPE is received */
 
-char curfile[PATHLEN];
 char revmsg[80];
 
 /* numeric separators, country-dependent if locale support enabled: */
@@ -203,18 +202,19 @@ int main(int argc, char **argv) {
     if (optind < argc && !strcmp(argv[optind], "--"))
         optind++;
     if (optind < argc && argv[optind][0] != '|' && strcmp(argv[optind], "-"))
-        pstrcpy(curfile, sizeof curfile, argv[optind]);
+        pstrcpy(sp->curfile, sizeof sp->curfile, argv[optind]);
 
     if (usecurses)
         initcolor(sp, 0);
 
     if (optind < argc) {
         if (!readfile(sp, argv[optind], 1) && (optind == argc - 1))
-            error("New file: \"%s\"", curfile);
+            error("New file: \"%s\"", sp->curfile);
         EvalAll(sp); // XXX: should delay until after all files have been loaded
         optind++;
     } else {
-        erasedb(sp, TRUE);
+        erasedb(sp);
+        load_scrc(sp);
     }
 
     while (optind < argc) {
@@ -299,7 +299,7 @@ int main(int argc, char **argv) {
 
     if (Dopt) {
         /* free all memory and check for remaining blocks */
-        erasedb(sp, FALSE);
+        erasedb(sp);
         go_free(sp);
         free_ent_list();
         free_enode_list();

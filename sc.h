@@ -415,6 +415,7 @@ typedef struct sheet {
     SCXMEM int *realfmt;
     SCXMEM unsigned char *col_hidden;
     SCXMEM unsigned char *row_hidden;
+    SCXMEM short *row_size;
     SCXMEM string_t *mdir;
     SCXMEM string_t *autorun;
     SCXMEM string_t *fkey[FKEYS];
@@ -449,11 +450,11 @@ typedef struct sheet {
     int color;
     int colorneg;     /* Increment color number for cells with negative numbers */
     int colorerr;     /* Color cells with errors with color 3 */
+    char curfile[PATHLEN];
 } sheet_t;
 
 extern sheet_t *sht;
 
-extern char curfile[PATHLEN];       // XXX: move to sheet/file
 extern cellref_t savedcr[37];
 extern cellref_t savedst[37];
 extern int FullUpdate;
@@ -568,7 +569,8 @@ static inline rangeref_t rangeref_empty(void) {
 
 extern rangeref_t *range_normalize(rangeref_t *rr);
 extern sheet_t *sheet_init(sheet_t *sp); /* initialize settings to default values */
-extern void erasedb(sheet_t *sp, int load_scrc);
+extern void erasedb(sheet_t *sp);
+extern int load_scrc(sheet_t *sp);
 
 /* check if the cell at r,c has a value */
 /* p must be defined as struct ent *p; */
@@ -776,18 +778,18 @@ extern void frange_fix(sheet_t *sp, int row1, int col1, int row2, int col2,
 /*---------------- file reading and writing ----------------*/
 
 extern FILE *openfile(char *fname, size_t fnamesiz, int *rpid, int *rfd);
+extern void closefile(FILE *f, int pid, int rfd);
 extern char *findhome(char *fname, size_t fnamesiz);
-extern int creadfile(const char *fname, int eraseflg);
-extern int cwritefile(const char *fname, rangeref_t rr, int dcp_flags);
+extern int backup_file(const char *path);
+extern int creadfile(sheet_t *sp, const char *fname, int eraseflg);
+extern int cwritefile(sheet_t *sp, const char *fname, rangeref_t rr, int dcp_flags);
 extern int modcheck(sheet_t *sp, const char *endstr);
 extern int readfile(sheet_t *sp, const char *fname, int eraseflg);
 extern int writefile(sheet_t *sp, const char *fname, rangeref_t rr, int dcp_flags);
-extern void closefile(FILE *f, int pid, int rfd);
 extern void printfile(sheet_t *sp, SCXMEM string_t *fname, rangeref_t rr);
 extern void tblprintfile(sheet_t *sp, SCXMEM string_t *fname, rangeref_t rr);
 extern void write_cells(sheet_t *sp, FILE *f, rangeref_t rr, cellref_t cr, int dcp_flags);
 extern void write_fd(sheet_t *sp, FILE *f, rangeref_t rr, int dcp_flags);
-extern int backup_file(const char *path);
 
 /*---------------- navigation ----------------*/
 

@@ -28,7 +28,7 @@ void printfile(sheet_t *sp, SCXMEM string_t *str, rangeref_t rr) {
     if (fname) {
         /* printfile will be the [path/]file ---> [path/]file.out */
         if (*fname == '\0') {
-            pstrcpy(path, sizeof path, curfile);
+            pstrcpy(path, sizeof path, sp->curfile);
             ext = get_extension(path);
 
             /* keep the extension unless .sc or scext */
@@ -41,7 +41,7 @@ void printfile(sheet_t *sp, SCXMEM string_t *str, rangeref_t rr) {
             /* strarg in gram.y, always size of \0 terminated string. */
             pstrcpy(path, sizeof path, fname);
         }
-        if (!strcmp(path, curfile)
+        if (!strcmp(path, sp->curfile)
         &&  !yn_ask("Confirm that you want to destroy the data base: (y,n)")) {
             string_free(str);
             return;
@@ -231,7 +231,7 @@ void tblprintfile(sheet_t *sp, SCXMEM string_t *str, rangeref_t rr) {
 
     /* tblprintfile will be the [path/]file ---> [path/]file.out */
     if (*fname == '\0') {
-        pstrcpy(path, sizeof path, curfile);
+        pstrcpy(path, sizeof path, sp->curfile);
         ext = get_extension(path);
 
         /* keep the extension unless .sc or scext */
@@ -261,7 +261,7 @@ void tblprintfile(sheet_t *sp, SCXMEM string_t *str, rangeref_t rr) {
     } else {
         pstrcpy(path, sizeof path, fname);
     }
-    if (!strcmp(path, curfile)
+    if (!strcmp(path, sp->curfile)
     &&  !yn_ask("Confirm that you want to destroy the data base: (y,n)")) {
         string_free(str);
         return;

@@ -1004,8 +1004,8 @@ void vi_interaction(sheet_t *sp) {
                             switch (ch2) {
                             case 'r':   hiderows(sp, sp->currow, sp->currow + uarg - 1); break;
                             case 'c':   hidecols(sp, sp->curcol, sp->curcol + uarg - 1); break;
-                            case 'Z':   if (sp->modflg && curfile[0]) {
-                                            writefile(sp, curfile, rangeref_total(sp), DCP_DEFAULT);
+                            case 'Z':   if (sp->modflg && sp->curfile[0]) {
+                                            writefile(sp, sp->curfile, rangeref_total(sp), DCP_DEFAULT);
                                             running = 0;
                                         } else if (sp->modflg) {
                                             error("No file name.");
@@ -1152,13 +1152,13 @@ void vi_interaction(sheet_t *sp) {
                     break;
                 case 'P':
                     set_line("put [\"dest\" range] \"");
-                    if (*curfile) {
-                        ext = get_extension(curfile);
+                    if (sp->curfile[0]) {
+                        ext = get_extension(sp->curfile);
                         /* keep the extension unless .sc or scext */
                         if (strcmp(ext, ".sc") && !(scext && !strcmp(ext, s2c(scext))))
                             ext += strlen(ext);
                         error("Default path is \"%.*s.%s\"",
-                              (int)(ext - curfile), curfile,
+                              (int)(ext - sp->curfile), sp->curfile,
                               scext ? s2c(scext) : "sc");
                     }
                     insert_mode();
@@ -1187,19 +1187,19 @@ void vi_interaction(sheet_t *sp) {
                     break;
                 case 'G':
                     set_line("get [\"source\"] \"");
-                    if (*curfile)
-                        error("Default file is \"%s\"", curfile);
+                    if (sp->curfile[0])
+                        error("Default file is \"%s\"", sp->curfile);
                     insert_mode();
                     break;
                 case 'W':
                     set_line("write [\"dest\" range] \"");
-                    if (*curfile) {
-                        ext = get_extension(curfile);
+                    if (sp->curfile[0]) {
+                        ext = get_extension(sp->curfile);
                         /* keep the extension unless .sc or scext */
                         if (strcmp(ext, ".sc") && !(scext && !strcmp(ext, s2c(scext))))
                             ext += strlen(ext);
                         error("Default file is \"%.*s.%s\"",
-                              (int)(ext - curfile), curfile,
+                              (int)(ext - sp->curfile), sp->curfile,
                               ascext ? s2c(ascext) : "asc");
                     }
                     insert_mode();
@@ -1211,30 +1211,30 @@ void vi_interaction(sheet_t *sp) {
                     break;
                 case 'T':       /* tbl output */
                     set_line("tbl [\"dest\" range] \"");
-                    if (*curfile) {
-                        ext = get_extension(curfile);
+                    if (sp->curfile[0]) {
+                        ext = get_extension(sp->curfile);
                         /* keep the extension unless .sc or scext */
                         if (strcmp(ext, ".sc") && !(scext && !strcmp(ext, s2c(scext))))
                             ext += strlen(ext);
                         if (sp->tbl_style == 0) {
                             error("Default file is \"%.*s.%s\"",
-                                  (int)(ext - curfile), curfile,
+                                  (int)(ext - sp->curfile), sp->curfile,
                                   tbl0ext ? s2c(tbl0ext) : "cln");
                         } else if (sp->tbl_style == TBL) {
                             error("Default file is \"%.*s.%s\"",
-                                  (int)(ext - curfile), curfile,
+                                  (int)(ext - sp->curfile), sp->curfile,
                                   tblext ? s2c(tblext) : "tbl");
                         } else if (sp->tbl_style == LATEX) {
                             error("Default file is \"%.*s.%s\"",
-                                  (int)(ext - curfile), curfile,
+                                  (int)(ext - sp->curfile), sp->curfile,
                                   latexext ? s2c(latexext) : "lat");
                         } else if (sp->tbl_style == SLATEX) {
                             error("Default file is \"%.*s.%s\"",
-                                  (int)(ext - curfile), curfile,
+                                  (int)(ext - sp->curfile), sp->curfile,
                                   slatexext ? s2c(slatexext) : "stx");
                         } else if (sp->tbl_style == TEX) {
                             error("Default file is \"%.*s.%s\"",
-                                  (int)(ext - curfile), curfile,
+                                  (int)(ext - sp->curfile), sp->curfile,
                                   texext ? s2c(texext) : "tex");
                         }
                     }
@@ -3697,15 +3697,15 @@ int yn_ask(const char *msg) {
 int modcheck(sheet_t *sp, const char *endstr) {
     int yn_ans;
 
-    if (sp->modflg && curfile[0]) {
+    if (sp->modflg && sp->curfile[0]) {
         char lin[100];
 
-        snprintf(lin, sizeof lin, "File \"%s\" is modified, save%s? ", curfile, endstr);
+        snprintf(lin, sizeof lin, "File \"%s\" is modified, save%s? ", sp->curfile, endstr);
         if ((yn_ans = yn_ask(lin)) < 0)
             return 1;
         else
         if (yn_ans == 1) {
-            if (writefile(sp, curfile, rangeref_total(sp), DCP_DEFAULT) < 0)
+            if (writefile(sp, sp->curfile, rangeref_total(sp), DCP_DEFAULT) < 0)
                 return 1;
         }
     } else if (sp->modflg) {

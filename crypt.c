@@ -15,7 +15,7 @@ int Crypt = 0;
 #define MAXKEYWORDSIZE 30
 static char KeyWord[MAXKEYWORDSIZE];
 
-int creadfile(const char *fname, int eraseflg) {
+int creadfile(sheet_t *sp, const char *fname, int eraseflg) {
     char save[FBUFLEN];
     char buf[FBUFLEN];
     FILE *f;
@@ -26,7 +26,7 @@ int creadfile(const char *fname, int eraseflg) {
 
     pstrcpy(save, sizeof save, fname);
 
-    if (eraseflg && strcmp(fname, curfile) && modcheck(" first"))
+    if (eraseflg && strcmp(fname, sp->curfile) && modcheck(" first"))
         return 0;
 
     if ((fildes = open(findhome(save, sizeof save), O_RDONLY, 0)) < 0) {
@@ -34,7 +34,10 @@ int creadfile(const char *fname, int eraseflg) {
         return 0;
     }
 
-    if (eraseflg) erasedb(TRUE);
+    if (eraseflg) {
+        erasedb(sp);
+        load_scrc(sp);
+    }
 
     if (pipe(pipefd) < 0) {
         error("Cannot make pipe to child");
@@ -88,13 +91,13 @@ int creadfile(const char *fname, int eraseflg) {
     while (pid != wait(&fildes))
         continue;
     if (eraseflg) {
-        pstrcpy(curfile, sizeof curfile, save);
+        pstrcpy(sp->curfile, sizeof sp->curfile, save);
         sp->modflg = 0;
     }
     return 1;
 }
 
-int cwritefile(const char *fname, rangeref_t rr, int dcp_flags) {
+int cwritefile(sheet_t *sp, const char *fname, rangeref_t rr, int dcp_flags) {
     char path[PATHLEN];
     FILE *f;
     int pipefd[2];
@@ -102,7 +105,7 @@ int cwritefile(const char *fname, rangeref_t rr, int dcp_flags) {
     int pid;
     char *fn;
 
-    if (*fname == '\0') fname = curfile;
+    if (*fname == '\0') fname = sp->curfile;
 
     fn = fname;
     while (*fn && (*fn == ' ')) /* Skip leading blanks */
@@ -166,9 +169,9 @@ int cwritefile(const char *fname, rangeref_t rr, int dcp_flags) {
     close(pipefd[1]);
     while (pid != wait(&fildes))
         continue;
-    pstrcpy(curfile, sizeof curfile, path);
+    error("File \"%s\" written (encrypted).", path);
+    pstrcpy(sp->curfile, sizeof sp->curfile, path);
     sp->modflg = 0;
-    error("File \"%s\" written (encrypted).", curfile);
     return 0;
 }
 

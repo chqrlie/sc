@@ -2474,9 +2474,10 @@ static scvalue_t eval_concat(eval_ctx_t *cp, enode_t *e) {
 
 static scvalue_t eval_filename(eval_ctx_t *cp, enode_t *e) {
     int err = 0;
+    const char *s = cp->sp->curfile;
     int n = eval_test(cp, e->e.args[0], &err);
     if (err) scvalue_error(err);
-    return scvalue_string(string_new(n ? curfile : get_basename(curfile)));
+    return scvalue_string(string_new(n ? s : get_basename(s)));
 }
 
 static scvalue_t eval_coltoa(eval_ctx_t *cp, enode_t *e) {

@@ -10,7 +10,6 @@
  *              $Revision: 8.1 $
  */
 
-#include <fcntl.h>      // because erasedb reads .scrc files
 #include "sc.h"
 
 #define ATBL(sp, row, col)     (&(sp)->tbl[row][col])
@@ -503,10 +502,10 @@ int insertcol(sheet_t *sp, cellref_t cr, int arg, int delta) {
     sp->maxcol += arg;
 
     for (c = dc2; c >= dc1; c--) {
-        sp->fwidth[c] = sp->fwidth[c-arg];
-        sp->precision[c] = sp->precision[c-arg];
-        sp->realfmt[c] = sp->realfmt[c-arg];
-        sp->col_hidden[c] = sp->col_hidden[c-arg];
+        sp->fwidth[c] = sp->fwidth[c - arg];
+        sp->precision[c] = sp->precision[c - arg];
+        sp->realfmt[c] = sp->realfmt[c - arg];
+        sp->col_hidden[c] = sp->col_hidden[c - arg];
     }
     for (c = sc1; c < dc1; c++) {
         sp->fwidth[c] = DEFWIDTH;
@@ -519,11 +518,11 @@ int insertcol(sheet_t *sp, cellref_t cr, int arg, int delta) {
         // XXX: should factorize as movecell()
         pp = ATBL(sp, r, 0);
         for (c = dc2; c >= dc1; c--) {
-            if ((pp[c] = pp[c - arg]))
+            if ((pp[c] = pp[c - arg])) {
                 pp[c]->col += arg;
+                pp[c - arg] = NULL;
+            }
         }
-        for (c = sc1; c < dc1; c++)
-            pp[c] = NULL;
     }
 
     /* Update all marked cells. */
@@ -1762,9 +1761,8 @@ void copyent(sheet_t *sp, struct ent *n, struct ent *p, int dr, int dc,
 }
 
 /* erase the database (sheet data, etc.) */
-void erasedb(sheet_t *sp, int load_scrc) {
-    int r, c, fd;
-    char *home;
+void erasedb(sheet_t *sp) {
+    int r, c;
 
     for (c = 0; c <= sp->maxcol; c++) {
         sp->fwidth[c] = DEFWIDTH;
@@ -1794,21 +1792,23 @@ void erasedb(sheet_t *sp, int load_scrc) {
         scxfree(sp->tbl[r]);
     }
     scxfree(sp->tbl);
+    scxfree(sp->row_hidden);
+    scxfree(sp->row_size);
     scxfree(sp->fwidth);
     scxfree(sp->precision);
     scxfree(sp->realfmt);
     scxfree(sp->col_hidden);
-    scxfree(sp->row_hidden);
     sp->tbl = NULL;
+    sp->row_hidden = NULL;
+    sp->row_size = NULL;
     sp->fwidth = NULL;
     sp->precision = NULL;
     sp->realfmt = NULL;
     sp->col_hidden = NULL;
-    sp->row_hidden = NULL;
 
-    for (c = 0; c < COLFORMATS; c++)
+    for (c = 0; c < COLFORMATS; c++) {
         string_set(&sp->colformat[c], NULL);
-
+    }
     nrange_clean(sp);
     frange_clean(sp);
     crange_clean(sp);
@@ -1816,9 +1816,9 @@ void erasedb(sheet_t *sp, int load_scrc) {
 
     string_set(&sp->mdir, NULL);
     string_set(&sp->autorun, NULL);
-    for (c = 0; c < FKEYS; c++)
+    for (c = 0; c < FKEYS; c++) {
         string_set(&sp->fkey[c], NULL);
-
+    }
     /* unset all marks */
     for (c = 0; c < 37; c++) {
         savedcr[c] = cellref(-1, -1);
@@ -1831,29 +1831,7 @@ void erasedb(sheet_t *sp, int load_scrc) {
     if (usecurses)
         select_style(STYLE_NONE, 0);
 
-    if (load_scrc) {
-        // XXX: this should be in a different function
-        /*
-         * Load $HOME/.scrc if present.
-         */
-        if ((home = getenv("HOME"))) {
-            snprintf(curfile, sizeof curfile, "%s/.scrc", home);
-            if ((fd = open(curfile, O_RDONLY)) >= 0) {
-                close(fd);
-                readfile(sp, curfile, 0);
-            }
-        }
-
-        /*
-         * Load ./.scrc if present and $HOME/.scrc contained `set scrc'.
-         */
-        if (scrc && strcmp(home, getcwd(curfile, PATHLEN))
-        &&  (fd = open(".scrc", O_RDONLY)) >= 0) {
-            close(fd);
-            readfile(sp, ".scrc", 0);
-        }
-    }
-    *curfile = '\0';
+    sp->curfile[0] = '\0';
     FullUpdate++;
 }
 

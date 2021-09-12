@@ -203,7 +203,6 @@ char *findhome(char *path, size_t pathsiz) {
     static const char *HomeDir = NULL;
 
     if (*path == '~') {
-        // XXX: should use strsplice()
         char tmppath[PATHLEN];
         char *pathptr = path + 1;
         if (*pathptr == '/' || *pathptr == '\0') {
@@ -513,13 +512,13 @@ int writefile(sheet_t *sp, const char *fname, rangeref_t rr, int dcp_flags) {
 
 #ifndef NOCRYPT
     if (Crypt) {
-        return cwritefile(fname, rr, dcp_flags);
+        return cwritefile(sp, fname, rr, dcp_flags);
     }
 #endif /* NOCRYPT */
 
     if (*fname == '\0') {
-        if (isatty(STDOUT_FILENO) || *curfile != '\0') {
-            fname = curfile;
+        if (isatty(STDOUT_FILENO) || sp->curfile[0] != '\0') {
+            fname = sp->curfile;
         } else {
             write_fd(sp, stdout, rr, dcp_flags);
             return 0;
@@ -554,7 +553,7 @@ int writefile(sheet_t *sp, const char *fname, rangeref_t rr, int dcp_flags) {
         error("File \"%s\" written", save);
     }
     if (!pid) {
-        pstrcpy(curfile, sizeof curfile, save);
+        pstrcpy(sp->curfile, sizeof sp->curfile, save);
         sp->modflg = 0;
         FullUpdate++;
     }
@@ -579,7 +578,7 @@ int readfile(sheet_t *sp, const char *fname, int eraseflg) {
         pstrcat(save, sizeof save, fname);
     } else {
         if (*fname == '\0')
-            fname = curfile;
+            fname = sp->curfile;
         pstrcpy(save, sizeof save, fname);
     }
 
@@ -607,7 +606,7 @@ int readfile(sheet_t *sp, const char *fname, int eraseflg) {
                 }
                 p--;
             }
-            pstrcpy(curfile, sizeof curfile, p);
+            pstrcpy(sp->curfile, sizeof sp->curfile, p);
         }
     }
 #endif
@@ -621,13 +620,13 @@ int readfile(sheet_t *sp, const char *fname, int eraseflg) {
         if (*save == '|')
             error("Cannot use encryption with advanced macros.");
         else
-            ret = creadfile(save, eraseflg);
+            ret = creadfile(sp, save, eraseflg);
         autolabel = tempautolabel;
         return ret;
     }
 #endif /* NOCRYPT */
 
-    if (eraseflg && strcmp(fname, curfile) && modcheck(sp, " first"))
+    if (eraseflg && strcmp(fname, sp->curfile) && modcheck(sp, " first"))
         return 0;
 
     if (fname[0] == '-' && fname[1] == '\0') {
@@ -652,7 +651,8 @@ int readfile(sheet_t *sp, const char *fname, int eraseflg) {
             } else
                 fprintf(stderr, "Reading file \"%s\"\n", save);
         }
-        erasedb(sp, TRUE);
+        erasedb(sp);
+        load_scrc(sp);
     }
 
     remember(sp, 0);
@@ -685,7 +685,7 @@ int readfile(sheet_t *sp, const char *fname, int eraseflg) {
         screen_goraw();
     }
     if (eraseflg) {
-        pstrcpy(curfile, sizeof curfile, save);
+        pstrcpy(sp->curfile, sizeof sp->curfile, save);
         sp->modflg = 0;
         if (!sempty(sp->autorun) && !skipautorun)
             readfile(sp, s2c(sp->autorun), 0);
@@ -702,4 +702,29 @@ int readfile(sheet_t *sp, const char *fname, int eraseflg) {
     autolabel = tempautolabel;
     FullUpdate++;
     return 1;
+}
+
+int load_scrc(sheet_t *sp) {
+    char path[PATHLEN];
+    char *home;
+    int res = 0, fd;
+
+    /*
+     * Load $HOME/.scrc if present.
+     */
+    pstrcpy(path, sizeof path, "~/.scrc");
+    if (findhome(path, sizeof path) && (fd = open(path, O_RDONLY)) >= 0) {
+        close(fd);
+        res = readfile(sp, path, 0);
+    }
+
+    /*
+     * Load ./.scrc if present and $HOME/.scrc contained `set scrc'.
+     */
+    if (scrc && strcmp(home, getcwd(path, PATHLEN))
+    &&  (fd = open(".scrc", O_RDONLY)) >= 0) {
+        close(fd);
+        res += readfile(sp, ".scrc", 0);
+    }
+    return res;
 }

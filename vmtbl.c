@@ -46,13 +46,15 @@ int checkbounds(sheet_t *sp, int *rowp, int *colp) {
 }
 
 /* scxrealloc will just scxmalloc if oldptr is == NULL */
-#define GROWALLOC(ptr, nelem, type, msg)                           \
-    do { type *newptr__ = scxrealloc(ptr, (nelem) * sizeof(type)); \
-       if (newptr__ == NULL) {                                     \
+#define GROWALLOC(ptr, curcount, nelem, msg, def) do {             \
+        size_t i__ = (curcount), n__ = (nelem);                    \
+        void *newptr__ = scxrealloc(ptr, n__ * sizeof(*(ptr)));    \
+        if (newptr__ == NULL) {                                    \
            error(msg);                                             \
            return FALSE;                                           \
        }                                                           \
        ptr = newptr__;                                             \
+       while (i__ < n__) { (ptr)[i__++] = def; }                   \
     } while (0)
 
 static const char nolonger[] = "The table cannot be any longer";
@@ -64,7 +66,7 @@ static const char nowider[] = "The table cannot be any wider";
  * we return TRUE if we could grow, FALSE if not....
  */
 int growtbl(sheet_t *sp, int mode, int toprow, int topcol) {
-    int row, col, curcols, currows, newrows, newcols;
+    int row, curcols, currows, newrows, newcols;
 
     newrows = currows = sp->maxrows;
     newcols = curcols = sp->maxcols;
@@ -102,52 +104,24 @@ int growtbl(sheet_t *sp, int mode, int toprow, int topcol) {
             newcols = ABSMAXCOLS;
     }
 
-    if (newrows > currows) {
-        GROWALLOC(sp->row_hidden, newrows, unsigned char, nolonger);
-        memzero(sp->row_hidden + currows, (newrows - currows) * sizeof(*sp->row_hidden));
-        GROWALLOC(sp->tbl, newrows, struct ent **, nolonger);
-        for (row = currows; row < newrows; row++) {
-            sp->tbl[row] = NULL;
-        }
-    }
-
     if (newcols > curcols) {
-        GROWALLOC(sp->fwidth, newcols, int, nowider);
-        GROWALLOC(sp->precision, newcols, int, nowider);
-        GROWALLOC(sp->realfmt, newcols, int, nowider);
-        GROWALLOC(sp->col_hidden, newcols, unsigned char, nowider);
-        for (col = curcols; col < newcols; col++) {
-            sp->fwidth[col] = DEFWIDTH;
-            sp->precision[col] = DEFPREC;
-            sp->realfmt[col] = DEFREFMT;
-            sp->col_hidden[col] = 0;
-        }
-
-        /* [re]alloc the space for each row */
+        GROWALLOC(sp->fwidth, curcols, newcols, nowider, DEFWIDTH);
+        GROWALLOC(sp->precision, curcols, newcols, nowider, DEFPREC);
+        GROWALLOC(sp->realfmt, curcols, newcols, nowider, DEFREFMT);
+        GROWALLOC(sp->col_hidden, curcols, newcols, nowider, 0);
         for (row = 0; row < currows; row++) {
-            struct ent **rowptr = scxrealloc(sp->tbl[row], sizeof(*sp->tbl[row]) * newcols);
-            if (rowptr == NULL) {
-                error(nowider);
-                return FALSE;
-            }
-            sp->tbl[row] = rowptr;
-            for (col = curcols; col < newcols; col++)
-                rowptr[col] = NULL;
+            GROWALLOC(sp->tbl[row], curcols, newcols, nowider, NULL);
         }
     }
 
-    /* fill in the bottom of the table */
-    for (row = currows; row < newrows; row++) {
-        struct ent **rowptr = scxmalloc(sizeof(*sp->tbl[row]) * newcols);
-        if (rowptr == NULL) {
-            error(nolonger);
-            return FALSE;
+    if (newrows > currows) {
+        GROWALLOC(sp->row_hidden, currows, newrows, nolonger, 0);
+        GROWALLOC(sp->row_size, currows, newrows, nolonger, 0);
+        GROWALLOC(sp->tbl, currows, newrows, nolonger, NULL);
+        for (row = currows; row < newrows; row++) {
+            GROWALLOC(sp->tbl[row], 0, newcols, nolonger, NULL);
         }
-        sp->tbl[row] = rowptr;
-        for (col = 0; col < newcols; col++)
-            rowptr[col] = NULL;
     }
-
     FullUpdate++;
     sp->maxrows = newrows;
     sp->maxcols = newcols;
