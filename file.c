@@ -397,16 +397,16 @@ void write_fd(sheet_t *sp, FILE *f, rangeref_t rr, int dcp_flags) {
             fprintf(f, "format %d = \"%s\"\n", c, s2c(sp->colformat[c]));
     }
     for (c = rr.left.col; c <= rr.right.col; c++) {
-        if (sp->fwidth[c] != DEFWIDTH || sp->precision[c] != DEFPREC || sp->realfmt[c] != DEFREFMT) {
+        if (sp->colfmt[c].fwidth != DEFWIDTH || sp->colfmt[c].precision != DEFPREC || sp->colfmt[c].realfmt != DEFREFMT) {
             fprintf(f, "format %s %d %d %d\n",
-                    coltoa(c), sp->fwidth[c], sp->precision[c], sp->realfmt[c]);
+                    coltoa(c), sp->colfmt[c].fwidth, sp->colfmt[c].precision, sp->colfmt[c].realfmt);
         }
     }
     for (c = rr.left.col; c <= rr.right.col; c++) {
-        if (sp->col_hidden[c]) fprintf(f, "hide %s\n", coltoa(c));
+        if (col_hidden(sp, c)) fprintf(f, "hide %s\n", coltoa(c));
     }
     for (r = rr.left.row; r <= rr.right.row; r++) {
-        if (sp->row_hidden[r]) fprintf(f, "hide %d\n", r);
+        if (row_hidden(sp, r)) fprintf(f, "hide %d\n", r);
     }
     nrange_write(sp, f);
     frange_write(sp, f);

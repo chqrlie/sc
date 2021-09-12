@@ -91,13 +91,15 @@ void sortrange(sheet_t *sp, rangeref_t rr, SCXMEM string_t *criteria) {
     }
 
     qsort(rows, nrows, sizeof(int), compare);
+    // XXX: this is bogus: cell values and formats should be changed
+    //      but not moved and borders should be left unchanged?
     /* move cell range to subsheet delbuf[++dbidx] */
     erase_area(sp, ++dbidx, minr, minc, maxr, maxc, 1);
     // XXX: make formulas that refer to the sort range
     //      point to empty cells
     // XXX: should we use sync_refs() instead?
     sync_ranges(sp);
-    for (i = 0, p = delbuf[dbidx]; p; p = p->next) {
+    for (i = 0, p = delbuf_ptr[dbidx]; p; p = p->next) {
         if (rows[i] != p->row) {
             /* find destination row */
             for (i = 0; i < nrows && rows[i] != p->row; i++)

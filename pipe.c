@@ -55,9 +55,9 @@ void cmd_fgetnum(sheet_t *sp, rangeref_t rr, int fd) {
                 switch (p->type) {
                 case SC_NUMBER:
                     if (p->format) {
-                        format(buf, sizeof(buf) - 1, s2c(p->format), sp->precision[c], p->v, &align);
+                        format(buf, sizeof(buf) - 1, s2c(p->format), sp->colfmt[c].precision, p->v, &align);
                     } else {
-                        engformat(buf, sizeof(buf) - 1, sp->realfmt[c], sp->precision[c], p->v, &align);
+                        engformat(buf, sizeof(buf) - 1, sp->colfmt[c].realfmt, sp->colfmt[c].precision, p->v, &align);
                     }
                     break;
                 case SC_BOOLEAN:
@@ -119,7 +119,10 @@ void cmd_getexp(sheet_t *sp, rangeref_t rr, int fd) {
 
 void cmd_getformat(sheet_t *sp, int col, int fd) {
     char buf[32];
-    snprintf(buf, sizeof buf, "%d %d %d\n", sp->fwidth[col], sp->precision[col], sp->realfmt[col]);
+    snprintf(buf, sizeof buf, "%d %d %d\n",
+             sp->colfmt[col].fwidth,
+             sp->colfmt[col].precision,
+             sp->colfmt[col].realfmt);
     write(fd, buf, strlen(buf));
 }
 
@@ -196,7 +199,7 @@ void cmd_eval(sheet_t *sp, SCXMEM enode_t *e, SCXMEM string_t *fmt, int row, int
     } else
     if (!sempty(fmt)) {
         /* convert cell contents, do not test width, should not align */
-        format(buf, sizeof buf - 1, s2c(fmt), sp->precision[col], v, &align);
+        format(buf, sizeof buf - 1, s2c(fmt), sp->colfmt[col].precision, v, &align);
     } else {
         snprintf(buf, sizeof buf - 1, "%.15g", v);
     }

@@ -137,13 +137,13 @@ int num_search(sheet_t *sp, int g_type, rangeref_t rr, double n) {
         } else {
             col = firstcol;
             if (row < lastrow) {
-                while (++row < lastrow && sp->row_hidden[row])
+                while (++row < lastrow && row_hidden(sp, row))
                     continue;
             } else {
                 row = firstrow;
             }
         }
-        if (!sp->col_hidden[col] && (p = getcell(sp, row, col))) {
+        if (!col_hidden(sp, col) && (p = getcell(sp, row, col))) {
             if ((!errsearch && p->type == SC_NUMBER && p->v == n)
             ||  (errsearch & (1 << p->cellerror))) {
                 found = 1;
@@ -248,13 +248,13 @@ int str_search(sheet_t *sp, int g_type, rangeref_t rr, SCXMEM string_t *str) {
         } else {
             col = firstcol;
             if (row < lastrow) {
-                while (++row < lastrow && sp->row_hidden[row])
+                while (++row < lastrow && row_hidden(sp, row))
                     continue;
             } else {
                 row = firstrow;
             }
         }
-        if (!sp->col_hidden[col] && (p = getcell(sp, row, col))) {
+        if (!col_hidden(sp, col) && (p = getcell(sp, row, col))) {
             /* convert cell contents, do not test width, ignore alignment */
             const char *s1 = field;
             int align = ALIGN_DEFAULT;
@@ -266,9 +266,9 @@ int str_search(sheet_t *sp, int g_type, rangeref_t rr, SCXMEM string_t *str) {
                 } else
                 if (p->type == SC_NUMBER) {
                     if (p->format) {
-                        format(field, sizeof field, s2c(p->format), sp->precision[col], p->v, &align);
+                        format(field, sizeof field, s2c(p->format), sp->colfmt[col].precision, p->v, &align);
                     } else {
-                        engformat(field, sizeof field, sp->realfmt[col], sp->precision[col], p->v, &align);
+                        engformat(field, sizeof field, sp->colfmt[col].realfmt, sp->colfmt[col].precision, p->v, &align);
                     }
                 }
             } else if (gs.g_type == G_XSTR) {
@@ -427,14 +427,14 @@ void forwcell(sheet_t *sp, int arg) {
             } else
             if (sp->currow < sp->maxrows - 1) {
                 sp->curcol = 0;
-                while (++sp->currow < sp->maxrows - 1 && sp->row_hidden[sp->currow])
+                while (++sp->currow < sp->maxrows - 1 && row_hidden(sp, sp->currow))
                     continue;
             } else {
                 error("At end of table");
                 arg = 0;
                 break;
             }
-        } while (sp->col_hidden[sp->curcol] || !VALID_CELL(sp, p, sp->currow, sp->curcol));
+        } while (col_hidden(sp, sp->curcol) || !VALID_CELL(sp, p, sp->currow, sp->curcol));
     }
 }
 
@@ -448,7 +448,7 @@ void forwcol(sheet_t *sp, int arg) {
             break;
         else
             sp->curcol++;
-        while (sp->col_hidden[sp->curcol] && (sp->curcol < sp->maxcols - 1))
+        while (col_hidden(sp, sp->curcol) && (sp->curcol < sp->maxcols - 1))
             sp->curcol++;
     }
 }
@@ -464,14 +464,14 @@ void backcell(sheet_t *sp, int arg) {
             } else
             if (sp->currow) {
                 sp->curcol = sp->maxcols - 1;
-                while (--sp->currow && sp->row_hidden[sp->currow])
+                while (--sp->currow && row_hidden(sp, sp->currow))
                     continue;
             } else {
                 error("At start of table");
                 arg = 0;
                 break;
             }
-        } while (sp->col_hidden[sp->curcol] || !VALID_CELL(sp, p, sp->currow, sp->curcol));
+        } while (col_hidden(sp, sp->curcol) || !VALID_CELL(sp, p, sp->currow, sp->curcol));
     }
 }
 
@@ -483,7 +483,7 @@ void backcol(sheet_t *sp, int arg) {
             break;
         }
         sp->curcol--;
-        while (sp->curcol && sp->col_hidden[sp->curcol])
+        while (sp->curcol && col_hidden(sp, sp->curcol))
             sp->curcol--;
     }
 }
@@ -498,7 +498,7 @@ void forwrow(sheet_t *sp, int arg) {
             break;
         else
             sp->currow++;
-        while (sp->row_hidden[sp->currow] && (sp->currow < sp->maxrows - 1))
+        while (row_hidden(sp, sp->currow) && (sp->currow < sp->maxrows - 1))
             sp->currow++;
     }
 }
@@ -511,7 +511,7 @@ void backrow(sheet_t *sp, int arg) {
             break;
         }
         sp->currow--;
-        while (sp->currow && sp->row_hidden[sp->currow])
+        while (sp->currow && row_hidden(sp, sp->currow))
             sp->currow--;
     }
 }

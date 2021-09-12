@@ -105,17 +105,16 @@ int growtbl(sheet_t *sp, int mode, int toprow, int topcol) {
     }
 
     if (newcols > curcols) {
-        GROWALLOC(sp->fwidth, curcols, newcols, nowider, DEFWIDTH);
-        GROWALLOC(sp->precision, curcols, newcols, nowider, DEFPREC);
-        GROWALLOC(sp->realfmt, curcols, newcols, nowider, DEFREFMT);
-        GROWALLOC(sp->col_hidden, curcols, newcols, nowider, 0);
+        colfmt_t def_colfmt = { FALSE, DEFWIDTH, DEFPREC, DEFREFMT };
+        GROWALLOC(sp->colfmt, curcols, newcols, nowider, def_colfmt);
         for (row = 0; row < currows; row++) {
             GROWALLOC(sp->tbl[row], curcols, newcols, nowider, NULL);
         }
     }
 
     if (newrows > currows) {
-        GROWALLOC(sp->row_hidden, currows, newrows, nolonger, 0);
+        rowfmt_t def_rowfmt = { FALSE };
+        GROWALLOC(sp->rowfmt, currows, newrows, nolonger, def_rowfmt);
         GROWALLOC(sp->row_size, currows, newrows, nolonger, 0);
         GROWALLOC(sp->tbl, currows, newrows, nolonger, NULL);
         for (row = currows; row < newrows; row++) {

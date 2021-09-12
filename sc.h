@@ -400,6 +400,16 @@ struct menu_item {
    This design is suboptimal in terms of memory space and implies much
    dreaded three star programming.
  */
+typedef struct rowfmt {
+    unsigned char hidden;
+} rowfmt_t;
+typedef struct colfmt {
+    unsigned char hidden;
+    unsigned char fwidth;
+    unsigned char precision;
+    unsigned char realfmt;
+} colfmt_t;
+
 typedef struct sheet {
     SCXMEM struct ent ***tbl;
     int maxrow, maxcol;
@@ -410,11 +420,8 @@ typedef struct sheet {
     int showsc, showsr;     /* starting cell for highlighted range */
     int rescol;             /* screen columns reserved for row numbers */
     int modflg;             /* sheet modified indicator */
-    SCXMEM int *fwidth;
-    SCXMEM int *precision;
-    SCXMEM int *realfmt;
-    SCXMEM unsigned char *col_hidden;
-    SCXMEM unsigned char *row_hidden;
+    SCXMEM colfmt_t *colfmt;
+    SCXMEM rowfmt_t *rowfmt;
     SCXMEM short *row_size;
     SCXMEM string_t *mdir;
     SCXMEM string_t *autorun;
@@ -453,6 +460,10 @@ typedef struct sheet {
     char curfile[PATHLEN];
 } sheet_t;
 
+static inline int row_hidden(sheet_t *sp, int row) { return sp->rowfmt[row].hidden; }
+static inline int col_hidden(sheet_t *sp, int col) { return sp->colfmt[col].hidden; }
+static inline int col_fwidth(sheet_t *sp, int col) { return sp->colfmt[col].fwidth; }
+
 extern sheet_t *sht;
 
 extern cellref_t savedcr[37];
@@ -466,8 +477,7 @@ extern int linelim;
 extern int changed;
 
 /* temporary sheet fragments: stack of 4 work buffers and 36 named buffers (a-z,0-9) */
-extern SCXMEM struct ent *delbuf[DELBUFSIZE];
-extern SCXMEM unsigned char *delbuffmt[DELBUFSIZE];
+extern SCXMEM struct ent *delbuf_ptr[DELBUFSIZE];
 extern int dbidx;
 extern int qbuf;                /* buffer no. specified by `"' command */
 extern int macrofd;

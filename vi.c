@@ -1439,7 +1439,7 @@ void vi_interaction(sheet_t *sp) {
 static void scroll_down(sheet_t *sp) {
     sp->strow++;
     // XXX: check maximum row?
-    while (sp->row_hidden[sp->strow])
+    while (row_hidden(sp, sp->strow))
         sp->strow++;
     if (sp->currow < sp->strow)
         sp->currow = sp->strow;
@@ -1448,7 +1448,7 @@ static void scroll_down(sheet_t *sp) {
 static void scroll_up(sheet_t *sp, int x) {
     if (sp->strow) {
         sp->strow--;
-        while (sp->strow && sp->row_hidden[sp->strow])
+        while (sp->strow && row_hidden(sp, sp->strow))
             sp->strow--;
     }
     forwrow(sp, x);
@@ -1460,11 +1460,11 @@ static void scroll_up(sheet_t *sp, int x) {
 static void colshow_op(sheet_t *sp) {
     int i, j;
     for (i = 0; i < sp->maxcols; i++) {
-        if (sp->col_hidden[i])
+        if (col_hidden(sp, i))
             break;
     }
     for (j = i; j < sp->maxcols; j++) {
-        if (!sp->col_hidden[j])
+        if (!col_hidden(sp, j))
             break;
     }
     j--;
@@ -1478,11 +1478,11 @@ static void colshow_op(sheet_t *sp) {
 static void rowshow_op(sheet_t *sp) {
     int i, j;
     for (i = 0; i < sp->maxrows; i++) {
-        if (sp->row_hidden[i])
+        if (row_hidden(sp, i))
             break;
     }
     for (j = i; j < sp->maxrows; j++) {
-        if (!sp->row_hidden[j])
+        if (!row_hidden(sp, j))
             break;
     }
     j--;
@@ -1801,7 +1801,7 @@ static void write_line(sheet_t *sp, int c) {
                                 p = getcell(sp, sp->currow, sp->curcol);
                                 if (p && (p->flags == SC_NUMBER)) {
                                     snprintf(temp, sizeof temp, "%.*f",
-                                             sp->precision[sp->curcol], p->v);
+                                             sp->colfmt[sp->curcol].precision, p->v);
                                     ins_string(sp, temp);
                                     toggle_navigate_mode();
                                 }
@@ -2514,7 +2514,7 @@ static void cr_line(sheet_t *sp, int action) {
                         if (sp->autowrap) {
                             forwcol(sp, 1);
                             sp->currow = fr->ir_left->row;
-                            if (sp->row_hidden[sp->currow])
+                            if (row_hidden(sp, sp->currow))
                                 forwrow(sp, 1);
                             if (sp->curcol > fr->ir_right->col) {
                                 backcol(sp, 1);
@@ -2522,7 +2522,7 @@ static void cr_line(sheet_t *sp, int action) {
                                     sp->curcol += insertcol(sp, cellref_current(sp), 1, 1);
                                 else {
                                     sp->currow = fr->ir_right->row;
-                                    if (sp->row_hidden[sp->currow])
+                                    if (row_hidden(sp, sp->currow))
                                         backrow(sp, 1);
                                 }
                             }
@@ -2545,7 +2545,7 @@ static void cr_line(sheet_t *sp, int action) {
                         if (sp->autowrap) {
                             forwrow(sp, 1);
                             sp->curcol = fr->ir_left->col;
-                            if (sp->col_hidden[sp->curcol])
+                            if (col_hidden(sp, sp->curcol))
                                 forwcol(sp, 1);
                             if (sp->currow > fr->ir_right->row) {
                                 backrow(sp, 1);
@@ -2553,7 +2553,7 @@ static void cr_line(sheet_t *sp, int action) {
                                     sp->currow += insertrow(sp, cellref_current(sp), 1, 1);
                                 else {
                                     sp->curcol = fr->ir_right->col;
-                                    if (sp->col_hidden[sp->curcol])
+                                    if (col_hidden(sp, sp->curcol))
                                         backcol(sp, 1);
                                 }
                             }
@@ -3279,15 +3279,15 @@ static int mouse_sel_cell(sheet_t *sp) { /* 0: set, 1: save, 2: cmp and set */
     if ((y = mevent.y - RESROW) < 0 || (x = mevent.x - sp->rescol) < 0)
         return 1;
     for (ty = sp->strow, i = y;; ty++) {
-        if (sp->row_hidden[ty])
+        if (row_hidden(sp, ty))
             continue;
         if (--i < 0)
             break;
     }
     for (tx = sp->stcol, i = x;; tx++) {
-        if (sp->col_hidden[tx])
+        if (col_hidden(sp, tx))
             continue;
-        if ((i -= sp->fwidth[tx]) < 0)
+        if ((i -= sp->colfmt[tx].fwidth) < 0)
             break;
     }
     switch (mmode) {
@@ -3445,7 +3445,7 @@ static int get_rcqual(sheet_t *sp, int ch) {
 static void formatcol(sheet_t *sp, int arg) {
     int c, i;
     int mf = sp->modflg;
-    int *oldformat;
+    colfmt_t *oldformat;
     buf_t buf;
 
     if (arg < 0)
@@ -3455,15 +3455,14 @@ static void formatcol(sheet_t *sp, int arg) {
         arg = sp->maxcol - sp->curcol + 1;
 
     /* save column widths and formats */
-    // XXX: should check for maxcol?
-    oldformat = scxmalloc(sizeof(*oldformat) * arg * 3);
+    oldformat = scxmalloc(sizeof(*oldformat) * arg);
     for (i = 0; i < arg; i++) {
-        oldformat[i * 3 + 0] = sp->fwidth[i + sp->curcol];
-        oldformat[i * 3 + 1] = sp->precision[i + sp->curcol];
-        oldformat[i * 3 + 2] = sp->realfmt[i + sp->curcol];
+        oldformat[i] = sp->colfmt[i + sp->curcol];
     }
     error("Current format is %d %d %d",
-          sp->fwidth[sp->curcol], sp->precision[sp->curcol], sp->realfmt[sp->curcol]);
+          sp->colfmt[sp->curcol].fwidth,
+          sp->colfmt[sp->curcol].precision,
+          sp->colfmt[sp->curcol].realfmt);
     screen_refresh();
     c = nmgetch(0);
     //screen_clear_line(1);     // XXX: clear line?
@@ -3473,16 +3472,16 @@ static void formatcol(sheet_t *sp, int arg) {
             break;
         if (c >= '0' && c <= '9') {
             for (i = sp->curcol; i < sp->curcol + arg; i++)
-                sp->realfmt[i] = c - '0';
+                sp->colfmt[i].realfmt = c - '0';
         } else {
             switch (c) {
             case SC_KEY_LEFT:
             case '<':
             case 'h':
                 for (i = sp->curcol; i < sp->curcol + arg; i++) {
-                    sp->fwidth[i]--;
-                    if (sp->fwidth[i] < 1)
-                        sp->fwidth[i] = 1;
+                    sp->colfmt[i].fwidth--;
+                    if (sp->colfmt[i].fwidth < 1)
+                        sp->colfmt[i].fwidth = 1;
                 }
                 sp->modflg++;
                 break;
@@ -3490,9 +3489,9 @@ static void formatcol(sheet_t *sp, int arg) {
             case '>':
             case 'l':
                 for (i = sp->curcol; i < sp->curcol + arg; i++) {
-                    sp->fwidth[i]++;
-                    if (sp->fwidth[i] > screen_COLS - sp->rescol - 2)
-                        sp->fwidth[i] = screen_COLS - sp->rescol - 2;
+                    sp->colfmt[i].fwidth++;
+                    if (sp->colfmt[i].fwidth > screen_COLS - sp->rescol - 2)
+                        sp->colfmt[i].fwidth = screen_COLS - sp->rescol - 2;
                 }
                 sp->modflg++;
                 break;
@@ -3500,9 +3499,9 @@ static void formatcol(sheet_t *sp, int arg) {
             case '-':
             case 'j':
                 for (i = sp->curcol; i < sp->curcol + arg; i++) {
-                    sp->precision[i]--;
-                    if (sp->precision[i] < 0)
-                        sp->precision[i] = 0;
+                    sp->colfmt[i].precision--;
+                    if (sp->colfmt[i].precision < 0)
+                        sp->colfmt[i].precision = 0;
                 }
                 sp->modflg++;
                 break;
@@ -3510,7 +3509,7 @@ static void formatcol(sheet_t *sp, int arg) {
             case '+':
             case 'k':
                 for (i = sp->curcol; i < sp->curcol + arg; i++)
-                    sp->precision[i]++;
+                    sp->colfmt[i].precision++;
                 sp->modflg++;
                 break;
             case ' ':
@@ -3523,7 +3522,9 @@ static void formatcol(sheet_t *sp, int arg) {
                 }
                 insert_mode();
                 error("Current format is %d %d %d",
-                      sp->fwidth[sp->curcol], sp->precision[sp->curcol], sp->realfmt[sp->curcol]);
+                      sp->colfmt[sp->curcol].fwidth,
+                      sp->colfmt[sp->curcol].precision,
+                      sp->colfmt[sp->curcol].realfmt);
                 continue;
             case '=':
                 error("Define format type (0-9):");
@@ -3554,7 +3555,9 @@ static void formatcol(sheet_t *sp, int arg) {
             }
         }
         error("Current format is %d %d %d",
-              sp->fwidth[sp->curcol], sp->precision[sp->curcol], sp->realfmt[sp->curcol]);
+              sp->colfmt[sp->curcol].fwidth,
+              sp->colfmt[sp->curcol].precision,
+              sp->colfmt[sp->curcol].realfmt);
         FullUpdate++;
         update(sp, 1);
         screen_refresh();
@@ -3563,9 +3566,9 @@ static void formatcol(sheet_t *sp, int arg) {
             if (c == ESC || c == ctl('g') || c == 'q') {
                 /* restore column widths and formats */
                 for (i = 0; i < arg; i++) {
-                    sp->fwidth[i + sp->curcol] = oldformat[i * 3 + 0];
-                    sp->precision[i + sp->curcol] = oldformat[i * 3 + 1];
-                    sp->realfmt[i + sp->curcol] = oldformat[i * 3 + 2];
+                    sp->colfmt[i + sp->curcol].fwidth = oldformat[i].fwidth;
+                    sp->colfmt[i + sp->curcol].precision = oldformat[i].precision;
+                    sp->colfmt[i + sp->curcol].realfmt = oldformat[i].realfmt;
                 }
                 sp->modflg = mf;
                 FullUpdate++;

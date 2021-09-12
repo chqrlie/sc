@@ -173,15 +173,9 @@ int main(int argc, char **argv) {
             if (drop_format) exit(exit_status);
 
             for (i = 0; i < sp->maxcols; i++) {
-                if (sp->fwidth[i]) {
-                    if (printf("format %s %d %d %d\n", coltoa(i),
-                               sp->fwidth[i] + 1, sp->precision[i], REFMTFIX) < 0)
-                    {
-                        fprintf(stderr, "%s: Column %d" PRINTF_CMD_ERR("format"),
-                                progname, i, strerror(errno));
-                        exit_status = EXIT_FAILURE;
-                        break;
-                    }
+                if (sp->colfmt[i].fwidth) {
+                    printf("format %s %d %d %d\n", coltoa(i),
+                           sp->colfmt[i].fwidth + 1, sp->colfmt[i].precision, REFMTFIX);
                 }
             }
             exit(exit_status);
@@ -189,11 +183,7 @@ int main(int argc, char **argv) {
         case NUM:
             first = FALSE;
 
-            if (printf("let %s%d = %s\n", coltoa(effc), effr, token) < 0) {
-                fprintf(stderr, "%s" PRINTF_CMD_ERR("let"), progname,
-                        strerror(errno));
-                exit_status = EXIT_FAILURE;
-            }
+            printf("let %s%d = %s\n", coltoa(effc), effr, token);
 
             if (effc >= sp->maxcols - 1) {
                 if (!growtbl(sp, GROWCOL, 0, effc)) {
@@ -222,13 +212,13 @@ int main(int argc, char **argv) {
             {
                 int ow, nw;
 
-                ow = sp->fwidth[effc] - sp->precision[effc];
+                ow = sp->colfmt[effc].fwidth - sp->colfmt[effc].precision;
 
-                if (sp->precision[effc] < j)
-                    sp->precision[effc] = j;
+                if (sp->colfmt[effc].precision < j)
+                    sp->colfmt[effc].precision = j;
 
-                if (sp->fwidth[effc] < i)
-                    sp->fwidth[effc] = i;
+                if (sp->colfmt[effc].fwidth < i)
+                    sp->colfmt[effc].fwidth = i;
 
                 /* now make sure:
                  *       1234.567890 (format 11 6)
@@ -237,7 +227,7 @@ int main(int argc, char **argv) {
                  *               (really it uses 15 6 to separate columns)
                  */
                 if ((nw = i - j) > ow)
-                    sp->fwidth[effc] += nw - (sp->fwidth[effc] - sp->precision[effc]);
+                    sp->colfmt[effc].fwidth += nw - (sp->colfmt[effc].fwidth - sp->colfmt[effc].precision);
             }
             break;
         case ALPHA:
@@ -246,11 +236,7 @@ int main(int argc, char **argv) {
             {
                 const char *cmd = leftadj ? "leftstring" : "rightstring";
 
-                if (printf("%s %s%d = \"%s\"\n", cmd, coltoa(effc), effr, token) < 0) {
-                    fprintf(stderr, "%s: Writing command \"%s\": %s\n", progname,
-                            cmd, strerror(errno));
-                    exit_status = EXIT_FAILURE;
-                }
+                printf("%s %s%d = \"%s\"\n", cmd, coltoa(effc), effr, token);
             }
 
             if (effc >= sp->maxcols - 1 && !growtbl(sp, GROWCOL, 0, effc)) {
@@ -261,8 +247,8 @@ int main(int argc, char **argv) {
 
             i = strlen(token);
 
-            if (i > sp->fwidth[effc]) {
-                sp->fwidth[effc] = i;
+            if (sp->colfmt[effc].fwidth > 1) {
+                sp->colfmt[effc].fwidth = i;
             }
             break;
         case SPACE:
@@ -412,13 +398,15 @@ const char *coltoa(int col) {
     return rname;
 }
 
-#define GROWALLOC(ptr, nelem, type, msg) \
-    do { type *newptr__ = realloc(ptr, (nelem) * sizeof(type)); \
-       if (newptr__ == NULL) { \
-           error(msg); \
-           return FALSE; \
-       } \
-       ptr = newptr__; \
+#define GROWALLOC(ptr, curcount, nelem, msg, def) do {             \
+        size_t i__ = (curcount), n__ = (nelem);                    \
+        void *newptr__ = realloc(ptr, n__ * sizeof(*(ptr)));       \
+        if (newptr__ == NULL) {                                    \
+           error(msg);                                             \
+           return FALSE;                                           \
+       }                                                           \
+       ptr = newptr__;                                             \
+       while (i__ < n__) { (ptr)[i__++] = def; }                   \
     } while (0)
 
 static const char nowider[] = "The table cannot be any wider";
@@ -429,10 +417,10 @@ static const char nowider[] = "The table cannot be any wider";
  * we return TRUE if we could grow, FALSE if not....
  */
 int growtbl(sheet_t *sp, int rowcol, int toprow, int topcol) {
-    int newcols;
+    int curcols, newcols;
 
     (void)toprow; /* unused */
-    newcols = sp->maxcols;
+    newcols = curcols = sp->maxcols;
     if (rowcol == GROWNEW) {
         newcols = MINCOLS;
         sp->maxcols = topcol = 0;
@@ -453,13 +441,9 @@ int growtbl(sheet_t *sp, int rowcol, int toprow, int topcol) {
     }
 
     if ((rowcol == GROWCOL) || (rowcol == GROWBOTH) || (rowcol == GROWNEW)) {
-        GROWALLOC(sp->fwidth, newcols, int, nowider);
-        GROWALLOC(sp->precision, newcols, int, nowider);
-        GROWALLOC(sp->realfmt, newcols, int, nowider);
-
-        memzero(sp->fwidth + sp->maxcols, (newcols - sp->maxcols) * sizeof(*sp->fwidth));
-        memzero(sp->precision + sp->maxcols, (newcols - sp->maxcols) * sizeof(*sp->precision));
-        memzero(sp->realfmt + sp->maxcols, (newcols - sp->maxcols) * sizeof(*sp->realfmt));
+        //colfmt_t def_colfmt = { FALSE, DEFWIDTH, DEFPREC, DEFREFMT };
+        colfmt_t def_colfmt = { 0, 0, 0, 0 };
+        GROWALLOC(sp->colfmt, curcols, newcols, nowider, def_colfmt);
     }
 
     sp->maxcols = newcols;
