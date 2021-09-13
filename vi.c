@@ -903,9 +903,9 @@ void vi_interaction(sheet_t *sp) {
                     if (c == ESC || c == ctl('g')) {
                         break;
                     } else if (c >= '0' && c <= '9') {
-                        qbuf = c - '0' + (DELBUFSIZE - 10);
+                        qbuf = c - '0' + DELBUF_0;
                     } else if (c >= 'a' && c <= 'z') {
-                        qbuf = c - 'a' + (DELBUFSIZE - 36);
+                        qbuf = c - 'a' + DELBUF_A;
                     } else if (c == '"') {
                         qbuf = 0;
                     } else {
@@ -938,13 +938,13 @@ void vi_interaction(sheet_t *sp) {
 
                         switch (c) {
                         case 'i':
-                            if (ch2 == 'r') insertrow(sp, cellref_current(sp), uarg, 0);
-                            else            insertcol(sp, cellref_current(sp), uarg, 0);
+                            if (ch2 == 'r') insertrows(sp, cellref_current(sp), uarg, 0);
+                            else            insertcols(sp, cellref_current(sp), uarg, 0);
                             break;
 
                         case 'o':
-                            if (ch2 == 'r') sp->currow += insertrow(sp, cellref_current(sp), uarg, 1);
-                            else            sp->curcol += insertcol(sp, cellref_current(sp), uarg, 1);
+                            if (ch2 == 'r') sp->currow += insertrows(sp, cellref_current(sp), uarg, 1);
+                            else            sp->curcol += insertcols(sp, cellref_current(sp), uarg, 1);
                             break;
 
                         case 'a':
@@ -976,9 +976,10 @@ void vi_interaction(sheet_t *sp) {
                                 //      'pc' and 'pr' insert multiple copies
                                 //      'px' and 'pt' for performance tests
                                 //      'pp' to paste/pop multiple levels
-                                // XXX: Achtung! pullcells uses qbuf if set
-                                pullcells(sp, ch2, cellref_current(sp));
+                                dbidx = 0;
+                                pullcells(sp, qbuf, ch2, cellref_current(sp));
                             }
+                            qbuf = 0;
                             break;
 
                             /*
@@ -2519,7 +2520,7 @@ static void cr_line(sheet_t *sp, int action) {
                             if (sp->curcol > fr->ir_right->col) {
                                 backcol(sp, 1);
                                 if (sp->autoinsert)
-                                    sp->curcol += insertcol(sp, cellref_current(sp), 1, 1);
+                                    sp->curcol += insertcols(sp, cellref_current(sp), 1, 1);
                                 else {
                                     sp->currow = fr->ir_right->row;
                                     if (row_hidden(sp, sp->currow))
@@ -2527,7 +2528,7 @@ static void cr_line(sheet_t *sp, int action) {
                                 }
                             }
                         } else if (sp->autoinsert)
-                            sp->currow += insertrow(sp, cellref_current(sp), 1, 1);
+                            sp->currow += insertrows(sp, cellref_current(sp), 1, 1);
                     }
                 } else
                     forwrow(sp, 1);
@@ -2550,7 +2551,7 @@ static void cr_line(sheet_t *sp, int action) {
                             if (sp->currow > fr->ir_right->row) {
                                 backrow(sp, 1);
                                 if (sp->autoinsert)
-                                    sp->currow += insertrow(sp, cellref_current(sp), 1, 1);
+                                    sp->currow += insertrows(sp, cellref_current(sp), 1, 1);
                                 else {
                                     sp->curcol = fr->ir_right->col;
                                     if (col_hidden(sp, sp->curcol))
@@ -2558,7 +2559,7 @@ static void cr_line(sheet_t *sp, int action) {
                                 }
                             }
                         } else if (sp->autoinsert)
-                            sp->curcol += insertcol(sp, cellref_current(sp), 1, 1);
+                            sp->curcol += insertcols(sp, cellref_current(sp), 1, 1);
                     }
                 } else
                     forwcol(sp, 1);

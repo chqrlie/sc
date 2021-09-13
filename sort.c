@@ -22,7 +22,7 @@ static int howmany;
 void sortrange(sheet_t *sp, rangeref_t rr, SCXMEM string_t *criteria) {
     SCXMEM int *rows;
     int minr, minc, maxr, maxc;
-    int i, r, nrows, col, len, qtmp;
+    int i, r, nrows, col, len;
     const char *cp;
     struct ent *p;
 
@@ -94,12 +94,13 @@ void sortrange(sheet_t *sp, rangeref_t rr, SCXMEM string_t *criteria) {
     // XXX: this is bogus: cell values and formats should be changed
     //      but not moved and borders should be left unchanged?
     /* move cell range to subsheet delbuf[++dbidx] */
+    dbidx = 0;  /* avoid clobbering delbuf[0] */
     erase_area(sp, ++dbidx, minr, minc, maxr, maxc, 1);
     // XXX: make formulas that refer to the sort range
     //      point to empty cells
     // XXX: should we use sync_refs() instead?
     sync_ranges(sp);
-    for (i = 0, p = delbuf_ptr[dbidx]; p; p = p->next) {
+    for (i = 0, p = delbuf[dbidx].ptr; p; p = p->next) {
         if (rows[i] != p->row) {
             /* find destination row */
             for (i = 0; i < nrows && rows[i] != p->row; i++)
@@ -113,13 +114,8 @@ void sortrange(sheet_t *sp, rangeref_t rr, SCXMEM string_t *criteria) {
         }
         p->row = minr + i; // XXX: sync formulas ?
     }
-    // XXX: Achtung! pullcells uses qbuf if set
-    qtmp = qbuf;
-    qbuf = 0;
-    pullcells(sp, 'm', cellref(minr, minc));    /* PULLMERGE */
-    qbuf = qtmp;
-    /* free delbuf[dbidx--] */
-    flush_saved(dbidx--);
+    pullcells(sp, dbidx, 'm', cellref(minr, minc));    /* PULLMERGE */
+    delbuf_free(dbidx--);
 
     // XXX: should actually move to the new position of the same cell
 

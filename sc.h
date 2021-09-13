@@ -61,6 +61,10 @@ extern const char *progname;
 #define CPAIRS            8   /* Number of color pairs available */
 #define COLFORMATS       10   /* Number of custom column formats */
 #define DELBUFSIZE       40   /* Number of named buffers + 4 */
+#define DELBUF_A   (DELBUFSIZE - 36)
+#define DELBUF_0   (DELBUFSIZE - 10)
+#define DELBUF_1   (DELBUFSIZE - 9)
+#define DELBUF_9   (DELBUFSIZE - 1)
 
 typedef unsigned char sc_bool_t;
 
@@ -477,7 +481,16 @@ extern int linelim;
 extern int changed;
 
 /* temporary sheet fragments: stack of 4 work buffers and 36 named buffers (a-z,0-9) */
-extern SCXMEM struct ent *delbuf_ptr[DELBUFSIZE];
+typedef struct subsheet {
+    int minrow, mincol, maxrow, maxow;
+    int qbuf_was_here, ncols, nrows;
+    SCXMEM struct ent *ptr;  /* list of allocated cells */
+    SCXMEM colfmt_t *colfmt;
+    SCXMEM rowfmt_t *rowfmt;
+} subsheet_t;
+
+extern subsheet_t delbuf[DELBUFSIZE];  // XXX: should be a stack of pointers
+
 extern int dbidx;
 extern int qbuf;                /* buffer no. specified by `"' command */
 extern int macrofd;
@@ -655,7 +668,6 @@ extern int cols_width(sheet_t *sp, int c, int n);
 /*---------------- spreadsheet editing ----------------*/
 
 extern void deletecols(sheet_t *sp, int c1, int c2);
-extern void closerow(sheet_t *sp, int r, int numrow);
 extern void deleterows(sheet_t *sp, int r1, int r2);
 extern void copy_set_source_range(int r1, int c1, int r2, int c2);
 #define COPY_FROM_RANGE   0x01
@@ -672,20 +684,20 @@ extern void erase_area(sheet_t *sp, int idx, int sr, int sc, int er, int ec, int
 extern void eraser(sheet_t *sp, rangeref_t rr);
 extern void fillr(sheet_t *sp, rangeref_t rr, double start, double inc, int bycols);
 extern void free_ent_list(void);
-extern int flush_saved(int idx);  /* free delbuf[idx] */
+extern int delbuf_free(int idx);
 extern void fix_ranges(sheet_t *sp, int row1, int col1, int row2, int col2,
                        int delta1, int delta2, struct frange *fr);
 extern void let(sheet_t *sp, cellref_t cr, SCXMEM enode_t *e, int align);
 extern void unlet(sheet_t *sp, cellref_t cr);
-extern int insertcol(sheet_t *sp, cellref_t cr, int arg, int delta);
-extern int insertrow(sheet_t *sp, cellref_t cr, int arg, int delta);
+extern int insertcols(sheet_t *sp, cellref_t cr, int arg, int delta);
+extern int insertrows(sheet_t *sp, cellref_t cr, int arg, int delta);
 extern void move_area(sheet_t *sp, int dr, int dc, rangeref_t rr);
 extern void mover(sheet_t *sp, cellref_t cr, rangeref_t rr);
 extern void moveto(sheet_t *sp, rangeref_t rr, cellref_t st);
-extern void pullcells(sheet_t *sp, int to_insert, cellref_t cr);
+extern void cmd_pullcells(sheet_t *sp, int cmd);
+extern void pullcells(sheet_t *sp, int idx, int cmd, cellref_t cr);
 extern void sortrange(sheet_t *sp, rangeref_t rr, SCXMEM string_t *criteria);
 extern void valueize_area(sheet_t *sp, rangeref_t rr);
-extern void yank_area(sheet_t *sp, rangeref_t rr);
 extern void sync_ranges(sheet_t *sp);
 extern void sync_refs(sheet_t *sp);
 extern void yankcols(sheet_t *sp, int c1, int c2);

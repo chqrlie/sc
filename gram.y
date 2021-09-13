@@ -427,14 +427,14 @@ command:  S_LET var_or_range '=' e      { let(sht, $2.left, $4, -1); }
         | S_ENDLEFT                     { doend(sht,  0, -1); }
         | S_ENDRIGHT                    { doend(sht,  0,  1); }
         | S_SELECT STRING               { cmd_select_qbuf(string_to_char($2)); }
-        | S_INSERTROW                   { insertrow(sht, cellref_current(sht),  1, 0); }
-        | S_INSERTROW '*' NUMBER        { insertrow(sht, cellref_current(sht), $3, 0); }
-        | S_INSERTCOL                   { insertcol(sht, cellref_current(sht),  1, 0); }
-        | S_INSERTCOL '*' NUMBER        { insertcol(sht, cellref_current(sht), $3, 0); }
-        | S_OPENROW                     { sht->currow += insertrow(sht, cellref_current(sht),  1, 1); }
-        | S_OPENROW '*' NUMBER          { sht->currow += insertrow(sht, cellref_current(sht), $3, 1); }
-        | S_OPENCOL                     { sht->curcol += insertcol(sht, cellref_current(sht),  1, 1); }
-        | S_OPENCOL '*' NUMBER          { sht->curcol += insertcol(sht, cellref_current(sht), $3, 1); }
+        | S_INSERTROW                   { insertrows(sht, cellref_current(sht),  1, 0); }
+        | S_INSERTROW '*' NUMBER        { insertrows(sht, cellref_current(sht), $3, 0); }
+        | S_INSERTCOL                   { insertcols(sht, cellref_current(sht),  1, 0); }
+        | S_INSERTCOL '*' NUMBER        { insertcols(sht, cellref_current(sht), $3, 0); }
+        | S_OPENROW                     { sht->currow += insertrows(sht, cellref_current(sht),  1, 1); }
+        | S_OPENROW '*' NUMBER          { sht->currow += insertrows(sht, cellref_current(sht), $3, 1); }
+        | S_OPENCOL                     { sht->curcol += insertcols(sht, cellref_current(sht),  1, 1); }
+        | S_OPENCOL '*' NUMBER          { sht->curcol += insertcols(sht, cellref_current(sht), $3, 1); }
         | S_DELETEROW                   { if (sht->showrange == SHOWROWS)
                                             deletecols(sht, sht->showsr, sht->currow);
                                           else
@@ -467,13 +467,13 @@ command:  S_LET var_or_range '=' e      { let(sht, $2.left, $4, -1); }
         | S_YANKCOL NUMBER              { yankcols(sht, $2, $2); }
         | S_YANKCOL '*' NUMBER          { yankcols(sht, sht->curcol, sht->curcol + $3 - 1); }
         | S_YANKCOL COL ':' COL         { yankcols(sht, $2, $4); }
-        | S_PULL                        { pullcells(sht, 'p', cellref_current(sht)); }
-        | S_PULLMERGE                   { pullcells(sht, 'm', cellref_current(sht)); }
-        | S_PULLROWS                    { pullcells(sht, 'r', cellref_current(sht)); }
-        | S_PULLCOLS                    { pullcells(sht, 'c', cellref_current(sht)); }
-        | S_PULLXCHG                    { pullcells(sht, 'x', cellref_current(sht)); }
-        | S_PULLTP                      { pullcells(sht, 't', cellref_current(sht)); }
-        | S_PULLFMT                     { pullcells(sht, 'f', cellref_current(sht)); }
+        | S_PULL                        { cmd_pullcells(sht, 'p'); }
+        | S_PULLMERGE                   { cmd_pullcells(sht, 'm'); }
+        | S_PULLROWS                    { cmd_pullcells(sht, 'r'); }
+        | S_PULLCOLS                    { cmd_pullcells(sht, 'c'); }
+        | S_PULLXCHG                    { cmd_pullcells(sht, 'x'); }
+        | S_PULLTP                      { cmd_pullcells(sht, 't'); }
+        | S_PULLFMT                     { cmd_pullcells(sht, 'f'); }
         | S_PULLCOPY                    { copy(sht, COPY_FROM_QBUF, rangeref_current(sht), rangeref_empty()); }
         | S_PULLCOPY var_or_range       { copy(sht, COPY_FROM_QBUF, $2, rangeref_empty()); }
 

@@ -59,7 +59,8 @@ static void unlink_block(struct dlink *p) {
 #endif
 
 #ifdef SCXMALLOC_USE_MAGIC
-# define MAGIC   (double)1234567890.12344
+# define MAGIC        123456789.0
+# define MAGIC_FREE   987654321.0
 # ifdef SCXMALLOC_TRACK_BLOCKS
 #  define MAGIC_SIZE  sizeof(struct dlink)
 # else
@@ -96,15 +97,20 @@ SCXMEM void *scxrealloc(SCXMEM void *ptr, size_t n) {
         return NULL;
     }
     ptr = (unsigned char *)ptr - MAGIC_SIZE;
-    unlink_block(ptr);
 #ifdef SCXMALLOC_USE_MAGIC
-    if (*((double *)ptr) != MAGIC)
-        fatal("scxrealloc: storage not scxmalloc'ed");
+    if (*((double *)ptr) != MAGIC) {
+        if (*((double *)ptr) == MAGIC_FREE)
+            fatal("scxrealloc: block already freed");
+        else
+            fatal("scxrealloc: block not scxmalloc'ed");
+    }
+    *((double *)ptr) = MAGIC_FREE;
 #endif
+    unlink_block(ptr);
     ptr = realloc(ptr, n + MAGIC_SIZE);
     if (ptr == NULL) {
 #ifdef SCXMALLOC_FAILURE_IS_FATAL
-        fatal("scxmalloc: no memory");
+        fatal("scxrealloc: no memory");
 #endif
     } else {
         link_block(ptr, n);
@@ -125,11 +131,16 @@ SCXMEM char *scxdup(const char *s) {
 void scxfree(SCXMEM void *p) {
     if (p != NULL) {
         p = (unsigned char*)p - MAGIC_SIZE;
-        unlink_block(p);
 #ifdef SCXMALLOC_USE_MAGIC
-        if (*((double *)p) != MAGIC)
-            fatal("scxfree: storage not malloc'ed");
+        if (*((double *)p) != MAGIC) {
+            if (*((double *)p) == MAGIC_FREE)
+                fatal("scxfree: block already freed");
+            else
+                fatal("scxfree: block not scxmalloc'ed");
+        }
+        *((double *)p) = MAGIC_FREE;
 #endif
+        unlink_block(p);
         free(p);
     }
 }
