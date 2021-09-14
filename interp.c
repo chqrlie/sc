@@ -741,15 +741,22 @@ static scvalue_t eval_lookup(eval_ctx_t *cp, enode_t *e) {
 
 static int eval_test(eval_ctx_t *cp, enode_t *e, int *errp) {
     scvalue_t a = eval_node_value(cp, e);
-    if (a.type == SC_NUMBER || a.type == SC_BOOLEAN)
+    switch (a.type) {
+    case SC_NUMBER:
+    case SC_BOOLEAN:
         return a.u.v != 0;
-    if (a.type == SC_STRING) {
-        int res = s2str(a.u.str)[0] != '\0';
-        string_free(a.u.str);
-        return res;
+    case SC_STRING: {
+            int res = s2str(a.u.str)[0] != '\0';
+            string_free(a.u.str);
+            return res;
+        }
+    case SC_ERROR:
+        *errp = a.u.error;
+        FALLTHROUGH;
+    case SC_EMPTY:
+    default:
+        return 0;
     }
-    *errp = a.u.error;
-    return 0;
 }
 
 #if 0
@@ -2630,6 +2637,48 @@ static scvalue_t eval_isbetween(eval_ctx_t *cp, enode_t *e) {
     scvalue_free(a);
     scvalue_free(b);
     scvalue_free(c);
+    return scvalue_boolean(t);
+}
+
+int buf_putvalue(buf_t buf, scvalue_t a) {
+    switch (a.type) {
+    case SC_NUMBER:  return buf_printf(buf, "%.15g", a.u.v);
+    case SC_BOOLEAN: return buf_puts(buf, a.u.v ? "TRUE" : "FALSE");
+    case SC_STRING:  return buf_quotestr(buf, '"', s2c(a.u.str), '"');
+    case SC_EMPTY:
+    default:         return 0;
+    }
+}
+
+static scvalue_t eval_assert(eval_ctx_t *cp, enode_t *e) {
+    char buff[FBUFLEN];
+    buf_t buf;
+    int t;
+    scvalue_t a = eval_node_value(cp, e->e.args[0]);
+    scvalue_t b = scvalue_empty();
+    if (e->nargs > 1) {
+        b = eval_node_value(cp, e->e.args[1]);
+        t = scvalue_cmp(OP_EQ, a, b);
+    } else {
+        t = (a.type == SC_NUMBER || a.type == SC_BOOLEAN) ?
+            (a.u.v != 0) :
+            (a.type == SC_STRING) ?
+            (s2str(a.u.str)[0] != '\0') : 0;
+    }
+    if (!t) {
+        buf_init(buf, buff, sizeof buff);
+        buf_printf(buf, "%s: assertion failed: ", v_name(cp->sp, cp->gmyrow, cp->gmycol));
+        decompile_expr(cp->sp, buf, e->e.args[0], 0, 0, DCP_DEFAULT);
+        buf_puts(buf, " -> ");
+        buf_putvalue(buf, a);
+        if (e->nargs > 1) {
+            buf_puts(buf, ", expected ");
+            buf_putvalue(buf, b);
+        }
+        error("%s", buf->buf);
+    }
+    scvalue_free(a);
+    scvalue_free(b);
     return scvalue_boolean(t);
 }
 

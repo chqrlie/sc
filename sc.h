@@ -633,6 +633,7 @@ extern enode_t *copye(sheet_t *sp, enode_t *e, int Rdelta, int Cdelta,
 extern int decompile(sheet_t *sp, char *dest, size_t size, enode_t *e, int dr, int dc, int dcp_flags);
 extern int decompile_expr(sheet_t *sp, buf_t buf, enode_t *e, int dr, int dc, int flags);
 extern void efree(SCXMEM enode_t *e);
+extern int buf_putvalue(buf_t buf, scvalue_t a);
 extern void free_enode_list(void);
 
 extern void EvalAll(sheet_t *sp);

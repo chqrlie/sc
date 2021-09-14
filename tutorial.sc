@@ -120,6 +120,7 @@ let M19 = @days360(L8,M8)
 leftstring B20 = "'g c6' will take you to cell c6."
 leftstring H20 = @ext("pwd")
 leftstring A21 = "Cells can contain numbers, formulas, or text."
+let F21 = @assert(@len("zzz"),3)
 let I21 = @sum(I9:I14)
 let J21 = @sum(J9:J14)
 let K21 = @sum(K9:K14)

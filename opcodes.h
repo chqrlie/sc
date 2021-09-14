@@ -270,6 +270,7 @@ __( OP_SHEETS,          0, 1, NULL, NULL, "SHEETS([Reference])", "Returns the nu
 OP( OP_TYPE,            1, 1, eval_type, NULL, "TYPE(value)", "Returns a number associated with the type of data passed into the function")
 __( OP_VALUE,           1, 1, NULL, NULL, "VALUE(text)", "Converts a string in any of the date, time or number formats that Google Sheets understands into a number")
 
+XX( OP_ASSERT,          1, 2, eval_assert, NULL, "ASSERT(e, [value])", "Checks that an expression evaluates to a given value or report failure")
 XX( OP_COLS,            1, 1, eval_rows_cols, NULL, "@cols", NULL)
 XX( OP_COLTOA,          1, 1, eval_coltoa, NULL, "@coltoa", NULL)
 XX( OP_FILENAME,        1, 1, eval_filename, NULL, "@filename", NULL)
