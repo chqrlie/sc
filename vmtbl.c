@@ -121,7 +121,6 @@ int growtbl(sheet_t *sp, int mode, int toprow, int topcol) {
             GROWALLOC(sp->tbl[row], 0, newcols, nolonger, NULL);
         }
     }
-    FullUpdate++;
     sp->maxrows = newrows;
     sp->maxcols = newcols;
 

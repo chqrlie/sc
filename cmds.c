@@ -46,11 +46,14 @@ static void delbuf_rotate(int idx1, int idx2) {
 }
 
 static void delbuf_clear(int idx) {
-    delbuf[idx].qbuf_was_here = 0;
-    delbuf[idx].ncols = delbuf[idx].nrows = 0;
-    delbuf[idx].ptr = NULL;
-    delbuf[idx].colfmt = NULL;
-    delbuf[idx].rowfmt = NULL;
+    subsheet_t *db = &delbuf[idx];
+    db->minrow = db->mincol = 0;
+    db->maxrow = db->maxcol = -1;
+    db->qbuf_was_here = 0;
+    db->ncols = db->nrows = 0;
+    db->ptr = NULL;
+    db->colfmt = NULL;
+    db->rowfmt = NULL;
 }
 
 static void delbuf_copy(int dest, int src) {
@@ -135,28 +138,30 @@ void free_ent_list(void) {
 
 /* free deleted cells */
 int delbuf_free(int idx) {
+    subsheet_t *db;
     struct ent *p, *next;
     int i;
 
     if (idx < 0)
         return 0;
 
-    if (!delbuf[idx].ptr && !delbuf[idx].colfmt && !delbuf[idx].rowfmt)
+    db = &delbuf[idx];
+    if (!db->ptr && !db->colfmt && !db->rowfmt)
         return 0;
 
     /* detect duplicate and clear pointers */
     for (i = 0; i < DELBUFSIZE; i++) {
         if (i == idx)
             continue;
-        if (delbuf[idx].ptr == delbuf[i].ptr)
-            delbuf[idx].ptr = NULL;
-        if (delbuf[idx].colfmt == delbuf[i].colfmt)
-            delbuf[idx].colfmt = NULL;
-        if (delbuf[idx].rowfmt == delbuf[i].rowfmt)
-            delbuf[idx].rowfmt = NULL;
+        if (db->ptr == delbuf[i].ptr)
+            db->ptr = NULL;
+        if (db->colfmt == delbuf[i].colfmt)
+            db->colfmt = NULL;
+        if (db->rowfmt == delbuf[i].rowfmt)
+            db->rowfmt = NULL;
     }
 
-    for (p = delbuf[idx].ptr; p; p = next) {
+    for (p = db->ptr; p; p = next) {
         // XXX: entries are added to freeents in reverse order
         //      but they were added to the delbuf in reverse order too
         next = p->next;
@@ -164,12 +169,12 @@ int delbuf_free(int idx) {
         p->next = freeents;     /* put this ent on the front of freeents */
         freeents = p;
     }
-    delbuf[idx].ptr = NULL;
-    scxfree(delbuf[idx].rowfmt);
-    delbuf[idx].rowfmt = NULL;
-    scxfree(delbuf[idx].colfmt);
-    delbuf[idx].colfmt = NULL;
-    delbuf[idx].ncols = delbuf[idx].nrows = 0;
+    db->ptr = NULL;
+    scxfree(db->rowfmt);
+    db->rowfmt = NULL;
+    scxfree(db->colfmt);
+    db->colfmt = NULL;
+    db->ncols = db->nrows = 0;
     return 1;
 }
 
@@ -709,7 +714,9 @@ void yankcols(sheet_t *sp, int c1, int c2) {
 /* ignorelock is used when sorting so that locked cells can still be sorted */
 
 /* move cell range to subsheet delbuf[idx] */
+// XXX: should not modify sheet boundaries
 void erase_area(sheet_t *sp, int idx, int sr, int sc, int er, int ec, int ignorelock) {
+    subsheet_t *db = &delbuf[idx];
     int r, c;
 
     if (sr > er) SWAPINT(sr, er);
@@ -727,15 +734,20 @@ void erase_area(sheet_t *sp, int idx, int sr, int sc, int er, int ec, int ignore
     lookat(sp, er, ec);
 
     delbuf_free(idx);
-    delbuf[idx].ncols = ec - sc + 1;
-    delbuf[idx].colfmt = scxmalloc(delbuf[idx].ncols * sizeof(colfmt_t));
+    db->minrow = sr;
+    db->mincol = sc;
+    db->maxrow = er;
+    db->maxcol = ec;
+    db->qbuf_was_here = 0;
+    db->ncols = ec - sc + 1;
+    db->nrows = er - sr + 1;
+    db->colfmt = scxmalloc(db->ncols * sizeof(colfmt_t));
     for (c = sc; c <= ec; c++) {
-        delbuf[idx].colfmt[c - sc] = sp->colfmt[c];
+        db->colfmt[c - sc] = sp->colfmt[c];
     }
-    delbuf[idx].nrows = er - sr + 1;
-    delbuf[idx].rowfmt = scxmalloc(delbuf[idx].nrows * sizeof(rowfmt_t));
+    db->rowfmt = scxmalloc(db->nrows * sizeof(rowfmt_t));
     for (r = sr; r <= er; r++) {
-        delbuf[idx].rowfmt[r - sr] = sp->rowfmt[r];
+        db->rowfmt[r - sr] = sp->rowfmt[r];
     }
     // XXX: should have range_kill()
     for (r = sr; r <= er; r++) {

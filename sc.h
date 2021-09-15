@@ -482,7 +482,7 @@ extern int changed;
 
 /* temporary sheet fragments: stack of 4 work buffers and 36 named buffers (a-z,0-9) */
 typedef struct subsheet {
-    int minrow, mincol, maxrow, maxow;
+    int minrow, mincol, maxrow, maxcol;
     int qbuf_was_here, ncols, nrows;
     SCXMEM struct ent *ptr;  /* list of allocated cells */
     SCXMEM colfmt_t *colfmt;
