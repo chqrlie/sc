@@ -86,8 +86,13 @@ struct cellref {
     unsigned char vf;
 };
 
-#define FIX_ROW 1
-#define FIX_COL 2
+#define FIX_ROW         001
+#define FULL_ROW        002
+#define INVALID_ROW     004
+#define FIX_COL         010
+#define FULL_COL        020
+#define INVALID_COL     040
+#define INVALID_REF     044
 
 /* a rangeref has 2 cell references. The sheet should be identical */
 typedef struct rangeref rangeref_t;
@@ -489,10 +494,6 @@ typedef struct subsheet {
     SCXMEM rowfmt_t *rowfmt;
 } subsheet_t;
 
-extern subsheet_t delbuf[DELBUFSIZE];  // XXX: should be a stack of pointers
-
-extern int dbidx;
-extern int qbuf;                /* buffer no. specified by `"' command */
 extern int macrofd;
 extern int brokenpipe;          /* Set to true if SIGPIPE is received */
 extern char dpoint;     /* country-dependent decimal point from locale */
@@ -590,6 +591,11 @@ static inline rangeref_t rangeref_empty(void) {
     return rangeref(0, 0, -1, -1);
 }
 
+static inline int cell_in_range(cellref_t cr, rangeref_t rr) {
+    return (cr.row >= rr.left.row && cr.row <= rr.right.row &&
+            cr.col >= rr.left.col && cr.col <= rr.right.col);
+}
+
 extern rangeref_t *range_normalize(rangeref_t *rr);
 extern sheet_t *sheet_init(sheet_t *sp); /* initialize settings to default values */
 extern void erasedb(sheet_t *sp);
@@ -681,13 +687,9 @@ extern int dupcol(sheet_t *sp, cellref_t cr);
 extern int duprow(sheet_t *sp, cellref_t cr);
 extern void cmd_select_qbuf(char c);
 extern int edit_cell(sheet_t *sp, buf_t buf, int row, int col, struct ent *p, int dcp_flags, int c0);
-extern void erase_area(sheet_t *sp, int idx, int sr, int sc, int er, int ec, int ignorelock);
 extern void eraser(sheet_t *sp, rangeref_t rr);
 extern void fillr(sheet_t *sp, rangeref_t rr, double start, double inc, int bycols);
 extern void free_ent_list(void);
-extern int delbuf_free(int idx);
-extern void fix_ranges(sheet_t *sp, int row1, int col1, int row2, int col2,
-                       int delta1, int delta2, struct frange *fr);
 extern void let(sheet_t *sp, cellref_t cr, SCXMEM enode_t *e, int align);
 extern void unlet(sheet_t *sp, cellref_t cr);
 extern int insertcols(sheet_t *sp, cellref_t cr, int arg, int delta);
@@ -695,7 +697,7 @@ extern int insertrows(sheet_t *sp, cellref_t cr, int arg, int delta);
 extern void move_area(sheet_t *sp, int dr, int dc, rangeref_t rr);
 extern void mover(sheet_t *sp, cellref_t cr, rangeref_t rr);
 extern void moveto(sheet_t *sp, rangeref_t rr, cellref_t st);
-extern void cmd_pullcells(sheet_t *sp, int cmd);
+extern void cmd_pullcells(sheet_t *sp, int cmd, int uarg);
 extern void pullcells(sheet_t *sp, int idx, int cmd, cellref_t cr);
 extern void sortrange(sheet_t *sp, rangeref_t rr, SCXMEM string_t *criteria);
 extern void valueize_area(sheet_t *sp, rangeref_t rr);
@@ -777,6 +779,8 @@ extern void nrange_list(sheet_t *sp, FILE *f);
 extern struct nrange *nrange_find_coords(sheet_t *sp, rangeref_t rr);
 extern void nrange_sync(sheet_t *sp);
 extern void nrange_write(sheet_t *sp, FILE *f);
+extern void nrange_fix(sheet_t *sp, int row1, int col1, int row2, int col2,
+                       int delta1, int delta2, struct frange *fr);
 
 /*---------------- frame ranges ----------------*/
 

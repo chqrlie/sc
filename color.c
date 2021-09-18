@@ -248,6 +248,7 @@ void crange_fix(sheet_t *sp, int row1, int col1, int row2, int col2,
         c2 = cr->r_right->col;
 
         if (!fr || (c1 >= fr->or_left->col && c1 <= fr->or_right->col)) {
+            // XXX: why test for single row and single column?
             if (r1 != r2 && r1 >= row1 && r1 <= row2) r1 = row2 - delta1;
             if (c1 != c2 && c1 >= col1 && c1 <= col2) c1 = col2 - delta1;
         }

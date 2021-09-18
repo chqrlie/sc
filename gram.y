@@ -467,13 +467,13 @@ command:  S_LET var_or_range '=' e      { let(sht, $2.left, $4, -1); }
         | S_YANKCOL NUMBER              { yankcols(sht, $2, $2); }
         | S_YANKCOL '*' NUMBER          { yankcols(sht, sht->curcol, sht->curcol + $3 - 1); }
         | S_YANKCOL COL ':' COL         { yankcols(sht, $2, $4); }
-        | S_PULL                        { cmd_pullcells(sht, 'p'); }
-        | S_PULLMERGE                   { cmd_pullcells(sht, 'm'); }
-        | S_PULLROWS                    { cmd_pullcells(sht, 'r'); }
-        | S_PULLCOLS                    { cmd_pullcells(sht, 'c'); }
-        | S_PULLXCHG                    { cmd_pullcells(sht, 'x'); }
-        | S_PULLTP                      { cmd_pullcells(sht, 't'); }
-        | S_PULLFMT                     { cmd_pullcells(sht, 'f'); }
+        | S_PULL                        { cmd_pullcells(sht, 'p', 1); }
+        | S_PULLMERGE                   { cmd_pullcells(sht, 'm', 1); }
+        | S_PULLROWS                    { cmd_pullcells(sht, 'r', 1); }
+        | S_PULLCOLS                    { cmd_pullcells(sht, 'c', 1); }
+        | S_PULLXCHG                    { cmd_pullcells(sht, 'x', 1); }
+        | S_PULLTP                      { cmd_pullcells(sht, 't', 1); }
+        | S_PULLFMT                     { cmd_pullcells(sht, 'f', 1); }
         | S_PULLCOPY                    { copy(sht, COPY_FROM_QBUF, rangeref_current(sht), rangeref_empty()); }
         | S_PULLCOPY var_or_range       { copy(sht, COPY_FROM_QBUF, $2, rangeref_empty()); }
 

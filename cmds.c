@@ -24,12 +24,20 @@ static struct ent *freeents = NULL;
  * We also use it as a last-deleted buffer for the 'p' command.
  */
 /* temporary sheet fragments: 4 work buffers and 36 named buffers (a-z,0-9) */
-subsheet_t delbuf[DELBUFSIZE];
-int dbidx = 0;
+static subsheet_t delbuf[DELBUFSIZE];
+static int dbidx;
+static int qbuf;       /* buffer no. specified by " command */
 
 static int any_locked_cells(sheet_t *sp, int r1, int c1, int r2, int c2);
 static void yank_area(sheet_t *sp, int idx, rangeref_t rr);
 static void closerow(sheet_t *sp, int idx, int r, int numrow);
+static int delbuf_free(int idx);
+#define EA_DEFAULT      0
+#define EA_IGNORE_LOCK  1
+#define EA_NO_FMT       2
+static void erase_area(sheet_t *sp, int idx, int sr, int sc, int er, int ec, int flags);
+static void fix_ranges(sheet_t *sp, int row1, int col1, int row2, int col2,
+                       int delta1, int delta2, struct frange *fr);
 
 /* swap 2 entries in the delbuf array */
 static void delbuf_swap(int idx1, int idx2) {
@@ -137,7 +145,7 @@ void free_ent_list(void) {
 }
 
 /* free deleted cells */
-int delbuf_free(int idx) {
+static int delbuf_free(int idx) {
     subsheet_t *db;
     struct ent *p, *next;
     int i;
@@ -376,43 +384,6 @@ int insertrows(sheet_t *sp, cellref_t cr, int arg, int delta) {
         if (delta && fr->ir_right->row == cr.row)
             fr->ir_right = lookat(sp, fr->ir_right->row + arg, fr->ir_right->col);
 
-        for (i = 0; i < 37; i++) {      /* update all marked cells */
-            if (savedcr[i].row >= rr.left.row &&
-                savedcr[i].col >= rr.left.col &&
-                savedcr[i].col <= rr.right.col)
-                savedcr[i].row += arg;
-            if (savedst[i].row >= rr.left.row &&
-                savedst[i].col >= rr.left.col &&
-                savedst[i].col <= rr.right.col)
-                savedst[i].row += arg;
-        }
-        if (gs.g_rr.left.row >= rr.left.row &&
-            gs.g_rr.left.col >= rr.left.col &&
-            gs.g_rr.left.col <= rr.right.col)
-            gs.g_rr.left.row += arg;
-        if (gs.g_rr.right.row >= rr.left.row &&
-            gs.g_rr.right.col >= rr.left.col &&
-            gs.g_rr.right.col <= rr.right.col)
-            gs.g_rr.right.row += arg;
-        if (gs.st.row >= rr.left.row &&
-            gs.st.col >= rr.left.col &&
-            gs.st.col <= rr.right.col)
-            gs.st.row += arg;
-        for (r = 0; r <= sp->maxrow; r++) {
-            for (c = 0; c <= sp->maxcol; c++) {
-                struct ent *p = getcell(sp, r, c);
-                if (p && (p->flags & HAS_NOTE)) {
-                    if (p->nrr.left.row >= rr.left.row &&
-                        p->nrr.left.col >= rr.left.col &&
-                        p->nrr.left.col <= rr.right.col)
-                        p->nrr.left.row += arg;
-                    if (p->nrr.right.row >= rr.left.row &&
-                        p->nrr.right.col >= rr.left.col &&
-                        p->nrr.right.col <= rr.right.col)
-                        p->nrr.right.row += arg;
-                }
-            }
-        }
     } else {
         /*
          * save the last active row+1, shift the rows downward, put the last
@@ -434,28 +405,30 @@ int insertrows(sheet_t *sp, cellref_t cr, int arg, int delta) {
         }
         sp->rowfmt[r] = tmp_fmt;
         sp->tbl[r] = tmp_row;               /* the last row was never used.... */
-
-        for (i = 0; i < 37; i++) {      /* update all marked cells */
-            if (savedcr[i].row >= rr.left.row)
-                savedcr[i].row += arg;
-            if (savedst[i].row >= rr.left.row)
-                savedst[i].row += arg;
-        }
-        if (gs.g_rr.left.row >= rr.left.row)
-            gs.g_rr.left.row += arg;
-        if (gs.g_rr.right.row >= rr.left.row)
-            gs.g_rr.right.row += arg;
-        if (gs.st.row >= rr.left.row)
-            gs.st.row += arg;
-        for (r = 0; r <= sp->maxrow; r++) {
-            for (c = 0; c <= sp->maxcol; c++) {
-                struct ent *p = getcell(sp, r, c);
-                if (p && (p->flags & HAS_NOTE)) {
-                    if (p->nrr.left.row >= rr.left.row)
-                        p->nrr.left.row += arg;
-                    if (p->nrr.right.row >= rr.left.row)
-                        p->nrr.right.row += arg;
-                }
+    }
+    /* Update all marked cells. */
+    for (i = 0; i < 37; i++) {
+        if (cell_in_range(savedcr[i], rr))
+            savedcr[i].row += arg;
+        if (cell_in_range(savedst[i], rr))
+            savedst[i].row += arg;
+    }
+    /* Update goto targets. */
+    if (cell_in_range(gs.g_rr.left, rr))
+        gs.g_rr.left.row += arg;
+    if (cell_in_range(gs.g_rr.right, rr))
+        gs.g_rr.right.row += arg;
+    if (cell_in_range(gs.st, rr))
+        gs.st.row += arg;
+    /* Update note targets. */
+    for (r = 0; r <= sp->maxrow; r++) {
+        for (c = 0; c <= sp->maxcol; c++) {
+            struct ent *p = getcell(sp, r, c);
+            if (p && (p->flags & HAS_NOTE)) {
+                if (cell_in_range(p->nrr.left, rr))
+                    p->nrr.left.row += arg;
+                if (cell_in_range(p->nrr.right, rr))
+                    p->nrr.right.row += arg;
             }
         }
     }
@@ -516,14 +489,14 @@ int insertcols(sheet_t *sp, cellref_t cr, int arg, int delta) {
         if (savedst[c].col >= sc1)
             savedst[c].col += arg;
     }
+    /* Update goto targets. */
     if (gs.g_rr.left.col >= sc1)
         gs.g_rr.left.col += arg;
     if (gs.g_rr.right.col >= sc1)
         gs.g_rr.right.col += arg;
     if (gs.st.col >= sc1)
         gs.st.col += arg;
-
-    /* Update note links. */
+    /* Update note targets. */
     for (r = 0; r <= sp->maxrow; r++) {
         for (c = 0; c <= sp->maxcol; c++) {
             struct ent *p = getcell(sp, r, c);
@@ -578,16 +551,20 @@ void deleterows(sheet_t *sp, int r1, int r2) {
             FullUpdate++;
             sp->modflg++;
 
+            // XXX: fix this mess
             /* discard named buffer '9' and qbuf if any */
             deldata_discard(DELBUF_9);
             sync_refs(sp);
             /* move cell range to subsheet delbuf[0] */
             // XXX: this is necessary for synching the cell references
-            erase_area(sp, dbidx = 0, r1, c1, r2, c2, 0);
+            // XXX: erase_area should move cells to delbuf[qbuf] and delbuf[0]
+            erase_area(sp, dbidx = 0, r1, c1, r2, c2, EA_DEFAULT);
             fix_ranges(sp, r1, -1, r2, -1, -1, -1, fr);
             /* store delbuf[dbidx] to named buffer '1' after rotation and qbuf if any */
             deldata_store(dbidx, DELBUF_1, DELBUF_9, DD_UNSYNC);
             /* purposely leave dbidx == 0 so move_area does not clobber it */
+
+            // XXX: update current frame, possibly redundant with fix_ranges()
             if (r1 + nrows > fr->ir_right->row && fr->ir_right->row >= r1)
                 fr->ir_right = lookat(sp, r1 - 1, fr->ir_right->col);
             if (r1 + nrows > fr->or_right->row) {
@@ -614,6 +591,7 @@ void deleterows(sheet_t *sp, int r1, int r2) {
                         savedst[i].row -= nrows;
                 }
             }
+            /* Update goto targets. */
             if (gs.g_rr.left.col >= c1 && gs.g_rr.left.col <= c2) {
                 if (gs.g_rr.left.row >= r1 && gs.g_rr.left.row <= r2)
                     gs.g_rr.left.row = r1;
@@ -634,17 +612,20 @@ void deleterows(sheet_t *sp, int r1, int r2) {
                 else if (gs.st.row > r2)
                     gs.st.row -= nrows;
             }
+            // XXX: Should update note targets.
         }
     } else {
         if (any_locked_cells(sp, r1, c1, r2, c2)) {
             error("Locked cells encountered. Nothing changed");
         } else {
+            // XXX: fix this mess
             /* discard named buffer '9' and qbuf if any */
             deldata_discard(DELBUF_9);
             sync_refs(sp);
             /* move cell range to subsheet delbuf[0] */
             // XXX: this is necessary for synching the cell references
-            erase_area(sp, dbidx = 0, r1, c1, r2, c2, 0);
+            // XXX: erase_area should move cells to delbuf[qbuf] and delbuf[0]
+            erase_area(sp, dbidx = 0, r1, c1, r2, c2, EA_DEFAULT);
             fix_ranges(sp, r1, -1, r2, -1, -1, -1, NULL);
             closerow(sp, dbidx, r1, nrows);
             /* store delbuf[dbidx] to named buffer '1' after rotation and qbuf if any */
@@ -715,7 +696,7 @@ void yankcols(sheet_t *sp, int c1, int c2) {
 
 /* move cell range to subsheet delbuf[idx] */
 // XXX: should not modify sheet boundaries
-void erase_area(sheet_t *sp, int idx, int sr, int sc, int er, int ec, int ignorelock) {
+static void erase_area(sheet_t *sp, int idx, int sr, int sc, int er, int ec, int flags) {
     subsheet_t *db = &delbuf[idx];
     int r, c;
 
@@ -741,18 +722,20 @@ void erase_area(sheet_t *sp, int idx, int sr, int sc, int er, int ec, int ignore
     db->qbuf_was_here = 0;
     db->ncols = ec - sc + 1;
     db->nrows = er - sr + 1;
-    db->colfmt = scxmalloc(db->ncols * sizeof(colfmt_t));
-    for (c = sc; c <= ec; c++) {
-        db->colfmt[c - sc] = sp->colfmt[c];
-    }
-    db->rowfmt = scxmalloc(db->nrows * sizeof(rowfmt_t));
-    for (r = sr; r <= er; r++) {
-        db->rowfmt[r - sr] = sp->rowfmt[r];
+    if (!(flags & EA_NO_FMT)) {
+        db->colfmt = scxmalloc(db->ncols * sizeof(colfmt_t));
+        for (c = sc; c <= ec; c++) {
+            db->colfmt[c - sc] = sp->colfmt[c];
+        }
+        db->rowfmt = scxmalloc(db->nrows * sizeof(rowfmt_t));
+        for (r = sr; r <= er; r++) {
+            db->rowfmt[r - sr] = sp->rowfmt[r];
+        }
     }
     // XXX: should have range_kill()
     for (r = sr; r <= er; r++) {
         for (c = sc; c <= ec; c++) {
-            killcell(sp, r, c, idx, ignorelock, 0);
+            killcell(sp, r, c, idx, flags & EA_IGNORE_LOCK, 0);
         }
     }
 }
@@ -762,7 +745,7 @@ static void yank_area(sheet_t *sp, int idx, rangeref_t rr) {
     range_clip(sp, range_normalize(&rr));
     // XXX: should copy area to delbuf[dbidx] instead of move/copy/xchg
     /* move cell range to subsheet delbuf[dbidx] */
-    erase_area(sp, idx, rr.left.row, rr.left.col, rr.right.row, rr.right.col, 0);
+    erase_area(sp, idx, rr.left.row, rr.left.col, rr.right.row, rr.right.col, EA_DEFAULT);
     /* copy and xchg cell range from delbuf[dbidx] back to original position */
     pullcells(sp, idx, 'p', rr.left);
 }
@@ -778,7 +761,7 @@ void move_area(sheet_t *sp, int dr, int dc, rangeref_t rr) {
      * buffer stack.
      */
     /* move cell range to subsheet delbuf[++dbidx] */
-    erase_area(sp, ++dbidx, rr.left.row, rr.left.col, rr.right.row, rr.right.col, 0);
+    erase_area(sp, ++dbidx, rr.left.row, rr.left.col, rr.right.row, rr.right.col, EA_DEFAULT);
 
     deltar = dr - rr.left.row;
     deltac = dc - rr.left.col;
@@ -789,7 +772,7 @@ void move_area(sheet_t *sp, int dr, int dc, rangeref_t rr) {
      * as we go, leaving the stack in its original state.
      */
     /* move cell range to subsheet delbuf[++dbidx] */
-    erase_area(sp, ++dbidx, dr, dc, rr.right.row + deltar, rr.right.col + deltac, 0);
+    erase_area(sp, ++dbidx, dr, dc, rr.right.row + deltar, rr.right.col + deltac, EA_NO_FMT);
     // XXX: why not sync_refs() ??? most likely a bug
     delbuf_free(dbidx--);
     // XXX: if moving entire columns or rows, the column or row flags should be copied
@@ -829,8 +812,15 @@ void valueize_area(sheet_t *sp, rangeref_t rr) {
     sp->modflg++;  // XXX: should be done only upon modification
 }
 
-void cmd_pullcells(sheet_t *sp, int cmd) {
-    pullcells(sp, qbuf, cmd, cellref_current(sp));
+void cmd_pullcells(sheet_t *sp, int cmd, int uarg) {
+    while (uarg--) {
+        // XXX: repeating pullcells makes sense for
+        //      'pc' and 'pr' insert multiple copies
+        //      'px' and 'pt' for performance tests
+        //      'pp' to paste/pop multiple levels
+        dbidx = 0;
+        pullcells(sp, qbuf, cmd, cellref_current(sp));
+    }
     qbuf = 0;
 }
 
@@ -925,14 +915,14 @@ void pullcells(sheet_t *sp, int src, int cmd, cellref_t cr) {
          */
         /* move cell range to subsheet delbuf[++dbidx] */
         erase_area(sp, ++dbidx, minrow + deltar, mincol + deltac,
-                   maxrow + deltar, maxcol + deltac, 0);
+                   maxrow + deltar, maxcol + deltac, EA_DEFAULT);
         /* swap temp buffers at top of stack */
         delbuf_swap(dbidx, dbidx - 1);
     } else
     if (cmd == 'p') {     /* PULL */
         /* move cell range to subsheet delbuf[++dbidx] */
         erase_area(sp, ++dbidx, minrow + deltar, mincol + deltac,
-                   maxrow + deltar, maxcol + deltac, 0);
+                   maxrow + deltar, maxcol + deltac, EA_NO_FMT);
         sync_refs(sp);
         delbuf_free(dbidx--);
     } else
@@ -940,7 +930,7 @@ void pullcells(sheet_t *sp, int src, int cmd, cellref_t cr) {
         /* move cell range to subsheet delbuf[++dbidx] */
         erase_area(sp, ++dbidx, minrow + deltar, mincol + deltac,
                    minrow + deltar + maxcol - mincol,
-                   mincol + deltac + maxrow - minrow, 0);
+                   mincol + deltac + maxrow - minrow, EA_NO_FMT);
         sync_refs(sp);
         delbuf_free(dbidx--);
     }
@@ -1026,19 +1016,25 @@ void pullcells(sheet_t *sp, int src, int cmd, cellref_t cr) {
 
 /* delete numrow rows, starting with rs */
 static void closerow(sheet_t *sp, int idx, int rs, int numrow) {
-    int r, c, i;
+    int r, c, i, r1, r2;
     struct ent **tmprow;
     rowfmt_t def_rowfmt = { FALSE };
 
-    if (rs + numrow - 1 > sp->maxrow) return;
-    r = rs;
+    r1 = rs;
+    r2 = rs + numrow - 1;
+    if (r1 > sp->maxrow) return;
+    if (r2 > sp->maxrow) {
+        r2 = sp->maxrow;
+        numrow = r2 - r1 + 1;
+    }
+    r = r1;
 
     /*
      * Rows are dealt with in numrow groups, each group of rows spaced numrow
      * rows apart.
      */
     for (i = 0; i < numrow; i++) {
-        r = rs + i;
+        r = r1 + i;
 
         /* empty the first row of the group */
         for (c = 0; c < sp->maxcol; c++) {
@@ -1062,44 +1058,45 @@ static void closerow(sheet_t *sp, int idx, int rs, int numrow) {
 
     /* Update all marked cells. */
     for (i = 0; i < 37; i++) {
-        if (savedcr[i].row >= rs && savedcr[i].row < rs + numrow)
+        if (savedcr[i].row >= r1 && savedcr[i].row <= r2)
             savedcr[i].row = savedcr[i].col = -1;
-        else if (savedcr[i].row >= rs + numrow)
+        else if (savedcr[i].row > r2)
             savedcr[i].row -= numrow;
-        if (savedst[i].row >= rs && savedst[i].row < rs + numrow)
-            savedst[i].row = rs;
-        else if (savedst[i].row >= rs + numrow)
+        if (savedst[i].row >= r1 && savedst[i].row <= r2)
+            savedst[i].row = r1;
+        else if (savedst[i].row > r2)
             savedst[i].row -= numrow;
     }
-    if (gs.g_rr.left.row >= rs && gs.g_rr.left.row < rs + numrow)
-        gs.g_rr.left.row = rs;
-    else if (gs.g_rr.left.row >= rs + numrow)
+    /* Update goto targets. */
+    if (gs.g_rr.left.row >= r1 && gs.g_rr.left.row <= r2)
+        gs.g_rr.left.row = r1;
+    else if (gs.g_rr.left.row > r2)
         gs.g_rr.left.row -= numrow;
-    if (gs.g_rr.right.row >= rs && gs.g_rr.right.row < rs + numrow)
-        gs.g_rr.right.row = rs - 1;
-    else if (gs.g_rr.right.row >= rs + numrow)
+    if (gs.g_rr.right.row >= r1 && gs.g_rr.right.row <= r2)
+        gs.g_rr.right.row = r1 - 1;
+    else if (gs.g_rr.right.row > r2)
         gs.g_rr.right.row -= numrow;
     if (gs.g_rr.left.row > gs.g_rr.right.row)
         gs.g_rr.left.row = gs.g_rr.left.col = -1;
-    if (gs.st.row >= rs && gs.st.row < rs + numrow)
-        gs.st.row = rs;
-    else if (gs.st.row >= rs + numrow)
+    if (gs.st.row >= r1 && gs.st.row <= r2)
+        gs.st.row = r1;
+    else if (gs.st.row > r2)
         gs.st.row -= numrow;
 
     sp->maxrow -= numrow;
 
-    /* Update note links. */
+    /* Update note targets. */
     for (r = 0; r <= sp->maxrow; r++) {
         for (c = 0; c <= sp->maxcol; c++) {
             struct ent *p = getcell(sp, r, c);
             if (p && (p->flags & HAS_NOTE)) {
-                if (p->nrr.left.row >= rs && p->nrr.left.row < rs + numrow)
-                    p->nrr.left.row = rs;
-                else if (p->nrr.left.row >= rs + numrow)
+                if (p->nrr.left.row >= r1 && p->nrr.left.row <= r2)
+                    p->nrr.left.row = r1;
+                else if (p->nrr.left.row > r2)
                     p->nrr.left.row -= numrow;
-                if (p->nrr.right.row >= rs && p->nrr.right.row < rs + numrow)
-                    p->nrr.right.row = rs - 1;
-                else if (p->nrr.right.row >= rs + numrow)
+                if (p->nrr.right.row >= r1 && p->nrr.right.row <= r2)
+                    p->nrr.right.row = r1 - 1;
+                else if (p->nrr.right.row > r2)
                     p->nrr.right.row -= numrow;
                 if (p->nrr.right.row < p->nrr.left.row)
                     p->nrr.left.row = p->nrr.left.col = -1;
@@ -1138,7 +1135,7 @@ void deletecols(sheet_t *sp, int c1, int c2) {
     deldata_discard(DELBUF_9);
     sync_refs(sp);
     /* move cell range to subsheet delbuf[0] */
-    erase_area(sp, dbidx = 0, 0, c1, sp->maxrow, c2, 0);
+    erase_area(sp, dbidx = 0, 0, c1, sp->maxrow, c2, EA_DEFAULT);
     // XXX: should use sync_refs() to flag invalid references
     fix_ranges(sp, -1, c1, -1, c2, -1, -1, frange_get_current(sp));
     /* store delbuf[dbidx] to named buffer '1' after rotation and qbuf if any */
@@ -1175,6 +1172,7 @@ void deletecols(sheet_t *sp, int c1, int c2) {
         else if (savedst[i].col > c2)
             savedst[i].col -= ncols;
     }
+    /* Update goto targets. */
     if (gs.g_rr.left.col >= c1 && gs.g_rr.left.col <= c2)
         gs.g_rr.left.col = c1;
     else if (gs.g_rr.left.col > c2)
@@ -1192,7 +1190,7 @@ void deletecols(sheet_t *sp, int c1, int c2) {
 
     sp->maxcol -= ncols;
 
-    /* Update note links. */
+    /* Update note targets. */
     for (r = 0; r <= sp->maxrow; r++) {
         for (c = 0; c <= sp->maxcol; c++) {
             p = getcell(sp, r, c);
@@ -1374,7 +1372,7 @@ void copy(sheet_t *sp, int flags, rangeref_t drr, rangeref_t srr) {
     }
 
     /* move cell range to subsheet delbuf[++dbidx] */
-    erase_area(sp, ++dbidx, mindr, mindc, maxdr, maxdc, 0);
+    erase_area(sp, ++dbidx, mindr, mindc, maxdr, maxdc, EA_NO_FMT);
     sync_refs(sp);
     delbuf_free(dbidx--);
 
@@ -1425,7 +1423,7 @@ void eraser(sheet_t *sp, rangeref_t rr) {
     deldata_discard(DELBUF_9);
     // XXX: missing sync_refs() ???
     /* move cell range to subsheet delbuf[0] */
-    erase_area(sp, dbidx = 0, rr.left.row, rr.left.col, rr.right.row, rr.right.col, 0);
+    erase_area(sp, dbidx = 0, rr.left.row, rr.left.col, rr.right.row, rr.right.col, EA_DEFAULT);
     sync_refs(sp);
     /* store delbuf[dbidx] to named buffer '1' after rotation and qbuf if any */
     // XXX: missing DD_UNSYNC ???
@@ -1560,17 +1558,20 @@ void format_cells(sheet_t *sp, rangeref_t rr, SCXMEM string_t *s) {
  * be hanging around before the call, but not referenced by an entry
  * in tbl.  Thus the free_ent calls in sc.c
  */
+// XXX: fix this mess
 static void sync_expr(sheet_t *sp, enode_t *e) {
     if (e == NULL)
         return;
 
     switch (e->type) {
     case OP_TYPE_RANGE:
+        // XXX: should use same logic as for OP_TYPE_VAR
         e->e.r.left.vp = lookat(sp, e->e.r.left.vp->row, e->e.r.left.vp->col);
         e->e.r.right.vp = lookat(sp, e->e.r.right.vp->row, e->e.r.right.vp->col);
         break;
     case OP_TYPE_VAR:
         if (e->e.v.vp->flags & IS_CLEARED) {
+            /* cell was moved to the free list */
             e->op = OP__ERROR;
             e->type = OP_TYPE_ERROR;
             e->e.error = ERROR_REF;
@@ -1588,16 +1589,52 @@ static void sync_expr(sheet_t *sp, enode_t *e) {
     }
 }
 
+// XXX: this duplicates sync_expr() ?
+/* make cell references point to current sheet cells */
+static void sync_enode(sheet_t *sp, struct enode *e) {
+    if (e) {
+        if (e->type == OP_TYPE_RANGE) {
+            e->e.r.left.vp = lookat(sp, e->e.r.left.vp->row, e->e.r.left.vp->col);
+            e->e.r.right.vp = lookat(sp, e->e.r.right.vp->row, e->e.r.right.vp->col);
+        } else
+        if (e->type == OP_TYPE_VAR) {
+            e->e.v.vp = lookat(sp, e->e.v.vp->row, e->e.v.vp->col);
+        } else
+        if (e->type == OP_TYPE_FUNC) {
+            int i;
+            for (i = 0; i < e->nargs; i++)
+                sync_enode(sp, e->e.args[i]);
+        }
+    }
+}
+
+void sync_ranges(sheet_t *sp) {
+    int row, col;
+    struct ent *p;
+
+    nrange_sync(sp);
+    frange_sync(sp);
+    crange_sync(sp);
+
+    // XXX: should do this for delbuf cells too?
+    for (row = 0; row <= sp->maxrow; row++) {
+        for (col = 0; col <= sp->maxcol; col++) {
+            if ((p = getcell(sp, row, col)) && p->expr)
+                sync_enode(sp, p->expr);
+        }
+    }
+}
+
 void sync_refs(sheet_t *sp) {
-    int i, j;
+    int i, row, col;
     struct ent *p;
 
     sync_ranges(sp);
 
     // XXX: sync_ranges() already does sync_enode(p->expr)
-    for (i = 0; i <= sp->maxrow; i++) {
-        for (j = 0; j <= sp->maxcol; j++) {
-            if ((p = getcell(sp, i, j)) && p->expr)
+    for (row = 0; row <= sp->maxrow; row++) {
+        for (col = 0; col <= sp->maxcol; col++) {
+            if ((p = getcell(sp, row, col)) && p->expr)
                 sync_expr(sp, p->expr);
         }
     }
@@ -1607,6 +1644,65 @@ void sync_refs(sheet_t *sp) {
                 sync_expr(sp, p->expr);
         }
     }
+}
+
+static void fix_enode(sheet_t *sp, struct enode *e,
+                      int row1, int col1, int row2, int col2,
+                      int delta1, int delta2, struct frange *fr)
+{
+    if (e) {
+        // XXX: why not fix OP_TYPE_VAR nodes?
+        if (e->type == OP_TYPE_RANGE) {
+            int r1 = e->e.r.left.vp->row;
+            int c1 = e->e.r.left.vp->col;
+            int r2 = e->e.r.right.vp->row;
+            int c2 = e->e.r.right.vp->col;
+            if (r1 > r2) SWAPINT(r1, r2);
+            if (c1 > c2) SWAPINT(c1, c2);
+
+            if (!(fr && (c1 < fr->or_left->col || c1 > fr->or_right->col))) {
+                // XXX: why special case r1==r2 or c1==c2 ?
+                if (r1 != r2 && r1 >= row1 && r1 <= row2) r1 = row2 - delta1;
+                if (c1 != c2 && c1 >= col1 && c1 <= col2) c1 = col2 - delta1;
+            }
+
+            if (!(fr && (c2 < fr->or_left->col || c2 > fr->or_right->col))) {
+                if (r1 != r2 && r2 >= row1 && r2 <= row2) r2 = row1 + delta2;
+                if (c1 != c2 && c2 >= col1 && c2 <= col2) c2 = col1 + delta2;
+            }
+            // XXX: what if reference becomes invalid?
+            e->e.r.left.vp = lookat(sp, r1, c1);
+            e->e.r.right.vp = lookat(sp, r2, c2);
+        } else
+        if (e->type == OP_TYPE_FUNC) {
+            int i;
+            for (i = 0; i < e->nargs; i++)
+                fix_enode(sp, e->e.args[i], row1, col1, row2, col2, delta1, delta2, fr);
+        }
+    }
+}
+
+static void fix_ranges(sheet_t *sp, int row1, int col1, int row2, int col2,
+                       int delta1, int delta2, struct frange *fr)
+{
+    int row, col;
+
+    /* First we fix all of the named/color/frame ranges. */
+    nrange_fix(sp, row1, col1, row2, col2, delta1, delta2, fr);
+    frange_fix(sp, row1, col1, row2, col2, delta1, delta2, fr);
+    crange_fix(sp, row1, col1, row2, col2, delta1, delta2, fr);
+
+    /* Next, we go through all valid cells with expressions and fix any ranges
+     * that need fixing.
+     */
+    for (row = 0; row <= sp->maxrow; row++) {
+        for (col = 0; col <= sp->maxcol; col++) {
+            struct ent *p = getcell(sp, row, col);
+            if (p && p->expr)
+                fix_enode(sp, p->expr, row1, col1, row2, col2, delta1, delta2, fr);
+        }
+    }
+    // XXX: should also fix notes ranges, goto positions, saved positions
 }
 
 /* mark rows as hidden */
@@ -1911,4 +2007,236 @@ void note_delete(sheet_t *sp, cellref_t cr) {
         p->flags |= IS_CHANGED;
         sp->modflg++;
     }
+}
+
+/*---------------- range sorting ----------------*/
+
+struct sortcrit {
+    int direction, type, column;
+};
+
+typedef struct sort_context {
+    sheet_t *sp;
+    int minr, minc, maxr, maxc;
+    SCXMEM struct sortcrit *crit;
+    int ncrit;
+} sort_ctx_t;
+
+static sort_ctx_t *sort_context;
+
+static int compare(const void *a1, const void *a2) {
+    sort_ctx_t *sc = sort_context;
+    int row1 = *(const int *)a1;
+    int row2 = *(const int *)a2;
+    struct ent *p1;
+    struct ent *p2;
+    int result = 0;
+    int i;
+
+    for (i = 0; !result; i++) {
+        if (i >= sc->ncrit) {
+            /* stable sort: rows that compare equal stay in the same order */
+            return (row1 > row2) - (row1 < row2);
+        }
+        p1 = getcell(sc->sp, row1, sc->crit[i].column);
+        p2 = getcell(sc->sp, row2, sc->crit[i].column);
+
+        // XXX: comparison algorithm should be the same as for expressions
+        /* mixed types are sorted in this order:
+           numbers < text < logical < error < empty
+         */
+        /* empty cells always compare larger */
+        if (!p1 || p1->type == SC_EMPTY) {
+            result = (p2 || p2->type == SC_EMPTY) ? 1 : 0;
+            continue;
+        }
+        if (!p2 || p2->type == SC_EMPTY) {
+            result = -1;
+            continue;
+        }
+        // XXX: ignore sc->crit[i].type
+        if (p1->type == SC_NUMBER) {
+            if (p2->type == SC_NUMBER)
+                result = (p1->v > p2->v) - (p1->v < p2->v);
+            else
+                result = -1;
+        } else
+        if (p2->type == SC_NUMBER) {
+            result = 1;
+        } else
+        if (p1->type == SC_STRING) {
+            if (p2->type == SC_STRING)
+                result = strcmp(s2c(p1->label), s2c(p2->label));
+            else
+                result = -1;
+        } else
+        if (p2->type == SC_STRING) {
+            result = 1;
+        } else
+        if (p1->type == SC_BOOLEAN) {
+            if (p2->type == SC_BOOLEAN)
+                result = p2->v - p1->v;
+            else
+                result = -1;
+        } else
+        if (p2->type == SC_BOOLEAN) {
+            result = 1;
+        } else {
+            result = p2->cellerror - p1->cellerror;
+        }
+        result *= sc->crit[i].direction;
+    }
+    return result;
+}
+
+void sortrange(sheet_t *sp, rangeref_t rr, SCXMEM string_t *criteria) {
+    sort_ctx_t sc[1];
+    struct sortcrit *crit;
+    SCXMEM int *rows;
+    SCXMEM int *destrows;
+    int i, r, c, nrows, col, len;
+    const char *cp;
+    struct ent *p;
+
+    range_normalize(&rr);
+    sc->sp = sp;
+    sc->minr = rr.left.row;
+    sc->minc = rr.left.col;
+    sc->maxr = rr.right.row;
+    sc->maxc = rr.right.col;
+    nrows = sc->maxr - sc->minr + 1;
+    if (nrows <= 1)
+        goto done;
+
+    if (any_locked_cells(sp, sc->minr, sc->minc, sc->maxr, sc->maxc)) {
+        error("Locked cells encountered. Nothing changed");
+        goto done;
+    }
+
+    /* allocate sort criteria: at type 0, type 1 col=minc */
+    sc->crit = scxmalloc(sizeof(*sc->crit) * 2);
+    /* allocate array of row numbers that will be sorted */
+    rows = scxmalloc(sizeof(*rows) * nrows);
+    destrows = scxmalloc(sizeof(*rows) * nrows);
+    if (!sc->crit || !rows || !destrows)
+        goto fail;
+
+    for (i = 0, r = sc->minr; r <= sc->maxr; r++, i++)
+        rows[i] = destrows[i] = r;
+
+    if (sempty(criteria)) {
+        sc->crit[0].direction = 1;
+        sc->crit[0].type = 1;
+        sc->crit[0].column = sc->minc;
+        sc->crit[1].direction = 1;
+        sc->crit[1].type = 0;
+        sc->crit[1].column = sc->minc;
+        sc->ncrit = 2;
+    } else {
+        for (sc->ncrit = 0, cp = s2c(criteria); *cp; sc->ncrit++) {
+            if (sc->ncrit > 1) {
+                /* allocate new sorting criterion */
+                void *new_crit = scxrealloc(sc->crit, (sc->ncrit + 1) * (sizeof(*sc->crit)));
+                if (!new_crit)
+                    goto fail;
+                sc->crit = new_crit;
+            }
+            crit = &sc->crit[sc->ncrit];
+            switch (*cp++) {
+            case '+':
+                crit->direction = 1;
+                break;
+            case '-':
+                crit->direction = -1;
+                break;
+            default:
+                crit->direction = 1;
+                cp--;
+            }
+            switch (*cp++) {
+            case '#':
+                crit->type = 0;
+                break;
+            case '$':
+                crit->type = 1;
+                break;
+            default:
+                crit->type = 0;
+                cp--;
+            }
+            if ((col = atocol(cp, &len)) >= 0) {
+                cp += len;
+                crit->column = col;
+                if (col >= sc->minc && col <= sc->maxc)
+                    continue;
+            }
+            error("Invalid sort criteria");
+            goto fail;
+        }
+    }
+
+    /* we should use qsort_r() but it might not be available */
+    sort_context = sc;
+    qsort(rows, nrows, sizeof(*rows), compare);
+    sort_context = NULL;
+    for (i = 0; i < nrows; i++)
+        destrows[rows[i] - sc->minr] = sc->minr + i;
+
+    // XXX: this is bogus:
+    // - cell values and formats should be moved
+    // - cell borders should be left unchanged?
+    // - ranges should be adjusted if completely included
+    //   in a single row of the sorting range
+    /* move cell range to subsheet delbuf[++dbidx] */
+    dbidx = 0;  /* avoid clobbering delbuf[0] */
+    erase_area(sp, ++dbidx, sc->minr, sc->minc, sc->maxr, sc->maxc, EA_NO_FMT | EA_IGNORE_LOCK);
+    // XXX: this seems bogus too
+    // XXX: make formulas that refer to the sort range
+    //      point to empty cells
+    // XXX: should we use sync_refs() instead?
+    // XXX: should use destrows to update formulae and ranges
+    //      the current model just moves all cells and updates all ranges
+    sync_ranges(sp);
+    for (i = 0, p = delbuf[dbidx].ptr; p; p = p->next) {
+        if (p->row < sc->minr || p->row > sc->maxr) {
+            /* cannot find row in sort range */
+            error("sort error");
+            break;
+        }
+        p->row = destrows[p->row - sc->minr];
+        p->flags &= ~IS_DELETED;
+        setcell(sp, p->row, p->col, p);
+    }
+    delbuf[dbidx].ptr = NULL;
+    delbuf_free(dbidx--);
+
+    /* Update all marked cells. */
+    for (i = 0; i < 37; i++) {
+        if (cell_in_range(savedcr[i], rr))
+            savedcr[i].row = destrows[savedcr[i].row - sc->minr];
+        if (cell_in_range(savedst[i], rr))
+            savedst[i].row = destrows[savedst[i].row - sc->minr];
+    }
+    /* Update goto targets. */
+    if (gs.g_rr.right.row == gs.g_rr.left.row && cell_in_range(gs.g_rr.left, rr))
+        gs.g_rr.left.row = gs.g_rr.right.row = destrows[gs.g_rr.left.row - sc->minr];
+    if (cell_in_range(gs.st, rr))
+        gs.st.row = destrows[gs.st.row - sc->minr];
+    /* Update note targets. */
+    for (r = 0; r <= sp->maxrow; r++) {
+        for (c = 0; c <= sp->maxcol; c++) {
+            p = getcell(sp, r, c);
+            if (p && (p->flags & HAS_NOTE)) {
+                if (p->nrr.left.row == p->nrr.right.row && cell_in_range(p->nrr.left, rr))
+                    p->nrr.left.row = p->nrr.right.row = destrows[p->nrr.left.row - sc->minr];
+            }
+        }
+    }
+
+fail:
+    scxfree(sc->crit);
+    scxfree(rows);
+    scxfree(destrows);
+done:
+    string_free(criteria);
 }

@@ -326,12 +326,12 @@ LDADD=-lm $(LIBDIR_CURSES) $(LIB_CURSES)
 # All of the source files for archiving targets (outdated)
 SRCS=Makefile.in configure compat.h configure gram.y icurses.h sc.h util.h psc.c \
 	abbrev.c cmds.c color.c crypt.c file.c format.c frame.c help.c interp.c \
-	lex.c lotus.c navigate.c pipe.c print.c range.c sc.c screen.c sort.c \
+	lex.c lotus.c navigate.c pipe.c print.c range.c sc.c screen.c \
 	util.c version.c vi.c vmtbl.c
 
 # The objects
 OBJS=$O/abbrev.o $O/cmds.o $O/color.o $(CRYPT_OBJ) $O/format.o $O/frame.o $O/gram.o $O/help.o $O/interp.o \
-	$O/lex.o $O/pipe.o $O/range.o $O/sc.o $O/screen.o $O/sort.o $O/version.o $O/vi.o $O/vmtbl.o \
+	$O/lex.o $O/pipe.o $O/range.o $O/sc.o $O/screen.o $O/version.o $O/vi.o $O/vmtbl.o \
 	$O/util.o $O/lotus.o $O/file.o $O/navigate.o $O/print.o
 
 # The documents in the Archive
@@ -434,9 +434,6 @@ $O/sc.o: sc.c $(DEPENDS)
 $O/screen.o: screen.c $(DEPENDS) icurses.h
 	$(CC) $(_CFLAGS) -o $@ ${BROKENCURSES} ${IDLOKISBAD} ${RIGHTBUG} ${SIGVOID} ${NO_IDLOK} -c screen.c
 
-$O/sort.o: sort.c $(DEPENDS)
-	$(CC) $(_CFLAGS) -o $@ -c sort.c
-
 $O/util.o: util.c $(DEPENDS)
 	$(CC) $(_CFLAGS) -o $@ -c util.c
 
@@ -466,7 +463,7 @@ lint: lintsc lintqref lintpsc
 lintsc: $(YTAB).c
 	lint ${LINTFLAGS} $(_CFLAGS) ${SIMPLE} \
 	    abbrev.c cmds.c color.c crypt.c file.c format.c frame.c help.c interp.c \
-	    lex.c lotus.c navigate.c pipe.c print.c range.c sc.c screen.c sort.c \
+	    lex.c lotus.c navigate.c pipe.c print.c range.c sc.c screen.c \
 	    util.c version.c vi.c vmtbl.c $(YTAB).c $(LDADD)
 
 lintqref:

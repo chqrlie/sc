@@ -902,14 +902,8 @@ void vi_interaction(sheet_t *sp) {
                     c = nmgetch(1);
                     if (c == ESC || c == ctl('g')) {
                         break;
-                    } else if (c >= '0' && c <= '9') {
-                        qbuf = c - '0' + DELBUF_0;
-                    } else if (c >= 'a' && c <= 'z') {
-                        qbuf = c - 'a' + DELBUF_A;
-                    } else if (c == '"') {
-                        qbuf = 0;
                     } else {
-                        error("Invalid buffer");
+                        cmd_select_qbuf(c);
                     }
                     break;
 
@@ -971,15 +965,7 @@ void vi_interaction(sheet_t *sp) {
                                 startshow(sp);
                                 break;
                             }
-                            while (uarg--) {
-                                // XXX: repeating pullcells makes sense for
-                                //      'pc' and 'pr' insert multiple copies
-                                //      'px' and 'pt' for performance tests
-                                //      'pp' to paste/pop multiple levels
-                                dbidx = 0;
-                                pullcells(sp, qbuf, ch2, cellref_current(sp));
-                            }
-                            qbuf = 0;
+                            cmd_pullcells(sp, ch2, uarg);
                             break;
 
                             /*

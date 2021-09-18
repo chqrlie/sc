@@ -37,7 +37,6 @@ cellref_t savedcr[37];     /* stack of marked cells */
 cellref_t savedst[37];
 int FullUpdate = 0;
 int changed;
-int qbuf;       /* buffer no. specified by " command */
 int skipautorun;
 SCXMEM string_t *scext;
 SCXMEM string_t *ascext;

@@ -9,9 +9,6 @@
 
 #include "sc.h"
 
-static void fix_enode(sheet_t *sp, struct enode *e, int row1, int col1, int row2, int col2,
-                      int delta1, int delta2, struct frange *fr);
-
 int nrange_test(sheet_t *sp) {
     return sp->nrange_base != NULL;
 }
@@ -195,37 +192,6 @@ void nrange_sync(sheet_t *sp) {
     }
 }
 
-// XXX: this duplicates sync_expr() ?
-static void sync_enode(sheet_t *sp, struct enode *e) {
-    if (e) {
-        // XXX: should sync 'v' nodes too?
-        if (e->type == OP_TYPE_RANGE) {
-            e->e.r.left.vp = lookat(sp, e->e.r.left.vp->row, e->e.r.left.vp->col);
-            e->e.r.right.vp = lookat(sp, e->e.r.right.vp->row, e->e.r.right.vp->col);
-        } else
-        if (e->type == OP_TYPE_FUNC) {
-            int i;
-            for (i = 0; i < e->nargs; i++)
-                sync_enode(sp, e->e.args[i]);
-        }
-    }
-}
-
-void sync_ranges(sheet_t *sp) {
-    int i, j;
-    struct ent *p;
-
-    nrange_sync(sp);
-    for (i = 0; i <= sp->maxrow; i++) {
-        for (j = 0; j <= sp->maxcol; j++) {
-            if ((p = getcell(sp, i, j)) && p->expr)
-                sync_enode(sp, p->expr);
-        }
-    }
-    frange_sync(sp);
-    crange_sync(sp);
-}
-
 void nrange_write(sheet_t *sp, FILE *f) {
     struct nrange *r;
 
@@ -328,13 +294,13 @@ const char *r_name(sheet_t *sp, int r1, int c1, int r2, int c2) {
     }
 }
 
-void fix_ranges(sheet_t *sp, int row1, int col1, int row2, int col2,
+void nrange_fix(sheet_t *sp, int row1, int col1, int row2, int col2,
                 int delta1, int delta2, struct frange *fr)
 {
-    int r1, c1, r2, c2, i, j;
+    int r1, c1, r2, c2;
     struct nrange *r;
 
-    /* First we fix all of the named ranges. */
+    /* We fix all of the named ranges. */
     for (r = sp->nrange_base; r; r = r->r_next) {
         r1 = r->r_left.vp->row;
         c1 = r->r_left.vp->col;
@@ -345,59 +311,12 @@ void fix_ranges(sheet_t *sp, int row1, int col1, int row2, int col2,
             if (r1 >= row1 && r1 <= row2) r1 = row2 - delta1;
             if (c1 >= col1 && c1 <= col2) c1 = col2 - delta1;
         }
-
         if (!fr || (c2 >= fr->or_left->col && c2 <= fr->or_right->col)) {
             if (r2 >= row1 && r2 <= row2) r2 = row1 + delta2;
             if (c2 >= col1 && c2 <= col2) c2 = col1 + delta2;
         }
+        // XXX: should check if range disappeared
         r->r_left.vp = lookat(sp, r1, c1);
         r->r_right.vp = lookat(sp, r2, c2);
-    }
-
-    /* Next, we go through all valid cells with expressions and fix any ranges
-     * that need fixing.
-     */
-    for (i = 0; i <= sp->maxrow; i++) {
-        for (j = 0; j <= sp->maxcol; j++) {
-            struct ent *p = getcell(sp, i, j);
-            if (p && p->expr)
-                fix_enode(sp, p->expr, row1, col2, row2, col2, delta1, delta2, fr);
-        }
-    }
-    frange_fix(sp, row1, col1, row2, col2, delta1, delta2, fr);
-    crange_fix(sp, row1, col1, row2, col2, delta1, delta2, fr);
-}
-
-static void fix_enode(sheet_t *sp, struct enode *e,
-                      int row1, int col1, int row2, int col2,
-                      int delta1, int delta2, struct frange *fr)
-{
-    if (e) {
-        // XXX: should fix 'v' nodes too?
-        if (e->type == OP_TYPE_RANGE) {
-            int r1 = e->e.r.left.vp->row;
-            int c1 = e->e.r.left.vp->col;
-            int r2 = e->e.r.right.vp->row;
-            int c2 = e->e.r.right.vp->col;
-            if (r1 > r2) SWAPINT(r1, r2);
-            if (c1 > c2) SWAPINT(c1, c2);
-
-            if (!(fr && (c1 < fr->or_left->col || c1 > fr->or_right->col))) {
-                if (r1 != r2 && r1 >= row1 && r1 <= row2) r1 = row2 - delta1;
-                if (c1 != c2 && c1 >= col1 && c1 <= col2) c1 = col2 - delta1;
-            }
-
-            if (!(fr && (c2 < fr->or_left->col || c2 > fr->or_right->col))) {
-                if (r1 != r2 && r2 >= row1 && r2 <= row2) r2 = row1 + delta2;
-                if (c1 != c2 && c2 >= col1 && c2 <= col2) c2 = col1 + delta2;
-            }
-            e->e.r.left.vp = lookat(sp, r1, c1);
-            e->e.r.right.vp = lookat(sp, r2, c2);
-        } else
-        if (e->type == OP_TYPE_FUNC) {
-            int i;
-            for (i = 0; i < e->nargs; i++)
-                fix_enode(sp, e->e.args[i], row1, col1, row2, col2, delta1, delta2, fr);
-        }
     }
 }
