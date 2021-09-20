@@ -960,6 +960,7 @@ void vi_interaction(sheet_t *sp) {
 
                         case 'p':
                             if (ch2 == '.') {
+                                // XXX: should handle uarg
                                 set_line("pullcopy [range] ");
                                 insert_mode();
                                 startshow(sp);
@@ -1230,9 +1231,9 @@ void vi_interaction(sheet_t *sp) {
                 case SC_KEY_DC:
                 case 'x':
                     if (sp->calc_order == BYROWS) {
-                        eraser(sp, rangeref(sp->currow, sp->curcol, sp->currow, sp->curcol + uarg - 1));
+                        erase_range(sp, rangeref(sp->currow, sp->curcol, sp->currow, sp->curcol + uarg - 1));
                     } else {
-                        eraser(sp, rangeref(sp->currow, sp->curcol, sp->currow + uarg - 1, sp->curcol));
+                        erase_range(sp, rangeref(sp->currow, sp->curcol, sp->currow + uarg - 1, sp->curcol));
                     }
                     break;
                 case 'Q':
@@ -1287,7 +1288,7 @@ void vi_interaction(sheet_t *sp) {
                         // XXX: horrible hack to set the copy()'s internal
                         // static variables for the default source range
                         // should get rid of this
-                        copy_set_source_range(sp->currow, sp->curcol, sp->currow, sp->curcol);
+                        copy_set_source_range(rangeref_current(sp));
                         set_line("copy [dest_range src_range] ");
                         insert_mode();
                         startshow(sp);
@@ -1305,7 +1306,7 @@ void vi_interaction(sheet_t *sp) {
                         // XXX: incorrect: should first check for locked cells
                         //      in destination area
                         // XXX: should just use
-                        // copy(sp->currow, sp->curcol, sp->currow, sp->curcol + uarg - 1,
+                        // copy_range(sp->currow, sp->curcol, sp->currow, sp->curcol + uarg - 1,
                         //      savedcr[c].row, savedcr[c].col, savedcr[c].row, savedcr[c].col);
 
                         p = getcell(sp, savedcr[c].row, savedcr[c].col);
@@ -3363,7 +3364,7 @@ static int get_rcqual(sheet_t *sp, int ch) {
                         return 0;
 
     case 'y':       if (ch == 'y') {
-                        yankr(sp, rangeref_current(sp));
+                        yank_range(sp, rangeref_current(sp));
                         return ESC;
                     } else
                         return 0;

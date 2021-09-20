@@ -121,9 +121,21 @@ int main(int argc, char **argv) {
     }
 #endif
 
-    while ((c = getopt(argc, argv, "axmoncrCDReP:W:vqMh?")) != EOF) {
+    while ((c = getopt(argc, argv, "aCcDeMmnoqRrvxP:W:h?")) != EOF) {
         switch (c) {
         case 'a':   skipautorun = 1;                break;
+        case 'c':   copt = 1;                       break;
+        case 'C':   Copt = 1; sp->craction = CRCOLS;  break;
+        case 'D':   Dopt = 1;                       break;
+        case 'e':   eopt = 1; sp->rndtoeven = 1;    break;
+        case 'M':   Mopt = 1;                       break;
+        case 'm':   mopt = 1;                       break;
+        case 'n':   nopt = 1;                       break;
+        case 'o':   oopt = 1;                       break;
+        case 'q':   qopt++;                         break;
+        case 'R':   Ropt = 1; sp->craction = CRROWS;  break;
+        case 'r':   ropt = 1;                       break;
+        case 'v':                                   break;
         case 'x':
 #ifdef NOCRYPT
             fprintf(stderr, "Crypt not available\n");
@@ -132,37 +144,25 @@ int main(int argc, char **argv) {
             Crypt = 1;
 #endif
             break;
-        case 'm':   mopt = 1;                       break;
-        case 'o':   oopt = 1;                       break;
-        case 'n':   nopt = 1;                       break;
-        case 'c':   copt = 1;                       break;
-        case 'r':   ropt = 1;                       break;
-        case 'C':   Copt = 1; sp->craction = CRCOLS;  break;
-        case 'R':   Ropt = 1; sp->craction = CRROWS;  break;
-        case 'e':   eopt = 1; sp->rndtoeven = 1;    break;
         case 'P':
         case 'W':   popt = 1;                       break;
-        case 'v':                                   break;
-        case 'q':   qopt++;                         break;
-        case 'M':   Mopt = 1;                       break;
-        case 'D':   Dopt = 1;                       break;
         default:
-            printf("usage: sc [-acemnoqrvxCDMR] [-P RANGE/ADDRESS] [-W RANGE]\n"
+            printf("usage: sc [-aCcDeMmnoqRrvx] [-P RANGE/ADDRESS] [-W RANGE]\n"
                    "options:\n"
                    "  -a   Do not run the autorun macro, if present in the file.\n"
+                   "  -C   Set automatic newline action to increment the column.\n"
                    "  -c   Set recalculation in column order.\n"
+                   "  -D   Enable debug output.\n"
                    "  -e   Enable round-to-even (banker's rounding).\n"
+                   "  -M   Process mouse events.\n"
                    "  -m   Disable automatic recalculation.\n"
                    "  -n   Enable quick numeric entry mode.\n"
                    "  -o   Enable automatic optimization of expressions.\n"
                    "  -q   Quit after loading all files.\n"
+                   "  -R   Set automatic newline action to increment the row.\n"
                    "  -r   Set recalculation in row order (default option).\n"
                    "  -v   Output expression values when piping data out via -P option.\n"
                    "  -x   Use crypt to encrypt and decrypt data files.\n"
-                   "  -C   Set automatic newline action to increment the column.\n"
-                   "  -D   Enable debug output.\n"
-                   "  -M   Process mouse events.\n"
-                   "  -R   Set automatic newline action to increment the row.\n"
                    "  -P   Pipe a range to standard output.\n"
                    "  -W   Write a range to standard output.\n");
             return 1;

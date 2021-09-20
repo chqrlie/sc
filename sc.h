@@ -60,11 +60,6 @@ extern const char *progname;
 #define HISTLEN         100   /* Number of history entries for vi emulation */
 #define CPAIRS            8   /* Number of color pairs available */
 #define COLFORMATS       10   /* Number of custom column formats */
-#define DELBUFSIZE       40   /* Number of named buffers + 4 */
-#define DELBUF_A   (DELBUFSIZE - 36)
-#define DELBUF_0   (DELBUFSIZE - 10)
-#define DELBUF_1   (DELBUFSIZE - 9)
-#define DELBUF_9   (DELBUFSIZE - 1)
 
 typedef unsigned char sc_bool_t;
 
@@ -488,7 +483,7 @@ extern int changed;
 /* temporary sheet fragments: stack of 4 work buffers and 36 named buffers (a-z,0-9) */
 typedef struct subsheet {
     int minrow, mincol, maxrow, maxcol;
-    int qbuf_was_here, ncols, nrows;
+    int ncols, nrows;
     SCXMEM struct ent *ptr;  /* list of allocated cells */
     SCXMEM colfmt_t *colfmt;
     SCXMEM rowfmt_t *rowfmt;
@@ -676,36 +671,35 @@ extern int cols_width(sheet_t *sp, int c, int n);
 
 extern void deletecols(sheet_t *sp, int c1, int c2);
 extern void deleterows(sheet_t *sp, int r1, int r2);
-extern void copy_set_source_range(int r1, int c1, int r2, int c2);
+extern void copy_set_source_range(rangeref_t rr);
 #define COPY_FROM_RANGE   0x01
 #define COPY_FROM_QBUF    0x02
 #define COPY_FROM_DEF     0x04
-extern void copy(sheet_t *sp, int flags, rangeref_t drr, rangeref_t srr);
+extern void copy_range(sheet_t *sp, int flags, rangeref_t drr, rangeref_t srr);
 extern void copyent(sheet_t *sp, struct ent *n, struct ent *p,
                     int dr, int dc, int r1, int c1, int r2, int c2, int transpose);
 extern int dupcol(sheet_t *sp, cellref_t cr);
 extern int duprow(sheet_t *sp, cellref_t cr);
 extern void cmd_select_qbuf(char c);
 extern int edit_cell(sheet_t *sp, buf_t buf, int row, int col, struct ent *p, int dcp_flags, int c0);
-extern void eraser(sheet_t *sp, rangeref_t rr);
-extern void fillr(sheet_t *sp, rangeref_t rr, double start, double inc, int bycols);
+extern void erase_range(sheet_t *sp, rangeref_t rr);
+extern void fill_range(sheet_t *sp, rangeref_t rr, double start, double inc, int bycols);
 extern void free_ent_list(void);
 extern void let(sheet_t *sp, cellref_t cr, SCXMEM enode_t *e, int align);
 extern void unlet(sheet_t *sp, cellref_t cr);
 extern int insertcols(sheet_t *sp, cellref_t cr, int arg, int delta);
 extern int insertrows(sheet_t *sp, cellref_t cr, int arg, int delta);
 extern void move_area(sheet_t *sp, int dr, int dc, rangeref_t rr);
-extern void mover(sheet_t *sp, cellref_t cr, rangeref_t rr);
+extern void move_range(sheet_t *sp, cellref_t cr, rangeref_t rr);
 extern void moveto(sheet_t *sp, rangeref_t rr, cellref_t st);
 extern void cmd_pullcells(sheet_t *sp, int cmd, int uarg);
-extern void pullcells(sheet_t *sp, int idx, int cmd, cellref_t cr);
-extern void sortrange(sheet_t *sp, rangeref_t rr, SCXMEM string_t *criteria);
+extern void sort_range(sheet_t *sp, rangeref_t rr, SCXMEM string_t *criteria);
 extern void valueize_area(sheet_t *sp, rangeref_t rr);
 extern void sync_ranges(sheet_t *sp);
 extern void sync_refs(sheet_t *sp);
 extern void yankcols(sheet_t *sp, int c1, int c2);
 extern void yankrows(sheet_t *sp, int r1, int r2);
-extern void yankr(sheet_t *sp, rangeref_t rr);
+extern void yank_range(sheet_t *sp, rangeref_t rr);
 extern int growtbl(sheet_t *sp, int rowcol, int toprow, int topcol);
 
 /*---------------- spreadsheet options ----------------*/

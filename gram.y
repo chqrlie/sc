@@ -319,23 +319,23 @@ command:  S_LET var_or_range '=' e      { let(sht, $2.left, $4, -1); }
         | S_HIDE COL ':' COL            { hidecols(sht, $2, $4); }
         | S_HIDE NUMBER                 { hiderows(sht, $2, $2); }
         | S_HIDE NUMBER ':' NUMBER      { hiderows(sht, $2, $4); }
-        | S_COPY                        { copy(sht, COPY_FROM_DEF, rangeref_current(sht), rangeref_empty()); }
-        | S_COPY RANGE                  { copy(sht, COPY_FROM_DEF, $2, rangeref_empty()); }
-        | S_COPY RANGE var_or_range     { copy(sht, COPY_FROM_RANGE, $2, $3); }
-        | S_MOVE VAR                    { mover(sht, $2, rangeref_current(sht)); }
-        | S_MOVE VAR var_or_range       { mover(sht, $2, $3); }
-        | S_ERASE                       { eraser(sht, rangeref_current(sht)); }
-        | S_ERASE var_or_range          { eraser(sht, $2); }
-        | S_YANK                        { yankr(sht, rangeref_current(sht)); }
-        | S_YANK var_or_range           { yankr(sht, $2); }
+        | S_COPY                        { copy_range(sht, COPY_FROM_DEF, rangeref_current(sht), rangeref_empty()); }
+        | S_COPY RANGE                  { copy_range(sht, COPY_FROM_DEF, $2, rangeref_empty()); }
+        | S_COPY RANGE var_or_range     { copy_range(sht, COPY_FROM_RANGE, $2, $3); }
+        | S_MOVE VAR                    { move_range(sht, $2, rangeref_current(sht)); }
+        | S_MOVE VAR var_or_range       { move_range(sht, $2, $3); }
+        | S_ERASE                       { erase_range(sht, rangeref_current(sht)); }
+        | S_ERASE var_or_range          { erase_range(sht, $2); }
+        | S_YANK                        { yank_range(sht, rangeref_current(sht)); }
+        | S_YANK var_or_range           { yank_range(sht, $2); }
         | S_VALUE                       { valueize_area(sht, rangeref_current(sht)); }
         | S_VALUE var_or_range          { valueize_area(sht, $2); }
-        | S_FILL var_or_range num num   { fillr(sht, $2, $3, $4, sht->calc_order == BYCOLS); }
-        | S_FILL var_or_range num       { fillr(sht, $2, $3, 0, sht->calc_order == BYCOLS); }
-        | S_FILL var_or_range           { fillr(sht, $2, 0, 0, sht->calc_order == BYCOLS); }
-        | S_SORT                        { sortrange(sht, rangeref_current(sht), NULL); }
-        | S_SORT RANGE                  { sortrange(sht, $2, NULL); }
-        | S_SORT RANGE strarg           { sortrange(sht, $2, $3); }
+        | S_FILL var_or_range num num   { fill_range(sht, $2, $3, $4, sht->calc_order == BYCOLS); }
+        | S_FILL var_or_range num       { fill_range(sht, $2, $3, 0, sht->calc_order == BYCOLS); }
+        | S_FILL var_or_range           { fill_range(sht, $2, 0, 0, sht->calc_order == BYCOLS); }
+        | S_SORT                        { sort_range(sht, rangeref_current(sht), NULL); }
+        | S_SORT RANGE                  { sort_range(sht, $2, NULL); }
+        | S_SORT RANGE strarg           { sort_range(sht, $2, $3); }
         | S_FMT var_or_range STRING     { format_cells(sht, $2, $3); }
         | S_LOCK                        { lock_cells(sht, rangeref_current(sht)); }
         | S_LOCK var_or_range           { lock_cells(sht, $2); }
@@ -474,8 +474,8 @@ command:  S_LET var_or_range '=' e      { let(sht, $2.left, $4, -1); }
         | S_PULLXCHG                    { cmd_pullcells(sht, 'x', 1); }
         | S_PULLTP                      { cmd_pullcells(sht, 't', 1); }
         | S_PULLFMT                     { cmd_pullcells(sht, 'f', 1); }
-        | S_PULLCOPY                    { copy(sht, COPY_FROM_QBUF, rangeref_current(sht), rangeref_empty()); }
-        | S_PULLCOPY var_or_range       { copy(sht, COPY_FROM_QBUF, $2, rangeref_empty()); }
+        | S_PULLCOPY                    { copy_range(sht, COPY_FROM_QBUF, rangeref_current(sht), rangeref_empty()); }
+        | S_PULLCOPY var_or_range       { copy_range(sht, COPY_FROM_QBUF, $2, rangeref_empty()); }
 
         | S_WHEREAMI outfd              { cmd_whereami(sht, $2); }
         | S_GETNUM var_or_range outfd   { cmd_getnum(sht, $2, $3); }

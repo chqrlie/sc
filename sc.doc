@@ -23,9 +23,9 @@
 pname \- spreadsheet calculator
 .SH SYNOPSIS
 .\" .SY pname
-.\" .OP \-aCceMmnoqRrvx
+.\" .OP \-aCcDeMmnoqRrvx
 .B pname
-.RB \-aCceMmnoqRrvx
+.RB \-aCcDeMmnoqRrvx
 .RB [ \-P
 .IR range [/ address ]
 |
@@ -116,9 +116,10 @@ won't be treated as a filename itself.
 Each cell may have associated with it
 a numeric value,
 a label string,
-and/or an expression (formula)
+or an expression (formula)
 which evaluates to a numeric value or label string,
-often based on other cell values.
+often based on other cell values,
+a set of flags and optional formatting options.
 .LP
 For an online tutorial, type the command:
 .IP
@@ -144,13 +145,32 @@ pnameqref | troff \-Tpdf \-ms | gropdf >
 Do not run the autorun macro, if one is specified in the file.
 .\" ----------
 .TP
+.B \-C
+Start the program with automatic newline action set to increment the column
+(\TNewlineActionsee below\T).
+.\" ----------
+.TP
 .B \-c
 Start the program with the recalculation being done in column order.
+.\" ----------
+.TP
+.B \-D
+Start the program in debug mode, tracking memory allocation and release uppon exit
 .\" ----------
 .TP
 .B \-e
 Start the program with round-to-even (banker's rounding) enabled.
 .\" ----------
+.TP
+.B \-M
+Process mouse events (see options
+.BR \Tset_mousemouse / !mouse\T ).
+This option overrides a
+.RB \(lq "set !mouse" \(rq
+command in
+.BR .scrc .
+It is used by
+.BR xsc (1).
 .TP
 .B \-m
 Start the program with automatic recalculation disabled.
@@ -176,6 +196,11 @@ a file, for example, or using
 as a non-interactive calculator using the
 .B eval
 command.
+.\" ----------
+.TP
+.B \-R
+Start the program with automatic newline action set to increment the row
+(\TNewlineActionsee below\T).
 .\" ----------
 .TP
 .B \-r
@@ -208,21 +233,6 @@ and
 .B \TPutPut\T
 commands (see below) to encrypt and decrypt data files.
 .\" ----------
-.TP
-.B \-C
-Start the program with automatic newline action set to increment the column
-(\TNewlineActionsee below\T).
-.\" ----------
-.TP
-.B \-M
-Process mouse events (see options
-.BR \Tset_mousemouse / !mouse\T ).
-This option overrides a
-.RB \(lq "set !mouse" \(rq
-command in
-.BR .scrc .
-It is used by
-.BR xsc (1).
 .TP
 \fB\-P\fI range\fR[/\fIaddress\fR]
 .PD 0
@@ -274,11 +284,6 @@ allowing you to navigate the spreadsheet and
 highlight the range you want to output.
 Pressing <ESC>, ^G, or q will terminate without
 outputting any data.
-.\" ----------
-.TP
-.B \-R
-Start the program with automatic newline action set to increment the row
-(\TNewlineActionsee below\T).
 .\" ----------
 .TP
 .B \-W
@@ -489,12 +494,12 @@ The second line is for messages from
 .BR pname .
 The third line and the first four columns show the column and row numbers,
 from which are derived cell addresses, e.g.
-.B A0
-for the cell in column A, row 0.
+.B A1
+for the cell in column A, row 1.
 Note that column names are case-insensitive: you can enter
-.B A0
+.B A1
 or
-.BR a0 .
+.BR a1 .
 .\" ----------
 .PP
 The rest of the screen forms a window looking at a portion of the table.
@@ -635,7 +640,8 @@ Autolabeling.
 If enabled, using the define command (rd) causes
 a label to be automatically generated in the cell
 to the left of the defined cell.
-This is only done if the cell to the left is empty.
+This is only done if the cell to the left is empty
+and unlocked.
 Default is enabled.
 .\" ----------
 .TP
@@ -680,7 +686,7 @@ Top line display.
 If enabled,
 the name and value of the current cell is
 displayed on the top line.
-If there is an associated label string,
+If the cell has a label string,
 the first character of the string value
 is \(lq|\(rq for a \TEnterCenterStringcentered string\T,
 \(lq<\(rq for a
@@ -780,14 +786,12 @@ This option enables color, and must be set before any
 other color options, such as colorneg (color negative
 numbers) or colorerr (color cells with errors), will
 have an effect.
-On a slow connection, turning off color can noticeably
-speed up screen updates.
 .\" ----------
 .TP
 .B E
 Color cells with errors.
 Setting this option will cause all cells with expressions
-which evaluate to ERROR or INVALID to be set to color 3.
+which evaluate to an ERROR to be set to color 3.
 Color must be enabled for this option to take effect.
 .\" ----------
 .TP
@@ -1002,7 +1006,7 @@ Color must be enabled for this option to take effect.
 .BR colorerr / !colorerr
 Color cells with errors.
 Setting this option will cause all cells with expressions
-which evaluate to ERROR or INVALID to be set to color 3.
+which evaluate to an ERROR to be set to color 3.
 Color must be enabled for this option to take effect.
 .\" ----------
 .TP
@@ -1439,18 +1443,14 @@ Center the current cell both horizontally and vertically.
 .\" ==========
 .SS "Cell Entry and Editing Commands"
 .\" ----------
-Cells can contain both a numeric value and a string value.
-Either value can be the result of an expression,
-but not both at once,
-i.e. each cell can have only one expression associated with it.
-Entering a valid numeric expression
-alters the cell's previous numeric value, if any,
-and replaces the cell's previous string expression, if any,
-leaving only the previously computed constant label string.
+Cells can contain either a numeric value, a string value,
+a boolean value, an empty value or an ERROR. Either value
+can be the result of an expression,
+Entering a valid numeric expression alters the cell's previous
+value, if any.
 Likewise, entering a valid string expression
-alters the cell's the previous label string, if any,
-and replaces the cell's previous numeric expression, if any,
-leaving only the previously computed constant numeric value.
+alters the cell's the previous value, if any,
+and replaces the cell's previous numeric expression, if any.
 .TP
 .B =
 Enter a numeric constant or expression into the current cell.
@@ -1486,15 +1486,15 @@ to be flushed right against the right edge of the cell.
 .\" ----------
 .TP
 .B {
-Left justify the string in the current cell.
+Left justify the displayed value of the current cell.
 .\" ----------
 .TP
 .B |
-Center the string in the current cell.
+Center the displayed value of the current cell.
 .\" ----------
 .TP
 .B }
-Right justify the string in the current cell.
+Right justify the displayed value of the current cell.
 .\" ----------
 .TP
 .B F
@@ -1506,7 +1506,7 @@ command unless
 .B &
 is present in the fractional part of the format
 string (see below).
-The format only applies to numeric values.
+The format applies to numeric values and optionally to string values.
 There are two types of format strings allowed:
 standard numeric and date.
 (Note: these format strings may also be used with the 
@@ -1605,11 +1605,12 @@ placeholders after the \(oq+\(cq or \(oq\-\(cq.
 .BR ;
 Format selector.
 Use this character to separate the format
-into two distinct formats.
-The format to the left of the \(oq;\(cq character
-will be used if the number given is zero or positive.
-The format to the right of the \(oq;\(cq character is
-used if the number given is negative.
+into up to four distinct formats.
+The first format will be used if the value is numeric and positive.
+The second format is used if the if the value is numeric and negative.
+The third format is used if the if the value is numeric and zero.
+If the third format is not present, the first format is used.
+The fourth and last format is used for string values.
 .RE
 .IP
 Some example formats are integer (\(lq0\(rq or \(lq#\(rq),
@@ -1918,19 +1919,19 @@ Use like d (above).
 .\" ----------
 .TP
 .B E
-Edit the string associated with the current cell.
+Edit the value or expression associated with the current cell.
 This is identical to \(lq<\(rq, \(lq\\\(rq, or \(lq>\(rq
 except that the command line starts out containing
-the old string value or expression associated with the cell.
+the current value or expression associated with the cell.
 See
 .B e
 above.
 .\" ----------
 .PP
-To enter and edit a cell's number part, use the \(lq=\(rq, \(lq+\(rq, and
+To enter and edit a cell numeric value, use the \(lq=\(rq, \(lq+\(rq, and
 .B e
 commands.
-To enter and edit a cell's string part, use the
+To enter and edit a cell string value, use the
 \(lq<\(rq, \(lq\\\(rq, \(lq>\(rq, and
 .B E
 commands.
@@ -1971,8 +1972,7 @@ cell or range that was deleted or yanked.
 .TP
 .B x
 Clear the current cell.
-Deletes the numeric value, label string, and/or
-numeric or string expression.
+Deletes the value and expression associated with the current cell.
 You can prefix this command with a count of the
 number of cells on the current row to clear.
 The current column is used if column
@@ -1999,7 +1999,7 @@ or
 .TP
 .BI c x
 Copy a marked cell to the current cell, adjusting row and
-column references in its numeric or string expression, if any.
+column references in its expression, if any.
 .B pname
 will prompt for the name of the cell to be copied, which may
 be a lowercase letter specified previously with the
@@ -2029,10 +2029,10 @@ to execute the copy.
 .\" ----------
 .TP
 .B +
-If not in numeric mode, add the current numeric argument
+If not in numeric entry mode, add the current numeric argument
 (default 1) to the value of the current cell.
 The current value of the cell must not be an expression.
-In numeric mode,
+In numeric entry mode,
 .B +
 switches to insert mode and appends a \(lq+\(rq to the current
 expression or value, if any, which makes it easy to add to
@@ -2060,10 +2060,10 @@ followed by  \(lq)+\(rq.
 .\" ----------
 .TP
 .B \-
-If not in numeric mode, subtract the current numeric
+If not in numeric entry mode, subtract the current numeric
 argument (default 1) from the value of the current cell.
 The current value of the cell must not be an expression.
-In numeric mode,
+In numeric entry mode,
 .B \-
 switches to insert mode and appends a \(lq\-\(rq to the current
 expression or value, if any, which makes it easy to subtract
@@ -2352,8 +2352,6 @@ on the specified rows/columns.
 Commands which copy cells also modify the row and
 column references in affected cell expressions.
 The references may be frozen by using the
-.B @fixed
-operator or using the
 .B $
 character in the reference to the cell (see below).
 Commands which create new rows or columns will include
@@ -2371,8 +2369,8 @@ containing the cell cursor, and all following
 rows (columns), down (right) one row (column).
 The new row (column) is empty.
 Inserting rows while the cell cursor is in a framed
-range will only effect rows in that range, leaving
-all rows to the left and right untouched.
+range will only effect columns in that range, leaving
+all contents to the left and right untouched.
 .\" ----------
 .TP
 .B "or, oc"
@@ -2392,8 +2390,8 @@ Append a new row (column) immediately following
 the current row (column).
 It is initialized as a copy of the current one.
 Appending rows while the cell cursor is in a framed
-range will only effect rows in that range, leaving
-all rows to the left and right untouched.
+range will only effect columns in that range, leaving
+all contents to the left and right untouched.
 .\" ----------
 .TP
 .B "dr, dc, dd"
@@ -2402,8 +2400,8 @@ Delete the current row (column).
 deletes the current cell (i.e., it is a synonym for
 .BR x ).
 Deleting rows while the cell cursor is in a framed
-range will only effect rows in that range, leaving
-all rows to the left and right untouched.
+range will only effect columns in that range, leaving
+all contents to the left and right untouched.
 .\" ----------
 .TP
 .B "yr, yc, yy"
@@ -2680,9 +2678,7 @@ Use
 .B rc
 if you want references to be relative to the
 cell which contains them unless specified otherwise,
-either with the
-.B @fixed
-operator or using the
+using the
 .B $
 character in the reference to the cell.
 .\" ----------
@@ -2790,15 +2786,15 @@ To fill all cells with the same value, give an increment of zero.
 .\" ----------
 .TP
 .B r{
-Left justify all strings in the specified range.
+Left justify all values in the specified range.
 .\" ----------
 .TP
 .B r}
-Right justify all strings in the specified range.
+Right justify all values in the specified range.
 .\" ----------
 .TP
 .B r|
-Center all strings in the specified range.
+Center all values in the specified range.
 .\" ----------
 .TP
 .B rd
@@ -2965,7 +2961,7 @@ to add or delete a note, or to \(lqshow\(rq
 screen have attached notes.
 .PP
 If a cell with an attached note contains
-numeric data, it will be preceded with an \(lq*\(rq.
+a value, it will be preceded with an \(lq*\(rq.
 If color is available and turned on, the \(lq*\(rq
 will be displayed with color 4.
 Also, the note address will be displayed
@@ -3131,7 +3127,7 @@ its value is used in place of
 .BR less .
 .PP
 Color expressions are exactly like any other numeric expression,
-and may contain any function or operator that is valid in 
+and may contain any function or operator that is valid in
 any other numeric expression.
 There are, however special functions designed specifically for
 defining colors.
@@ -3177,7 +3173,7 @@ need arise, due to the fact that any color can be
 specified by an expression.
 For example,
 .IP
-.B color 5 = B23<E75?(@black;@cyan):(@white;@magenta)
+.B color 5 = @if(B23<E75,(@black;@cyan),(@white;@magenta))
 .PP
 will cause all cells defined with color 5 to be displayed
 as black text on a cyan background if the numeric value
@@ -3187,7 +3183,7 @@ magenta background.  If you prefer to have the foreground
 and background colors dependent on different criteria,
 you could do something like this:
 .IP
-.B color 5 = (B23<E75?@white:@cyan);(D5%2?@red:@blue)
+.B color 5 = (@if(B23<E75,@white,@cyan);@if(D5%2,@red,@blue))
 .PP
 This will cause the text color for color 5 to be either white
 or cyan, depending on the numeric values in cells B23 and E75,
@@ -3518,10 +3514,7 @@ Boolean operator
 .SM OR.
 .\" ----------
 .TP
-.BI @if( e , e , e )
-.PD 0
-.TP
-.IB e ? e : e
+.IB @if( e , e , e )
 .PD
 Conditional:
 If the first expression is true then the value of the second is returned,

@@ -3267,7 +3267,7 @@ SCXMEM enode_t *new_str(SCXMEM string_t *s) {
     return p;
 }
 
-enode_t *copye(sheet_t *sp, enode_t *e, int Rdelta, int Cdelta,
+enode_t *copye(sheet_t *sp, enode_t *e, int deltar, int deltac,
                int r1, int c1, int r2, int c2, int transpose)
 {
     enode_t *ret;
@@ -3285,18 +3285,18 @@ enode_t *copye(sheet_t *sp, enode_t *e, int Rdelta, int Cdelta,
         row = e->e.r.left.vp->row;
         col = e->e.r.left.vp->col;
         newrow = ((vf & FIX_ROW) || row < r1 || row > r2 || col < c1 || col > c2 ?
-              row : transpose ? r1 + Rdelta + col - c1 : row + Rdelta);
+              row : transpose ? r1 + deltar + col - c1 : row + deltar);
         newcol = ((vf & FIX_COL) || row < r1 || row > r2 || col < c1 || col > c2 ?
-              col : transpose ? c1 + Cdelta + row - r1 : col + Cdelta);
+              col : transpose ? c1 + deltac + row - r1 : col + deltac);
         ret->e.r.left.vf = vf;
         ret->e.r.left.vp = lookat(sp, newrow, newcol);
         vf = e->e.r.right.vf;
         row = e->e.r.right.vp->row;
         col = e->e.r.right.vp->col;
         newrow = ((vf & FIX_ROW) || row < r1 || row > r2 || col < c1 || col > c2 ?
-              row : transpose ? r1 + Rdelta + col - c1 : row + Rdelta);
+              row : transpose ? r1 + deltar + col - c1 : row + deltar);
         newcol = ((vf & FIX_COL) || row < r1 || row > r2 || col < c1 || col > c2 ?
-              col : transpose ? c1 + Cdelta + row - r1 : col + Cdelta);
+              col : transpose ? c1 + deltac + row - r1 : col + deltac);
         ret->e.r.right.vf = vf;
         ret->e.r.right.vp = lookat(sp, newrow, newcol);
     } else
@@ -3307,9 +3307,9 @@ enode_t *copye(sheet_t *sp, enode_t *e, int Rdelta, int Cdelta,
         row = e->e.v.vp->row;
         col = e->e.v.vp->col;
         newrow = ((vf & FIX_ROW) || row < r1 || row > r2 || col < c1 || col > c2 ?
-              row : transpose ? r1 + Rdelta + col - c1 : row + Rdelta);
+              row : transpose ? r1 + deltar + col - c1 : row + deltar);
         newcol = ((vf & FIX_COL) || row < r1 || row > r2 || col < c1 || col > c2 ?
-              col : transpose ? c1 + Cdelta + row - r1 : col + Cdelta);
+              col : transpose ? c1 + deltac + row - r1 : col + deltac);
         ret->e.v.vp = lookat(sp, newrow, newcol);
         ret->e.v.vf = vf;
     } else
@@ -3325,7 +3325,7 @@ enode_t *copye(sheet_t *sp, enode_t *e, int Rdelta, int Cdelta,
     if (e->type == OP_TYPE_FUNC) {
         int i;
         for (i = 0; i < e->nargs; i++) {
-            if (!(ret->e.args[i] = copye(sp, e->e.args[i], Rdelta, Cdelta, r1, c1, r2, c2, transpose))) {
+            if (e->e.args[i] && !(ret->e.args[i] = copye(sp, e->e.args[i], deltar, deltac, r1, c1, r2, c2, transpose))) {
                 efree(ret);
                 return NULL;
             }

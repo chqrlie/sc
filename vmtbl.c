@@ -18,6 +18,11 @@
  * current size if we can.
  */
 
+/* return value:
+   0 if not resizing was needed
+   1 if resizing succeeded
+   -1 if resizing failed and *rowp or *colp was modified
+ */
 int checkbounds(sheet_t *sp, int *rowp, int *colp) {
     if (*rowp < 0)
         *rowp = 0;
@@ -27,20 +32,26 @@ int checkbounds(sheet_t *sp, int *rowp, int *colp) {
             if (!growtbl(sp, GROWBOTH, *rowp, *colp)) {
                 *rowp = sp->maxrows - 1;
                 *colp = sp->maxcols - 1;
+                return -1;
             }
-            return 0;
+            return 1;
         } else {
-            if (!growtbl(sp, GROWROW, *rowp, 0))
+            if (!growtbl(sp, GROWROW, *rowp, 0)) {
                 *rowp = sp->maxrows - 1;
-            return 0;
+                return -1;
+            }
+            return 1;
         }
     }
     if (*colp < 0)
         *colp = 0;
     else
     if (*colp >= sp->maxcols) {
-        if (!growtbl(sp, GROWCOL, 0, *colp))
+        if (!growtbl(sp, GROWCOL, 0, *colp)) {
             *colp = sp->maxcols - 1;
+            return -1;
+        }
+        return 1;
     }
     return 0;
 }
