@@ -3467,38 +3467,41 @@ static void formatcol(sheet_t *sp, int arg) {
             case '<':
             case 'h':
                 for (i = sp->curcol; i < sp->curcol + arg; i++) {
-                    sp->colfmt[i].fwidth--;
-                    if (sp->colfmt[i].fwidth < 1)
-                        sp->colfmt[i].fwidth = 1;
+                    if (sp->colfmt[i].fwidth > 1) {
+                        sp->colfmt[i].fwidth--;
+                        sp->modflg++;
+                    }
                 }
-                sp->modflg++;
                 break;
             case SC_KEY_RIGHT:
             case '>':
             case 'l':
                 for (i = sp->curcol; i < sp->curcol + arg; i++) {
-                    sp->colfmt[i].fwidth++;
-                    if (sp->colfmt[i].fwidth > screen_COLS - sp->rescol - 2)
-                        sp->colfmt[i].fwidth = screen_COLS - sp->rescol - 2;
+                    if (sp->colfmt[i].fwidth < screen_COLS - sp->rescol - 2) {
+                        sp->colfmt[i].fwidth++;
+                        sp->modflg++;
+                    }
                 }
-                sp->modflg++;
                 break;
             case SC_KEY_DOWN:
             case '-':
             case 'j':
                 for (i = sp->curcol; i < sp->curcol + arg; i++) {
-                    sp->colfmt[i].precision--;
-                    if (sp->colfmt[i].precision < 0)
-                        sp->colfmt[i].precision = 0;
+                    if (sp->colfmt[i].precision > 0) {
+                        sp->colfmt[i].precision--;
+                        sp->modflg++;
+                    }
                 }
-                sp->modflg++;
                 break;
             case SC_KEY_UP:
             case '+':
             case 'k':
-                for (i = sp->curcol; i < sp->curcol + arg; i++)
-                    sp->colfmt[i].precision++;
-                sp->modflg++;
+                for (i = sp->curcol; i < sp->curcol + arg; i++) {
+                    if (sp->colfmt[i].precision < 255) {
+                        sp->colfmt[i].precision++;
+                        sp->modflg++;
+                    }
+                }
                 break;
             case ' ':
                 // XXX: should use current format?
