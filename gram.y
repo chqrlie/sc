@@ -427,46 +427,46 @@ command:  S_LET var_or_range '=' e      { let(sht, $2.left, $4, -1); }
         | S_ENDLEFT                     { doend(sht,  0, -1); }
         | S_ENDRIGHT                    { doend(sht,  0,  1); }
         | S_SELECT STRING               { cmd_select_qbuf(string_to_char($2)); }
-        | S_INSERTROW                   { insertrows(sht, cellref_current(sht),  1, 0); }
-        | S_INSERTROW '*' NUMBER        { insertrows(sht, cellref_current(sht), $3, 0); }
-        | S_INSERTCOL                   { insertcols(sht, cellref_current(sht),  1, 0); }
-        | S_INSERTCOL '*' NUMBER        { insertcols(sht, cellref_current(sht), $3, 0); }
-        | S_OPENROW                     { sht->currow += insertrows(sht, cellref_current(sht),  1, 1); }
-        | S_OPENROW '*' NUMBER          { sht->currow += insertrows(sht, cellref_current(sht), $3, 1); }
-        | S_OPENCOL                     { sht->curcol += insertcols(sht, cellref_current(sht),  1, 1); }
-        | S_OPENCOL '*' NUMBER          { sht->curcol += insertcols(sht, cellref_current(sht), $3, 1); }
+        | S_INSERTROW                   { insert_rows(sht, cellref_current(sht),  1, 0); }
+        | S_INSERTROW '*' NUMBER        { insert_rows(sht, cellref_current(sht), $3, 0); }
+        | S_INSERTCOL                   { insert_cols(sht, cellref_current(sht),  1, 0); }
+        | S_INSERTCOL '*' NUMBER        { insert_cols(sht, cellref_current(sht), $3, 0); }
+        | S_OPENROW                     { sht->currow += insert_rows(sht, cellref_current(sht),  1, 1); }
+        | S_OPENROW '*' NUMBER          { sht->currow += insert_rows(sht, cellref_current(sht), $3, 1); }
+        | S_OPENCOL                     { sht->curcol += insert_cols(sht, cellref_current(sht),  1, 1); }
+        | S_OPENCOL '*' NUMBER          { sht->curcol += insert_cols(sht, cellref_current(sht), $3, 1); }
         | S_DELETEROW                   { if (sht->showrange == SHOWROWS)
-                                            deletecols(sht, sht->showsr, sht->currow);
+                                            delete_cols(sht, sht->showsr, sht->currow);
                                           else
-                                            deletecols(sht, sht->currow, sht->currow);
+                                            delete_cols(sht, sht->currow, sht->currow);
                                         }
-        | S_DELETEROW '*' NUMBER        { deleterows(sht, sht->currow, sht->currow + $3 - 1); }
-        | S_DELETEROW NUMBER            { deleterows(sht, $2, $2); }
-        | S_DELETEROW NUMBER ':' NUMBER { deleterows(sht, $2, $4); }
+        | S_DELETEROW '*' NUMBER        { delete_rows(sht, sht->currow, sht->currow + $3 - 1); }
+        | S_DELETEROW NUMBER            { delete_rows(sht, $2, $2); }
+        | S_DELETEROW NUMBER ':' NUMBER { delete_rows(sht, $2, $4); }
         | S_DELETECOL                   { if (sht->showrange == SHOWCOLS)
-                                            deletecols(sht, sht->showsc, sht->curcol);
+                                            delete_cols(sht, sht->showsc, sht->curcol);
                                           else
-                                            deletecols(sht, sht->curcol, sht->curcol);
+                                            delete_cols(sht, sht->curcol, sht->curcol);
                                         }
-        | S_DELETECOL COL               { deletecols(sht, $2, $2); }
-        | S_DELETECOL '*' NUMBER        { deletecols(sht, sht->curcol, sht->curcol + $3 - 1); }
-        | S_DELETECOL COL ':' COL       { deletecols(sht, $2, $4); }
+        | S_DELETECOL COL               { delete_cols(sht, $2, $2); }
+        | S_DELETECOL '*' NUMBER        { delete_cols(sht, sht->curcol, sht->curcol + $3 - 1); }
+        | S_DELETECOL COL ':' COL       { delete_cols(sht, $2, $4); }
         | S_YANKROW                     { if (sht->showrange == SHOWROWS)
-                                            yankrows(sht, sht->showsr, sht->currow);
+                                            yank_rows(sht, sht->showsr, sht->currow);
                                           else
-                                            yankrows(sht, sht->currow, sht->currow);
+                                            yank_rows(sht, sht->currow, sht->currow);
                                         }
-        | S_YANKROW '*' NUMBER          { yankrows(sht, sht->currow, sht->currow + $3 - 1); }
-        | S_YANKROW NUMBER              { yankrows(sht, $2, $2); }
-        | S_YANKROW NUMBER ':' NUMBER   { yankrows(sht, $2, $4); }
+        | S_YANKROW '*' NUMBER          { yank_rows(sht, sht->currow, sht->currow + $3 - 1); }
+        | S_YANKROW NUMBER              { yank_rows(sht, $2, $2); }
+        | S_YANKROW NUMBER ':' NUMBER   { yank_rows(sht, $2, $4); }
         | S_YANKCOL                     { if (sht->showrange == SHOWCOLS)
-                                            yankcols(sht, sht->showsc, sht->curcol);
+                                            yank_cols(sht, sht->showsc, sht->curcol);
                                           else
-                                            yankcols(sht, sht->curcol, sht->curcol);
+                                            yank_cols(sht, sht->curcol, sht->curcol);
                                         }
-        | S_YANKCOL NUMBER              { yankcols(sht, $2, $2); }
-        | S_YANKCOL '*' NUMBER          { yankcols(sht, sht->curcol, sht->curcol + $3 - 1); }
-        | S_YANKCOL COL ':' COL         { yankcols(sht, $2, $4); }
+        | S_YANKCOL NUMBER              { yank_cols(sht, $2, $2); }
+        | S_YANKCOL '*' NUMBER          { yank_cols(sht, sht->curcol, sht->curcol + $3 - 1); }
+        | S_YANKCOL COL ':' COL         { yank_cols(sht, $2, $4); }
         | S_PULL                        { cmd_pullcells(sht, 'p', 1); }
         | S_PULLMERGE                   { cmd_pullcells(sht, 'm', 1); }
         | S_PULLROWS                    { cmd_pullcells(sht, 'r', 1); }
@@ -609,12 +609,12 @@ not:                                { $$ = 1; }
         ;
 
 /* things that you can 'set' */
-setitem : not K_AUTO                { setautocalc(sht, $1); }
-        | not K_AUTOCALC            { setautocalc(sht, $1); }
+setitem : not K_AUTO                { set_autocalc(sht, $1); }
+        | not K_AUTOCALC            { set_autocalc(sht, $1); }
         | not K_AUTOINSERT          { sht->autoinsert = $1; }
         | not K_AUTOWRAP            { sht->autowrap = $1; }
-        | K_BYCOLS                  { setcalcorder(sht, BYCOLS); }
-        | K_BYROWS                  { setcalcorder(sht, BYROWS); }
+        | K_BYCOLS                  { set_calcorder(sht, BYCOLS); }
+        | K_BYROWS                  { set_calcorder(sht, BYROWS); }
         | not K_CELLCUR             { showcell = $1; FullUpdate++; }
         | not K_CSLOP               { sht->cslop = $1; FullUpdate++; }
         | not K_COLOR               { sc_setcolor($1); }
@@ -626,7 +626,7 @@ setitem : not K_AUTO                { setautocalc(sht, $1); }
         | not K_PRESCALE            { sht->prescale = $1 ? 0.01 : 1.0; } // XXX: should use 100.0
         | not K_RNDTOEVEN           { sht->rndtoeven = $1; FullUpdate++; }
         | not K_TOPROW              { sht->showtop = $1; FullUpdate++; }
-        | K_ITERATIONS '=' NUMBER   { setiterations(sht, $3); }
+        | K_ITERATIONS '=' NUMBER   { set_iterations(sht, $3); }
         | K_TBLSTYLE '=' NUMBER     { sht->tbl_style = $3; }
         | K_TBLSTYLE '=' K_TBL      { sht->tbl_style = TBL; }
         | K_TBLSTYLE '=' K_LATEX    { sht->tbl_style = LATEX; }

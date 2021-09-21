@@ -572,10 +572,10 @@ static scvalue_t eval_indirect(eval_ctx_t *cp, enode_t *e) {
             maxc = rr.right.col;
         } else
         if (nrange_find_name(cp->sp, s, len, &r)) {
-            minr = r->r_left.vp->row;
-            minc = r->r_left.vp->col;
-            maxr = r->r_right.vp->row;
-            maxc = r->r_right.vp->col;
+            minr = r->left.vp->row;
+            minc = r->left.vp->col;
+            maxr = r->right.vp->row;
+            maxc = r->right.vp->col;
         } else {
             err = ERROR_REF;
         }
@@ -2968,7 +2968,7 @@ SCXMEM string_t *seval_at(sheet_t *sp, enode_t *e, int row, int col, int *errp) 
  * evaluation count expires.
  */
 
-void setiterations(sheet_t *sp, int i) {
+void set_iterations(sheet_t *sp, int i) {
     if (i < 1) {
         error("iteration count must be at least 1");
         sp->propagation = 1;
@@ -3096,12 +3096,12 @@ static int RealEvalOne(sheet_t *sp, struct ent *p, enode_t *e, int row, int col)
 }
 
 /* set the calculation order */
-void setcalcorder(sheet_t *sp, int i) {
+void set_calcorder(sheet_t *sp, int i) {
     if (i == BYROWS || i == BYCOLS)
         sp->calc_order = i;
 }
 
-void setautocalc(sheet_t *sp, int i) {
+void set_autocalc(sheet_t *sp, int i) {
     sp->autocalc = i;
 }
 
@@ -3515,9 +3515,9 @@ static void out_var(decomp_t *dcp, struct ent_ptr v, int usename) {
     } else
     if (!(dcp->flags & DCP_NO_NAME) && usename
     &&  (r = nrange_find_coords(dcp->sp, rangeref(v.vp->row, v.vp->col, v.vp->row, v.vp->col))) != NULL
-    &&  !r->r_is_range) {
+    &&  !r->is_range) {
         // XXX: this is incorrect if the named range has different flags
-        buf_puts(dcp->buf, s2c(r->r_name));
+        buf_puts(dcp->buf, s2c(r->name));
     } else {
         buf_printf(dcp->buf, "%s%s%s%d",
                    (v.vf & FIX_COL) ? "$" : "", coltoa(col),
@@ -3531,9 +3531,9 @@ static void out_range(decomp_t *dcp, enode_t *e) {
     if (!(dcp->flags & DCP_NO_NAME)
     &&  (r = nrange_find_coords(dcp->sp, rangeref(e->e.r.left.vp->row, e->e.r.left.vp->col,
                                                   e->e.r.right.vp->row, e->e.r.right.vp->col))) != NULL
-    &&  r->r_is_range) {
+    &&  r->is_range) {
         // XXX: this is incorrect if the named range has different flags
-        buf_puts(dcp->buf, s2c(r->r_name));
+        buf_puts(dcp->buf, s2c(r->name));
     } else {
         out_var(dcp, e->e.r.left, 0);
         buf_putc(dcp->buf, ':');

@@ -932,30 +932,30 @@ void vi_interaction(sheet_t *sp) {
 
                         switch (c) {
                         case 'i':
-                            if (ch2 == 'r') insertrows(sp, cellref_current(sp), uarg, 0);
-                            else            insertcols(sp, cellref_current(sp), uarg, 0);
+                            if (ch2 == 'r') insert_rows(sp, cellref_current(sp), uarg, 0);
+                            else            insert_cols(sp, cellref_current(sp), uarg, 0);
                             break;
 
                         case 'o':
-                            if (ch2 == 'r') sp->currow += insertrows(sp, cellref_current(sp), uarg, 1);
-                            else            sp->curcol += insertcols(sp, cellref_current(sp), uarg, 1);
+                            if (ch2 == 'r') sp->currow += insert_rows(sp, cellref_current(sp), uarg, 1);
+                            else            sp->curcol += insert_cols(sp, cellref_current(sp), uarg, 1);
                             break;
 
                         case 'a':
-                            if (ch2 == 'r') while (uarg --> 0 && duprow(sp, cellref_current(sp)))
+                            if (ch2 == 'r') while (uarg --> 0 && dup_row(sp, cellref_current(sp)))
                                                 sp->currow++;
-                            else            while (uarg --> 0 && dupcol(sp, cellref_current(sp)))
+                            else            while (uarg --> 0 && dup_col(sp, cellref_current(sp)))
                                                 sp->curcol++;
                             break;
 
                         case 'd':
-                            if (ch2 == 'r') deleterows(sp, sp->currow, sp->currow + uarg - 1);
-                            else            deletecols(sp, sp->curcol, sp->curcol + uarg - 1);
+                            if (ch2 == 'r') delete_rows(sp, sp->currow, sp->currow + uarg - 1);
+                            else            delete_cols(sp, sp->curcol, sp->curcol + uarg - 1);
                             break;
 
                         case 'y':
-                            if (ch2 == 'r') yankrows(sp, sp->currow, sp->currow + uarg - 1);
-                            else            yankcols(sp, sp->curcol, sp->curcol + uarg - 1);
+                            if (ch2 == 'r') yank_rows(sp, sp->currow, sp->currow + uarg - 1);
+                            else            yank_cols(sp, sp->curcol, sp->curcol + uarg - 1);
                             break;
 
                         case 'p':
@@ -1300,35 +1300,10 @@ void vi_interaction(sheet_t *sp) {
                         error("Mark not set");
                         break;
                     }
-                    {
-                        int c1;
-                        struct ent *n;
-                        // XXX: incorrect: should first check for locked cells
-                        //      in destination area
-                        // XXX: should just use
-                        // copy_range(sp->currow, sp->curcol, sp->currow, sp->curcol + uarg - 1,
-                        //      savedcr[c].row, savedcr[c].col, savedcr[c].row, savedcr[c].col);
-
-                        p = getcell(sp, savedcr[c].row, savedcr[c].col);
-                        for (c1 = sp->curcol; uarg-- && c1 < sp->maxcols; c1++) {
-                            if ((n = getcell(sp, sp->currow, c1))) {
-                                if (n->flags & IS_LOCKED)
-                                    continue;
-                                if (!p) {
-                                    clearent(n);
-                                    continue;
-                                }
-                            } else {
-                                if (!p) break;
-                                n = lookat(sp, sp->currow, c1);
-                            }
-                            copyent(sp, n, p, sp->currow - savedcr[c].row, c1 - savedcr[c].col,
-                                    0, 0, sp->maxrow, sp->maxcol, 0);
-                        }
-                        FullUpdate++;
-                        sp->modflg++;
-                        break;
-                    }
+                    copy_range(sp, COPY_FROM_RANGE,
+                               rangeref(sp->currow, sp->curcol, sp->currow, sp->curcol + uarg - 1),
+                               rangeref2(savedcr[c], savedcr[c]));
+                    break;
                 case '`':
                 case '\'':
                     dotick(sp, c);
@@ -1795,10 +1770,8 @@ static void write_line(sheet_t *sp, int c) {
                                 }
                             }                                       break;
         case 'c':           if ((cr = crange_find(sp, sp->currow, sp->curcol))) {
-                                ins_string(sp, r_name(sp, cr->r_left->row,
-                                                      cr->r_left->col,
-                                                      cr->r_right->row,
-                                                      cr->r_right->col));
+                                ins_string(sp, r_name(sp, cr->left->row, cr->left->col,
+                                                      cr->right->row, cr->right->col));
                                 toggle_navigate_mode();
                                 ins_in_line(sp, ' ');
                                 sp->showrange = 0;
@@ -1961,9 +1934,9 @@ static void dotab(sheet_t *sp) {
             len = linelim - i;
             if (!nrange_find_name(sp, completethis, -len, &lastmatch)) {
                 firstmatch = lastmatch;
-                while (firstmatch->r_next &&
-                       !strncmp(completethis, s2c(firstmatch->r_next->r_name), len))
-                    firstmatch = firstmatch->r_next;
+                while (firstmatch->next &&
+                       !strncmp(completethis, s2c(firstmatch->next->name), len))
+                    firstmatch = firstmatch->next;
                 nextmatch = firstmatch;
             } else {
                 nextmatch = NULL;
@@ -1974,13 +1947,13 @@ static void dotab(sheet_t *sp) {
             strsplice(line, sizeof line, completethis - line, len, NULL, 0);
             linelim -= len;
             linelen -= len;
-            ins_string(sp, s2c(nextmatch->r_name));
+            ins_string(sp, s2c(nextmatch->name));
             if (completethis > line && completethis[-1] == ' ' && line[linelim] != ' ')
                 ins_in_line(sp, ' ');
             if (nextmatch == lastmatch)
                 nextmatch = firstmatch;
             else
-                nextmatch = nextmatch->r_prev;
+                nextmatch = nextmatch->prev;
         }
     } else
         startshow(sp);
@@ -2507,7 +2480,7 @@ static void cr_line(sheet_t *sp, int action) {
                             if (sp->curcol > fr->ir_right->col) {
                                 backcol(sp, 1);
                                 if (sp->autoinsert)
-                                    sp->curcol += insertcols(sp, cellref_current(sp), 1, 1);
+                                    sp->curcol += insert_cols(sp, cellref_current(sp), 1, 1);
                                 else {
                                     sp->currow = fr->ir_right->row;
                                     if (row_hidden(sp, sp->currow))
@@ -2515,7 +2488,7 @@ static void cr_line(sheet_t *sp, int action) {
                                 }
                             }
                         } else if (sp->autoinsert)
-                            sp->currow += insertrows(sp, cellref_current(sp), 1, 1);
+                            sp->currow += insert_rows(sp, cellref_current(sp), 1, 1);
                     }
                 } else
                     forwrow(sp, 1);
@@ -2538,7 +2511,7 @@ static void cr_line(sheet_t *sp, int action) {
                             if (sp->currow > fr->ir_right->row) {
                                 backrow(sp, 1);
                                 if (sp->autoinsert)
-                                    sp->currow += insertrows(sp, cellref_current(sp), 1, 1);
+                                    sp->currow += insert_rows(sp, cellref_current(sp), 1, 1);
                                 else {
                                     sp->curcol = fr->ir_right->col;
                                     if (col_hidden(sp, sp->curcol))
@@ -2546,7 +2519,7 @@ static void cr_line(sheet_t *sp, int action) {
                                 }
                             }
                         } else if (sp->autoinsert)
-                            sp->curcol += insertcols(sp, cellref_current(sp), 1, 1);
+                            sp->curcol += insert_cols(sp, cellref_current(sp), 1, 1);
                     }
                 } else
                     forwcol(sp, 1);

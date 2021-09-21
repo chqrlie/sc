@@ -426,13 +426,13 @@ int yylex(void) {
                     break;
             }
             if (!nrange_find_name(sp, p0, p - p0, &r)) {
-                if (r->r_is_range) {
-                    yylval.rval = rangeref(r->r_left.vp->row, r->r_left.vp->col,
-                                           r->r_right.vp->row, r->r_right.vp->col);
+                if (r->is_range) {
+                    yylval.rval = rangeref(r->left.vp->row, r->left.vp->col,
+                                           r->right.vp->row, r->right.vp->col);
                     ret = RANGE;
                     break;
                 } else {
-                    yylval.cval = cellref(r->r_left.vp->row, r->r_left.vp->col);
+                    yylval.cval = cellref(r->left.vp->row, r->left.vp->col);
                     ret = VAR;
                     break;
                 }

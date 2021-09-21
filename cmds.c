@@ -15,7 +15,7 @@
 #define ATBL(sp, row, col)     (&(sp)->tbl[row][col])
 
 /* a linked list of free [struct ent]'s, uses .next as the pointer */
-static struct ent *freeents = NULL;
+static struct ent *free_ents;
 
 /*
  * This structure is used to keep ent structs around before they
@@ -47,6 +47,10 @@ static void kill_area(sheet_t *sp, int idx, int sr, int sc, int er, int ec, int 
 static void fix_ranges(sheet_t *sp, int row1, int col1, int row2, int col2,
                        int delta1, int delta2, struct frange *fr);
 static void pullcells(sheet_t *sp, int idx, int cmd, cellref_t cr);
+static void sync_refs(sheet_t *sp);
+static void clearent(struct ent *v);
+static void copyent(sheet_t *sp, struct ent *n, struct ent *p,
+                    int dr, int dc, int r1, int c1, int r2, int c2, int transpose);
 
 /* swap 2 entries in the delbuf array */
 static void delbuf_swap(int idx1, int idx2) {
@@ -97,12 +101,12 @@ static void delbuf_free(int idx) {
 
         /* free subsheet data if no duplicate found */
         for (p = db->ptr; p; p = next) {
-            // XXX: entries are added to freeents in reverse order
+            // XXX: entries are added to free_ents in reverse order
             //      but they were added to the delbuf in reverse order too
             next = p->next;
             clearent(p);
-            p->next = freeents;     /* put this ent on the front of freeents */
-            freeents = p;
+            p->next = free_ents;     /* put this ent on the front of free_ents */
+            free_ents = p;
         }
         db->ptr = NULL;
         scxfree(db->rowfmt);
@@ -133,13 +137,13 @@ void free_ent_list(void) {
     for (i = 0; i < DELBUFSIZE; i++) {
         delbuf_free(i);
     }
-    for (p = freeents, freeents = NULL; p; p = next) {
+    for (p = free_ents, free_ents = NULL; p; p = next) {
         next = p->next;
         scxfree(p);
     }
 }
 
-void clearent(struct ent *p) {
+static void clearent(struct ent *p) {
     if (p) {
         string_set(&p->label, NULL);
         efree(p->expr);
@@ -195,8 +199,8 @@ static int setcell(sheet_t *sp, int row, int col, struct ent *p) {
 
 static struct ent *get_ent(sheet_t *sp, int row, int col) {
     struct ent *p;
-    if ((p = freeents) != NULL) {
-        freeents = p->next;
+    if ((p = free_ents) != NULL) {
+        free_ents = p->next;
     } else {
         p = scxmalloc(sizeof(struct ent));
     }
@@ -257,7 +261,7 @@ static rangeref_t *range_clip(sheet_t *sp, rangeref_t *rr) {
 }
 
 /* duplicate the row at `cr.row` below it into a new row */
-int duprow(sheet_t *sp, cellref_t cr) {
+int dup_row(sheet_t *sp, cellref_t cr) {
     int row = cr.row, col;
     int c1 = 0;
     int c2 = sp->maxcol;
@@ -268,7 +272,7 @@ int duprow(sheet_t *sp, cellref_t cr) {
         c2 = fr->or_right->col;
     }
 
-    if (!insertrows(sp, cr, 1, 1))
+    if (!insert_rows(sp, cr, 1, 1))
         return 0;
 
     sp->modflg++;
@@ -284,10 +288,10 @@ int duprow(sheet_t *sp, cellref_t cr) {
 }
 
 /* duplicate the column at `cr.col` to the right it into a new column */
-int dupcol(sheet_t *sp, cellref_t cr) {
+int dup_col(sheet_t *sp, cellref_t cr) {
     int row, col = cr.col;
 
-    if (!insertcols(sp, cr, 1, 1))
+    if (!insert_cols(sp, cr, 1, 1))
         return 0;
 
     sp->modflg++;
@@ -318,7 +322,7 @@ static void fix_cellref(cellref_t *rp, rangeref_t rr, int dr, int dc) {
  * is 0; after if it is 1.
  * return 0 on failure, 1 on success
  */
-int insertrows(sheet_t *sp, cellref_t cr, int arg, int delta) {
+int insert_rows(sheet_t *sp, cellref_t cr, int arg, int delta) {
     int r, c, i, lim;
     rangeref_t rr = rangeref(cr.row + delta, 0, sp->maxrow, sp->maxcol);
     struct frange *fr;
@@ -405,7 +409,7 @@ int insertrows(sheet_t *sp, cellref_t cr, int arg, int delta) {
  * is 0; after if it is 1.
  * return 0 on failure, 1 on success
  */
-int insertcols(sheet_t *sp, cellref_t cr, int arg, int delta) {
+int insert_cols(sheet_t *sp, cellref_t cr, int arg, int delta) {
     int r, c;
     struct ent **pp;
     /* cols are moved from sc1:sc2 to dc1:dc2 */
@@ -483,7 +487,7 @@ int insertcols(sheet_t *sp, cellref_t cr, int arg, int delta) {
 }
 
 /* delete rows starting at r1 up to and including r2 */
-void deleterows(sheet_t *sp, int r1, int r2) {
+void delete_rows(sheet_t *sp, int r1, int r2) {
     int nrows, i;
     int c1 = 0;
     int c2 = sp->maxcol;
@@ -591,7 +595,7 @@ void deleterows(sheet_t *sp, int r1, int r2) {
         sp->currow = (sp->currow <= r2) ? r1 : sp->currow - nrows;
 }
 
-void yankrows(sheet_t *sp, int r1, int r2) {
+void yank_rows(sheet_t *sp, int r1, int r2) {
     int arg, nrows;
     int c1 = 0, c2 = sp->maxcol;
     struct frange *fr;
@@ -621,7 +625,7 @@ void yankrows(sheet_t *sp, int r1, int r2) {
     qbuf = 0;
 }
 
-void yankcols(sheet_t *sp, int c1, int c2) {
+void yank_cols(sheet_t *sp, int c1, int c2) {
     int arg, ncols;
 
     if (c1 > c2) SWAPINT(c1, c2);
@@ -667,8 +671,8 @@ static void kill_area(sheet_t *sp, int idx, int sr, int sc, int er, int ec, int 
                     p->flags |= IS_DELETED;
                     *pp = NULL;
                     clearent(p);
-                    p->next = freeents;     /* put this ent on the front of freeents */
-                    freeents = p;
+                    p->next = free_ents;     /* put this ent on the front of free_ents */
+                    free_ents = p;
                 }
             }
         }
@@ -861,7 +865,7 @@ static void pullcells(sheet_t *sp, int src, int cmd, cellref_t cr) {
        'p.' -> does not get here, redirected to PULLCOPY
      */
     if (cmd == 'r') {     /* PULLROWS */
-        if (!insertrows(sp, cr, numrows, 0)) {
+        if (!insert_rows(sp, cr, numrows, 0)) {
             delbuf_clear(dbidx--);
             return;
         }
@@ -878,7 +882,7 @@ static void pullcells(sheet_t *sp, int src, int cmd, cellref_t cr) {
         }
     } else
     if (cmd == 'c') {     /* PULLCOLS */
-        if (!insertcols(sp, cr, numcols, 0)) {
+        if (!insert_cols(sp, cr, numcols, 0)) {
             delbuf_clear(dbidx--);
             return;
         }
@@ -1095,7 +1099,7 @@ static void closerow(sheet_t *sp, int idx, int rs, int numrow) {
 }
 
 /* delete group of columns (1 or more) */
-void deletecols(sheet_t *sp, int c1, int c2) {
+void delete_cols(sheet_t *sp, int c1, int c2) {
     int r, c, ncols, i, save = sp->curcol;
     struct ent **pp;
     struct ent *p;
@@ -1583,7 +1587,7 @@ static void sync_enode(sheet_t *sp, struct enode *e) {
     }
 }
 
-void sync_ranges(sheet_t *sp) {
+static void sync_ranges(sheet_t *sp) {
     int row, col;
     struct ent *p;
 
@@ -1786,8 +1790,8 @@ void showcol(sheet_t *sp, int c1, int c2) {
  * the "pt" command.  r1, c1, r2, and c2 define the range in which the dr
  * and dc values should be used.
  */
-void copyent(sheet_t *sp, struct ent *n, struct ent *p, int dr, int dc,
-             int r1, int c1, int r2, int c2, int special)
+static void copyent(sheet_t *sp, struct ent *n, struct ent *p, int dr, int dc,
+                    int r1, int c1, int r2, int c2, int special)
 {
     if (!n || !p) {
         error("internal error");
@@ -1833,8 +1837,8 @@ void erasedb(sheet_t *sp) {
                 p->expr = NULL;
                 string_set(&p->label, NULL);
                 string_set(&p->format, NULL);
-                p->next = freeents; /* save [struct ent] for reuse */
-                freeents = p;
+                p->next = free_ents; /* save [struct ent] for reuse */
+                free_ents = p;
             }
         }
     }

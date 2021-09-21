@@ -781,7 +781,7 @@ void update(sheet_t *sp, int anychanged) {          /* did any cell really chang
                     move(r, c);
                     //standout();
                     if ((cr = crange_find(sp, row, col)))
-                        select_style(cr->r_color, 0);
+                        select_style(cr->color, 0);
                     else
                         select_style(STYLE_RANGE, 0);
                     standlast++;
@@ -796,7 +796,7 @@ void update(sheet_t *sp, int anychanged) {          /* did any cell really chang
                 }
 
                 if ((cr = crange_find(sp, row, col)))
-                    select_style(cr->r_color, 0);
+                    select_style(cr->color, 0);
 
                 if (p && ((p->flags & IS_CHANGED) || FullUpdate || do_stand)) {
                     if (do_stand) {
@@ -831,7 +831,7 @@ void update(sheet_t *sp, int anychanged) {          /* did any cell really chang
                         } else {
                             if (sp->colorneg && p->v < 0) {
                                 if (cr)
-                                    select_style(((cr->r_color) % CPAIRS) + 1, 0);
+                                    select_style(((cr->color) % CPAIRS) + 1, 0);
                                 else
                                     select_style(STYLE_NEG, 0);
                             }
@@ -930,14 +930,14 @@ void update(sheet_t *sp, int anychanged) {          /* did any cell really chang
                                    r, c, fr, frightcols, flcols, frcols);
                     } else      /* repaint a blank cell: XXX: too complicated */
                     if ((((do_stand || !FullUpdate) && (p->flags & IS_CHANGED)) ||
-                         (cr && cr->r_color != 1)))
+                         (cr && cr->color != 1)))
                     {
                         printw("%*s", fieldlen, "");
                     }
                 } else
-                if (!p && cr && cr->r_color != 1) {
+                if (!p && cr && cr->color != 1) {
                     move(r, c);
-                    select_style(cr->r_color, 0);
+                    select_style(cr->color, 0);
                     printw("%*s", fieldlen, "");
                 }
                 select_style(STYLE_CELL, 0);
@@ -1108,12 +1108,12 @@ void repaint_cursor(sheet_t *sp, int set) {
         int row = sc_lastrow;
 
         if ((cr = crange_find(row, col)))
-            style = cr->r_color;
+            style = cr->color;
         p = getcell(sp, row, col);
         if (p) {
             if (colorneg && (p->type == SC_NUMBER) && p->v < 0) {
                 if (cr)
-                    style = cr->r_color % CPAIRS + 1;
+                    style = cr->color % CPAIRS + 1;
                 else
                     style = STYLE_NEG;
             } else

@@ -142,7 +142,7 @@ struct scvalue {
 typedef struct eval_context eval_ctx_t;
 struct eval_context {
     struct sheet *sp;
-    int gmyrow, gmycol;  /* globals used to implement @myrow, @mycol cmds */
+    int gmyrow, gmycol;         /* for @myrow, @mycol functions */
     int rowoffset, coloffset;   /* row & col offsets for range functions */
 };
 
@@ -185,24 +185,24 @@ struct enode {
 
 /* named ranges */
 struct nrange {
-    struct ent_ptr r_left, r_right;
-    SCXMEM string_t *r_name;            /* possible name for this range */
-    struct nrange *r_next, *r_prev;     /* chained ranges */
-    int r_is_range;
+    struct nrange *next, *prev;     /* chained ranges */
+    struct ent_ptr left, right;
+    SCXMEM string_t *name;          /* possible name for this range */
+    int is_range;
 };
 
 /* framed ranges */
 struct frange {
-    struct ent *or_left, *or_right;     /* outer range */
-    struct ent *ir_left, *ir_right;     /* inner range */
-    struct frange *r_next, *r_prev;     /* chained frame ranges */
+    struct frange *next, *prev;     /* chained frame ranges */
+    struct ent *or_left, *or_right; /* outer range */
+    struct ent *ir_left, *ir_right; /* inner range */
 };
 
 /* color ranges */
 struct crange {
-    struct ent *r_left, *r_right;
-    int r_color;
-    struct crange *r_next, *r_prev;     /* chained color ranges */
+    struct crange *next, *prev;     /* chained color ranges */
+    struct ent *left, *right;
+    int color;
 };
 
 struct colorpair {
@@ -214,9 +214,9 @@ struct colorpair {
 /* stores an abbreviation and its expansion */
 /* doubly linked list, sorted by name */
 struct abbrev {
+    SCXMEM struct abbrev *next, *prev;
     SCXMEM string_t *name;
     SCXMEM string_t *exp;
-    SCXMEM struct abbrev *next, *prev;
 };
 
 struct impexfilt {
@@ -473,8 +473,8 @@ extern sheet_t *sht;
 extern cellref_t savedcr[37];
 extern cellref_t savedst[37];
 extern int FullUpdate;
-extern int rowsinrange;         /* Number of rows in target range of a goto */
-extern int colsinrange;         /* Number of cols in target range of a goto */
+extern int rowsinrange;       /* Number of rows in target range of a goto */
+extern int colsinrange;       /* Number of cols in target range of a goto */
 
 extern char line[FBUFLEN];
 extern int linelim;
@@ -604,7 +604,6 @@ extern int load_scrc(sheet_t *sp);
 extern struct ent *lookat(sheet_t *sp, int row, int col);  /* allocates the cell */
 extern struct ent *getcell(sheet_t *sp, int row, int col); /* does not allocate the cell */
 extern int checkbounds(sheet_t *sp, int *rowp, int *colp);
-extern void clearent(struct ent *v);
 
 /*---------------- expressions ----------------*/
 
@@ -669,17 +668,15 @@ extern int cols_width(sheet_t *sp, int c, int n);
 
 /*---------------- spreadsheet editing ----------------*/
 
-extern void deletecols(sheet_t *sp, int c1, int c2);
-extern void deleterows(sheet_t *sp, int r1, int r2);
+extern void delete_cols(sheet_t *sp, int c1, int c2);
+extern void delete_rows(sheet_t *sp, int r1, int r2);
 extern void copy_set_source_range(rangeref_t rr);
 #define COPY_FROM_RANGE   0x01
 #define COPY_FROM_QBUF    0x02
 #define COPY_FROM_DEF     0x04
 extern void copy_range(sheet_t *sp, int flags, rangeref_t drr, rangeref_t srr);
-extern void copyent(sheet_t *sp, struct ent *n, struct ent *p,
-                    int dr, int dc, int r1, int c1, int r2, int c2, int transpose);
-extern int dupcol(sheet_t *sp, cellref_t cr);
-extern int duprow(sheet_t *sp, cellref_t cr);
+extern int dup_col(sheet_t *sp, cellref_t cr);
+extern int dup_row(sheet_t *sp, cellref_t cr);
 extern void cmd_select_qbuf(char c);
 extern int edit_cell(sheet_t *sp, buf_t buf, int row, int col, struct ent *p, int dcp_flags, int c0);
 extern void erase_range(sheet_t *sp, rangeref_t rr);
@@ -687,26 +684,23 @@ extern void fill_range(sheet_t *sp, rangeref_t rr, double start, double inc, int
 extern void free_ent_list(void);
 extern void let(sheet_t *sp, cellref_t cr, SCXMEM enode_t *e, int align);
 extern void unlet(sheet_t *sp, cellref_t cr);
-extern int insertcols(sheet_t *sp, cellref_t cr, int arg, int delta);
-extern int insertrows(sheet_t *sp, cellref_t cr, int arg, int delta);
+extern int insert_cols(sheet_t *sp, cellref_t cr, int arg, int delta);
+extern int insert_rows(sheet_t *sp, cellref_t cr, int arg, int delta);
 extern void move_area(sheet_t *sp, int dr, int dc, rangeref_t rr);
 extern void move_range(sheet_t *sp, cellref_t cr, rangeref_t rr);
-extern void moveto(sheet_t *sp, rangeref_t rr, cellref_t st);
 extern void cmd_pullcells(sheet_t *sp, int cmd, int uarg);
 extern void sort_range(sheet_t *sp, rangeref_t rr, SCXMEM string_t *criteria);
 extern void valueize_area(sheet_t *sp, rangeref_t rr);
-extern void sync_ranges(sheet_t *sp);
-extern void sync_refs(sheet_t *sp);
-extern void yankcols(sheet_t *sp, int c1, int c2);
-extern void yankrows(sheet_t *sp, int r1, int r2);
+extern void yank_cols(sheet_t *sp, int c1, int c2);
+extern void yank_rows(sheet_t *sp, int r1, int r2);
 extern void yank_range(sheet_t *sp, rangeref_t rr);
 extern int growtbl(sheet_t *sp, int rowcol, int toprow, int topcol);
 
 /*---------------- spreadsheet options ----------------*/
 
-extern void setautocalc(sheet_t *sp, int i);
-extern void setiterations(sheet_t *sp, int i);
-extern void setcalcorder(sheet_t *sp, int i);
+extern void set_autocalc(sheet_t *sp, int i);
+extern void set_iterations(sheet_t *sp, int i);
+extern void set_calcorder(sheet_t *sp, int i);
 extern void set_mdir(sheet_t *sp, SCXMEM string_t *str);
 extern void set_autorun(sheet_t *sp, SCXMEM string_t *str);
 extern void set_fkey(sheet_t *sp, int n, SCXMEM string_t *str);
@@ -814,6 +808,7 @@ extern void write_fd(sheet_t *sp, FILE *f, rangeref_t rr, int dcp_flags);
 
 /*---------------- navigation ----------------*/
 
+extern void moveto(sheet_t *sp, rangeref_t rr, cellref_t st);
 extern void backpage(sheet_t *sp, int arg);
 extern void backcell(sheet_t *sp, int arg);
 extern void backcol(sheet_t *sp, int arg);
