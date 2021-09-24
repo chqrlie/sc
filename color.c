@@ -218,7 +218,7 @@ void crange_list(sheet_t *sp, FILE *f) {
     if (brokenpipe) return;
 
     if (!crange_test(sp)) {
-        fprintf(f, "  No color ranges");
+        fprintf(f, "  No color ranges\n");
         return;
     }
 

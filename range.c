@@ -217,7 +217,7 @@ void nrange_list(sheet_t *sp, FILE *f) {
     struct nrange *r;
 
     if (!nrange_test(sp)) {
-        fprintf(f, "  No ranges defined");
+        fprintf(f, "  No named ranges\n");
         return;
     }
 

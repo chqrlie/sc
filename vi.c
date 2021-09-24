@@ -903,7 +903,7 @@ void vi_interaction(sheet_t *sp) {
                     if (c == ESC || c == ctl('g')) {
                         break;
                     } else {
-                        cmd_select_qbuf(c);
+                        cmd_select_register(c);
                     }
                     break;
 
@@ -2604,10 +2604,13 @@ static void list_all(sheet_t *sp) {
     }
     if (!brokenpipe) fprintf(f, "Named Ranges:\n=============\n\n");
     if (!brokenpipe) nrange_list(sp, f);
-    if (!brokenpipe) fprintf(f, "\n\nFrames:\n=======\n\n");
+    if (!brokenpipe) fprintf(f, "\nFrames:\n=======\n\n");
     if (!brokenpipe) frange_list(sp, f);
-    if (!brokenpipe) fprintf(f, "\n\nColors:\n=======\n\n");
+    if (!brokenpipe) fprintf(f, "\nColors:\n=======\n\n");
     if (!brokenpipe) crange_list(sp, f);
+    if (!brokenpipe) fprintf(f, "\nRegisters:\n==========\n\n");
+    if (!brokenpipe) delbuf_list(sp, f);
+    if (!brokenpipe) fprintf(f, "\n");
     closefile(f, pid, 0);
 }
 

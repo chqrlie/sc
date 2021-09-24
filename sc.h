@@ -328,7 +328,7 @@ extern struct opdef const opdefs[];
 #define ISCTL(c)    (!((c) & ~0x1F))
 #define ISBYTE(c)   (!((c) & ~0xFF))
 
-#define ctl(c) ((c)&037)
+#define ctl(c) ((c) & 037)
 #define ESC 033
 #define DEL 0177
 
@@ -470,8 +470,9 @@ static inline int col_fwidth(sheet_t *sp, int col) { return sp->colfmt[col].fwid
 
 extern sheet_t *sht;
 
-extern cellref_t savedcr[37];
-extern cellref_t savedst[37];
+#define MARK_COUNT  37
+extern cellref_t savedcr[MARK_COUNT];
+extern cellref_t savedst[MARK_COUNT];
 extern int FullUpdate;
 extern int rowsinrange;       /* Number of rows in target range of a goto */
 extern int colsinrange;       /* Number of cols in target range of a goto */
@@ -479,15 +480,6 @@ extern int colsinrange;       /* Number of cols in target range of a goto */
 extern char line[FBUFLEN];
 extern int linelim;
 extern int changed;
-
-/* temporary sheet fragments: stack of 4 work buffers and 36 named buffers (a-z,0-9) */
-typedef struct subsheet {
-    int minrow, mincol, maxrow, maxcol;
-    int ncols, nrows;
-    SCXMEM struct ent *ptr;  /* list of allocated cells */
-    SCXMEM colfmt_t *colfmt;
-    SCXMEM rowfmt_t *rowfmt;
-} subsheet_t;
 
 extern int macrofd;
 extern int brokenpipe;          /* Set to true if SIGPIPE is received */
@@ -677,11 +669,10 @@ extern void copy_set_source_range(rangeref_t rr);
 extern void copy_range(sheet_t *sp, int flags, rangeref_t drr, rangeref_t srr);
 extern int dup_col(sheet_t *sp, cellref_t cr);
 extern int dup_row(sheet_t *sp, cellref_t cr);
-extern void cmd_select_qbuf(char c);
+extern void cmd_select_register(char c);
 extern int edit_cell(sheet_t *sp, buf_t buf, int row, int col, struct ent *p, int dcp_flags, int c0);
 extern void erase_range(sheet_t *sp, rangeref_t rr);
 extern void fill_range(sheet_t *sp, rangeref_t rr, double start, double inc, int bycols);
-extern void free_ent_list(void);
 extern void let(sheet_t *sp, cellref_t cr, SCXMEM enode_t *e, int align);
 extern void unlet(sheet_t *sp, cellref_t cr);
 extern int insert_cols(sheet_t *sp, cellref_t cr, int arg, int delta);
@@ -695,6 +686,10 @@ extern void yank_cols(sheet_t *sp, int c1, int c2);
 extern void yank_rows(sheet_t *sp, int r1, int r2);
 extern void yank_range(sheet_t *sp, rangeref_t rr);
 extern int growtbl(sheet_t *sp, int rowcol, int toprow, int topcol);
+
+extern void delbuf_init(void);
+extern void delbuf_clean(void);
+extern void delbuf_list(sheet_t *sp, FILE *f);
 
 /*---------------- spreadsheet options ----------------*/
 

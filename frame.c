@@ -194,7 +194,7 @@ void frange_list(sheet_t *sp, FILE *f) {
     struct frange *r;
 
     if (!frange_test(sp)) {
-        fprintf(f, "  No frames");
+        fprintf(f, "  No frames\n");
         return;
     }
 

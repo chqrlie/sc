@@ -426,7 +426,7 @@ command:  S_LET var_or_range '=' e      { let(sht, $2.left, $4, -1); }
         | S_ENDDOWN                     { doend(sht,  1,  0); }
         | S_ENDLEFT                     { doend(sht,  0, -1); }
         | S_ENDRIGHT                    { doend(sht,  0,  1); }
-        | S_SELECT STRING               { cmd_select_qbuf(string_to_char($2)); }
+        | S_SELECT STRING               { cmd_select_register(string_to_char($2)); }
         | S_INSERTROW                   { insert_rows(sht, cellref_current(sht),  1, 0); }
         | S_INSERTROW '*' NUMBER        { insert_rows(sht, cellref_current(sht), $3, 0); }
         | S_INSERTCOL                   { insert_cols(sht, cellref_current(sht),  1, 0); }

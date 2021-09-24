@@ -33,8 +33,8 @@ static void settcattr(void);
 static sheet_t cur_sheet;
 sheet_t *sht = &cur_sheet;
 
-cellref_t savedcr[37];     /* stack of marked cells */
-cellref_t savedst[37];
+cellref_t savedcr[MARK_COUNT];     /* stack of marked cells */
+cellref_t savedst[MARK_COUNT];
 int FullUpdate = 0;
 int changed;
 int skipautorun;
@@ -169,6 +169,7 @@ int main(int argc, char **argv) {
         }
     }
 
+    delbuf_init();
     sheet_init(sp);
 
     if (!isatty(STDOUT_FILENO) || popt || qopt == 1) usecurses = FALSE;
@@ -300,7 +301,7 @@ int main(int argc, char **argv) {
         /* free all memory and check for remaining blocks */
         erasedb(sp);
         go_free(sp);
-        free_ent_list();
+        delbuf_clean();
         free_enode_list();
         free_styles();
         free_hist();
