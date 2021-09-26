@@ -677,7 +677,6 @@ extern void let(sheet_t *sp, cellref_t cr, SCXMEM enode_t *e, int align);
 extern void unlet(sheet_t *sp, cellref_t cr);
 extern int insert_cols(sheet_t *sp, cellref_t cr, int arg, int delta);
 extern int insert_rows(sheet_t *sp, cellref_t cr, int arg, int delta);
-extern void move_area(sheet_t *sp, int dr, int dc, rangeref_t rr);
 extern void move_range(sheet_t *sp, cellref_t cr, rangeref_t rr);
 extern void cmd_pullcells(sheet_t *sp, int cmd, int uarg);
 extern void sort_range(sheet_t *sp, rangeref_t rr, SCXMEM string_t *criteria);

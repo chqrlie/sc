@@ -29,16 +29,17 @@ typedef struct subsheet {
     SCXMEM rowfmt_t *rowfmt;
 } subsheet_t;
 
-#define DELBUFSIZE  40   /* Number of named buffers + 4 */
-#define DELBUF_DEF  0
-#define DELBUF_A    (DELBUFSIZE - 26)
-#define DELBUF_0    (DELBUFSIZE - 36)
+#define DELBUF_COUNT  40   /* Number of named buffers + 4 */
+#define DELBUF_DEF   0
+#define DELBUF_TMP1  1
+#define DELBUF_TMP2  2
+#define DELBUF_A    (DELBUF_COUNT - 26)
+#define DELBUF_0    (DELBUF_COUNT - 36)
 #define DELBUF_1    (DELBUF_0 + 1)
 #define DELBUF_9    (DELBUF_0 + 9)
 
-static subsheet_t delbuf_array[DELBUFSIZE];
-static subsheet_t *delbuf[DELBUFSIZE];
-static int dbidx;
+static subsheet_t delbuf_array[DELBUF_COUNT];
+static subsheet_t *delbuf[DELBUF_COUNT];
 static int qbuf;       /* register no. specified by " command */
 
 /* a linked list of free [struct ent]'s, uses .next as the pointer */
@@ -47,8 +48,9 @@ static struct ent *free_ents;
 #define ATBL(sp, row, col)     (&(sp)->tbl[row][col])
 
 static int any_locked_cells(sheet_t *sp, int r1, int c1, int r2, int c2);
+static void move_area(sheet_t *sp, int dr, int dc, rangeref_t rr);
 static void yank_area(sheet_t *sp, int idx, rangeref_t rr);
-static void closerow(sheet_t *sp, int idx, int r, int numrow);
+static void close_rows(sheet_t *sp, int r, int numrow);
 #define KA_DEFAULT      0
 #define KA_IGNORE_LOCK  1
 #define KA_NO_FMT       2
@@ -56,139 +58,11 @@ static void closerow(sheet_t *sp, int idx, int r, int numrow);
 static void kill_area(sheet_t *sp, int idx, int sr, int sc, int er, int ec, int flags);
 static void fix_ranges(sheet_t *sp, int row1, int col1, int row2, int col2,
                        int delta1, int delta2, struct frange *fr);
-static void pullcells(sheet_t *sp, int idx, int cmd, cellref_t cr);
 static void sync_refs(sheet_t *sp);
-static void clearent(struct ent *v);
-static void copyent(sheet_t *sp, struct ent *n, struct ent *p,
-                    int dr, int dc, int r1, int c1, int r2, int c2, int transpose);
+static void ent_copy(sheet_t *sp, struct ent *n, struct ent *p,
+                     int dr, int dc, int r1, int c1, int r2, int c2, int transpose);
 
-void delbuf_init(void) {
-    int i;
-    subsheet_t *db;
-    // XXX: should initialize all register pointers to NULL
-    for (i = 0, db = delbuf_array; i < DELBUFSIZE; i++, db++) {
-        db->num = i + 1;
-        db->refs = 1;
-        db->maxrow = db->maxcol = -1;
-        delbuf[i] = db;
-    }
-}
-
-/* swap 2 entries in the delbuf_ptr array */
-static void delbuf_swap(int idx1, int idx2) {
-    subsheet_t *tmpbuf = delbuf[idx1];
-    delbuf[idx1] = delbuf[idx2];
-    delbuf[idx2] = tmpbuf;
-}
-
-/* rotate a range of entries in the delbuf array */
-static void delbuf_rotate(int idx1, int idx2) {
-    while (idx2 --> idx1) {
-        delbuf_swap(idx2 + 1, idx2);
-    }
-}
-
-static void delbuf_clear(int idx) {
-    subsheet_t *db = delbuf[idx];
-    if (db) {
-        db->minrow = db->mincol = 0;
-        db->maxrow = db->maxcol = -1;
-        db->ncols = db->nrows = 0;
-        db->ptr = NULL;
-        db->colfmt = NULL;
-        db->rowfmt = NULL;
-    }
-}
-
-/* unlink subsheet data, preserve duplicates if any */
-static void delbuf_free(int idx) {
-    subsheet_t *db;
-    struct ent *p, *next;
-    int i;
-
-    if (idx < 0)
-        return;
-
-    db = delbuf[idx];
-    if (!db)
-        return;
-
-    if (db->ptr || db->colfmt || db->rowfmt) {
-        /* detect duplicate and clear pointers */
-        for (i = 0; i < DELBUFSIZE; i++) {
-            if (i == idx)
-                continue;
-            if (db->ptr == delbuf[i]->ptr)
-                db->ptr = NULL;
-            if (db->colfmt == delbuf[i]->colfmt)
-                db->colfmt = NULL;
-            if (db->rowfmt == delbuf[i]->rowfmt)
-                db->rowfmt = NULL;
-        }
-
-        /* free subsheet data if no duplicate found */
-        for (p = db->ptr; p; p = next) {
-            // XXX: entries are added to free_ents in reverse order
-            //      but they were added to the delbuf in reverse order too
-            next = p->next;
-            clearent(p);
-            p->next = free_ents;     /* put this ent on the front of free_ents */
-            free_ents = p;
-        }
-        db->ptr = NULL;
-        scxfree(db->rowfmt);
-        db->rowfmt = NULL;
-        scxfree(db->colfmt);
-        db->colfmt = NULL;
-    }
-    delbuf_clear(idx);
-}
-
-static void delbuf_copy(int src, int dest) {
-    if (dest != src) {
-        delbuf_free(dest);
-        *delbuf[dest] = *delbuf[src];
-    }
-}
-
-static void delbuf_unsync(int idx) {
-    subsheet_t *db = delbuf[idx];
-    if (db) {
-        struct ent *p;
-        for (p = db->ptr; p; p = p->next)
-            p->flags &= ~MAY_SYNC;
-    }
-}
-
-void delbuf_list(sheet_t *sp, FILE *f) {
-    int i, n = 0;
-    for (i = 0; i < DELBUFSIZE; i++) {
-        int c = "\"@#$0123456789abcdefghijklmnopqrstuvwxyz"[i];
-        subsheet_t *db = delbuf[i];
-        if (db && db->minrow <= db->maxrow) {
-            fprintf(f, "  \"%c   %2d  %2d  %s\n", c, db->num, db->refs,
-                    r_name(sp, db->minrow, db->mincol, db->maxrow, db->maxcol));
-            if (brokenpipe) return;
-            n++;
-        }
-    }
-    if (!n) fprintf(f, "  No active registers\n");
-}
-
-void delbuf_clean(void) {
-    struct ent *p, *next;
-    int i;
-
-    for (i = 0; i < DELBUFSIZE; i++) {
-        delbuf_free(i);
-    }
-    for (p = free_ents, free_ents = NULL; p; p = next) {
-        next = p->next;
-        scxfree(p);
-    }
-}
-
-static void clearent(struct ent *p) {
+static void ent_clear(struct ent *p) {
     if (p) {
         string_set(&p->label, NULL);
         efree(p->expr);
@@ -207,6 +81,133 @@ static void clearent(struct ent *p) {
     }
 }
 
+static void ent_free(struct ent *p) {
+    if (p) {
+        ent_clear(p);
+        p->next = free_ents;     /* put this ent on the front of free_ents */
+        free_ents = p;
+    }
+}
+
+void delbuf_init(void) {
+    int i;
+    subsheet_t *db;
+    for (i = 0, db = delbuf_array; i < DELBUF_COUNT; i++, db++) {
+        db->num = i + 1;
+        db->maxrow = db->maxcol = -1;
+    }
+}
+
+/* swap 2 entries in the delbuf_ptr array */
+static void delbuf_swap(int idx1, int idx2) {
+    subsheet_t *tmpbuf = delbuf[idx1];
+    delbuf[idx1] = delbuf[idx2];
+    delbuf[idx2] = tmpbuf;
+}
+
+/* rotate a range of entries in the delbuf array */
+static void delbuf_rotate(int idx1, int idx2) {
+    while (idx2 --> idx1) {
+        delbuf_swap(idx2 + 1, idx2);
+    }
+}
+
+static void delbuf_clear(subsheet_t *db) {
+    if (db) {
+        db->minrow = db->mincol = 0;
+        db->maxrow = db->maxcol = -1;
+        db->ncols = db->nrows = 0;
+        db->ptr = NULL;
+        db->colfmt = NULL;
+        db->rowfmt = NULL;
+    }
+}
+
+/* unlink subsheet data, preserve duplicates if any */
+static void delbuf_free(int idx) {
+    subsheet_t *db;
+    struct ent *p, *next;
+
+    if (idx < 0 || !(db = delbuf[idx]))
+        return;
+
+    delbuf[idx] = NULL;
+    if (--db->refs) {
+        /* free subsheet data if no duplicate found */
+        for (p = db->ptr; p; p = next) {
+            // XXX: entries are added to free_ents in reverse order
+            //      but they were added to the delbuf in reverse order too
+            next = p->next;
+            ent_free(p);
+        }
+        db->ptr = NULL;
+        scxfree(db->rowfmt);
+        db->rowfmt = NULL;
+        scxfree(db->colfmt);
+        db->colfmt = NULL;
+        delbuf_clear(db);
+    }
+}
+
+static subsheet_t *delbuf_find(int idx) {
+    int i;
+    subsheet_t *db = &delbuf_array[idx];
+    if (db->refs > 0) {
+        for (i = 0, db = delbuf_array; i < DELBUF_COUNT; i++, db++) {
+            if (db->refs == 0)
+                break;
+        }
+    }
+    db->refs++;
+    return delbuf[idx] = db;
+}
+
+static void delbuf_copy(int src, int dest) {
+    if (dest != src) {
+        subsheet_t *db = delbuf[src];
+        if (db) db->refs++;
+        delbuf_free(dest);
+        delbuf[dest] = db;
+    }
+}
+
+static void delbuf_unsync(int idx) {
+    subsheet_t *db = delbuf[idx];
+    if (db) {
+        struct ent *p;
+        for (p = db->ptr; p; p = p->next)
+            p->flags &= ~MAY_SYNC;
+    }
+}
+
+void delbuf_list(sheet_t *sp, FILE *f) {
+    int i, n = 0;
+    for (i = 0; i < DELBUF_COUNT; i++) {
+        int c = "\"@#$0123456789abcdefghijklmnopqrstuvwxyz"[i];
+        subsheet_t *db = delbuf[i];
+        if (db) {
+            fprintf(f, "  \"%c   %2d  %2d  %s\n", c, db->num, db->refs,
+                    r_name(sp, db->minrow, db->mincol, db->maxrow, db->maxcol));
+            if (brokenpipe) return;
+            n++;
+        }
+    }
+    if (!n) fprintf(f, "  No active registers\n");
+}
+
+void delbuf_clean(void) {
+    struct ent *p, *next;
+    int i;
+
+    for (i = 0; i < DELBUF_COUNT; i++) {
+        delbuf_free(i);
+    }
+    for (p = free_ents, free_ents = NULL; p; p = next) {
+        next = p->next;
+        scxfree(p);
+    }
+}
+
 struct ent *getcell(sheet_t *sp, int row, int col) {
     if (row >= 0 && row <= sp->maxrow && col >= 0 && col <= sp->maxcol)
         return *ATBL(sp, row, col);
@@ -216,20 +217,23 @@ struct ent *getcell(sheet_t *sp, int row, int col) {
 
 /* move a cell to the delbuf list (reverse order) */
 static void killcell(sheet_t *sp, int row, int col,
-                     int idx, int ignorelock, int unlock)
+                     subsheet_t *db, int ignorelock, int unlock)
 {
-    subsheet_t *db = delbuf[idx];
-
-    if (db && row >= 0 && row <= sp->maxrow && col >= 0 && col <= sp->maxcol) {
+    if (row >= 0 && row <= sp->maxrow && col >= 0 && col <= sp->maxcol) {
         struct ent **pp = ATBL(sp, row, col);
         struct ent *p;
         if ((p = *pp) && (!(p->flags & IS_LOCKED) || ignorelock)) {
-            p->next = db->ptr;
-            db->ptr = p;
             p->flags |= IS_DELETED;
             if (unlock)
                 p->flags &= ~IS_LOCKED;
             *pp = NULL;
+            if (db) {
+                p->next = db->ptr;
+                db->ptr = p;
+                // XXX: should update subsheet range?
+            } else {
+                ent_free(p);
+            }
         }
     }
 }
@@ -237,14 +241,16 @@ static void killcell(sheet_t *sp, int row, int col,
 static int setcell(sheet_t *sp, int row, int col, struct ent *p) {
     if (row >= 0 && row <= sp->maxrow && col >= 0 && col <= sp->maxcol) {
         struct ent **pp = ATBL(sp, row, col);
-        // XXX: should reclaim destination cell
+        if (*pp && *pp != p) {
+            ent_free(*pp);
+        }
         *pp = p;
         return 1;
     }
     return 0;
 }
 
-static struct ent *get_ent(sheet_t *sp, int row, int col) {
+static struct ent *ent_alloc(sheet_t *sp, int row, int col) {
     struct ent *p;
     if ((p = free_ents) != NULL) {
         free_ents = p->next;
@@ -274,7 +280,7 @@ struct ent *lookat(sheet_t *sp, int row, int col) {
     checkbounds(sp, &row, &col);
     pp = ATBL(sp, row, col);
     if (*pp == NULL) {
-        *pp = get_ent(sp, row, col);
+        *pp = ent_alloc(sp, row, col);
     }
     return *pp;
 }
@@ -328,7 +334,7 @@ int dup_row(sheet_t *sp, cellref_t cr) {
         struct ent *p = getcell(sp, row, col);
         if (p) {
             struct ent *n = lookat(sp, row + 1, col);
-            copyent(sp, n, p, 1, 0, 0, 0, sp->maxrow, sp->maxcol, 0);
+            ent_copy(sp, n, p, 1, 0, 0, 0, sp->maxrow, sp->maxcol, 0);
         }
     }
     return 1;
@@ -348,7 +354,7 @@ int dup_col(sheet_t *sp, cellref_t cr) {
         struct ent *p = getcell(sp, row, col);
         if (p) {
             struct ent *n = lookat(sp, row, col + 1);
-            copyent(sp, n, p, 0, 1, 0, 0, sp->maxrow, sp->maxcol, 0);
+            ent_copy(sp, n, p, 0, 1, 0, 0, sp->maxrow, sp->maxcol, 0);
         }
     }
     return 1;
@@ -631,7 +637,7 @@ void delete_rows(sheet_t *sp, int r1, int r2) {
             sync_refs(sp);
             kill_area(sp, DELBUF_DEF, r1, c1, r2, c2, KA_DEFAULT);
             fix_ranges(sp, r1, -1, r2, -1, -1, -1, NULL);
-            closerow(sp, DELBUF_DEF, r1, nrows);
+            close_rows(sp, r1, nrows);
             delbuf_copy(DELBUF_DEF, qbuf);
             qbuf = 0;
             delbuf_rotate(DELBUF_1, DELBUF_9);
@@ -660,13 +666,13 @@ void yank_rows(sheet_t *sp, int r1, int r2) {
         c2 = fr->or_right->col;
     }
     if (arg > nrows) {
-        // XXX: should grow table
+        // XXX: should grow table or clip args
         error("Cannot yank %d %s, %d %s left",
               arg, (arg == 1 ? "row" : "rows"),
               nrows, (nrows == 1 ? "row" : "rows"));
         return;
     }
-    sync_refs(sp);
+    sync_refs(sp); // XXX: why here?
 
     /* copy source cells to delbuf[0] */
     yank_area(sp, DELBUF_DEF, rangeref(r1, c1, r1 + arg - 1, c2));
@@ -683,7 +689,7 @@ void yank_cols(sheet_t *sp, int c1, int c2) {
     ncols = sp->maxcol - c1 + 1;
 
     if (arg > ncols) {
-        // XXX: should grow table
+        // XXX: should grow table or clip args
         error("Cannot yank %d %s, %d %s left",
               arg, (arg == 1 ? "column" : "columns"),
               ncols, (ncols == 1 ? "column" : "columns"));
@@ -710,8 +716,8 @@ static void kill_area(sheet_t *sp, int idx, int sr, int sc, int er, int ec, int 
     if (sc > ec) SWAPINT(sc, ec);
     if (sr < 0) sr = 0;
     if (sc < 0) sc = 0;
-    // XXX: should just clip?
-    checkbounds(sp, &er, &ec);
+    if (er > sp->maxrow) er = sp->maxrow;
+    if (ec > sp->maxcol) ec = sp->maxcol;
 
     if (idx < 0) {
         /* just free the allocated cells */
@@ -722,9 +728,7 @@ static void kill_area(sheet_t *sp, int idx, int sr, int sc, int er, int ec, int 
                 if ((p = *pp) && (!(p->flags & IS_LOCKED) || (flags & KA_IGNORE_LOCK))) {
                     p->flags |= IS_DELETED;
                     *pp = NULL;
-                    clearent(p);
-                    p->next = free_ents;     /* put this ent on the front of free_ents */
-                    free_ents = p;
+                    ent_free(p);
                 }
             }
         }
@@ -740,13 +744,17 @@ static void kill_area(sheet_t *sp, int idx, int sr, int sc, int er, int ec, int 
     lookat(sp, er, ec);
 
     delbuf_free(idx);
-    db = delbuf[idx];
+    db = delbuf_find(idx);
+    if (!db)
+        return;
     db->minrow = sr;
     db->mincol = sc;
     db->maxrow = er;
     db->maxcol = ec;
     db->ncols = ec - sc + 1;
     db->nrows = er - sr + 1;
+    if (db->ncols < 0 || db->nrows < 0)
+        return;
     if (!(flags & KA_NO_FMT)) {
         db->colfmt = scxmalloc(db->ncols * sizeof(colfmt_t));
         for (c = sc; c <= ec; c++) {
@@ -762,8 +770,8 @@ static void kill_area(sheet_t *sp, int idx, int sr, int sc, int er, int ec, int 
             for (c = sc; c <= ec; c++) {
                 struct ent *p = getcell(sp, r, c);
                 if (p) {
-                    struct ent *n = get_ent(sp, r, c);
-                    copyent(sp, n, p, 0, 0, 0, 0, sp->maxrow, sp->maxcol, 0);
+                    struct ent *n = ent_alloc(sp, r, c);
+                    ent_copy(sp, n, p, 0, 0, 0, 0, sp->maxrow, sp->maxcol, 0);
                     n->next = db->ptr;
                     db->ptr = n;
                 }
@@ -772,21 +780,21 @@ static void kill_area(sheet_t *sp, int idx, int sr, int sc, int er, int ec, int 
     } else {
         for (r = sr; r <= er; r++) {
             for (c = sc; c <= ec; c++) {
-                killcell(sp, r, c, idx, flags & KA_IGNORE_LOCK, 0);
+                killcell(sp, r, c, db, flags & KA_IGNORE_LOCK, 0);
             }
         }
     }
 }
 
-/* copy a range of cells to delbuf[dbidx] */
+/* copy a range of cells to delbuf[idx] */
 static void yank_area(sheet_t *sp, int idx, rangeref_t rr) {
     range_clip(sp, range_normalize(&rr));
-    /* copy cell range to subsheet delbuf[dbidx] */
+    /* copy cell range to subsheet delbuf[idx] */
     kill_area(sp, idx, rr.left.row, rr.left.col, rr.right.row, rr.right.col, KA_COPY);
 }
 
-/* uses 1 working slot delbuf[dbidx+1] */
-void move_area(sheet_t *sp, int dr, int dc, rangeref_t rr) {
+/* uses temporary subsheet DELBUF_TMP1 */
+static void move_area(sheet_t *sp, int dr, int dc, rangeref_t rr) {
     struct ent *p, *next;
     subsheet_t *db;
     int deltar, deltac;
@@ -796,8 +804,8 @@ void move_area(sheet_t *sp, int dr, int dc, rangeref_t rr) {
     /* First we erase the source range, which puts the cells on the delete
      * buffer stack.
      */
-    /* move cell range to subsheet delbuf[++dbidx] */
-    kill_area(sp, ++dbidx, rr.left.row, rr.left.col, rr.right.row, rr.right.col, KA_DEFAULT);
+    /* move cell range to temporary subsheet */
+    kill_area(sp, DELBUF_TMP1, rr.left.row, rr.left.col, rr.right.row, rr.right.col, KA_DEFAULT);
 
     deltar = dr - rr.left.row;
     deltac = dc - rr.left.col;
@@ -812,16 +820,18 @@ void move_area(sheet_t *sp, int dr, int dc, rangeref_t rr) {
     // XXX: if moving entire columns or rows, the column or row flags should be copied
     // XXX: this could be addressed with flags
 
-    db = delbuf[dbidx];
-    for (p = db->ptr; p; p = next) {
-        next = p->next;
-        p->row += deltar;
-        p->col += deltac;
-        p->flags &= ~IS_DELETED;
-        setcell(sp, p->row, p->col, p);
+    db = delbuf[DELBUF_TMP1];
+    if (db) {
+        for (p = db->ptr; p; p = next) {
+            next = p->next;
+            p->row += deltar;
+            p->col += deltac;
+            p->flags &= ~IS_DELETED;
+            setcell(sp, p->row, p->col, p);
+        }
+        db->ptr = NULL;
     }
-    db->ptr = NULL;
-    delbuf_free(dbidx--);
+    delbuf_free(DELBUF_TMP1);
 }
 
 /*
@@ -848,30 +858,16 @@ void valueize_area(sheet_t *sp, rangeref_t rr) {
     sp->modflg++;  // XXX: should be done only upon modification
 }
 
-void cmd_pullcells(sheet_t *sp, int cmd, int uarg) {
-    while (uarg--) {
-        // XXX: repeating pullcells makes sense for
-        //      'pc' and 'pr' insert multiple copies
-        //      'px' and 'pt' for performance tests
-        //      'pp' to paste/pop multiple levels?
-        //      'pc' and 'pr' should handle ranges specifically
-        //      so multiple elements are inside range boundaries
-        dbidx = 0;
-        pullcells(sp, qbuf, cmd, cellref_current(sp));
-    }
-    qbuf = 0;
-}
-
 /* copy/move cell range from subsheet delbuf[src]
-   using 2 slots delbuf[dbidx+1] and  delbuf[dbidx+2] */
+   using temporary subsheets DELBUF_TMP1 and DELBUF_TMP2 */
 // XXX: should take destination range, instead of just corner cell?
 static void pullcells(sheet_t *sp, int src, int cmd, cellref_t cr) {
-    struct ent *obuf;
     struct ent *p, *n, *next;
     int minrow, mincol, maxrow, maxcol;
     int numrows, numcols, deltar, deltac;
     int i;
     struct frange *fr;
+    subsheet_t *db;
 
     if (!delbuf[src] || !delbuf[src]->ptr) {
         error("No data to pull");
@@ -882,18 +878,13 @@ static void pullcells(sheet_t *sp, int src, int cmd, cellref_t cr) {
         copy_range(sp, COPY_FROM_QBUF, rangeref_current(sp), rangeref_empty());
         return;
     }
-    /* push source buffer on delbuf stack */
-    // XXX: should delay after destination area preparation
-    obuf = delbuf[src]->ptr;  /* orig. contents of the del. buffer */
-    delbuf_copy(src, ++dbidx);
-
     /* compute delbuf range */
     minrow = sp->maxrows;
     mincol = sp->maxcols;
     maxrow = 0;
     maxcol = 0;
 
-    for (p = delbuf[dbidx]->ptr; p; p = p->next) {
+    for (p = delbuf[src]->ptr; p; p = p->next) {
         if (p->row < minrow) minrow = p->row;
         if (p->row > maxrow) maxrow = p->row;
         if (p->col < mincol) mincol = p->col;
@@ -901,7 +892,7 @@ static void pullcells(sheet_t *sp, int src, int cmd, cellref_t cr) {
         p->flags |= MAY_SYNC;
     }
 
-    // XXX: should check consistency with delbuf[dbidx].ncols/nrows
+    // XXX: should check consistency with delbuf[src].ncols/nrows
     numrows = maxrow - minrow + 1;
     numcols = maxcol - mincol + 1;
     deltar = cr.row - minrow;
@@ -918,81 +909,73 @@ static void pullcells(sheet_t *sp, int src, int cmd, cellref_t cr) {
        'pC' -> PULLCOPY implemented above as copy(COPY_FROM_QBUF)
        'p.' -> does not get here, redirected to PULLCOPY
      */
+
     if (cmd == 'r') {     /* PULLROWS */
-        if (!insert_rows(sp, cr, numrows, 0)) {
-            delbuf_clear(dbidx--);
+        if (!insert_rows(sp, cr, numrows, 0))
             return;
-        }
         if ((fr = frange_find(sp, cr.row, cr.col))) {
             deltac = fr->or_left->col - mincol;
         } else {
-            if (delbuf[dbidx]->rowfmt && delbuf[dbidx]->nrows >= numrows) {
+            db = delbuf[src];
+            if (db->rowfmt && db->nrows >= numrows) {
                 // XXX: incorrect if destination range has more rows than src
                 for (i = 0; i < numrows; i++) {
-                    sp->rowfmt[cr.row + i] = delbuf[dbidx]->rowfmt[i];
+                    sp->rowfmt[cr.row + i] = db->rowfmt[i];
                 }
             }
             deltac = 0;
         }
     } else
     if (cmd == 'c') {     /* PULLCOLS */
-        if (!insert_cols(sp, cr, numcols, 0)) {
-            delbuf_clear(dbidx--);
+        if (!insert_cols(sp, cr, numcols, 0))
             return;
-        }
-        if (delbuf[dbidx]->colfmt && delbuf[dbidx]->ncols >= numcols) {
+        db = delbuf[src];
+        if (db->colfmt && db->ncols >= numcols) {
             // XXX: incorrect if destination range has more columns than src
             for (i = 0; i < numcols; i++) {
-                sp->colfmt[cr.col + i] = delbuf[dbidx]->colfmt[i];
+                sp->colfmt[cr.col + i] = db->colfmt[i];
             }
         }
         deltar = 0;
     } else
     if (cmd == 'x') {     /* PULLXCHG */
         /* Save the original contents of the destination range on the
-         * delete buffer stack in preparation for the exchange, then swap
-         * the top two elements on the stack, so that the original cells
-         * to be pulled are still on top.
+         * delete buffer stack in preparation for the exchange.
          */
-        /* move cell range to subsheet delbuf[++dbidx] */
-        kill_area(sp, ++dbidx, minrow + deltar, mincol + deltac,
+        /* move cell range to temporary subsheet */
+        kill_area(sp, DELBUF_TMP1, minrow + deltar, mincol + deltac,
                    maxrow + deltar, maxcol + deltac, KA_DEFAULT);
-        /* swap temp buffers at top of stack */
-        delbuf_swap(dbidx, dbidx - 1);
     } else
     if (cmd == 'p') {     /* PULL */
-        /* move cell range to subsheet delbuf[++dbidx] */
         // XXX: should just clear area (free cells) and sync the references
-        kill_area(sp, ++dbidx, minrow + deltar, mincol + deltac,
+        kill_area(sp, DELBUF_TMP1, minrow + deltar, mincol + deltac,
                    maxrow + deltar, maxcol + deltac, KA_NO_FMT);
         sync_refs(sp);
-        delbuf_free(dbidx--);
+        delbuf_free(DELBUF_TMP1);
     } else
     if (cmd == 't') {     /* PULLTP (transpose) */
-        /* move cell range to subsheet delbuf[++dbidx] */
         // XXX: named ranges and range references may not be updated properly
         // XXX: should just clear area (free cells) and sync the references
-        kill_area(sp, ++dbidx, minrow + deltar, mincol + deltac,
+        kill_area(sp, DELBUF_TMP1, minrow + deltar, mincol + deltac,
                    minrow + deltar + maxcol - mincol,
                    mincol + deltac + maxrow - minrow, KA_NO_FMT);
         sync_refs(sp);
-        delbuf_free(dbidx--);
+        delbuf_free(DELBUF_TMP1);
     }
 
-    FullUpdate++;
-    sp->modflg++;
-
-    /* At this point, we copy the cells from the delete buffer into the
-     * destination range.
-     */
-    for (p = delbuf[dbidx]->ptr; p; p = p->next) {
-        if (cmd == 't') {   /* Transpose rows and columns while pulling. */
-            n = lookat(sp, minrow + deltar + p->col - mincol,
-                       mincol + deltac + p->row - minrow);
-        } else {
-            n = lookat(sp, p->row + deltar, p->col + deltac);
+    if (cmd != 'x') {     /* PULLXCHG */
+        /* At this point, we copy the cells from the delete buffer into the
+         * destination range.
+         */
+        for (p = delbuf[src]->ptr; p; p = p->next) {
+            if (cmd == 't') {   /* Transpose rows and columns while pulling. */
+                n = lookat(sp, minrow + deltar + p->col - mincol,
+                           mincol + deltac + p->row - minrow);
+            } else {
+                n = lookat(sp, p->row + deltar, p->col + deltac);
+            }
+            ent_copy(sp, n, p, deltar, deltac, minrow, mincol, maxrow, maxcol, cmd);
         }
-        copyent(sp, n, p, deltar, deltac, minrow, mincol, maxrow, maxcol, cmd);
     }
 
     /* Now exchange them so that the original cells from the delete buffer
@@ -1005,62 +988,60 @@ static void pullcells(sheet_t *sp, int src, int cmd, cellref_t cr) {
      */
     if (cmd != 't' && cmd != 'm' && cmd != 'f') {
         /* cmd is in PULL, PULLROWS, PULLCOLS, PULLXCHG */
-        if (cmd == 'x') {     /* PULLXCHG */
-            /* swap temp buffers at top of stack */
-            /* the destination range should be empty */
-            delbuf_swap(dbidx, dbidx - 1);
-        } else {
+        if (cmd != 'x') {     /* PULLXCHG */
             /* cmd is in PULL, PULLROWS, PULLCOLS */
-            // XXX: very confusing!
-            /* move the unlocked cells from destination range to delbuf[dbidx+1] */
-            // XXX: should use kill_area() with EA_COPY
-            delbuf_free(++dbidx);
-            for (p = delbuf[dbidx - 1]->ptr; p; p = p->next) {
-                // XXX: delbuf[dxidx]->colfmt and delbuf[dxidx]->rowfmt are NULL
-                killcell(sp, p->row + deltar, p->col + deltac, dbidx, 0, 1);
+            /* move the copied cells from destination range to temprary subsheet */
+            delbuf_free(DELBUF_TMP1);
+            db = delbuf_find(DELBUF_TMP1);
+            for (p = delbuf[src]->ptr; p; p = p->next) {
+                // XXX: db->colfmt and db->rowfmt are NULL
+                killcell(sp, p->row + deltar, p->col + deltac, db, 0, 1);
             }
         }
         /* move the cells from delbuf to destination */
-        delbuf_swap(dbidx, dbidx - 1);
-        for (p = delbuf[dbidx]->ptr; p; p = next) {
+        for (p = delbuf[src]->ptr; p; p = next) {
             next = p->next;
-            // XXX: leak if destination is locked ?
+            // XXX: what if destination is locked ?
             p->row += deltar;
             p->col += deltac;
             p->flags &= ~IS_DELETED;
             setcell(sp, p->row, p->col, p);
         }
-        delbuf[dbidx]->ptr = NULL;
-        delbuf_free(dbidx--);
-        /* leave original cells at top of stack */
-        sync_refs(sp);
+        /* Replace the pulled cells in the source register with the
+         * new set of cells.
+         */
+        delbuf[src]->ptr = delbuf[DELBUF_TMP1]->ptr;
+        delbuf[DELBUF_TMP1]->ptr = NULL;
         /*
          * Now change the cell addresses in the delete buffer to match
          * where the original cells came from.
          */
-        for (p = delbuf[dbidx]->ptr; p; p = p->next) {
+        for (p = delbuf[src]->ptr; p; p = p->next) {
             p->row -= deltar;
             p->col -= deltac;
         }
-    } else {
-        sync_refs(sp);
+        delbuf_free(DELBUF_TMP1);
     }
+    sync_refs(sp);
+    FullUpdate++;
+    sp->modflg++;
+}
 
-    /* Now make sure all references to the pulled cells in all named buffers
-     * point to the new set of cells in the delete buffer.
-     */
-    // XXX: obuf could be a stale pointer
-    // XXX: delbuf[i]->colfmt and delbuf[i]->rowfmt should be updated?
-    for (i = 0; i < DELBUFSIZE; i++) {
-        if (delbuf[i]->ptr == obuf) {
-            delbuf[i]->ptr = delbuf[dbidx]->ptr;
-        }
+void cmd_pullcells(sheet_t *sp, int cmd, int uarg) {
+    while (uarg--) {
+        // XXX: repeating pullcells makes sense for
+        //      'pc' and 'pr' insert multiple copies
+        //      'px' and 'pt' for performance tests
+        //      'pp' to paste/pop multiple levels?
+        //      'pc' and 'pr' should handle ranges specifically
+        //      so multiple elements are inside range boundaries
+        pullcells(sp, qbuf, cmd, cellref_current(sp));
     }
-    delbuf_free(dbidx--);
+    qbuf = 0;
 }
 
 /* delete numrow rows, starting with rs */
-static void closerow(sheet_t *sp, int idx, int rs, int numrow) {
+static void close_rows(sheet_t *sp, int rs, int numrow) {
     int r, c, i, r1, r2;
     struct ent **tmprow;
     rowfmt_t def_rowfmt = { FALSE };
@@ -1082,8 +1063,9 @@ static void closerow(sheet_t *sp, int idx, int rs, int numrow) {
         r = r1 + i;
 
         /* empty the first row of the group */
+        // XXX: this does nothing: the target range has already been killed
         for (c = 0; c < sp->maxcol; c++) {
-            killcell(sp, r, c, idx, 1, 1);
+            killcell(sp, r, c, NULL, 1, 1);
         }
 
         /* move the rows, put the deleted, but now empty, row at the end */
@@ -1334,6 +1316,7 @@ void copy_set_source_range(rangeref_t rr) {
     copy_rr = rr;
 }
 
+/* using temporary subsheets DELBUF_TMP1 and DELBUF_TMP2 */
 void copy_range(sheet_t *sp, int flags, rangeref_t drr, rangeref_t srr) {
     struct ent *p;
     int mindr, mindc, maxdr, maxdc;
@@ -1399,24 +1382,23 @@ void copy_range(sheet_t *sp, int flags, rangeref_t drr, rangeref_t srr) {
 
     /* fail if destination area exceeds maximum boundaries */
     if (checkbounds(sp, &maxdr, &maxdc) < 0) {
+        // XXX: should extend sheet
         error("cannot copy beyond boundaries");
         return;
     }
 
-    dbidx = 0;
     if (flags & COPY_FROM_QBUF) {
-        delbuf_copy(qbuf, ++dbidx);
+        delbuf_copy(qbuf, DELBUF_TMP1);
     } else {
-        /* copy source cells to delbuf[++dbidx] */
         // XXX: should not be necessary if copy order is well chosen
         //      or if source and destination do not overlap
-        yank_area(sp, ++dbidx, rangeref(minsr, minsc, maxsr, maxsc));
+        yank_area(sp, DELBUF_TMP1, rangeref(minsr, minsc, maxsr, maxsc));
     }
 
-    /* move cell range to subsheet delbuf[++dbidx] */
-    kill_area(sp, ++dbidx, mindr, mindc, maxdr, maxdc, KA_NO_FMT);
+    /* move cell range to other temporary subsheet */
+    kill_area(sp, DELBUF_TMP2, mindr, mindc, maxdr, maxdc, KA_NO_FMT);
     sync_refs(sp);
-    delbuf_free(dbidx--);
+    delbuf_free(DELBUF_TMP2);
 
     error("Copying...");
     if (!loading)
@@ -1427,25 +1409,25 @@ void copy_range(sheet_t *sp, int flags, rangeref_t drr, rangeref_t srr) {
         for (c = mindc; c <= maxdc; c++) {
             int deltar = r - minsr;
             int deltac = c - minsc;
-            for (p = delbuf[dbidx]->ptr; p; p = p->next) {
+            for (p = delbuf[DELBUF_TMP1]->ptr; p; p = p->next) {
                 int vr = p->row + deltar;
                 int vc = p->col + deltac;
                 if (vr <= maxdr && vc <= maxdc) {
                     struct ent *n = lookat(sp, vr, vc);
                     if (n->flags & IS_LOCKED)
                         continue;
-                    copyent(sp, n, p, deltar, deltac, 0, 0, sp->maxrow, sp->maxcol, 0);
+                    ent_copy(sp, n, p, deltar, deltac, 0, 0, sp->maxrow, sp->maxcol, 0);
                 }
             }
         }
     }
 
     if (flags & COPY_FROM_QBUF) {
-        delbuf_clear(dbidx--);
+        delbuf_free(DELBUF_TMP1);
         qbuf = 0;
     } else {
         sync_refs(sp);
-        delbuf_free(dbidx--);
+        delbuf_free(DELBUF_TMP1);
     }
 
     error("Copy done.");
@@ -1480,7 +1462,6 @@ void yank_range(sheet_t *sp, rangeref_t rr) {
 
 /* MOVE a Range of cells */
 void move_range(sheet_t *sp, cellref_t cr, rangeref_t rr) {
-    dbidx = 0;  /* do not clobber delbuf[0] */
     move_area(sp, cr.row, cr.col, rr);
     sync_refs(sp);
     FullUpdate++;
@@ -1499,7 +1480,7 @@ void fill_range(sheet_t *sp, rangeref_t rr, double start, double inc, int bycols
                 if (n->flags & IS_LOCKED)
                     continue;
                 // XXX: why clear the format and alignment?
-                clearent(n);
+                ent_clear(n);
                 n->v = start;
                 start += inc;
                 n->type = SC_NUMBER;
@@ -1514,7 +1495,7 @@ void fill_range(sheet_t *sp, rangeref_t rr, double start, double inc, int bycols
                 if (n->flags & IS_LOCKED)
                     continue;
                 // XXX: why clear the format and alignment?
-                clearent(n);
+                ent_clear(n);
                 n->v = start;
                 start += inc;
                 n->type = SC_NUMBER;
@@ -1658,7 +1639,7 @@ static void sync_ranges(sheet_t *sp) {
     }
 }
 
-void sync_refs(sheet_t *sp) {
+static void sync_refs(sheet_t *sp) {
     int i, row, col;
     struct ent *p;
 
@@ -1671,7 +1652,7 @@ void sync_refs(sheet_t *sp) {
                 sync_expr(sp, p->expr);
         }
     }
-    for (i = 0; i < DELBUFSIZE; i++) {
+    for (i = 0; i < DELBUF_COUNT; i++) {
         for (p = delbuf_array[i].ptr; p; p = p->next) {
             if (p->expr)
                 sync_expr(sp, p->expr);
@@ -1844,8 +1825,8 @@ void showcol(sheet_t *sp, int c1, int c2) {
  * the "pt" command.  r1, c1, r2, and c2 define the range in which the dr
  * and dc values should be used.
  */
-static void copyent(sheet_t *sp, struct ent *n, struct ent *p, int dr, int dc,
-                    int r1, int c1, int r2, int c2, int special)
+static void ent_copy(sheet_t *sp, struct ent *n, struct ent *p, int dr, int dc,
+                     int r1, int c1, int r2, int c2, int special)
 {
     if (!n || !p) {
         error("internal error");
@@ -2122,6 +2103,7 @@ static int compare(const void *a1, const void *a2) {
     return result;
 }
 
+/* uses temporary subsheet DELBUF_TMP1 */
 void sort_range(sheet_t *sp, rangeref_t rr, SCXMEM string_t *criteria) {
     sort_ctx_t sc[1];
     struct sortcrit *crit;
@@ -2220,9 +2202,8 @@ void sort_range(sheet_t *sp, rangeref_t rr, SCXMEM string_t *criteria) {
     // - cell borders should be left unchanged?
     // - ranges should be adjusted if completely included
     //   in a single row of the sorting range
-    /* move cell range to subsheet delbuf[++dbidx] */
-    dbidx = 0;  /* avoid clobbering delbuf[0] */
-    kill_area(sp, ++dbidx, sc->minr, sc->minc, sc->maxr, sc->maxc, KA_NO_FMT | KA_IGNORE_LOCK);
+    /* move cell range to temporary subsheet */
+    kill_area(sp, DELBUF_TMP1, sc->minr, sc->minc, sc->maxr, sc->maxc, KA_NO_FMT | KA_IGNORE_LOCK);
     // XXX: this seems bogus too
     // XXX: make formulas that refer to the sort range
     //      point to empty cells
@@ -2230,7 +2211,7 @@ void sort_range(sheet_t *sp, rangeref_t rr, SCXMEM string_t *criteria) {
     // XXX: should use destrows to update formulae and ranges
     //      the current model just moves all cells and updates all ranges
     sync_ranges(sp);
-    for (p = delbuf[dbidx]->ptr; p; p = p->next) {
+    for (p = delbuf[DELBUF_TMP1]->ptr; p; p = p->next) {
         if (p->row < sc->minr || p->row > sc->maxr) {
             /* cannot find row in sort range */
             error("sort error");
@@ -2240,8 +2221,8 @@ void sort_range(sheet_t *sp, rangeref_t rr, SCXMEM string_t *criteria) {
         p->flags &= ~IS_DELETED;
         setcell(sp, p->row, p->col, p);
     }
-    delbuf[dbidx]->ptr = NULL;
-    delbuf_free(dbidx--);
+    delbuf[DELBUF_TMP1]->ptr = NULL;
+    delbuf_free(DELBUF_TMP1);
 
     /* Update all marked cells. */
     for (i = 0; i < MARK_COUNT; i++) {

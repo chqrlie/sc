@@ -47,6 +47,7 @@ Parser:
 [ ] add format info in scvalue_t
 
 Database:
+[ ] merge fill_range loops
 [ ] fix format numbering, col, row, cell format precedence
 [ ] support strings up to 32KB long
 [ ] start column and row numbers at 1
@@ -59,7 +60,6 @@ Database:
 [ ] move more global data to sheet structure
 [+] group sheet data in sheet_t structures
 [ ] make delbufs sheet_t instances
-[ ] make delbufs point to sheet_t instances, handle duplicates
 [?] hash sc_string_t in a dictionary
 [?] use rangeref_t for find_range_coords()
 [ ] change representation for ranges: abs/rel coords instead of pointers
@@ -172,3 +172,4 @@ Build:
 [X] merge edits() and editv()
 [X] compile unknown functions and names as special opcodes
 [X] move tbl to sheet context structure
+[X] make delbufs point to sheet_t instances, handle duplicates
