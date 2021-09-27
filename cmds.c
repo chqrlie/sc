@@ -16,9 +16,8 @@
  * This structure is used to keep ent structs around before they
  * are deleted to allow the sync_refs routine a chance to fix the
  * variable references.
- * We also use it as a last-deleted buffer for the 'p' command.
- * 36 named registers (a-z,0-9), 1 unnamed register ("),
- * a stack of 4 work registers
+ * We use it for 36 named registers (a-z,0-9), 1 unnamed register ("),
+ * and 2 temporary registers.
  */
 
 typedef struct subsheet {

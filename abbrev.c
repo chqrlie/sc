@@ -42,7 +42,7 @@ void abbrev_add(sheet_t *sp, SCXMEM string_t *name, SCXMEM string_t *exp) {
         for (p = s2c(name), i = 0; p[i]; i++) {
             if (p[i] == ' ') {
                 exp = string_new(p + i + 1);
-                string_set(&name, string_new_len(p, i));
+                string_set(&name, string_new_len(p, i, 0));
                 break;
             }
         }

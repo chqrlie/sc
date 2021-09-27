@@ -2542,7 +2542,8 @@ static void doshell(sheet_t *sp) {
 #else /* NOSHELL */
     const char *shl;
     int pid, temp;
-    char cmd[MAXCMD];
+    char cmdbuf[MAXCMD];
+    char *cmd;
     static char lastcmd[MAXCMD];
 
     if (!(shl = getenv("SHELL")))
@@ -2551,11 +2552,11 @@ static void doshell(sheet_t *sp) {
     screen_deraw(1);
     fputs("! ", stdout);
     fflush(stdout);
-    if (!fgets(cmd, MAXCMD, stdin))
-        *cmd = '\0';
-    strtrim(cmd);   /* strip the trailing newline */
+    if (!fgets(cmdbuf, MAXCMD, stdin))
+        *cmdbuf = '\0';
+    cmd = strtrim(cmdbuf);   /* strip the trailing newline */
     if (strcmp(cmd, "!") == 0)           /* repeat? */
-        pstrcpy(cmd, sizeof cmd, lastcmd);
+        pstrcpy(cmd = cmdbuf, sizeof cmdbuf, lastcmd);
     else
         pstrcpy(lastcmd, sizeof lastcmd, cmd);
 

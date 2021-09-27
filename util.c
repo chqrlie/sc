@@ -197,7 +197,7 @@ void scxmemdump(void) {
 static SCXMEM string_t *empty_string;
 
 void string_init(void) {
-    empty_string = string_new("");
+    empty_string = string_new_len("", 0, STRING_ASCII);
 }
 
 void string_exit(void) {
@@ -214,16 +214,20 @@ SCXMEM string_t *string_new(const char *s) {
     if (str) {
         str->refcount = 1;
         str->len = len;
+        str->encoding = 0;
+        str->flags = 0;
         memcpy(str->s, s, len + 1);
     }
     return str;
 }
 
-SCXMEM string_t *string_new_len(const char *s, size_t len) {
+SCXMEM string_t *string_new_len(const char *s, size_t len, int encoding) {
     string_t *str = scxmalloc(offsetof(string_t, s) + len + 1);
     if (str) {
         str->refcount = 1;
         str->len = len;
+        str->encoding = encoding;
+        str->flags = 0;
         if (s) memcpy(str->s, s, len);
         str->s[len] = '\0';
     }
@@ -232,11 +236,25 @@ SCXMEM string_t *string_new_len(const char *s, size_t len) {
 
 SCXMEM string_t *string_clone(SCXMEM string_t *str) {
     if (str && str->refcount > 1 && slen(str) > 0) {
-        SCXMEM string_t *s2 = string_new_len(s2c(str), slen(str));
+        SCXMEM string_t *s2 = string_new_len(s2c(str), slen(str), str->encoding);
         string_free(str);
         str = s2;
     }
     return str;
+}
+
+int string_get_encoding(string_t *str) {
+    if (str) {
+        const char *s = s2c(str);
+        while (*s) {
+            if (*s++ & 0x80) {
+                // XXX: should check for proper UTF-8 encoding
+                return str->encoding = STRING_UTF8;
+            }
+        }
+        return str->encoding = STRING_ASCII;
+    }
+    return STRING_ASCII;
 }
 
 SCXMEM string_t *string_concat(SCXMEM string_t *s1, SCXMEM string_t *s2) {
@@ -250,7 +268,8 @@ SCXMEM string_t *string_concat(SCXMEM string_t *s1, SCXMEM string_t *s2) {
         string_free(s2);
         return s1;
     }
-    s3 = string_new_len(NULL, slen(s1) + slen(s2));
+    // XXX: encoding could be more precise
+    s3 = string_new_len(NULL, slen(s1) + slen(s2), s1->encoding & s2->encoding);
     if (s3) {
         memcpy(s3->s, s1->s, slen(s1));
         memcpy(s3->s + slen(s1), s2->s, slen(s2));
@@ -260,9 +279,7 @@ SCXMEM string_t *string_concat(SCXMEM string_t *s1, SCXMEM string_t *s2) {
     return s3;
 }
 
-// XXX: should handle UTF-8
-/* pos is a zero base offset of the first byte,
-   n is the number of bytes */
+/* pos is a zero based offset of the first byte, n is the number of bytes */
 SCXMEM string_t *string_mid(SCXMEM string_t *str, int pos, int n) {
     SCXMEM string_t *p;
     int len;
@@ -281,7 +298,7 @@ SCXMEM string_t *string_mid(SCXMEM string_t *str, int pos, int n) {
     if (n == len) {
         return str;
     } else {
-        p = string_new_len(&str->s[pos], n);
+        p = string_new_len(&str->s[pos], n, str->encoding & STRING_ASCII);
     }
     string_free(str);
     return p;
@@ -300,7 +317,7 @@ SCXMEM string_t *string_trim(SCXMEM string_t *str) {
     return str;
 }
 
-// XXX: Handle Unicode via UTF-8
+/* Remove control characters in UTF-8 encoded string */
 SCXMEM string_t *string_clean(SCXMEM string_t *text) {
     SCXMEM string_t *str = text;
     if (str) {
@@ -313,7 +330,7 @@ SCXMEM string_t *string_clean(SCXMEM string_t *text) {
             count += (c < 32 || c == 127);
         }
         if (count) {
-            str = string_new_len(p, len - count);
+            str = string_new_len(p, len - count, text->encoding);
             if (str) {
                 char *q = str->s;
                 for (i = j = 0; i < len; i++) {
@@ -328,7 +345,7 @@ SCXMEM string_t *string_clean(SCXMEM string_t *text) {
     return str;
 }
 
-// XXX: Handle Unicode via UTF-8
+// XXX: should handle Unicode case mapping of UTF-8 encoding
 SCXMEM string_t *string_lower(SCXMEM string_t *str) {
     str = string_clone(str);
     if (str) {
@@ -341,7 +358,7 @@ SCXMEM string_t *string_lower(SCXMEM string_t *str) {
     return str;
 }
 
-// XXX: Handle Unicode via UTF-8
+// XXX: should handle Unicode case mapping of UTF-8 encoding
 SCXMEM string_t *string_upper(SCXMEM string_t *str) {
     str = string_clone(str);
     if (str) {
@@ -354,7 +371,7 @@ SCXMEM string_t *string_upper(SCXMEM string_t *str) {
     return str;
 }
 
-// XXX: Handle Unicode via UTF-8
+// XXX: should handle Unicode case mapping of UTF-8 encoding
 SCXMEM string_t *string_proper(SCXMEM string_t *str) {
     str = string_clone(str);
     if (str) {
@@ -462,17 +479,15 @@ size_t strsplice(char *dst, size_t size, size_t from, size_t len1,
     return len;
 }
 
-size_t strtrim(char *s) {
-    size_t i, len = strlen(s);
+/* skip initial whitespace and strip trailing white space */
+char *strtrim(char *s) {
+    size_t len;
+    while (isspacechar(*s))
+        s++;
+    len = strlen(s);
     while (len > 0 && isspacechar(s[len - 1]))
         s[--len] = '\0';
-    if (isspacechar(*s)) {
-        for (i = 1; isspacechar(s[i]); i++)
-            continue;
-        len -= i;
-        memmove(s, s + i, len + 1);
-    }
-    return len;
+    return s;
 }
 
 #ifdef HAVE_STDINT
@@ -572,6 +587,24 @@ int utf8_encode(char *s, int code) {
         *s++ = val[n];
     }
     return res;
+}
+
+/* return the byte offset of character n in UTF-8 encoded string */
+int utf8_bcount(const char *s, int n) {
+    const char *s0;
+    for (s0 = s; n && *s; s++) {
+        n -= (*s & 0xC0) != 0x80;
+    }
+    return s - s0;
+}
+
+/* return the character number of byte at offset n in  UTF-8 encoded string */
+int utf8_ccount(const char *s, int n) {
+    int count;
+    for (count = 0; n && *s; s++, n--) {
+        count += (*s & 0xC0) != 0x80;
+    }
+    return count;
 }
 
 /*---------------- simple case handling ----------------*/

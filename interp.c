@@ -185,8 +185,8 @@ static SCXMEM string_t *eval_str(eval_ctx_t *cp, enode_t *e, int *errp) {
     if (res.type == SC_STRING)
         return res.u.str;
     if (res.type == SC_NUMBER) {
-        snprintf(buf, sizeof buf, "%.15g", res.u.v);
-        return string_new(buf);
+        int len = snprintf(buf, sizeof buf, "%.15g", res.u.v);
+        return string_new_len(buf, len, STRING_ASCII);
     }
     if (res.type == SC_BOOLEAN)
         return string_new(res.u.v ? "TRUE" : "FALSE");
@@ -549,9 +549,10 @@ static scvalue_t eval_address(eval_ctx_t *cp, enode_t *e) {
     int row = eval_int(cp, e->e.args[0], 0, ABSMAXROWS, &err);
     int col = eval_int(cp, e->e.args[1], 0, ABSMAXCOLS, &err);
     int rel = e->nargs > 2 ? eval_int(cp, e->e.args[2], 1, 4, &err) : 1;
+    int len;
     if (err) return scvalue_error(err);
-    snprintf(buff, sizeof buff, "%s%s%s%d", &"$"[(rel & 1) ^ 1], coltoa(col), &"$"[rel > 2], row);
-    return scvalue_string(string_new(buff));
+    len = snprintf(buff, sizeof buff, "%s%s%s%d", &"$"[(rel & 1) ^ 1], coltoa(col), &"$"[rel > 2], row);
+    return scvalue_string(string_new_len(buff, len, STRING_ASCII));
 }
 
 static scvalue_t eval_indirect(eval_ctx_t *cp, enode_t *e) {
@@ -2167,6 +2168,7 @@ static scvalue_t eval_ext(eval_ctx_t *cp, enode_t *e) {
         for (i = 1; i < e->nargs; i++) {
             str = eval_str(cp, e->e.args[i], &err);
             if (err) break;
+            // XXX: should encode string?
             buf_printf(buf, " %s", s2c(str));
             string_free(str);
         }
@@ -2185,11 +2187,10 @@ static scvalue_t eval_ext(eval_ctx_t *cp, enode_t *e) {
             error("Warning: external function returned nothing");
             *buff = '\0';
         } else {
-            strtrim(buff);
             error(" "); /* erase notice */
         }
         pclose(pf);
-        str = string_new(buff);
+        str = string_new(strtrim(buff));
         if (!str) {
             err = ERROR_MEM;
             break;
@@ -2226,8 +2227,8 @@ static scvalue_t eval_sval(eval_ctx_t *cp, enode_t *e) {
     if (res.type == SC_BOOLEAN)
         return scvalue_string(string_new(res.u.v ? "TRUE" : "FALSE"));
     if (res.type == SC_NUMBER) {
-        snprintf(buf, sizeof buf, "%.15g", res.u.v);
-        return scvalue_string(string_new(buf));
+        int len = snprintf(buf, sizeof buf, "%.15g", res.u.v);
+        return scvalue_string(string_new_len(buf, len, STRING_ASCII));
     }
     if (res.type == SC_EMPTY)
         return scvalue_string(string_empty());
@@ -2252,7 +2253,7 @@ static scvalue_t eval_char(eval_ctx_t *cp, enode_t *e) {
     char buf[10];
     if (err) return scvalue_error(err);
     len = utf8_encode(buf, code);
-    return scvalue_string(string_new_len(buf, len));
+    return scvalue_string(string_new_len(buf, len, code < 128 ? STRING_ASCII : STRING_UTF8));
 }
 
 static scvalue_t eval_code(eval_ctx_t *cp, enode_t *e) {
@@ -2270,6 +2271,8 @@ static scvalue_t eval_len(eval_ctx_t *cp, enode_t *e) {
     SCXMEM string_t *str = eval_str(cp, e->e.args[0], &err);
     if (err) return scvalue_error(err);
     len = slen(str);
+    if (e->op == OP_LEN && string_is_utf8(str))
+        len = utf8_ccount(s2c(str), len);
     string_free(str);
     return scvalue_number(len);
 }
@@ -2287,17 +2290,32 @@ static scvalue_t eval_find(eval_ctx_t *cp, enode_t *e) {
     int pos = e->nargs > 2 ? eval_int(cp, e->e.args[2], 1, INT_MAX, &err) - 1 : 0;
 
     if (!err) {
-        if (pos < slen(search)) {
-            const char *s1 = s2c(search);
-            const char *p = (e->op == OP_SEARCH || e->op == OP_SEARCHB) ?
-                sc_strcasestr(s1 + pos, s2c(t)) : strstr(s1 + pos, s2c(t));
-            if (p != NULL) {
-                pos = p - s1;
+        const char *s1 = s2c(search);
+        if ((e->op == OP_SEARCH || e->op == OP_FIND) && string_is_utf8(search)) {
+            pos = utf8_bcount(s1, pos);
+            if (pos < slen(search)) {
+                const char *p = (e->op == OP_SEARCH) ?
+                    sc_strcasestr(s1 + pos, s2c(t)) : strstr(s1 + pos, s2c(t));
+                if (p != NULL) {
+                    pos = utf8_ccount(s1, p - s1);
+                } else {
+                    err = ERROR_NA;
+                }
             } else {
                 err = ERROR_NA;
             }
         } else {
-            err = ERROR_NA;
+            if (pos < slen(search)) {
+                const char *p = (e->op == OP_SEARCH || e->op == OP_SEARCHB) ?
+                    sc_strcasestr(s1 + pos, s2c(t)) : strstr(s1 + pos, s2c(t));
+                if (p != NULL) {
+                    pos = p - s1;
+                } else {
+                    err = ERROR_NA;
+                }
+            } else {
+                err = ERROR_NA;
+            }
         }
     }
     string_free(search);
@@ -2345,7 +2363,7 @@ static scvalue_t eval_substitute(eval_ctx_t *cp, enode_t *e) {
         len2 = len + count * (newlen - oldlen);
         string_free(str);
         // XXX: handle max string len
-        if ((str = string_new_len(NULL, len2))) {
+        if ((str = string_new_len(NULL, len2, text->encoding & newtext->encoding))) {
             char *p = str->s;
             s = s0 = s2c(text);
             while ((s = strstr(s, s2c(oldtext))) != NULL) {
@@ -2383,10 +2401,15 @@ static scvalue_t eval_replace(eval_ctx_t *cp, enode_t *e) {
     if (!err) {
         int len = slen(text);
         int len2 = slen(newtext);
-        if (start > len) start = len;
-        if (count > len - start) count = len - start;
+        if (e->op == OP_REPLACE && string_is_utf8(text)) {
+            start = utf8_bcount(s2c(text), start);
+            count = utf8_bcount(s2c(text) + start, count);
+        } else {
+            if (start > len) start = len;
+            if (count > len - start) count = len - start;
+        }
         string_free(str);
-        if ((str = string_new_len(NULL, len - count + len2))) {
+        if ((str = string_new_len(NULL, len - count + len2, text->encoding & newtext->encoding))) {
             char *p = str->s;
             memcpy(p, s2c(text), start);
             memcpy(p + start, s2c(newtext), len2);
@@ -2418,7 +2441,7 @@ static scvalue_t eval_rept(eval_ctx_t *cp, enode_t *e) {
     if ((len2 = len * count) == 0) {
         str = string_empty();
     } else
-    if ((str = string_new_len(NULL, len2))) {
+    if ((str = string_new_len(NULL, len2, text->encoding))) {
         char *p = str->s;
         for (; count --> 0; p += len)
             memcpy(p, s2c(text), len);
@@ -2435,6 +2458,9 @@ static scvalue_t eval_left(eval_ctx_t *cp, enode_t *e) {
         string_free(str);
         return scvalue_error(err);
     }
+    if (e->op == OP_LEFT && string_is_utf8(str)) {
+        n = utf8_ccount(s2c(str), n);
+    }
     return scvalue_string(string_mid(str, 0, n));
 }
 
@@ -2442,11 +2468,18 @@ static scvalue_t eval_right(eval_ctx_t *cp, enode_t *e) {
     int err = 0;
     SCXMEM string_t *str = eval_str(cp, e->e.args[0], &err);
     int n = eval_int(cp, e->e.args[1], 0, INT_MAX, &err);
+    int pos, len;
     if (err) {
         string_free(str);
         return scvalue_error(err);
     }
-    return scvalue_string(string_mid(str, slen(str) - n, n));
+    len = slen(str);
+    pos = len - n;
+    if (e->op == OP_RIGHT && string_is_utf8(str)) {
+        int lenc = utf8_ccount(s2c(str), len);
+        pos = utf8_bcount(s2c(str), lenc - n);
+    }
+    return scvalue_string(string_mid(str, pos, len - pos));
 }
 
 static scvalue_t eval_mid(eval_ctx_t *cp, enode_t *e) {
@@ -2455,13 +2488,21 @@ static scvalue_t eval_mid(eval_ctx_t *cp, enode_t *e) {
     /* OP_SUBSTR: v1 and v2 are one-based character offsets, v2 is included */
     int err = 0;
     SCXMEM string_t *str = eval_str(cp, e->e.args[0], &err);
-    int v1 = eval_int(cp, e->e.args[1], 0, INT_MAX, &err);
+    int v1 = eval_int(cp, e->e.args[1], 0, INT_MAX, &err) - 1;
     int v2 = eval_int(cp, e->e.args[2], 0, INT_MAX, &err);
     if (err) {
         string_free(str);
         return scvalue_error(err);
     }
-    return scvalue_string(string_mid(str, v1 - 1, e->op == OP_SUBSTR ? v2 - v1 + 1 : v2));
+    if (e->op != OP_MIDB) {
+        if (e->op == OP_SUBSTR)
+            v2 = v2 - v1;
+        if (string_is_utf8(str)) {
+            v1 = utf8_bcount(s2c(str), v1);
+            v2 = utf8_bcount(s2c(str) + v1, v2);
+        }
+    }
+    return scvalue_string(string_mid(str, v1, v2));
 }
 
 static scvalue_t eval_concat(eval_ctx_t *cp, enode_t *e) {
@@ -2737,7 +2778,7 @@ static scvalue_t eval_to_base(eval_ctx_t *cp, enode_t *e, int err, int from_base
         if (n0 < 0)
             *--p = '-';
         string_free(str);
-        return scvalue_string(string_new_len(p, buf + sizeof(buf) - p));
+        return scvalue_string(string_new_len(p, buf + sizeof(buf) - p, STRING_ASCII));
     }
     string_free(str);
     return scvalue_error(err);
@@ -2872,7 +2913,7 @@ static scvalue_t eval_roman(eval_ctx_t *cp, enode_t *e) {
         n /= 10;
         p += 2;
     }
-    return scvalue_string(string_new_len(q, buf + sizeof(buf) - q));
+    return scvalue_string(string_new_len(q, buf + sizeof(buf) - q, STRING_ASCII));
 }
 
 static scvalue_t eval_other(eval_ctx_t *cp, enode_t *e) {

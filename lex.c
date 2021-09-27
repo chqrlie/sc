@@ -391,7 +391,7 @@ int yylex(void) {
                        for later re-editing the formula and/or saving it. */
                     if (isfunc) p0--;  /* include the @ in the function name */
                     if (isfunc || *p == '(') {
-                        yylval.sval = string_new_len(p0, p - p0);
+                        yylval.sval = string_new_len(p0, p - p0, 0);
                         ret = (*p == '(') ? BADFUNC : BADNAME;
                         error("unknown function: %.*s", (int)(p - p0), p0);
                         break;
@@ -438,7 +438,7 @@ int yylex(void) {
                 }
             } else
             if (isexpr) {
-                yylval.sval = string_new_len(p0, p - p0);
+                yylval.sval = string_new_len(p0, p - p0, 0);
                 ret = BADNAME;
                 error("unknown name: %.*s", (int)(p - p0), p0);
                 break;
@@ -560,14 +560,17 @@ int yylex(void) {
         if (*p == '"') {
             const char *p1;
             char *ptr;
+            int encoding = STRING_ASCII;
             p++;  /* skip the '"' */
+            // XXX: should parse \u, \U and \x syntax?
             /* "string" or "string\"quoted\"" */
             for (p1 = p, len = 0; *p1 && *p1 != '"' && *p1 != '\n'; p1++) {
                 if (*p1 == '\\' && (p1[1] == '"' || p1[1] == '\\'))
                     p1++;
+                if (*p1 & 0x80) encoding = STRING_UTF8;
                 len++;
             }
-            yylval.sval = string_new_len(NULL, len);
+            yylval.sval = string_new_len(NULL, len, encoding);
             ptr = yylval.sval->s;
             while (*p && *p != '"' && *p != '\n') {
                 if (*p == '\\' && (p[1] == '"' || p[1] == '\\'))

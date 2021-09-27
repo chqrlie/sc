@@ -85,10 +85,10 @@ OP( OP_BITRSHIFT,       2, 2, eval_fl2, bitrshift, "BITRSHIFT(value, shift_amoun
 OP( OP_BITXOR,          2, 2, eval_fl2, bitxor, "BITXOR(value1, value2)", "Bitwise XOR (exclusive OR) of 2 numbers.")
 
 /* 6.7 Byte-position text functions */
-OP( OP_FINDB,           2, 3, eval_find, NULL, "FINDB(search_for, text_to_search, [starting_at])", "Returns the position at which a string is first found within text counting each double-character as 2")
+OP( OP_FINDB,           2, 3, eval_find, NULL, "FINDB(search_for, text_to_search, [starting_byte])", "Returns the byte position at which a string is first found within text")
 OP( OP_LEFTB,           1, 1, eval_left, NULL, "LEFTB(string, num_of_bytes)", "Returns the left portion of a string up to a certain number of bytes.")
 OP( OP_LENB,            1, 1, eval_len, NULL, "LENB(string)", "Returns the length of a string in bytes.")
-OP( OP_MIDB,            1, 1, eval_mid, NULL, "MIDB(string)", "Returns a section of a string starting at a given character and up to a specified number of bytes.")
+OP( OP_MIDB,            3, 3, eval_mid, NULL, "MIDB(string, starting_byte, num_of_bytes)", "Returns a section of a string starting at a given character and up to a specified number of bytes.")
 OP( OP_REPLACEB,        4, 4, eval_replace, NULL, "REPLACEB(text, position, num_bytes, new_text)", "Replaces part of a text string, based on a number of bytes, with a different text string.")
 OP( OP_RIGHTB,          2, 2, eval_right, NULL, "RIGHTB(string, num_of_bytes)", "Returns the right portion of a string up to a certain number of bytes.")
 OP( OP_SEARCHB,         2, 3, eval_find, NULL, "SEARCHB(search_for, text_to_search, [starting_at])", "Returns the position at which a string is first found within text counting each double-character as 2")

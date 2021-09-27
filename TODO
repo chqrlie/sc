@@ -30,8 +30,8 @@ Evaluator:
 [ ] add regex functions
 [ ] add unified regex support for searching etc.
 [ ] minimize recompute: only recompute formulas whose antecedents change
-[ ] support byte/char offsets in string functions
 [ ] support unicode versions of case conversions
+[ ] use range references instead of ent pointers in formulas
 
 Parser:
 [ ] set NULL arguments for omitted arguments
@@ -48,11 +48,15 @@ Parser:
 
 Database:
 [ ] merge fill_range loops
+[ ] use range references instead of ent pointers in cranges
+[ ] use range references instead of ent pointers in franges
+[ ] use range references instead of ent pointers in nranges
 [ ] fix format numbering, col, row, cell format precedence
 [ ] support strings up to 32KB long
 [ ] start column and row numbers at 1
 [ ] set maximum rows and cols > 702
-[ ] sparse matrix database
+[ ] use sparse matrix for sheet_t cell data
+[ ] use sparse matrix for subsheet_t cell data
 [ ] implement virtual space: jagged 2D matrix
 [ ] make cell notes separate structures
 [ ] remove cell pointers
@@ -60,7 +64,7 @@ Database:
 [ ] move more global data to sheet structure
 [+] group sheet data in sheet_t structures
 [ ] make delbufs sheet_t instances
-[?] hash sc_string_t in a dictionary
+[?] hash string_t in a dictionary
 [?] use rangeref_t for find_range_coords()
 [ ] change representation for ranges: abs/rel coords instead of pointers
 [ ] use an array of format strings, store an index in the cell struct
@@ -173,3 +177,4 @@ Build:
 [X] compile unknown functions and names as special opcodes
 [X] move tbl to sheet context structure
 [X] make delbufs point to sheet_t instances, handle duplicates
+[X] support byte/char offsets in string functions

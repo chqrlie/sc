@@ -54,7 +54,7 @@ extern size_t pstrncpy(char *dst, size_t dstsize, const char *src, size_t len);
 extern size_t pstrcat(char *dst, size_t dstsize, const char *src);
 extern size_t strsplice(char *dst, size_t size, size_t from, size_t len1,
                         const char *src, size_t len2);
-extern size_t strtrim(char *s);
+extern char *strtrim(char *s);
 extern char *get_basename(const char *filename);
 extern char *get_extension(const char *filename);
 
@@ -80,12 +80,20 @@ extern char *sc_strcasestr(const char *s1, const char *s2);
 
 extern int utf8_decode(const char *s, int *wp);
 extern int utf8_encode(char *s, int code);
+extern int utf8_bcount(const char *s, int n);
+extern int utf8_ccount(const char *s, int n);
 
 /*---------------- refcounted string_t ----------------*/
 
 typedef struct string_t {
     int refcount;
-    int len;
+    short len;
+#define STRING_ASCII     1
+#define STRING_UTF8      2
+#define STRING_RAW       4
+#define STRING_ENCODING  7
+    unsigned char encoding;
+    unsigned char flags; /* for alignment */
     char s[1];
 }  string_t;
 
@@ -93,9 +101,18 @@ void string_init(void);
 void string_exit(void);
 
 SCXMEM string_t *string_new(const char *s);
-SCXMEM string_t *string_new_len(const char *s, size_t len);
+SCXMEM string_t *string_new_len(const char *s, size_t len, int encoding);
 SCXMEM string_t *string_clone(SCXMEM string_t *str);
 SCXMEM string_t *string_empty(void);
+int string_get_encoding(string_t *str);
+
+static inline int string_is_ascii(string_t *str) {
+    return (str->encoding & STRING_ASCII) || (string_get_encoding(str) & STRING_ASCII);
+}
+
+static inline int string_is_utf8(string_t *str) {
+    return (str->encoding & STRING_UTF8) || (string_get_encoding(str) & STRING_UTF8);
+}
 
 static inline SCXMEM string_t *string_dup(string_t *str) {
     if (str) str->refcount++;
