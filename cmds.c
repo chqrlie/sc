@@ -1469,38 +1469,32 @@ void move_range(sheet_t *sp, cellref_t cr, rangeref_t rr) {
 /* fill a range with constants */
 void fill_range(sheet_t *sp, rangeref_t rr, double start, double inc, int bycols) {
     int r, c;
+    int dr = bycols == 0;
+    int dc = bycols != 0;
 
     range_normalize(&rr);
 
-    if (bycols) {
-        for (c = rr.left.col; c <= rr.right.col; c++) {
-            for (r = rr.left.row; r <= rr.right.row; r++) {
-                struct ent *n = lookat(sp, r, c);
-                if (n->flags & IS_LOCKED)
-                    continue;
-                // XXX: why clear the format and alignment?
-                ent_clear(n);
-                n->v = start;
-                start += inc;
-                n->type = SC_NUMBER;
-                n->flags &= ~IS_CLEARED;
-                n->flags |= IS_CHANGED;
+    for (c = rr.left.col, r = rr.left.row;;) {
+        struct ent *p = lookat(sp, r, c);
+        if (!(p->flags & IS_LOCKED)) {
+            if (p->type == SC_STRING) {
+                string_set(&p->label, NULL); /* free the previous label */
             }
+            p->type = SC_NUMBER;
+            p->cellerror = 0;
+            p->flags |= IS_CHANGED;
+            p->v = start;
+            start += inc;
         }
-    } else {
-        for (r = rr.left.row; r <= rr.right.row; r++) {
-            for (c = rr.left.col; c <= rr.right.col; c++) {
-                struct ent *n = lookat(sp, r, c);
-                if (n->flags & IS_LOCKED)
-                    continue;
-                // XXX: why clear the format and alignment?
-                ent_clear(n);
-                n->v = start;
-                start += inc;
-                n->type = SC_NUMBER;
-                n->flags &= ~IS_CLEARED;
-                n->flags |= IS_CHANGED;
-            }
+        if ((c += dc) > rr.right.col) {
+            c = rr.left.col;
+            if (++r > rr.right.row)
+                break;
+        } else
+        if ((r += dr) > rr.right.row) {
+            r = rr.left.row;
+            if (++c > rr.right.col)
+                break;
         }
     }
     FullUpdate++;

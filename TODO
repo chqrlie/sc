@@ -2,7 +2,7 @@
 
 Tests:
 [ ] handle memory allocation failure everywhere
-[ ] add non interactive check commands for tests and benchmarks
+[/] add non interactive check commands for tests and benchmarks
 [ ] write test cases for all commands and functions including corner cases
 [ ] write benchmark scripts all commands and and functions
 
@@ -47,7 +47,6 @@ Parser:
 [ ] add format info in scvalue_t
 
 Database:
-[ ] merge fill_range loops
 [ ] use range references instead of ent pointers in cranges
 [ ] use range references instead of ent pointers in franges
 [ ] use range references instead of ent pointers in nranges
@@ -178,3 +177,4 @@ Build:
 [X] move tbl to sheet context structure
 [X] make delbufs point to sheet_t instances, handle duplicates
 [X] support byte/char offsets in string functions
+[X] merge fill_range loops
