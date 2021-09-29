@@ -385,30 +385,25 @@ command:  S_LET var_or_range '=' e      { let(sht, $2.left, $4, -1); }
                                                     " ranges to create frame");
                                           }
                                         }
-        | S_FRAMETOP RANGE NUMBER       { frange_add(sht, FRANGE_DIRECT,
-                                                     $2, rangeref_empty(), $3, -1, -1, -1); }
-        | S_FRAMETOP NUMBER             { frange_add(sht, FRANGE_FIND,
-                                                     rangeref_curcell(sht),
+        | S_FRAMETOP RANGE NUMBER       { frange_add(sht, FRANGE_DIRECT, $2,
+                                                     rangeref_empty(), $3, -1, -1, -1); }
+        | S_FRAMETOP NUMBER             { frange_add(sht, FRANGE_FIND, rangeref_curcell(sht),
                                                      rangeref_empty(), $2, -1, -1, -1); }
         | S_FRAMEBOTTOM RANGE NUMBER    { frange_add(sht, FRANGE_DIRECT, $2,
                                                      rangeref_empty(), -1, $3, -1, -1); }
-        | S_FRAMEBOTTOM NUMBER          { frange_add(sht, FRANGE_FIND,
-                                                     rangeref_curcell(sht),
+        | S_FRAMEBOTTOM NUMBER          { frange_add(sht, FRANGE_FIND, rangeref_curcell(sht),
                                                      rangeref_empty(), -1, $2, -1, -1); }
         | S_FRAMELEFT RANGE NUMBER      { frange_add(sht, FRANGE_DIRECT, $2,
                                                      rangeref_empty(), -1, -1, $3, -1); }
-        | S_FRAMELEFT NUMBER            { frange_add(sht, FRANGE_FIND,
-                                                     rangeref_curcell(sht),
+        | S_FRAMELEFT NUMBER            { frange_add(sht, FRANGE_FIND, rangeref_curcell(sht),
                                                      rangeref_empty(), -1, -1, $2, -1); }
         | S_FRAMERIGHT RANGE NUMBER     { frange_add(sht, FRANGE_DIRECT, $2,
                                                      rangeref_empty(), -1, -1, -1, $3); }
-        | S_FRAMERIGHT NUMBER           { frange_add(sht, FRANGE_FIND,
-                                                     rangeref_curcell(sht),
+        | S_FRAMERIGHT NUMBER           { frange_add(sht, FRANGE_FIND, rangeref_curcell(sht),
                                                      rangeref_empty(), -1, -1, -1, $2); }
         | S_UNFRAME RANGE               { frange_add(sht, FRANGE_DIRECT, $2,
                                                      rangeref_empty(), 0, 0, 0, 0); }
-        | S_UNFRAME                     { frange_add(sht, FRANGE_FIND,
-                                                     rangeref_curcell(sht),
+        | S_UNFRAME                     { frange_add(sht, FRANGE_FIND, rangeref_curcell(sht),
                                                      rangeref_empty(), 0, 0, 0, 0); }
         | S_COLOR NUMBER '='            { initcolor(sht, $2); }
         | S_COLOR NUMBER '=' e          { change_color(sht, $2, $4); }
@@ -426,7 +421,7 @@ command:  S_LET var_or_range '=' e      { let(sht, $2.left, $4, -1); }
         | S_ENDDOWN                     { doend(sht,  1,  0); }
         | S_ENDLEFT                     { doend(sht,  0, -1); }
         | S_ENDRIGHT                    { doend(sht,  0,  1); }
-        | S_SELECT STRING               { cmd_select_register(string_to_char($2)); }
+        | S_SELECT STRING               { select_register(string_to_char($2)); }
         | S_INSERTROW                   { insert_rows(sht, cellref_current(sht),  1, 0); }
         | S_INSERTROW '*' NUMBER        { insert_rows(sht, cellref_current(sht), $3, 0); }
         | S_INSERTCOL                   { insert_cols(sht, cellref_current(sht),  1, 0); }

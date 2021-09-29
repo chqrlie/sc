@@ -1898,6 +1898,7 @@ void erasedb(sheet_t *sp) {
     }
     /* unset all marks */
     for (c = 0; c < MARK_COUNT; c++) {
+        // XXX: should move savedxx[] to worksheet
         savedcr[c] = cellref(-1, -1);
         savedst[c] = cellref(-1, -1);
     }
@@ -1905,10 +1906,6 @@ void erasedb(sheet_t *sp) {
 
     sheet_init(sp);
 
-    if (usecurses)
-        select_style(STYLE_NONE, 0);
-
-    sp->curfile[0] = '\0';
     FullUpdate++;
 }
 
@@ -1957,7 +1954,7 @@ void set_fkey(sheet_t *sp, int n, SCXMEM string_t *str) {
     }
 }
 
-void cmd_select_register(char c) {
+void select_register(char c) {
     if (c >= '0' && c <= '9') {
         qbuf = DELBUF_0 + (c - '0');
     } else if (c >= 'a' && c <= 'z') {

@@ -106,9 +106,7 @@ int num_search(sheet_t *sp, int g_type, rangeref_t rr, double n) {
         remember(sp, 0);
 
     // XXX: refine this, find all errors for now
-    if (g_type == G_ERROR)
-        errsearch = -1;
-    if (g_type == G_INVALID)
+    if (g_type == G_ERROR || g_type == G_INVALID)
         errsearch = -1;
 
     go_free(sp);
@@ -132,20 +130,20 @@ int num_search(sheet_t *sp, int g_type, rangeref_t rr, double n) {
     row = endr;
     col = endc;
     for (;;) {
-        if (col < lastcol) {
-            col++;
-        } else {
+        if (col++ >= lastcol) {
             col = firstcol;
-            if (row < lastrow) {
-                while (++row < lastrow && row_hidden(sp, row))
-                    continue;
-            } else {
+            if (row++ >= lastrow) {
                 row = firstrow;
             }
         }
-        if (!col_hidden(sp, col) && (p = getcell(sp, row, col))) {
-            if ((!errsearch && p->type == SC_NUMBER && p->v == n)
-            ||  (errsearch & (1 << p->cellerror))) {
+        if (!row_hidden(sp, row) && !col_hidden(sp, col) && (p = getcell(sp, row, col))) {
+            if (errsearch) {
+                if (errsearch & (1 << p->cellerror)) {
+                    found = 1;
+                    break;
+                }
+            } else
+            if (p->type == SC_NUMBER && p->v == n) {
                 found = 1;
                 break;
             }
@@ -243,18 +241,13 @@ int str_search(sheet_t *sp, int g_type, rangeref_t rr, SCXMEM string_t *str) {
     col = endc;
     // XXX: incorrect if firstrow or lastrow is hidden
     for (;;) {
-        if (col < lastcol) {
-            col++;
-        } else {
+        if (col++ >= lastcol) {
             col = firstcol;
-            if (row < lastrow) {
-                while (++row < lastrow && row_hidden(sp, row))
-                    continue;
-            } else {
+            if (row++ >= lastrow) {
                 row = firstrow;
             }
         }
-        if (!col_hidden(sp, col) && (p = getcell(sp, row, col))) {
+        if (!row_hidden(sp, row) && !col_hidden(sp, col) && (p = getcell(sp, row, col))) {
             /* convert cell contents, do not test width, ignore alignment */
             const char *s1 = field;
             int align = ALIGN_DEFAULT;
@@ -262,7 +255,7 @@ int str_search(sheet_t *sp, int g_type, rangeref_t rr, SCXMEM string_t *str) {
             *field = '\0';
             if (gs.g_type == G_NSTR) {
                 if (p->cellerror) {
-                    s1 = "ERROR";  // s1 = error_name[p->cellerror];
+                    s1 = error_name[p->cellerror];
                 } else
                 if (p->type == SC_NUMBER) {
                     if (p->format) {

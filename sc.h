@@ -38,39 +38,39 @@ extern const char *progname;
 
 #define MINROWS 100     /* minimum size at startup */
 #define MINCOLS 30
-#define ABSMAXROWS 0xFFFFFF  /* maximum number of rows */
-#define ABSMAXCOLS 702  /* maximum number of columns for A-ZZ (base 26) */
+#define ABSMAXROWS  0xFFFFFF  /* maximum number of rows */
+#define ABSMAXCOLS  702  /* maximum number of columns for A-ZZ (base 26) */
 
-#define CRROWS 1
-#define CRCOLS 2
-#define RESROW 3 /* rows reserved for prompt, error, and column numbers */
+#define CRROWS  1
+#define CRCOLS  2
+#define RESROW  3 /* rows reserved for prompt, error, and column numbers */
 
 /* formats for engformat() */
-#define REFMTFIX        0
-#define REFMTFLT        1
-#define REFMTENG        2
-#define REFMTDATE       3
-#define REFMTLDATE      4
+#define REFMTFIX    0
+#define REFMTFLT    1
+#define REFMTENG    2
+#define REFMTDATE   3
+#define REFMTLDATE  4
 
 #define DEFWIDTH    10      /* Default column width */
 #define DEFPREC      2      /* Default precision */
 #define DEFREFMT  REFMTFIX  /* Make default format fixed point  THA 10/14/90 */
 
-#define FKEYS            25   /* Number of function keys available (0..24) */
-#define HISTLEN         100   /* Number of history entries for vi emulation */
-#define CPAIRS            8   /* Number of color pairs available */
-#define COLFORMATS       10   /* Number of custom column formats */
+#define FKEYS        25     /* Number of function keys available (0..24) */
+#define HISTLEN     100     /* Number of history entries for vi emulation */
+#define CPAIRS        8     /* Number of color pairs available */
+#define COLFORMATS   10     /* Number of custom column formats */
 
 typedef unsigned char sc_bool_t;
 
-#define FBUFLEN 1024    /* buffer size for a single field */
-#define PATHLEN (PATH_MAX < 8192 ? 8192 : PATH_MAX) /* maximum path length */
+#define FBUFLEN  1024       /* buffer size for a single field */
+#define PATHLEN  (PATH_MAX < 8192 ? 8192 : PATH_MAX) /* maximum path length */
 
 #ifndef DFLT_PAGER
-#define DFLT_PAGER "more"       /* more is probably more widespread than less */
+#define DFLT_PAGER  "more"  /* more is probably more widespread than less */
 #endif /* DFLT_PAGER */
 
-#define MAXCMD  FBUFLEN      /* for ! command and commands that use the pager */
+#define MAXCMD  FBUFLEN     /* for ! command and commands that use the pager */
 
 /* a cellref has a row, column, flags and sheet */
 typedef struct cellref cellref_t;
@@ -470,16 +470,18 @@ static inline int col_fwidth(sheet_t *sp, int col) { return sp->colfmt[col].fwid
 
 extern sheet_t *sht;
 
+// XXX: should move savedxx[] to worksheet
 #define MARK_COUNT  37
 extern cellref_t savedcr[MARK_COUNT];
 extern cellref_t savedst[MARK_COUNT];
+
 extern int FullUpdate;
+extern int changed;
 extern int rowsinrange;       /* Number of rows in target range of a goto */
 extern int colsinrange;       /* Number of cols in target range of a goto */
 
 extern char line[FBUFLEN];
 extern int linelim;
-extern int changed;
 
 extern int macrofd;
 extern int brokenpipe;          /* Set to true if SIGPIPE is received */
@@ -669,7 +671,7 @@ extern void copy_set_source_range(rangeref_t rr);
 extern void copy_range(sheet_t *sp, int flags, rangeref_t drr, rangeref_t srr);
 extern int dup_col(sheet_t *sp, cellref_t cr);
 extern int dup_row(sheet_t *sp, cellref_t cr);
-extern void cmd_select_register(char c);
+extern void select_register(char c);
 extern int edit_cell(sheet_t *sp, buf_t buf, int row, int col, struct ent *p, int dcp_flags, int c0);
 extern void erase_range(sheet_t *sp, rangeref_t rr);
 extern void fill_range(sheet_t *sp, rangeref_t rr, double start, double inc, int bycols);
@@ -832,8 +834,8 @@ extern void sc_cmd_put(sheet_t *sp, const char *arg, int vopt);
 extern void sc_cmd_write(const char *arg);
 extern int query(sheet_t *sp, char *dest, int destsize, const char *s, const char *data);
 extern void free_hist(void);
-extern void read_hist(void);
-extern void write_hist(void);
+extern void read_hist(SCXMEM string_t *filename);
+extern void write_hist(SCXMEM string_t *filename);
 extern void sc_set_locale(int set);
 extern int set_line(const char *fmt, ...) sc__attr_printf(1,2);
 
@@ -881,9 +883,6 @@ extern void repaint_cursor(sheet_t *sp, int set);
 
 extern int usecurses;
 extern int screen_COLS, screen_LINES;
-#ifdef VMS
-extern int VMS_read_raw;   /*sigh*/
-#endif
 
 extern void initkbd(void);
 extern void kbd_again(void);

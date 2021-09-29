@@ -88,11 +88,11 @@ static void leftlimit(sheet_t *sp);
 static void rightlimit(sheet_t *sp);
 static void list_all(sheet_t *sp);
 
+/* used in update() in screen.c */
 char line[FBUFLEN];
 int linelim = -1;  /* position in line for writing and parsing */
-static int linelen = 0;
-SCXMEM string_t *histfile;
 
+static int linelen = 0;
 static int uarg = 1;        /* universal numeric prefix argument */
 
 static char *completethis = NULL;
@@ -109,8 +109,8 @@ static int search_dir;      /* Search direction:  forward = 0; back = 1 */
 #define DOTLEN          200
 
 static int mode = INSERT_MODE;
-static SCXMEM string_t *history[HISTLEN + 1];
 
+static SCXMEM string_t *history[HISTLEN + 1];
 static int histp = 0;
 static int lasthist = 0;
 static int endhist = -1;
@@ -903,7 +903,7 @@ void vi_interaction(sheet_t *sp) {
                     if (c == ESC || c == ctl('g')) {
                         break;
                     } else {
-                        cmd_select_register(c);
+                        select_register(c);
                     }
                     break;
 
@@ -2850,14 +2850,16 @@ static void readhistfile(FILE *fp) {
     linelim = -1;
 }
 
-// XXX: move out of vi.c
-void write_hist(void) {
+// XXX: move out of vi.c ?
+void write_hist(SCXMEM string_t *filename) {
     char path[FBUFLEN];
     int i;
     FILE *fp, *tmpfp = NULL;
 
-    if (sempty(histfile))
+    if (sempty(filename)) {
+        string_free(filename);
         return;
+    }
 
     /* merge the history file with the new elements from the current session */
     /* should just append the new commands? */
@@ -2875,7 +2877,7 @@ void write_hist(void) {
         histp = 0;
         lasthist = 0;
         endhist = -1;
-        read_hist();
+        read_hist(string_dup(filename));
         readhistfile(tmpfp);
 
         if (fclose(tmpfp) == EOF) {
@@ -2884,7 +2886,7 @@ void write_hist(void) {
     }
 
     /* now write to whole lot out to the proper save file */
-    pstrcpy(path, sizeof path, s2c(histfile));
+    pstrcpy(path, sizeof path, s2c(filename));
     if (findhome(path, sizeof path) && (fp = fopen(path, "w")) != NULL) {
         for (i = 1; i <= endhist; i++) {
             lasthist = lasthist % endhist + 1;
@@ -2895,16 +2897,19 @@ void write_hist(void) {
             error("fclose(%s): %s", path, strerror(errno));
         }
     }
+    string_free(filename);
 }
 
-void read_hist(void) {
+void read_hist(SCXMEM string_t *filename) {
     char path[FBUFLEN];
     FILE *fp;
 
-    if (sempty(histfile))
+    if (sempty(filename)) {
+        string_free(filename);
         return;
+    }
 
-    pstrcpy(path, sizeof path, s2c(histfile));
+    pstrcpy(path, sizeof path, s2c(filename));
     if (findhome(path, sizeof path) && (fp = fopen(path, "r")) != NULL) {
         readhistfile(fp);
         if (fclose(fp) == EOF) {
@@ -2914,6 +2919,7 @@ void read_hist(void) {
 
     histsessionstart = lasthist;
     histsessionnew = 0;
+    string_free(filename);
 }
 
 static void col_0(void) {

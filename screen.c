@@ -44,6 +44,9 @@ static int standlast = FALSE;
 #ifdef XENIX2_3
 struct termio tmio;
 #endif
+#ifdef VMS
+static int VMS_read_raw = 0;
+#endif
 
 static void repaint(int x, int y, int len, int attron, int attroff);
 static void showstring(sheet_t *sp, const char *string, int align, int hasvalue, int row,

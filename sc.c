@@ -35,9 +35,10 @@ sheet_t *sht = &cur_sheet;
 
 cellref_t savedcr[MARK_COUNT];     /* stack of marked cells */
 cellref_t savedst[MARK_COUNT];
-int FullUpdate = 0;
+int FullUpdate;
 int changed;
 int skipautorun;
+SCXMEM string_t *histfile;
 SCXMEM string_t *scext;
 SCXMEM string_t *ascext;
 SCXMEM string_t *tbl0ext;
@@ -71,10 +72,6 @@ int dobackups;         /* Copy current database file to backup file      */
 int rowsinrange;
 int colsinrange;
 int emacs_bindings = 1;      /* use emacs-like bindings */
-
-#ifdef VMS
-int VMS_read_raw = 0;
-#endif
 
 const char *progname;
 #ifdef TRACE
@@ -176,7 +173,7 @@ int main(int argc, char **argv) {
     startdisp();
     signals();
     settcattr();
-    read_hist();
+    read_hist(string_dup(histfile));
 
     /* setup the spreadsheet arrays, initscr() will get the screen size */
     if (!growtbl(sp, GROWNEW, 0, 0)) {
@@ -295,7 +292,7 @@ int main(int argc, char **argv) {
     if (!qopt)
         vi_interaction(sp);
     stopdisp();
-    write_hist();
+    write_hist(string_dup(histfile));
 
     if (Dopt) {
         /* free all memory and check for remaining blocks */
@@ -371,7 +368,7 @@ sigret_t doquit(int i) {
         diesave();
         stopdisp();
     }
-    write_hist();
+    write_hist(string_dup(histfile));
     exit(1);
 }
 

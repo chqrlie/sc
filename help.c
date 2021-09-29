@@ -601,10 +601,9 @@ void help(int ctx) {
 #else /* QREF */
 
 int main(void) {
-    int lineno;
-    const char * const * const *pagep = pages;
 #ifdef TROFF
-    int pageno = 0;
+    const char * const * const *pagep = pages;
+    int lineno, pageno = 0;
 
     puts(".nr PS 12");
     puts(".nr VS 14");
@@ -623,29 +622,33 @@ int main(void) {
     puts("..");
     puts(".P1");
     puts(".LP");
-#endif
 
     while (*pagep) {
-#ifndef TROFF
+        for (lineno = 0; (*pagep)[lineno]; lineno++) {
+            puts((*pagep)[lineno]);
+        }
+        pagep++;
+        pageno++;
+        if (!(pageno % 2))
+            puts(".bp");
+    }
+#else /* TROFF */
+    const char * const * const *pagep = pages;
+    int lineno;
+
+    while (*pagep) {
         fputs(SCNAME, stdout);
         fputs(header, stdout);
         printf("\n");
         puts(revision);
-#endif
 
         for (lineno = 0; (*pagep)[lineno]; lineno++) {
             puts((*pagep)[lineno]);
         }
-#if !defined(TROFF)
         putchar('\f');
-#endif
         pagep++;
-#ifdef TROFF
-        pageno++;
-        if (!(pageno % 2))
-            puts(".bp");
-#endif
     }
+#endif /* TROFF */
     return 0;
 }
 #endif /* QREF */

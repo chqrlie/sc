@@ -648,8 +648,9 @@ int readfile(sheet_t *sp, const char *fname, int eraseflg) {
             if (usecurses) {
                 error("Reading file \"%s\"", save);
                 screen_refresh();
-            } else
+            } else {
                 fprintf(stderr, "Reading file \"%s\"\n", save);
+            }
         }
         erasedb(sp);
         load_scrc(sp);
@@ -695,8 +696,9 @@ int readfile(sheet_t *sp, const char *fname, int eraseflg) {
             if (usecurses) {
                 error("File \"%s\" loaded.", save);
                 screen_refresh();
-            } else
+            } else {
                 fprintf(stderr, "File \"%s\" loaded.\n", save);
+            }
         }
     }
     autolabel = tempautolabel;
