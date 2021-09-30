@@ -158,7 +158,6 @@ struct ent {
     int row;
     short col;                  /* the cell col/row */
     short flags;
-    rangeref_t nrr;             /* nrr: link to note */ // XXX: should just use flag
     struct ent *next;           /* next deleted ent (pulled, deleted cells) */
 };
 
@@ -217,6 +216,14 @@ struct abbrev {
     SCXMEM struct abbrev *next, *prev;
     SCXMEM string_t *name;
     SCXMEM string_t *exp;
+};
+
+/* stores a cell annotation with its range reference and optional string */
+struct note {
+    SCXMEM struct note *next, *prev;
+    cellref_t cr;
+    rangeref_t rr;
+    SCXMEM string_t *str;
 };
 
 struct impexfilt {
@@ -436,6 +443,7 @@ typedef struct sheet {
     SCXMEM struct crange *crange_base, *crange_tail;
     SCXMEM struct nrange *nrange_base, *nrange_tail;
     SCXMEM struct frange *frange_base, *frange_tail;
+    SCXMEM struct note *note_base, *note_tail;
     int autocalc;     /* 1 to calculate after each update */
     int autoinsert;    /* Causes rows to be inserted if craction is non-zero
                           and the last cell in a row/column of the scrolling
@@ -651,8 +659,6 @@ extern void unlock_cells(sheet_t *sp, rangeref_t rr);
 extern void showcol(sheet_t *sp, int c1, int c2);
 extern void showrow(sheet_t *sp, int r1, int r2);
 extern void range_align(sheet_t *sp, rangeref_t rr, int align);
-extern void note_add(sheet_t *sp, cellref_t cr, rangeref_t rr);
-extern void note_delete(sheet_t *sp, cellref_t cr);
 extern const char *coltoa(int col);
 extern const char *v_name(sheet_t *sp, int row, int col);
 extern const char *r_name(sheet_t *sp, int r1, int c1, int r2, int c2);
@@ -728,6 +734,17 @@ extern int init_style(int n, int fg, int bg, enode_t *expr);
 extern void select_style(int style, int rev);
 extern void free_styles(void);
 extern void colors_write(sheet_t *sp, FILE *f, int indent);
+
+/*---------------- cell annotations ----------------*/
+
+extern int note_test(sheet_t *sp);
+extern void note_add(sheet_t *sp, cellref_t cr, rangeref_t rr, SCXMEM string_t *str);
+extern struct note *note_find(sheet_t *sp, cellref_t cr);
+extern void note_clean(sheet_t *sp);
+extern void note_delete(sheet_t *sp, cellref_t cr);
+extern void note_move(sheet_t *sp, rangeref_t rr, int dr, int dc);
+extern void note_clamp(sheet_t *sp, rangeref_t rr, int newr, int newc);
+extern void note_write(sheet_t *sp, FILE *f);
 
 /*---------------- color ranges ----------------*/
 

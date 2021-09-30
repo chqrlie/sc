@@ -428,15 +428,12 @@ void write_fd(sheet_t *sp, FILE *f, rangeref_t rr, int dcp_flags) {
                 if (p->flags & IS_LOCKED) {
                     fprintf(f, "lock %s%d\n", coltoa(p->col), p->row);
                 }
-                if (p->flags & HAS_NOTE) {
-                    fprintf(f, "addnote %s %s\n",
-                            v_name(sp, p->row, p->col),
-                            r_name(sp, p->nrr.left.row, p->nrr.left.col,
-                                   p->nrr.right.row, p->nrr.right.col));
-                }
             }
         }
     }
+    // XXX: should clip range and apply offset
+    note_write(sp, f);
+
     fprintf(f, "goto %s %s\n", v_name(sp, sp->currow, sp->curcol), v_name(sp, sp->strow, sp->stcol));
 }
 

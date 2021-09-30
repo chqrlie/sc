@@ -576,6 +576,7 @@ void vi_interaction(sheet_t *sp) {
                 case ctl('w'):  /* insert variable expression */
                     if (linelim >= 0) {
                         buf_init2(buf, line, sizeof line, linelen);
+                        // XXX: why allocate cell?
                         p = lookat(sp, sp->currow, sp->curcol);
                         /* decompile expression into line array */
                         // XXX: insert expression instead of appending?
@@ -1075,6 +1076,7 @@ void vi_interaction(sheet_t *sp) {
                 case 'e':
                 case 'E':
                     if (!locked_cell(sp, sp->currow, sp->curcol)) {
+                        // XXX: why allocate cell?
                         p = lookat(sp, sp->currow, sp->curcol);
                         /* copy cell contents into line array */
                         buf_init(buf, line, sizeof line);
@@ -1082,7 +1084,7 @@ void vi_interaction(sheet_t *sp) {
                         linelim = linelen = edit_cell(sp, buf, sp->currow, sp->curcol, p, DCP_DEFAULT, '"');
                         setmark(sp, '0');
                         cellassign = 1;
-                        if (c == 'e' && (p->flags != SC_NUMBER)) {
+                        if (c == 'e' && (p->type != SC_NUMBER)) {
                             insert_mode();
                         } else
                             edit_mode();
@@ -1316,6 +1318,7 @@ void vi_interaction(sheet_t *sp) {
                     }
                     if (c == 'a' || c == 'A') {
                         set_line("addnote [target range] %s ", v_name(sp, sp->currow, sp->curcol));
+                        // XXX: should append note string if present
                         insert_mode();
                         write_line(sp, ctl('v'));
                         FullUpdate++;

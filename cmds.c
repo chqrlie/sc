@@ -71,7 +71,6 @@ static void ent_clear(struct ent *p) {
         p->cellerror = 0;
         p->type = SC_EMPTY;
         p->flags = IS_CHANGED | IS_CLEARED;
-        p->nrr = rangeref_empty();
         // XXX: should clear other fields?
         //      next
         FullUpdate++;  // XXX: really?
@@ -267,7 +266,6 @@ static struct ent *ent_alloc(sheet_t *sp, int row, int col) {
     p->row = row;
     p->col = col;
     p->flags = MAY_SYNC;
-    p->nrr = rangeref_empty();
     p->next = NULL;
     return p;
 }
@@ -434,17 +432,7 @@ int insert_rows(sheet_t *sp, cellref_t cr, int arg, int delta) {
     if (cell_in_range(gs.st, rr))
         gs.st.row += arg;
     /* Update note targets. */
-    for (r = 0; r <= sp->maxrow; r++) {
-        for (c = 0; c <= sp->maxcol; c++) {
-            struct ent *p = getcell(sp, r, c);
-            if (p && (p->flags & HAS_NOTE)) {
-                if (cell_in_range(p->nrr.left, rr))
-                    p->nrr.left.row += arg;
-                if (cell_in_range(p->nrr.right, rr))
-                    p->nrr.right.row += arg;
-            }
-        }
-    }
+    note_move(sp, rr, arg, 0);
     // XXX: cell coordinates have been updated
     fr = frange_find(sp, cr.row, cr.col);
     if (delta) {
@@ -510,17 +498,7 @@ int insert_cols(sheet_t *sp, cellref_t cr, int arg, int delta) {
     if (gs.st.col >= sc1)
         gs.st.col += arg;
     /* Update note targets. */
-    for (r = 0; r <= sp->maxrow; r++) {
-        for (c = 0; c <= sp->maxcol; c++) {
-            struct ent *p = getcell(sp, r, c);
-            if (p && (p->flags & HAS_NOTE)) {
-                if (p->nrr.left.col >= sc1)
-                    p->nrr.left.col += arg;
-                if (p->nrr.right.col >= sc1)
-                    p->nrr.right.col += arg;
-            }
-        }
-    }
+    note_move(sp, rangeref(0, sc1, sp->maxrow, sc2), 0, arg);
 
     // XXX: cell coordinates have been updated
     fr = frange_find(sp, cr.row, cr.col);
@@ -1109,26 +1087,12 @@ static void close_rows(sheet_t *sp, int rs, int numrow) {
     else if (gs.st.row > r2)
         gs.st.row -= numrow;
 
+    /* Update note targets. */
+    note_clamp(sp, rangeref(r1, 0, r2, sp->maxcol), r1, -1);
+    note_move(sp, rangeref(r2 + 1, 0, sp->maxrow, sp->maxcol), -numrow, 0);
+
     sp->maxrow -= numrow;
 
-    /* Update note targets. */
-    for (r = 0; r <= sp->maxrow; r++) {
-        for (c = 0; c <= sp->maxcol; c++) {
-            struct ent *p = getcell(sp, r, c);
-            if (p && (p->flags & HAS_NOTE)) {
-                if (p->nrr.left.row >= r1 && p->nrr.left.row <= r2)
-                    p->nrr.left.row = r1;
-                else if (p->nrr.left.row > r2)
-                    p->nrr.left.row -= numrow;
-                if (p->nrr.right.row >= r1 && p->nrr.right.row <= r2)
-                    p->nrr.right.row = r1 - 1;
-                else if (p->nrr.right.row > r2)
-                    p->nrr.right.row -= numrow;
-                if (p->nrr.right.row < p->nrr.left.row)
-                    p->nrr.left.row = p->nrr.left.col = -1;
-            }
-        }
-    }
     FullUpdate++;
     sp->modflg++;
 }
@@ -1137,7 +1101,6 @@ static void close_rows(sheet_t *sp, int rs, int numrow) {
 void delete_cols(sheet_t *sp, int c1, int c2) {
     int r, c, ncols, i, save = sp->curcol;
     struct ent **pp;
-    struct ent *p;
     colfmt_t def_colfmt = { FALSE, DEFWIDTH, DEFPREC, DEFREFMT };
 
     if (c1 > c2) SWAPINT(c1, c2);
@@ -1216,26 +1179,12 @@ void delete_cols(sheet_t *sp, int c1, int c2) {
     else if (gs.st.col > c2)
         gs.st.col -= ncols;
 
+    /* Update note targets. */
+    note_clamp(sp, rangeref(0, c1, sp->maxrow, c2), -1, c1);
+    note_move(sp, rangeref(0, c2 + 1, sp->maxrow, sp->maxcol), 0, -ncols);
+
     sp->maxcol -= ncols;
 
-    /* Update note targets. */
-    for (r = 0; r <= sp->maxrow; r++) {
-        for (c = 0; c <= sp->maxcol; c++) {
-            p = getcell(sp, r, c);
-            if (p && (p->flags & HAS_NOTE)) {
-                if (p->nrr.left.col >= c1 && p->nrr.left.col <= c2)
-                    p->nrr.left.col = c1;
-                else if (p->nrr.left.col > c2)
-                    p->nrr.left.col -= ncols;
-                if (p->nrr.right.col >= c1 && p->nrr.right.col <= c2)
-                    p->nrr.right.col = c1 - 1;
-                else if (p->nrr.right.col > c2)
-                    p->nrr.right.col -= ncols;
-                if (p->nrr.right.col < p->nrr.left.col)
-                    p->nrr.right.row = p->nrr.left.col = -1;
-            }
-        }
-    }
     FullUpdate++;
     sp->modflg++;
     sp->curcol = save < c1 ? save : (save <= c2) ? c1 : save - ncols;
@@ -1534,12 +1483,12 @@ void unlock_cells(sheet_t *sp, rangeref_t rr) {
     sp->modflg++;
 }
 
-void format_cells(sheet_t *sp, rangeref_t rr, SCXMEM string_t *s) {
+void format_cells(sheet_t *sp, rangeref_t rr, SCXMEM string_t *str) {
     int r, c;
 
-    if (s && !*s2c(s)) {
-        string_free(s);
-        s = NULL;
+    if (str && !*s2c(str)) {
+        string_free(str);
+        str = NULL;
     }
 
     // XXX: should be skip locked cells silently
@@ -1547,14 +1496,24 @@ void format_cells(sheet_t *sp, rangeref_t rr, SCXMEM string_t *s) {
     range_normalize(&rr);
     for (r = rr.left.row; r <= rr.right.row; r++) {
         for (c = rr.left.col; c <= rr.right.col; c++) {
-            struct ent *p = lookat(sp, r, c);
-            if (p->flags & IS_LOCKED)
-                continue;
-            string_set(&p->format, string_dup(s));
-            p->flags |= IS_CHANGED;
+            if (str) {
+                struct ent *p = lookat(sp, r, c);
+                if (p->flags & IS_LOCKED)
+                    continue;
+                string_set(&p->format, string_dup(str));
+                p->flags |= IS_CHANGED;
+            } else {
+                struct ent *p = getcell(sp, r, c);
+                if (!p || (p->flags & IS_LOCKED))
+                    continue;
+                if (p->format) {
+                    string_set(&p->format, NULL);
+                    p->flags |= IS_CHANGED;
+                }
+            }
         }
     }
-    string_free(s);
+    string_free(str);
     FullUpdate++;
     sp->modflg++;
 }
@@ -1890,6 +1849,7 @@ void erasedb(sheet_t *sp) {
     frange_clean(sp);
     crange_clean(sp);
     abbrev_clean(sp);
+    note_clean(sp);
 
     string_set(&sp->mdir, NULL);
     string_set(&sp->autorun, NULL);
@@ -1992,24 +1952,145 @@ void cmd_run(SCXMEM string_t *str) {
     string_free(str);
 }
 
-void note_add(sheet_t *sp, cellref_t cr, rangeref_t rr) {
-    struct ent *p = lookat(sp, cr.row, cr.col);
-    if (p) {
-        range_normalize(&rr);
-        p->nrr = rr;
-        p->flags |= HAS_NOTE | IS_CHANGED;
-        FullUpdate++;
-        sp->modflg++;
+/*---------------- cell annotations ----------------*/
+
+int note_test(sheet_t *sp) {
+    return sp->note_base != NULL;
+}
+
+/* unlink and free an annotation */
+static void note_free(sheet_t *sp, SCXMEM struct note *a) {
+    if (a) {
+        if (a->next)
+            a->next->prev = a->prev;
+        else
+            sp->note_tail = a->prev;
+        if (a->prev)
+            a->prev->next = a->next;
+        else
+            sp->note_base = a->next;
+        string_free(a->str);
+        scxfree(a);
     }
+}
+
+struct note *note_find(sheet_t *sp, cellref_t cr) {
+    struct note *a;
+    for (a = sp->note_base; a; a = a->next) {
+        if (a->cr.row == cr.row && a->cr.col == cr.col)
+            break;
+    }
+    return a;
+}
+
+void note_clean(sheet_t *sp) {
+    struct note *a, *next;
+
+    a = sp->note_base;
+    sp->note_base = sp->note_tail = NULL;
+    while (a) {
+        next = a->next;
+        string_free(a->str);
+        scxfree(a);
+        a = next;
+    }
+}
+
+void note_add(sheet_t *sp, cellref_t cr, rangeref_t rr, SCXMEM string_t *str) {
+    struct note *a, *next;
+    struct ent *p = lookat(sp, cr.row, cr.col);
+    if (!p) {
+        string_free(str);
+        return;
+    }
+    a = note_find(sp, cr);
+    if (!a) {
+        a = scxmalloc(sizeof(*a));
+        if (!a) {
+            string_free(str);
+            return;
+        }
+        a->str = NULL;
+        a->cr = cr;
+        /* link note at head of list */
+        next = sp->note_base;
+        sp->note_base = a;
+        a->prev = NULL;
+        a->next = next;
+        if (next)
+            next->prev = a;
+        else
+            sp->note_tail = a;
+    }
+    string_set(&a->str, str);
+    range_normalize(&rr);
+    a->rr = rr;
+    p->flags |= HAS_NOTE | IS_CHANGED;
+    FullUpdate++;
+    sp->modflg++;
 }
 
 void note_delete(sheet_t *sp, cellref_t cr) {
     struct ent *p = getcell(sp, cr.row, cr.col);
     if (p && (p->flags & HAS_NOTE)) {
-        p->nrr = rangeref_empty();
         p->flags ^= HAS_NOTE;
         p->flags |= IS_CHANGED;
         sp->modflg++;
+        note_free(sp, note_find(sp, cr));
+    }
+}
+
+void note_move(sheet_t *sp, rangeref_t rr, int dr, int dc) {
+    struct note *a;
+    for (a = sp->note_base; a; a = a->next) {
+        if (cell_in_range(a->cr, rr)) {
+            a->cr.row += dr;
+            a->cr.col += dc;
+        }
+        if (cell_in_range(a->rr.left, rr)) {
+            a->rr.left.row += dr;
+            a->rr.left.col += dc;
+        }
+        if (cell_in_range(a->rr.right, rr)) {
+            a->rr.right.row += dr;
+            a->rr.right.col += dc;
+        }
+    }
+}
+
+void note_clamp(sheet_t *sp, rangeref_t rr, int newr, int newc) {
+    struct note *a;
+    for (a = sp->note_base; a; a = a->next) {
+        if (cell_in_range(a->cr, rr)) {
+            if (newr >= 0) a->cr.row = newr;
+            if (newc >= 0) a->cr.col = newc;
+        }
+        if (cell_in_range(a->rr.left, rr)) {
+            if (newr >= 0) a->rr.left.row = newr;
+            if (newc >= 0) a->rr.left.col = newc;
+        }
+        if (cell_in_range(a->rr.right, rr)) {
+            if (newr >= 0) a->rr.right.row = newr - 1;
+            if (newc >= 0) a->rr.right.col = newc - 1;
+        }
+    }
+}
+
+void note_write(sheet_t *sp, FILE *f) {
+    struct note *a;
+
+    for (a = sp->note_tail; a; a = a->prev) {
+        // XXX: should clip write range
+        if (a->str) {
+            // XXX: should quote note string
+            fprintf(f, "addnote %s \"%s\"\n",
+                    v_name(sp, a->cr.row, a->cr.col), s2c(a->str));
+        } else {
+            fprintf(f, "addnote %s %s\n",
+                    v_name(sp, a->cr.row, a->cr.col),
+                    r_name(sp, a->rr.left.row, a->rr.left.col,
+                           a->rr.right.row, a->rr.right.col));
+        }
     }
 }
 
@@ -2099,7 +2180,7 @@ void sort_range(sheet_t *sp, rangeref_t rr, SCXMEM string_t *criteria) {
     struct sortcrit *crit;
     SCXMEM int *rows;
     SCXMEM int *destrows;
-    int i, r, c, nrows, col, len;
+    int i, r, nrows, col, len;
     const char *cp;
     struct ent *p;
 
@@ -2207,6 +2288,11 @@ void sort_range(sheet_t *sp, rangeref_t rr, SCXMEM string_t *criteria) {
             error("sort error");
             break;
         }
+        if (p->flags & HAS_NOTE) {
+            /* update note target */
+            note_move(sp, rangeref(p->row, p->col, p->row, p->col),
+                      destrows[p->row - sc->minr] - p->row, 0);
+        }
         p->row = destrows[p->row - sc->minr];
         p->flags &= ~IS_DELETED;
         setcell(sp, p->row, p->col, p);
@@ -2226,16 +2312,6 @@ void sort_range(sheet_t *sp, rangeref_t rr, SCXMEM string_t *criteria) {
         gs.g_rr.left.row = gs.g_rr.right.row = destrows[gs.g_rr.left.row - sc->minr];
     if (cell_in_range(gs.st, rr))
         gs.st.row = destrows[gs.st.row - sc->minr];
-    /* Update note targets. */
-    for (r = 0; r <= sp->maxrow; r++) {
-        for (c = 0; c <= sp->maxcol; c++) {
-            p = getcell(sp, r, c);
-            if (p && (p->flags & HAS_NOTE)) {
-                if (p->nrr.left.row == p->nrr.right.row && cell_in_range(p->nrr.left, rr))
-                    p->nrr.left.row = p->nrr.right.row = destrows[p->nrr.left.row - sc->minr];
-            }
-        }
-    }
 
 fail:
     scxfree(sc->crit);

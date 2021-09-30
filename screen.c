@@ -1010,10 +1010,13 @@ void update(sheet_t *sp, int anychanged) {          /* did any cell really chang
             if (p) {
                 /* display cell notes */
                 if (p->flags & HAS_NOTE) {
-                    /* Show the cell note range */
-                    // XXX: should show the note instead?
-                    printw("{*%s} ", r_name(sp, p->nrr.left.row, p->nrr.left.col,
-                                            p->nrr.right.row, p->nrr.right.col));
+                    /* Show the cell note string or range */
+                    struct note *n = note_find(sp, cellref(sp->currow, sp->curcol));
+                    if (n) {
+                        printw("{*%s} ", n->str ? s2c(n->str) :
+                               r_name(sp, n->rr.left.row, n->rr.left.col,
+                                      n->rr.right.row, n->rr.right.col));
+                    }
                 }
                 /* display cell alignment */
                 switch (p->flags & ALIGN_MASK) {

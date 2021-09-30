@@ -80,12 +80,15 @@ void nrange_add(sheet_t *sp, SCXMEM string_t *name, rangeref_t rr, int is_range)
              */
             string_set(&cp->label, name);
             cp->type = SC_STRING;
+            // XXX: set IS_CHANGED?
             sp->modflg++;   // XXX: redundant
             FullUpdate++;   // XXX: redundant?
         }
     }
 
-    r = scxmalloc(sizeof(struct nrange));
+    r = scxmalloc(sizeof(*r));
+    if (!r)
+        return;
     r->name = name;
     r->left.vp = lookat(sp, rr.left.row, rr.left.col);
     r->left.vf = rr.left.vf;

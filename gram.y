@@ -275,8 +275,9 @@ command:  S_LET var_or_range '=' e      { let(sht, $2.left, $4, -1); }
         | S_RIGHTJUSTIFY                { range_align(sht, rangeref_current(sht), ALIGN_RIGHT); }
         | S_CENTER var_or_range         { range_align(sht, $2, ALIGN_CENTER); }
         | S_CENTER                      { range_align(sht, rangeref_current(sht), ALIGN_CENTER); }
-        | S_ADDNOTE VAR                 { note_add(sht, $2, rangeref_current(sht)); }
-        | S_ADDNOTE VAR var_or_range    { note_add(sht, $2, $3); }
+        | S_ADDNOTE VAR                 { note_add(sht, $2, rangeref_current(sht), NULL); }
+        | S_ADDNOTE VAR var_or_range    { note_add(sht, $2, $3, NULL); }
+        | S_ADDNOTE VAR STRING          { note_add(sht, $2, rangeref_current(sht), $3); }
         | S_DELNOTE VAR                 { note_delete(sht, $2); }
         | S_DELNOTE                     { note_delete(sht, cellref_current(sht)); }
         | S_FORMAT COL ':' COL NUMBER NUMBER NUMBER  { cmd_format(sht, $2, $4, $5, $6, $7); }

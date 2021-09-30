@@ -63,7 +63,7 @@ void moveto(sheet_t *sp, rangeref_t rr, cellref_t st) {
     if (!loading && rr.left.row != -1 && (rr.left.row != sp->currow || rr.left.col != sp->curcol))
         remember(sp, 0);
 
-    lookat(sp, rr.left.row, rr.left.col);
+    //lookat(sp, rr.left.row, rr.left.col);
     sp->currow = rr.left.row;
     sp->curcol = rr.left.col;
     go_free(sp);
@@ -510,11 +510,18 @@ void backrow(sheet_t *sp, int arg) {
 }
 
 void gotonote(sheet_t *sp) {
-    struct ent *p;
-
-    p = lookat(sp, sp->currow, sp->curcol);
-    if (p->flags & HAS_NOTE) {
-        moveto(sp, p->nrr, cellref(-1, -1));
+    struct ent *p = getcell(sp, sp->currow, sp->curcol);
+    if (p && (p->flags & HAS_NOTE)) {
+        struct note *n = note_find(sp, cellref(sp->currow, sp->curcol));
+        if (n) {
+            if (!n->str) {
+                moveto(sp, n->rr, cellref(-1, -1));
+            } else {
+                error("No note target range");
+            }
+        } else {
+            error("Note not found");
+        }
     } else {
         error("No note attached");
     }
