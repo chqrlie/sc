@@ -168,18 +168,11 @@ void cmd_getrange(sheet_t *sp, SCXMEM string_t *name, int fd) {
 
     *buf = '\0';
     if (name && !nrange_find_name(sp, s2c(name), slen(name), &r)) {
-        snprintf(buf, sizeof buf - 1, "%s%s%s%d",
-                r->left.vf & FIX_COL ? "$" : "",
-                coltoa(r->left.vp->col),
-                r->left.vf & FIX_ROW ? "$" : "",
-                r->left.vp->row);
+        len = snprintf(buf, sizeof buf - 1, "%s%d",
+                       coltoa(r->left->col), r->left->row);
         if (r->is_range) {
-            len = strlen(buf);
-            snprintf(buf + len, sizeof(buf) - 1 - len, ":%s%s%s%d",
-                     r->right.vf & FIX_COL ? "$" : "",
-                     coltoa(r->right.vp->col),
-                     r->right.vf & FIX_ROW ? "$" : "",
-                     r->right.vp->row);
+            snprintf(buf + len, sizeof(buf) - 1 - len, ":%s%d",
+                     coltoa(r->right->col), r->right->row);
         }
     }
     len = pstrcat(buf, sizeof buf, "\n");

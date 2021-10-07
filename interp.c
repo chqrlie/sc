@@ -573,10 +573,10 @@ static scvalue_t eval_indirect(eval_ctx_t *cp, enode_t *e) {
             maxc = rr.right.col;
         } else
         if (nrange_find_name(cp->sp, s, len, &r)) {
-            minr = r->left.vp->row;
-            minc = r->left.vp->col;
-            maxr = r->right.vp->row;
-            maxc = r->right.vp->col;
+            minr = r->left->row;
+            minc = r->left->col;
+            maxr = r->right->row;
+            maxc = r->right->col;
         } else {
             err = ERROR_REF;
         }

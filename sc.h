@@ -184,9 +184,9 @@ struct enode {
 
 /* named ranges */
 struct nrange {
-    struct nrange *next, *prev;     /* chained ranges */
-    struct ent_ptr left, right;
-    SCXMEM string_t *name;          /* possible name for this range */
+    struct nrange *next, *prev;     /* chained named ranges */
+    struct ent *left, *right;
+    SCXMEM string_t *name;
     int is_range;
 };
 

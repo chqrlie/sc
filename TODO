@@ -31,7 +31,7 @@ Evaluator:
 [ ] add unified regex support for searching etc.
 [ ] minimize recompute: only recompute formulas whose antecedents change
 [ ] support unicode versions of case conversions
-[ ] use range references instead of ent pointers in formulas
+[ ] use range references instead of ent_ptr in formulas
 
 Parser:
 [ ] set NULL arguments for omitted arguments
@@ -47,7 +47,6 @@ Parser:
 [ ] add format info in scvalue_t
 
 Database:
-[ ] use ent* instead of ent_ptr in nrange structures
 [ ] fix note references on 'dr/pr'
 [ ] use range references instead of ent pointers in cranges
 [ ] use range references instead of ent pointers in franges
@@ -61,7 +60,7 @@ Database:
 [ ] implement virtual space: jagged 2D matrix
 [ ] remove cell pointers
 [ ] add sheet number in cell references
-[ ] move more global data to sheet structure
+[/] move more global data to sheet structure
 [+] group sheet data in sheet_t structures
 [ ] make delbufs sheet_t instances
 [?] hash string_t in a dictionary
@@ -72,8 +71,10 @@ Database:
 [/] generic formats
 [ ] add undo / autobackup of things typed in. (use command log)
 [ ] load xls files
+[ ] load xlsx files
 [ ] load csv files
 [ ] save xls files
+[ ] save xlsx files
 [ ] save formula values in .sc files
 
 Update:
@@ -180,3 +181,4 @@ Build:
 [X] support byte/char offsets in string functions
 [X] merge fill_range loops
 [X] make cell notes separate structures
+[X] use ent* instead of ent_ptr in nrange structures
