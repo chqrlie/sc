@@ -49,7 +49,6 @@ static struct ent *free_ents;
 static int any_locked_cells(sheet_t *sp, int r1, int c1, int r2, int c2);
 static void move_area(sheet_t *sp, int dr, int dc, rangeref_t rr);
 static void yank_area(sheet_t *sp, int idx, rangeref_t rr);
-static void close_rows(sheet_t *sp, int r, int numrow);
 #define KA_DEFAULT      0
 #define KA_IGNORE_LOCK  1
 #define KA_NO_FMT       2
@@ -373,9 +372,12 @@ static void fix_cellref(cellref_t *rp, rangeref_t rr, int dr, int dc) {
  * return 0 on failure, 1 on success
  */
 int insert_rows(sheet_t *sp, cellref_t cr, int arg, int delta) {
-    int r, c, i, lim;
+    int r, c, lim;
     rangeref_t rr = rangeref(cr.row + delta, 0, sp->maxrow, sp->maxcol);
+    adjust_ctx_t adjust_ctx;
     struct frange *fr;
+
+    // XXX: no check for locked cells?
 
     if ((sp->maxrow + arg >= sp->maxrows) && !growtbl(sp, GROWROW, sp->maxrow + arg, 0))
         return 0;
@@ -400,6 +402,7 @@ int insert_rows(sheet_t *sp, cellref_t cr, int arg, int delta) {
          * save the last active row+1, shift the rows downward, put the last
          * row in place of the first
          */
+        // XXX: this seems bogus, should implement a rotation
         struct ent **tmp_row = sp->tbl[sp->maxrow];
         rowfmt_t tmp_fmt = sp->rowfmt[sp->maxrow];
 
@@ -417,22 +420,17 @@ int insert_rows(sheet_t *sp, cellref_t cr, int arg, int delta) {
         sp->rowfmt[r] = tmp_fmt;
         sp->tbl[r] = tmp_row;               /* the last row was never used.... */
     }
-    /* Update all marked cells. */
-    for (i = 0; i < MARK_COUNT; i++) {
-        if (cell_in_range(savedcr[i], rr))
-            savedcr[i].row += arg;
-        if (cell_in_range(savedst[i], rr))
-            savedst[i].row += arg;
-    }
-    /* Update goto targets. */
-    if (cell_in_range(gs.g_rr.left, rr))
-        gs.g_rr.left.row += arg;
-    if (cell_in_range(gs.g_rr.right, rr))
-        gs.g_rr.right.row += arg;
-    if (cell_in_range(gs.st, rr))
-        gs.st.row += arg;
-    /* Update note targets. */
-    note_move(sp, rr, arg, 0);
+    /* Adjust range references. */
+    adjust_ctx.sp = sp;
+    adjust_ctx.clamp_rr = rangeref(-1, -1, -1, -1);
+    adjust_ctx.clamp_newr = -1;
+    adjust_ctx.clamp_newc = -1;
+    adjust_ctx.move_rr = rr;
+    adjust_ctx.move_dr = arg;
+    adjust_ctx.move_dc = 0;
+    adjust_ctx.destrows = NULL;
+    adjust_refs(&adjust_ctx);
+
     // XXX: cell coordinates have been updated
     fr = frange_find(sp, cr.row, cr.col);
     if (delta) {
@@ -459,6 +457,7 @@ int insert_cols(sheet_t *sp, cellref_t cr, int arg, int delta) {
     int dc2 = sc2 + arg;
     struct frange *fr;
     colfmt_t def_colfmt = { FALSE, DEFWIDTH, DEFPREC, DEFREFMT };
+    adjust_ctx_t adjust_ctx;
 
     if ((sp->maxcol + arg >= sp->maxcols) && !growtbl(sp, GROWCOL, 0, sp->maxcol + arg))
         return 0;
@@ -483,26 +482,21 @@ int insert_cols(sheet_t *sp, cellref_t cr, int arg, int delta) {
         }
     }
 
-    /* Update all marked cells. */
-    for (c = 0; c < MARK_COUNT; c++) {
-        if (savedcr[c].col >= sc1)
-            savedcr[c].col += arg;
-        if (savedst[c].col >= sc1)
-            savedst[c].col += arg;
-    }
-    /* Update goto targets. */
-    if (gs.g_rr.left.col >= sc1)
-        gs.g_rr.left.col += arg;
-    if (gs.g_rr.right.col >= sc1)
-        gs.g_rr.right.col += arg;
-    if (gs.st.col >= sc1)
-        gs.st.col += arg;
-    /* Update note targets. */
-    note_move(sp, rangeref(0, sc1, sp->maxrow, sc2), 0, arg);
+    /* Adjust range references. */
+    adjust_ctx.sp = sp;
+    adjust_ctx.clamp_rr = rangeref(-1, -1, -1, -1);
+    adjust_ctx.clamp_newr = -1;
+    adjust_ctx.clamp_newc = -1;
+    adjust_ctx.move_rr = rangeref(0, sc1, sp->maxrow, sc2);
+    adjust_ctx.move_dr = 0;
+    adjust_ctx.move_dc = arg;
+    adjust_ctx.destrows = NULL;
+    adjust_refs(&adjust_ctx);
 
     // XXX: cell coordinates have been updated
     fr = frange_find(sp, cr.row, cr.col);
     if (delta) {
+        // XXX: why not always fix frame limits?
         if (fr && fr->ir_right->col == cr.col)
             fr->ir_right = lookat(sp, fr->ir_right->row, fr->ir_right->col + arg);
         fix_ranges(sp, -1, cr.col, -1, cr.col, 0, arg, fr);
@@ -518,16 +512,18 @@ int insert_cols(sheet_t *sp, cellref_t cr, int arg, int delta) {
 
 /* delete rows starting at r1 up to and including r2 */
 void delete_rows(sheet_t *sp, int r1, int r2) {
-    int nrows, i;
+    int nrows;
     int c1 = 0;
     int c2 = sp->maxcol;
-    struct frange *fr;
+    struct frange *fr = NULL;
+    adjust_ctx_t adjust_ctx;
 
     if (r1 > r2) SWAPINT(r1, r2);
     if (r2 > sp->maxrow)
         r2 = sp->maxrow;
     if (r1 > sp->maxrow) {
         /* deleting rows beyond the active area: nothing to do */
+        // XXX: should still adjust references and set kill area?
         return;
     }
 
@@ -536,92 +532,81 @@ void delete_rows(sheet_t *sp, int r1, int r2) {
     if (sp->currow == r1 && (fr = frange_get_current(sp))) {
         c1 = fr->or_left->col;
         c2 = fr->or_right->col;
-        if (any_locked_cells(sp, r1, c1, r2, c2)) {
-            error("Locked cells encountered. Nothing changed");
-            return;
+    }
+    if (any_locked_cells(sp, r1, c1, r2, c2)) {
+        error("Locked cells encountered. Nothing changed");
+        return;
+    }
+    delbuf_free(DELBUF_9);
+    delbuf_free(qbuf);
+    sync_refs(sp);
+    kill_area(sp, DELBUF_DEF, r1, c1, r2, c2, KA_DEFAULT);
+    // XXX: should delay until after area has moved
+    fix_ranges(sp, r1, -1, r2, -1, -1, -1, fr);
+    delbuf_copy(DELBUF_DEF, qbuf);
+    qbuf = 0;
+    delbuf_rotate(DELBUF_1, DELBUF_9);
+    delbuf_copy(DELBUF_DEF, DELBUF_1);
+    delbuf_unsync(DELBUF_DEF);
+
+    if (fr) {
+        // XXX: update current frame, possibly redundant with fix_ranges()
+        //      should frame bottom rows should move up or not?
+        //      the code is inconsistent
+        if (r1 + nrows > fr->ir_right->row && fr->ir_right->row >= r1)
+            fr->ir_right = lookat(sp, r1 - 1, fr->ir_right->col);
+        if (r1 + nrows > fr->or_right->row) {
+            fr->or_right = lookat(sp, r1 - 1, fr->or_right->col);
         } else {
-            FullUpdate++;
-            sp->modflg++;
-
-            delbuf_free(DELBUF_9);
-            delbuf_free(qbuf);
-            sync_refs(sp);
-            kill_area(sp, DELBUF_DEF, r1, c1, r2, c2, KA_DEFAULT);
-            fix_ranges(sp, r1, -1, r2, -1, -1, -1, fr);
-            delbuf_copy(DELBUF_DEF, qbuf);
-            qbuf = 0;
-            delbuf_rotate(DELBUF_1, DELBUF_9);
-            delbuf_copy(DELBUF_DEF, DELBUF_1);
-            delbuf_unsync(DELBUF_DEF);
-
-            // XXX: update current frame, possibly redundant with fix_ranges()
-            if (r1 + nrows > fr->ir_right->row && fr->ir_right->row >= r1)
-                fr->ir_right = lookat(sp, r1 - 1, fr->ir_right->col);
-            if (r1 + nrows > fr->or_right->row) {
-                fr->or_right = lookat(sp, r1 - 1, fr->or_right->col);
-            } else {
-                move_area(sp, r1, c1, rangeref(r1 + nrows, c1, fr->or_right->row, c2));
-            }
-            if (fr->ir_left->row > fr->ir_right->row) {
-                frange_delete(sp, fr);
-                fr = NULL;
-            }
-            /* Update all marked cells. */
-            for (i = 0; i < MARK_COUNT; i++) {
-                if (savedcr[i].col >= c1 && savedcr[i].col <= c2) {
-                    if (savedcr[i].row >= r1 && savedcr[i].row <= r2)
-                        savedcr[i].row = savedcr[i].col = -1;
-                    else if (savedcr[i].row > r2)
-                        savedcr[i].row -= nrows;
-                }
-                if (savedst[i].col >= c1 && savedst[i].col <= c2) {
-                    if (savedst[i].row >= r1 && savedst[i].row <= r2)
-                        savedst[i].row = r1;
-                    else if (savedst[i].row > r2)
-                        savedst[i].row -= nrows;
-                }
-            }
-            /* Update goto targets. */
-            if (gs.g_rr.left.col >= c1 && gs.g_rr.left.col <= c2) {
-                if (gs.g_rr.left.row >= r1 && gs.g_rr.left.row <= r2)
-                    gs.g_rr.left.row = r1;
-                else if (gs.g_rr.left.row > r2)
-                    gs.g_rr.left.row -= nrows;
-            }
-            if (gs.g_rr.right.col >= c1 && gs.g_rr.right.col <= c2) {
-                if (gs.g_rr.right.row >= r1 && gs.g_rr.right.row <= r2)
-                    gs.g_rr.right.row = r1 - 1;
-                else if (gs.g_rr.right.row > r2)
-                    gs.g_rr.right.row -= nrows;
-            }
-            if (gs.g_rr.left.row > gs.g_rr.right.row)
-                gs.g_rr.left.row = gs.g_rr.left.col = -1;
-            if (gs.st.col >= c1 && gs.st.col <= c2) {
-                if (gs.st.row >= r1 && gs.st.row <= r2)
-                    gs.st.row = r1;
-                else if (gs.st.row > r2)
-                    gs.st.row -= nrows;
-            }
-            // XXX: Should update note targets.
+            move_area(sp, r1, c1, rangeref(r1 + nrows, c1, fr->or_right->row, c2));
+        }
+        if (fr->ir_left->row > fr->ir_right->row) {
+            frange_delete(sp, fr);
+            fr = NULL;
         }
     } else {
-        if (any_locked_cells(sp, r1, c1, r2, c2)) {
-            error("Locked cells encountered. Nothing changed");
-            return;
-        } else {
-            delbuf_free(DELBUF_9);
-            delbuf_free(qbuf);
-            sync_refs(sp);
-            kill_area(sp, DELBUF_DEF, r1, c1, r2, c2, KA_DEFAULT);
-            fix_ranges(sp, r1, -1, r2, -1, -1, -1, NULL);
-            close_rows(sp, r1, nrows);
-            delbuf_copy(DELBUF_DEF, qbuf);
-            qbuf = 0;
-            delbuf_rotate(DELBUF_1, DELBUF_9);
-            delbuf_copy(DELBUF_DEF, DELBUF_1);
-            delbuf_unsync(DELBUF_DEF);
+        /* moving whole rows by swapping row pointers */
+        int r, c, dr;
+        rowfmt_t def_rowfmt = { FALSE };
+
+        /* reset row formats in target range */
+        for (r = r1; r <= r2; r++) {
+            sp->rowfmt[r] = def_rowfmt;
+        }
+
+        /* rotate row pointers and row formats */
+        for (r = r2 + 1, dr = r1; r <= sp->maxrow; r++, dr++) {
+            /* swap rows and fix cell entries */
+            struct ent **tmprow = sp->tbl[dr];
+            rowfmt_t tmpfmt = sp->rowfmt[dr];
+            sp->rowfmt[dr] = sp->rowfmt[r];
+            sp->tbl[dr] = sp->tbl[r];
+            sp->tbl[r] = tmprow;
+            sp->rowfmt[r] = tmpfmt;
+            for (c = 0; c < sp->maxcols; c++) {
+                struct ent *p = getcell(sp, r, c);
+                if (p)
+                    p->row = r;
+            }
         }
     }
+    /* Adjust range references. */
+    adjust_ctx.sp = sp;
+    adjust_ctx.clamp_rr = rangeref(r1, c1, r2, c2);
+    adjust_ctx.clamp_newr = r1;
+    adjust_ctx.clamp_newc = -1;
+    adjust_ctx.move_rr = rangeref(r2 + 1, c1, sp->maxrow, c2);
+    adjust_ctx.move_dr = -nrows;
+    adjust_ctx.move_dc = 0;
+    adjust_ctx.destrows = NULL;
+    adjust_refs(&adjust_ctx);
+    if (!fr) {
+        sp->maxrow -= nrows;
+    }
+    // XXX: missing fix_ranges() ?
+    FullUpdate++;
+    sp->modflg++;
+
     /* sp->currow will not become > maxrow because maxrow was not decremented */
     if (sp->currow > r1)
         sp->currow = (sp->currow <= r2) ? r1 : sp->currow - nrows;
@@ -885,6 +870,7 @@ static void pullcells(sheet_t *sp, int src, int cmd, cellref_t cr) {
        'pf' -> PULLFMT
        'pC' -> PULLCOPY implemented above as copy(COPY_FROM_QBUF)
        'p.' -> does not get here, redirected to PULLCOPY
+    // XXX: should have 'pv' -> PULLVALUES
      */
 
     if (cmd == 'r') {     /* PULLROWS */
@@ -1017,91 +1003,11 @@ void cmd_pullcells(sheet_t *sp, int cmd, int uarg) {
     qbuf = 0;
 }
 
-/* delete numrow rows, starting with rs */
-static void close_rows(sheet_t *sp, int rs, int numrow) {
-    int r, c, i, r1, r2;
-    struct ent **tmprow;
-    rowfmt_t def_rowfmt = { FALSE };
-
-    r1 = rs;
-    r2 = rs + numrow - 1;
-    if (r1 > sp->maxrow) return;
-    if (r2 > sp->maxrow) {
-        r2 = sp->maxrow;
-        numrow = r2 - r1 + 1;
-    }
-    r = r1;
-
-    /*
-     * Rows are dealt with in numrow groups, each group of rows spaced numrow
-     * rows apart.
-     */
-    for (i = 0; i < numrow; i++) {
-        r = r1 + i;
-
-        /* empty the first row of the group */
-        // XXX: this does nothing: the target range has already been killed
-        for (c = 0; c < sp->maxcol; c++) {
-            killcell(sp, r, c, NULL, 1, 1);
-        }
-
-        /* move the rows, put the deleted, but now empty, row at the end */
-        tmprow = sp->tbl[r];
-        for (; r + numrow < sp->maxrows - 1; r += numrow) {
-            sp->rowfmt[r] = sp->rowfmt[r + numrow];
-            sp->tbl[r] = sp->tbl[r + numrow];
-            for (c = 0; c < sp->maxcols; c++) {
-                struct ent *p = getcell(sp, r, c);
-                if (p)
-                    p->row = r;
-            }
-        }
-        sp->tbl[r] = tmprow;
-        sp->rowfmt[r] = def_rowfmt;
-    }
-
-    /* Update all marked cells. */
-    for (i = 0; i < MARK_COUNT; i++) {
-        if (savedcr[i].row >= r1 && savedcr[i].row <= r2)
-            savedcr[i].row = savedcr[i].col = -1;
-        else if (savedcr[i].row > r2)
-            savedcr[i].row -= numrow;
-        if (savedst[i].row >= r1 && savedst[i].row <= r2)
-            savedst[i].row = r1;
-        else if (savedst[i].row > r2)
-            savedst[i].row -= numrow;
-    }
-    /* Update goto targets. */
-    if (gs.g_rr.left.row >= r1 && gs.g_rr.left.row <= r2)
-        gs.g_rr.left.row = r1;
-    else if (gs.g_rr.left.row > r2)
-        gs.g_rr.left.row -= numrow;
-    if (gs.g_rr.right.row >= r1 && gs.g_rr.right.row <= r2)
-        gs.g_rr.right.row = r1 - 1;
-    else if (gs.g_rr.right.row > r2)
-        gs.g_rr.right.row -= numrow;
-    if (gs.g_rr.left.row > gs.g_rr.right.row)
-        gs.g_rr.left.row = gs.g_rr.left.col = -1;
-    if (gs.st.row >= r1 && gs.st.row <= r2)
-        gs.st.row = r1;
-    else if (gs.st.row > r2)
-        gs.st.row -= numrow;
-
-    /* Update note targets. */
-    note_clamp(sp, rangeref(r1, 0, r2, sp->maxcol), r1, -1);
-    note_move(sp, rangeref(r2 + 1, 0, sp->maxrow, sp->maxcol), -numrow, 0);
-
-    sp->maxrow -= numrow;
-
-    FullUpdate++;
-    sp->modflg++;
-}
-
 /* delete group of columns (1 or more) */
 void delete_cols(sheet_t *sp, int c1, int c2) {
-    int r, c, ncols, i, save = sp->curcol;
-    struct ent **pp;
+    int r, c, ncols, save = sp->curcol;
     colfmt_t def_colfmt = { FALSE, DEFWIDTH, DEFPREC, DEFREFMT };
+    adjust_ctx_t adjust_ctx;
 
     if (c1 > c2) SWAPINT(c1, c2);
     if (c2 > sp->maxcol)
@@ -1137,7 +1043,7 @@ void delete_cols(sheet_t *sp, int c1, int c2) {
     for (r = 0; r <= sp->maxrow; r++) {
         for (c = c1; c <= sp->maxcol - ncols; c++) {
             // XXX: should factorize as movecell()
-            pp = ATBL(sp, r, c);
+            struct ent **pp = ATBL(sp, r, c);
             if ((*pp = pp[ncols])) {
                 (*pp)->col -= ncols;
                 pp[ncols] = NULL;
@@ -1152,36 +1058,16 @@ void delete_cols(sheet_t *sp, int c1, int c2) {
         sp->colfmt[c] = def_colfmt;
     }
 
-    /* Update all marked cells. */
-    for (i = 0; i < MARK_COUNT; i++) {
-        if (savedcr[i].col >= c1 && savedcr[i].col <= c2)
-            savedcr[i].row = savedcr[i].col = -1;
-        else if (savedcr[i].col > c2)
-            savedcr[i].col -= ncols;
-        if (savedst[i].col >= c1 && savedst[i].col <= c2)
-            savedst[i].col = c1;
-        else if (savedst[i].col > c2)
-            savedst[i].col -= ncols;
-    }
-    /* Update goto targets. */
-    if (gs.g_rr.left.col >= c1 && gs.g_rr.left.col <= c2)
-        gs.g_rr.left.col = c1;
-    else if (gs.g_rr.left.col > c2)
-        gs.g_rr.left.col -= ncols;
-    if (gs.g_rr.right.col >= c1 && gs.g_rr.right.col <= c2)
-        gs.g_rr.right.col = c1 - 1;
-    else if (gs.g_rr.right.col > c2)
-        gs.g_rr.right.col -= ncols;
-    if (gs.g_rr.left.col > gs.g_rr.right.col)
-        gs.g_rr.left.row = gs.g_rr.left.col = -1;
-    if (gs.st.col > c1 && gs.st.col <= c2)
-        gs.st.col = c1;
-    else if (gs.st.col > c2)
-        gs.st.col -= ncols;
-
-    /* Update note targets. */
-    note_clamp(sp, rangeref(0, c1, sp->maxrow, c2), -1, c1);
-    note_move(sp, rangeref(0, c2 + 1, sp->maxrow, sp->maxcol), 0, -ncols);
+    /* Adjust range references. */
+    adjust_ctx.sp = sp;
+    adjust_ctx.clamp_rr = rangeref(0, c1, sp->maxrow, c2);
+    adjust_ctx.clamp_newr = -1;
+    adjust_ctx.clamp_newc = c1;
+    adjust_ctx.move_rr = rangeref(0, c2 + 1, sp->maxrow, sp->maxcol);
+    adjust_ctx.move_dr = 0;
+    adjust_ctx.move_dc = -ncols;
+    adjust_ctx.destrows = NULL;
+    adjust_refs(&adjust_ctx);
 
     sp->maxcol -= ncols;
 
@@ -1612,10 +1498,14 @@ static void sync_refs(sheet_t *sp) {
     }
 }
 
-static void fix_enode(sheet_t *sp, struct enode *e,
+static void enode_fix(sheet_t *sp, struct enode *e,
                       int row1, int col1, int row2, int col2,
                       int delta1, int delta2, struct frange *fr)
 {
+    /* Fix range references: single cells are not changed.
+       top-left cell is set to col2/row2 - delta1
+       bottom-right cell is set to col1/row1 + delta2
+     */
     if (e) {
         // XXX: why not fix OP_TYPE_VAR nodes?
         if (e->type == OP_TYPE_RANGE) {
@@ -1626,13 +1516,13 @@ static void fix_enode(sheet_t *sp, struct enode *e,
             if (r1 > r2) SWAPINT(r1, r2);
             if (c1 > c2) SWAPINT(c1, c2);
 
-            if (!(fr && (c1 < fr->or_left->col || c1 > fr->or_right->col))) {
+            if (!fr || (c1 >= fr->or_left->col && c1 <= fr->or_right->col)) {
                 // XXX: why special case r1==r2 or c1==c2 ?
                 if (r1 != r2 && r1 >= row1 && r1 <= row2) r1 = row2 - delta1;
                 if (c1 != c2 && c1 >= col1 && c1 <= col2) c1 = col2 - delta1;
             }
 
-            if (!(fr && (c2 < fr->or_left->col || c2 > fr->or_right->col))) {
+            if (!fr || (c2 >= fr->or_left->col && c2 <= fr->or_right->col)) {
                 if (r1 != r2 && r2 >= row1 && r2 <= row2) r2 = row1 + delta2;
                 if (c1 != c2 && c2 >= col1 && c2 <= col2) c2 = col1 + delta2;
             }
@@ -1643,7 +1533,7 @@ static void fix_enode(sheet_t *sp, struct enode *e,
         if (e->type == OP_TYPE_FUNC) {
             int i;
             for (i = 0; i < e->nargs; i++)
-                fix_enode(sp, e->e.args[i], row1, col1, row2, col2, delta1, delta2, fr);
+                enode_fix(sp, e->e.args[i], row1, col1, row2, col2, delta1, delta2, fr);
         }
     }
 }
@@ -1665,11 +1555,67 @@ static void fix_ranges(sheet_t *sp, int row1, int col1, int row2, int col2,
         for (col = 0; col <= sp->maxcol; col++) {
             struct ent *p = getcell(sp, row, col);
             if (p && p->expr)
-                fix_enode(sp, p->expr, row1, col1, row2, col2, delta1, delta2, fr);
+                enode_fix(sp, p->expr, row1, col1, row2, col2, delta1, delta2, fr);
         }
     }
-    // XXX: should also fix notes ranges, goto positions, saved positions
 }
+
+void cell_adjust(adjust_ctx_t *ap, cellref_t *cp) {
+    if (cell_in_range(*cp, ap->clamp_rr)) {
+        if (ap->clamp_newr >= 0) cp->row = ap->clamp_newr;
+        if (ap->clamp_newc >= 0) cp->col = ap->clamp_newc;
+    } else
+    if (cell_in_range(*cp, ap->move_rr)) {
+        if (ap->destrows) {
+            cp->row = ap->destrows[cp->row - ap->move_rr.left.row];
+        } else {
+            cp->row += ap->move_dr;
+            cp->col += ap->move_dc;
+        }
+    }
+}
+
+void range_adjust(adjust_ctx_t *ap, rangeref_t *rp) {
+    if (ap->destrows) {
+        if (rp->left.row == rp->right.row
+        &&  cell_in_range(rp->left, ap->clamp_rr)
+        &&  cell_in_range(rp->right, ap->clamp_rr))
+            rp->left.row = rp->right.row = ap->destrows[rp->left.row - ap->move_rr.left.row];
+        return;
+    }
+    if (cell_in_range(rp->left, ap->clamp_rr)) {
+        if (ap->clamp_newr >= 0) rp->left.row = ap->clamp_newr;
+        if (ap->clamp_newc >= 0) rp->left.col = ap->clamp_newc;
+    } else
+    if (cell_in_range(rp->left, ap->move_rr)) {
+        rp->left.row += ap->move_dr;
+        rp->left.col += ap->move_dc;
+    }
+    if (cell_in_range(rp->right, ap->clamp_rr)) {
+        if (ap->clamp_newr >= 0) rp->right.row = ap->clamp_newr - 1;
+        if (ap->clamp_newc >= 0) rp->right.col = ap->clamp_newc - 1;
+    } else
+    if (cell_in_range(rp->right, ap->move_rr)) {
+        rp->right.row += ap->move_dr;
+        rp->right.col += ap->move_dc;
+    }
+}
+
+void adjust_refs(adjust_ctx_t *ap) {
+    int i;
+    /* Update all marked cells. */
+    for (i = 0; i < MARK_COUNT; i++) {
+        cell_adjust(ap, &ap->sp->savedcr[i]);
+        cell_adjust(ap, &ap->sp->savedst[i]);
+    }
+    /* Update goto targets. */
+    range_adjust(ap, &gs.g_rr);
+    cell_adjust(ap, &gs.st);
+    /* Update note targets. */
+    note_adjust(ap);
+}
+
+/*---------------- hide/show commands ----------------*/
 
 /* mark rows as hidden */
 void hiderows(sheet_t *sp, int r1, int r2) {
@@ -1780,33 +1726,38 @@ void showcol(sheet_t *sp, int c1, int c2) {
 static void ent_copy(sheet_t *sp, struct ent *n, struct ent *p, int dr, int dc,
                      int r1, int c1, int r2, int c2, int special)
 {
+    int hasvalue;
+
     if (!n || !p) {
         error("internal error");
         return;
     }
+    hasvalue = p->type != SC_EMPTY || p->expr;
     if (special != 'f') {
         /* transfer value unless merging and no value */
-        if (special != 'm' || p->type != SC_EMPTY) {
+        if (special != 'm' || hasvalue) {
             n->type = p->type;
             n->cellerror = p->cellerror;
             n->v = p->v;
             string_set(&n->label, string_dup(p->label));
-        }
-        if (special != 'm' || p->expr) {
             efree(n->expr);
             n->expr = copye(sp, p->expr, dr, dc, r1, c1, r2, c2, special == 't');
+            n->flags |= IS_CHANGED;
         }
+    }
+    if (special == 'f' || hasvalue) {
         /* transfer alignment and LOCKED flag */
         n->flags &= ~ALIGN_MASK;
         n->flags |= p->flags & (ALIGN_MASK | IS_LOCKED);
+        if (p->format) {
+            string_set(&n->format, string_dup(p->format));
+        } else
+        if (special != 'm' && special != 'f') {
+            // XXX: why not reset format if special == 'f' ?
+            string_set(&n->format, NULL);
+        }
+        n->flags |= IS_CHANGED;
     }
-    if (p->format) {
-        string_set(&n->format, string_dup(p->format));
-    } else
-    if (special != 'm' && special != 'f') {
-        string_set(&n->format, NULL);
-    }
-    n->flags |= IS_CHANGED;
 }
 
 /* erase the database (sheet data, etc.) */
@@ -1858,9 +1809,8 @@ void erasedb(sheet_t *sp) {
     }
     /* unset all marks */
     for (c = 0; c < MARK_COUNT; c++) {
-        // XXX: should move savedxx[] to worksheet
-        savedcr[c] = cellref(-1, -1);
-        savedst[c] = cellref(-1, -1);
+        sp->savedcr[c] = cellref(-1, -1);
+        sp->savedst[c] = cellref(-1, -1);
     }
     qbuf = 0;
 
@@ -2040,39 +1990,11 @@ void note_delete(sheet_t *sp, cellref_t cr) {
     }
 }
 
-void note_move(sheet_t *sp, rangeref_t rr, int dr, int dc) {
+void note_adjust(adjust_ctx_t *ap) {
     struct note *a;
-    for (a = sp->note_base; a; a = a->next) {
-        if (cell_in_range(a->cr, rr)) {
-            a->cr.row += dr;
-            a->cr.col += dc;
-        }
-        if (cell_in_range(a->rr.left, rr)) {
-            a->rr.left.row += dr;
-            a->rr.left.col += dc;
-        }
-        if (cell_in_range(a->rr.right, rr)) {
-            a->rr.right.row += dr;
-            a->rr.right.col += dc;
-        }
-    }
-}
-
-void note_clamp(sheet_t *sp, rangeref_t rr, int newr, int newc) {
-    struct note *a;
-    for (a = sp->note_base; a; a = a->next) {
-        if (cell_in_range(a->cr, rr)) {
-            if (newr >= 0) a->cr.row = newr;
-            if (newc >= 0) a->cr.col = newc;
-        }
-        if (cell_in_range(a->rr.left, rr)) {
-            if (newr >= 0) a->rr.left.row = newr;
-            if (newc >= 0) a->rr.left.col = newc;
-        }
-        if (cell_in_range(a->rr.right, rr)) {
-            if (newr >= 0) a->rr.right.row = newr - 1;
-            if (newc >= 0) a->rr.right.col = newc - 1;
-        }
+    for (a = ap->sp->note_base; a; a = a->next) {
+        cell_adjust(ap, &a->cr);
+        range_adjust(ap, &a->rr);
     }
 }
 
@@ -2183,6 +2105,7 @@ void sort_range(sheet_t *sp, rangeref_t rr, SCXMEM string_t *criteria) {
     int i, r, nrows, col, len;
     const char *cp;
     struct ent *p;
+    adjust_ctx_t adjust_ctx;
 
     range_normalize(&rr);
     sc->sp = sp;
@@ -2288,11 +2211,6 @@ void sort_range(sheet_t *sp, rangeref_t rr, SCXMEM string_t *criteria) {
             error("sort error");
             break;
         }
-        if (p->flags & HAS_NOTE) {
-            /* update note target */
-            note_move(sp, rangeref(p->row, p->col, p->row, p->col),
-                      destrows[p->row - sc->minr] - p->row, 0);
-        }
         p->row = destrows[p->row - sc->minr];
         p->flags &= ~IS_DELETED;
         setcell(sp, p->row, p->col, p);
@@ -2300,18 +2218,16 @@ void sort_range(sheet_t *sp, rangeref_t rr, SCXMEM string_t *criteria) {
     delbuf[DELBUF_TMP1]->ptr = NULL;
     delbuf_free(DELBUF_TMP1);
 
-    /* Update all marked cells. */
-    for (i = 0; i < MARK_COUNT; i++) {
-        if (cell_in_range(savedcr[i], rr))
-            savedcr[i].row = destrows[savedcr[i].row - sc->minr];
-        if (cell_in_range(savedst[i], rr))
-            savedst[i].row = destrows[savedst[i].row - sc->minr];
-    }
-    /* Update goto targets. */
-    if (gs.g_rr.right.row == gs.g_rr.left.row && cell_in_range(gs.g_rr.left, rr))
-        gs.g_rr.left.row = gs.g_rr.right.row = destrows[gs.g_rr.left.row - sc->minr];
-    if (cell_in_range(gs.st, rr))
-        gs.st.row = destrows[gs.st.row - sc->minr];
+    /* Adjust range references. */
+    adjust_ctx.sp = sp;
+    adjust_ctx.clamp_rr = rangeref(-1, -1, -1, -1);
+    adjust_ctx.clamp_newr = -1;
+    adjust_ctx.clamp_newc = -1;
+    adjust_ctx.move_rr = rr;
+    adjust_ctx.move_dr = 0;
+    adjust_ctx.move_dc = 0;
+    adjust_ctx.destrows = destrows;
+    adjust_refs(&adjust_ctx);
 
 fail:
     scxfree(sc->crit);

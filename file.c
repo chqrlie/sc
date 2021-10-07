@@ -650,6 +650,7 @@ int readfile(sheet_t *sp, const char *fname, int eraseflg) {
             }
         }
         erasedb(sp);
+        growtbl(sp, GROWNEW, 0, 0);
         load_scrc(sp);
     }
 

@@ -237,15 +237,14 @@ void crange_list(sheet_t *sp, FILE *f) {
 void crange_fix(sheet_t *sp, int row1, int col1, int row2, int col2,
                 int delta1, int delta2, struct frange *fr)
 {
-    int r1, c1, r2, c2;
-    struct crange *cr, *ncr;
+    struct crange *r, *next;
 
-    for (cr = sp->crange_base; cr; cr = ncr) {
-        ncr = cr->next;
-        r1 = cr->left->row;
-        c1 = cr->left->col;
-        r2 = cr->right->row;
-        c2 = cr->right->col;
+    for (r = sp->crange_base; r; r = next) {
+        int r1 = r->left->row;
+        int c1 = r->left->col;
+        int r2 = r->right->row;
+        int c2 = r->right->col;
+        next = r->next;
 
         if (!fr || (c1 >= fr->or_left->col && c1 <= fr->or_right->col)) {
             // XXX: why test for single row and single column?
@@ -262,10 +261,10 @@ void crange_fix(sheet_t *sp, int row1, int col1, int row2, int col2,
             (row1 >= 0 && row2 >= 0 && r1 >= row1 && r2 <= row2) ||
             (col1 >= 0 && col2 >= 0 && c1 >= col1 && c2 <= col2))
         {
-            crange_delete(sp, cr);
+            crange_delete(sp, r);
         } else {
-            cr->left = lookat(sp, r1, c1);
-            cr->right = lookat(sp, r2, c2);
+            r->left = lookat(sp, r1, c1);
+            r->right = lookat(sp, r2, c2);
         }
     }
 }

@@ -1298,13 +1298,13 @@ void vi_interaction(sheet_t *sp) {
                     }
                     if ((c = checkmark(c)) < 0)
                         break;
-                    if (savedcr[c].row == -1) {
+                    if (sp->savedcr[c].row == -1) {
                         error("Mark not set");
                         break;
                     }
                     copy_range(sp, COPY_FROM_RANGE,
                                rangeref(sp->currow, sp->curcol, sp->currow, sp->curcol + uarg - 1),
-                               rangeref2(savedcr[c], savedcr[c]));
+                               rangeref2(sp->savedcr[c], sp->savedcr[c]));
                     break;
                 case '`':
                 case '\'':
@@ -1474,8 +1474,8 @@ static int checkmark(int c) {
 static int setmark(sheet_t *sp, int c) {
     int n = checkmark(c);
     if (n >= 0) {
-        savedcr[n] = cellref(sp->currow, sp->curcol);
-        savedst[n] = cellref(sp->strow, sp->stcol);
+        sp->savedcr[n] = cellref(sp->currow, sp->curcol);
+        sp->savedst[n] = cellref(sp->strow, sp->stcol);
     }
     return n;
 }
@@ -1503,15 +1503,15 @@ static void dotick(sheet_t *sp, int tick) {
     if ((c = checkmark(c)) < 0)
         return;
 
-    if (savedcr[c].row == -1) {
+    if (sp->savedcr[c].row == -1) {
         error("Mark not set");
         return;
     }
-    sp->currow = savedcr[c].row;
-    sp->curcol = savedcr[c].col;
+    sp->currow = sp->savedcr[c].row;
+    sp->curcol = sp->savedcr[c].col;
     if (tick == '\'') {
-        sp->strow = savedst[c].row;
-        sp->stcol = savedst[c].col;
+        sp->strow = sp->savedst[c].row;
+        sp->stcol = sp->savedst[c].col;
         gs.stflag = 1;
     } else {
         gs.stflag = 0;
@@ -3019,9 +3019,10 @@ void remember(sheet_t *sp, int save) {
     static int remrow, remcol, remstrow, remstcol;
 
     if (save && (sp->currow != remrow || sp->curcol != remcol ||
-                 sp->strow != remstrow || sp->stcol != remstcol)) {
-        savedcr[0] = cellref(remrow, remcol);
-        savedst[0] = cellref(remstrow, remstcol);
+                 sp->strow != remstrow || sp->stcol != remstcol))
+    {
+        sp->savedcr[0] = cellref(remrow, remcol);
+        sp->savedst[0] = cellref(remstrow, remstcol);
     } else {
         remrow = sp->currow;
         remcol = sp->curcol;

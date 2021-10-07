@@ -215,14 +215,13 @@ void frange_list(sheet_t *sp, FILE *f) {
 void frange_fix(sheet_t *sp, int row1, int col1, int row2, int col2,
                 int delta1, int delta2, struct frange *fr)
 {
-    int r1, c1, r2, c2;
     struct frange *r;
 
     for (r = sp->frange_base; r; r = r->next) {
-        r1 = r->or_left->row;
-        c1 = r->or_left->col;
-        r2 = r->or_right->row;
-        c2 = r->or_right->col;
+        int r1 = r->or_left->row;
+        int c1 = r->or_left->col;
+        int r2 = r->or_right->row;
+        int c2 = r->or_right->col;
 
         if (!fr || (c1 >= fr->or_left->col && c1 <= fr->or_right->col)) {
             if (r1 >= row1 && r1 <= row2) r1 = row2 - delta1;

@@ -47,6 +47,8 @@ Parser:
 [ ] add format info in scvalue_t
 
 Database:
+[ ] use ent* instead of ent_ptr in nrange structures
+[ ] fix note references on 'dr/pr'
 [ ] use range references instead of ent pointers in cranges
 [ ] use range references instead of ent pointers in franges
 [ ] use range references instead of ent pointers in nranges
@@ -57,7 +59,6 @@ Database:
 [ ] use sparse matrix for sheet_t cell data
 [ ] use sparse matrix for subsheet_t cell data
 [ ] implement virtual space: jagged 2D matrix
-[ ] make cell notes separate structures
 [ ] remove cell pointers
 [ ] add sheet number in cell references
 [ ] move more global data to sheet structure
@@ -178,3 +179,4 @@ Build:
 [X] make delbufs point to sheet_t instances, handle duplicates
 [X] support byte/char offsets in string functions
 [X] merge fill_range loops
+[X] make cell notes separate structures

@@ -33,8 +33,6 @@ static void settcattr(void);
 static sheet_t cur_sheet;
 sheet_t *sht = &cur_sheet;
 
-cellref_t savedcr[MARK_COUNT];     /* stack of marked cells */
-cellref_t savedst[MARK_COUNT];
 int FullUpdate;
 int changed;
 int skipautorun;
@@ -210,7 +208,8 @@ int main(int argc, char **argv) {
         EvalAll(sp); // XXX: should delay until after all files have been loaded
         optind++;
     } else {
-        erasedb(sp);
+        erasedb(sp);       // XXX: probably redundant
+        growtbl(sp, GROWNEW, 0, 0);
         load_scrc(sp);
     }
 
@@ -220,8 +219,8 @@ int main(int argc, char **argv) {
         optind++;
     }
 
-    savedcr[0] = cellref(sp->currow, sp->curcol);
-    savedst[0] = cellref(sp->strow, sp->stcol);
+    sp->savedcr[0] = cellref(sp->currow, sp->curcol);
+    sp->savedst[0] = cellref(sp->strow, sp->stcol);
     // XXX: potentially redundant
     // XXX: should check for autocalc
     EvalAll(sp);

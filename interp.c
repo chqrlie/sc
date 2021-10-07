@@ -3312,6 +3312,7 @@ enode_t *copye(sheet_t *sp, enode_t *e, int deltar, int deltac,
                int r1, int c1, int r2, int c2, int transpose)
 {
     enode_t *ret;
+    int newrow, newcol, row, col, vf;
 
     if (e == NULL)
         return NULL;
@@ -3320,37 +3321,39 @@ enode_t *copye(sheet_t *sp, enode_t *e, int deltar, int deltac,
         return NULL;
 
     if ((ret->type = e->type) == OP_TYPE_RANGE) {
-        int newrow, newcol, row, col, vf;
-
         vf = e->e.r.left.vf;
-        row = e->e.r.left.vp->row;
-        col = e->e.r.left.vp->col;
-        newrow = ((vf & FIX_ROW) || row < r1 || row > r2 || col < c1 || col > c2 ?
-              row : transpose ? r1 + deltar + col - c1 : row + deltar);
-        newcol = ((vf & FIX_COL) || row < r1 || row > r2 || col < c1 || col > c2 ?
-              col : transpose ? c1 + deltac + row - r1 : col + deltac);
+        newrow = row = e->e.r.left.vp->row;
+        newcol = col = e->e.r.left.vp->col;
+        if (row >= r1 && row <= r2 && col >= c1 && col <= c2) {
+            if (!(vf & FIX_ROW))
+                newrow = transpose ? r1 + deltar + col - c1 : row + deltar;
+            if (!(vf & FIX_COL))
+                newcol = transpose ? c1 + deltac + row - r1 : col + deltac;
+        }
         ret->e.r.left.vf = vf;
         ret->e.r.left.vp = lookat(sp, newrow, newcol);
         vf = e->e.r.right.vf;
-        row = e->e.r.right.vp->row;
-        col = e->e.r.right.vp->col;
-        newrow = ((vf & FIX_ROW) || row < r1 || row > r2 || col < c1 || col > c2 ?
-              row : transpose ? r1 + deltar + col - c1 : row + deltar);
-        newcol = ((vf & FIX_COL) || row < r1 || row > r2 || col < c1 || col > c2 ?
-              col : transpose ? c1 + deltac + row - r1 : col + deltac);
+        newrow = row = e->e.r.right.vp->row;
+        newcol = col = e->e.r.right.vp->col;
+        if (row >= r1 && row <= r2 && col >= c1 && col <= c2) {
+            if (!(vf & FIX_ROW))
+                newrow = transpose ? r1 + deltar + col - c1 : row + deltar;
+            if (!(vf & FIX_COL))
+                newcol = transpose ? c1 + deltac + row - r1 : col + deltac;
+        }
         ret->e.r.right.vf = vf;
         ret->e.r.right.vp = lookat(sp, newrow, newcol);
     } else
     if (e->type == OP_TYPE_VAR) {
-        int newrow, newcol, row, col, vf;
-
         vf = e->e.v.vf;
-        row = e->e.v.vp->row;
-        col = e->e.v.vp->col;
-        newrow = ((vf & FIX_ROW) || row < r1 || row > r2 || col < c1 || col > c2 ?
-              row : transpose ? r1 + deltar + col - c1 : row + deltar);
-        newcol = ((vf & FIX_COL) || row < r1 || row > r2 || col < c1 || col > c2 ?
-              col : transpose ? c1 + deltac + row - r1 : col + deltac);
+        newrow = row = e->e.v.vp->row;
+        newcol = col = e->e.v.vp->col;
+        if (row >= r1 && row <= r2 && col >= c1 && col <= c2) {
+            if (!(vf & FIX_ROW))
+                newrow = transpose ? r1 + deltar + col - c1 : row + deltar;
+            if (!(vf & FIX_COL))
+                newcol = transpose ? c1 + deltac + row - r1 : col + deltac;
+        }
         ret->e.v.vp = lookat(sp, newrow, newcol);
         ret->e.v.vf = vf;
     } else
@@ -3433,18 +3436,18 @@ void unlet(sheet_t *sp, cellref_t cr) {
     }
 }
 
-static void push_mark(int row, int col) {
+static void push_mark(sheet_t *sp, int row, int col) {
     int i;
 
     /* shift saved places */
     for (i = 36; i > 28; i--) {
-        savedcr[i] = savedcr[i-1];
-        savedst[i] = savedst[i-1];
+        sp->savedcr[i] = sp->savedcr[i-1];
+        sp->savedst[i] = sp->savedst[i-1];
     }
 
     /* save current cell and screen position */
-    savedcr[28] = cellref(row, col);
-    savedst[28] = savedst[27];
+    sp->savedcr[28] = cellref(row, col);
+    sp->savedst[28] = sp->savedst[27];
 }
 
 /* set the expression and/or value part of a cell */
@@ -3490,7 +3493,7 @@ void let(sheet_t *sp, cellref_t cr, SCXMEM enode_t *e, int align) {
     sp->modflg++;
 
     if (!loading)
-        push_mark(cr.row, cr.col);
+        push_mark(sp, cr.row, cr.col);
 }
 
 void efree(SCXMEM enode_t *e) {

@@ -404,6 +404,8 @@ struct menu_item {
 
 /*---------------- Global data ----------------*/
 
+#define MARK_COUNT  37
+
 /* The table data is organized as:
    `tbl`: a pointer to an array of `maxrows` pointers to rows
    each row pointer points to an array of `maxcols` pointers to cells
@@ -414,6 +416,7 @@ struct menu_item {
 typedef struct rowfmt {
     unsigned char hidden;
 } rowfmt_t;
+
 typedef struct colfmt {
     unsigned char hidden;
     unsigned char fwidth;
@@ -444,6 +447,8 @@ typedef struct sheet {
     SCXMEM struct nrange *nrange_base, *nrange_tail;
     SCXMEM struct frange *frange_base, *frange_tail;
     SCXMEM struct note *note_base, *note_tail;
+    cellref_t savedcr[MARK_COUNT];     /* stack of marked cells */
+    cellref_t savedst[MARK_COUNT];
     int autocalc;     /* 1 to calculate after each update */
     int autoinsert;    /* Causes rows to be inserted if craction is non-zero
                           and the last cell in a row/column of the scrolling
@@ -476,12 +481,20 @@ static inline int row_hidden(sheet_t *sp, int row) { return sp->rowfmt[row].hidd
 static inline int col_hidden(sheet_t *sp, int col) { return sp->colfmt[col].hidden; }
 static inline int col_fwidth(sheet_t *sp, int col) { return sp->colfmt[col].fwidth; }
 
-extern sheet_t *sht;
+typedef struct adjust_context {
+    sheet_t *sp;
+    rangeref_t clamp_rr;
+    rangeref_t move_rr;
+    int clamp_newr, clamp_newc;
+    int move_dr, move_dc;
+    int *destrows;
+} adjust_ctx_t;
 
-// XXX: should move savedxx[] to worksheet
-#define MARK_COUNT  37
-extern cellref_t savedcr[MARK_COUNT];
-extern cellref_t savedst[MARK_COUNT];
+extern void cell_adjust(adjust_ctx_t *ap, cellref_t *cp);
+extern void range_adjust(adjust_ctx_t *ap, rangeref_t *rp);
+extern void adjust_refs(adjust_ctx_t *ap);
+
+extern sheet_t *sht;
 
 extern int FullUpdate;
 extern int changed;
@@ -742,8 +755,7 @@ extern void note_add(sheet_t *sp, cellref_t cr, rangeref_t rr, SCXMEM string_t *
 extern struct note *note_find(sheet_t *sp, cellref_t cr);
 extern void note_clean(sheet_t *sp);
 extern void note_delete(sheet_t *sp, cellref_t cr);
-extern void note_move(sheet_t *sp, rangeref_t rr, int dr, int dc);
-extern void note_clamp(sheet_t *sp, rangeref_t rr, int newr, int newc);
+extern void note_adjust(adjust_ctx_t *ap);
 extern void note_write(sheet_t *sp, FILE *f);
 
 /*---------------- color ranges ----------------*/

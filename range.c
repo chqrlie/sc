@@ -300,15 +300,14 @@ const char *r_name(sheet_t *sp, int r1, int c1, int r2, int c2) {
 void nrange_fix(sheet_t *sp, int row1, int col1, int row2, int col2,
                 int delta1, int delta2, struct frange *fr)
 {
-    int r1, c1, r2, c2;
     struct nrange *r;
 
     /* We fix all of the named ranges. */
     for (r = sp->nrange_base; r; r = r->next) {
-        r1 = r->left.vp->row;
-        c1 = r->left.vp->col;
-        r2 = r->right.vp->row;
-        c2 = r->right.vp->col;
+        int r1 = r->left.vp->row;
+        int c1 = r->left.vp->col;
+        int r2 = r->right.vp->row;
+        int c2 = r->right.vp->col;
 
         if (!fr || (c1 >= fr->or_left->col && c1 <= fr->or_right->col)) {
             if (r1 >= row1 && r1 <= row2) r1 = row2 - delta1;
