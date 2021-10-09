@@ -316,41 +316,40 @@ int str_search(sheet_t *sp, int g_type, rangeref_t rr, SCXMEM string_t *str) {
 }
 
 void doend(sheet_t *sp, int rowinc, int colinc) {
-    struct ent *p;
     int r, c;
 
     if (!loading)
         remember(sp, 0);
 
-    if (VALID_CELL(sp, p, sp->currow, sp->curcol)) {
+    if (valid_cell(sp, sp->currow, sp->curcol)) {
         r = sp->currow + rowinc;
         c = sp->curcol + colinc;
         if (r >= 0 && r < sp->maxrows &&
             c >= 0 && c < sp->maxcols &&
-            !VALID_CELL(sp, p, r, c)) {
+            !valid_cell(sp, r, c)) {
                 sp->currow = r;
                 sp->curcol = c;
         }
     }
 
-    if (!VALID_CELL(sp, p, sp->currow, sp->curcol)) {
+    if (!valid_cell(sp, sp->currow, sp->curcol)) {
         switch (rowinc) {
         case -1:
-            while (!VALID_CELL(sp, p, sp->currow, sp->curcol) && sp->currow > 0)
+            while (!valid_cell(sp, sp->currow, sp->curcol) && sp->currow > 0)
                 sp->currow--;
             break;
         case  1:
-            while (!VALID_CELL(sp, p, sp->currow, sp->curcol) && sp->currow < sp->maxrows - 1)
+            while (!valid_cell(sp, sp->currow, sp->curcol) && sp->currow < sp->maxrows - 1)
                 sp->currow++;
             break;
         case  0:
             switch (colinc) {
             case -1:
-                while (!VALID_CELL(sp, p, sp->currow, sp->curcol) && sp->curcol > 0)
+                while (!valid_cell(sp, sp->currow, sp->curcol) && sp->curcol > 0)
                     sp->curcol--;
                 break;
             case  1:
-                while (!VALID_CELL(sp, p, sp->currow, sp->curcol) && sp->curcol < sp->maxcols - 1)
+                while (!valid_cell(sp, sp->currow, sp->curcol) && sp->curcol < sp->maxcols - 1)
                     sp->curcol++;
                 break;
             }
@@ -363,27 +362,27 @@ void doend(sheet_t *sp, int rowinc, int colinc) {
 
     switch (rowinc) {
     case -1:
-        while (VALID_CELL(sp, p, sp->currow, sp->curcol) && sp->currow > 0)
+        while (valid_cell(sp, sp->currow, sp->curcol) && sp->currow > 0)
             sp->currow--;
         break;
     case  1:
-        while (VALID_CELL(sp, p, sp->currow, sp->curcol) && sp->currow < sp->maxrows - 1)
+        while (valid_cell(sp, sp->currow, sp->curcol) && sp->currow < sp->maxrows - 1)
             sp->currow++;
         break;
     case  0:
         switch (colinc) {
         case -1:
-            while (VALID_CELL(sp, p, sp->currow, sp->curcol) && sp->curcol > 0)
+            while (valid_cell(sp, sp->currow, sp->curcol) && sp->curcol > 0)
                 sp->curcol--;
             break;
         case  1:
-            while (VALID_CELL(sp, p, sp->currow, sp->curcol) && sp->curcol < sp->maxcols - 1)
+            while (valid_cell(sp, sp->currow, sp->curcol) && sp->curcol < sp->maxcols - 1)
                 sp->curcol++;
             break;
         }
         break;
     }
-    if (!VALID_CELL(sp, p, sp->currow, sp->curcol)) {
+    if (!valid_cell(sp, sp->currow, sp->curcol)) {
         // XXX: this is bogus if already on maxcol or maxrow
         sp->currow -= rowinc;
         sp->curcol -= colinc;
@@ -411,8 +410,6 @@ void backpage(sheet_t *sp, int arg) {
 
 /* moves curcol forward to the next cell, wrapping at maxcols - 1 */
 void forwcell(sheet_t *sp, int arg) {
-    struct ent *p;
-
     while (arg --> 0) {
         do {
             if (sp->curcol < sp->maxcols - 1) {
@@ -427,7 +424,7 @@ void forwcell(sheet_t *sp, int arg) {
                 arg = 0;
                 break;
             }
-        } while (col_hidden(sp, sp->curcol) || !VALID_CELL(sp, p, sp->currow, sp->curcol));
+        } while (col_hidden(sp, sp->curcol) || !valid_cell(sp, sp->currow, sp->curcol));
     }
 }
 
@@ -448,8 +445,6 @@ void forwcol(sheet_t *sp, int arg) {
 
 /* moves curcol backward to the previous cell, wrapping at 0 */
 void backcell(sheet_t *sp, int arg) {
-    struct ent *p;
-
     while (arg --> 0) {
         do {
             if (sp->curcol) {
@@ -464,7 +459,7 @@ void backcell(sheet_t *sp, int arg) {
                 arg = 0;
                 break;
             }
-        } while (col_hidden(sp, sp->curcol) || !VALID_CELL(sp, p, sp->currow, sp->curcol));
+        } while (col_hidden(sp, sp->curcol) || !valid_cell(sp, sp->currow, sp->curcol));
     }
 }
 

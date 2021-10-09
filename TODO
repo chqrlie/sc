@@ -32,6 +32,7 @@ Evaluator:
 [ ] minimize recompute: only recompute formulas whose antecedents change
 [ ] support unicode versions of case conversions
 [ ] use range references instead of ent_ptr in formulas
+[ ] improve r_name() and v_name() APIs, use v_name() instead of coltoa()
 
 Parser:
 [ ] set NULL arguments for omitted arguments
@@ -48,9 +49,7 @@ Parser:
 
 Database:
 [ ] fix note references on 'dr/pr'
-[ ] use range references instead of ent pointers in cranges
-[ ] use range references instead of ent pointers in franges
-[ ] use range references instead of ent pointers in nranges
+[ ] keep range names in formulae and other range definitions
 [ ] fix format numbering, col, row, cell format precedence
 [ ] support strings up to 32KB long
 [ ] start column and row numbers at 1
@@ -182,3 +181,6 @@ Build:
 [X] merge fill_range loops
 [X] make cell notes separate structures
 [X] use ent* instead of ent_ptr in nrange structures
+[X] use range references instead of ent pointers in cranges
+[X] use range references instead of ent pointers in nranges
+[X] use range references instead of ent pointers in franges

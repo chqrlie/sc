@@ -90,8 +90,7 @@ void nrange_add(sheet_t *sp, SCXMEM string_t *name, rangeref_t rr, int is_range)
     if (!r)
         return;
     r->name = name;
-    r->left = lookat(sp, rr.left.row, rr.left.col);
-    r->right = lookat(sp, rr.right.row, rr.right.col);
+    r->rr = rr;
     r->is_range = is_range;
     // link in doubly linked list
     if (prev) {
@@ -176,20 +175,17 @@ struct nrange *nrange_find_coords(sheet_t *sp, rangeref_t rr) {
     struct nrange *r;
 
     for (r = sp->nrange_base; r; r = r->next) {
-        if (r->left->row == rr.left.row && r->left->col == rr.left.col
-        &&  r->right->row == rr.right.row && r->right->col == rr.right.col) {
+        if (range_same(rr, r->rr))
             break;
-        }
     }
     return r;
 }
 
-void nrange_sync(sheet_t *sp) {
-    struct nrange *r;
+void nrange_adjust(adjust_ctx_t *ap) {
+    struct nrange *a;
 
-    for (r = sp->nrange_base; r; r = r->next) {
-        r->left = lookat(sp, r->left->row, r->left->col);
-        r->right = lookat(sp, r->right->row, r->right->col);
+    for (a = ap->sp->nrange_base; a; a = a->next) {
+        range_adjust(ap, &a->rr);
     }
 }
 
@@ -198,9 +194,9 @@ void nrange_write(sheet_t *sp, FILE *f) {
 
     for (r = sp->nrange_tail; r; r = r->prev) {
         fprintf(f, "define \"%s\" %s%d",
-                s2c(r->name), coltoa(r->left->col), r->left->row);
+                s2c(r->name), coltoa(r->rr.left.col), r->rr.left.row);
         if (r->is_range) {
-            fprintf(f, ":%s%d", coltoa(r->right->col), r->right->row);
+            fprintf(f, ":%s%d", coltoa(r->rr.right.col), r->rr.right.row);
         }
         fprintf(f, "\n");
     }
@@ -219,9 +215,9 @@ void nrange_list(sheet_t *sp, FILE *f) {
 
     for (r = sp->nrange_tail; r; r = r->prev) {
         fprintf(f, "  %-30s %s%d",
-                s2c(r->name), coltoa(r->left->col), r->left->row);
+                s2c(r->name), coltoa(r->rr.left.col), r->rr.left.row);
         if (r->is_range) {
-            fprintf(f, ":%s%d", coltoa(r->right->col), r->right->row);
+            fprintf(f, ":%s%d", coltoa(r->rr.right.col), r->rr.right.row);
         }
         fprintf(f, "\n");
         if (brokenpipe) return;
@@ -275,31 +271,5 @@ const char *r_name(sheet_t *sp, int r1, int c1, int r2, int c2) {
         snprintf(rname, sizeof buf[0], "%s%d:%s%d",
                  coltoa(c1), r1, coltoa(c2), r2);
         return rname;
-    }
-}
-
-void nrange_fix(sheet_t *sp, int row1, int col1, int row2, int col2,
-                int delta1, int delta2, struct frange *fr)
-{
-    struct nrange *r;
-
-    /* We fix all of the named ranges. */
-    for (r = sp->nrange_base; r; r = r->next) {
-        int r1 = r->left->row;
-        int c1 = r->left->col;
-        int r2 = r->right->row;
-        int c2 = r->right->col;
-
-        if (!fr || (c1 >= fr->or_left->col && c1 <= fr->or_right->col)) {
-            if (r1 >= row1 && r1 <= row2) r1 = row2 - delta1;
-            if (c1 >= col1 && c1 <= col2) c1 = col2 - delta1;
-        }
-        if (!fr || (c2 >= fr->or_left->col && c2 <= fr->or_right->col)) {
-            if (r2 >= row1 && r2 <= row2) r2 = row1 + delta2;
-            if (c2 >= col1 && c2 <= col2) c2 = col1 + delta2;
-        }
-        // XXX: should check if range disappeared
-        r->left = lookat(sp, r1, c1);
-        r->right = lookat(sp, r2, c2);
     }
 }

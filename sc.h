@@ -185,7 +185,7 @@ struct enode {
 /* named ranges */
 struct nrange {
     struct nrange *next, *prev;     /* chained named ranges */
-    struct ent *left, *right;
+    rangeref_t rr;
     SCXMEM string_t *name;
     int is_range;
 };
@@ -193,14 +193,14 @@ struct nrange {
 /* framed ranges */
 struct frange {
     struct frange *next, *prev;     /* chained frame ranges */
-    struct ent *or_left, *or_right; /* outer range */
-    struct ent *ir_left, *ir_right; /* inner range */
+    rangeref_t orr;                 /* outer range */
+    rangeref_t irr;                 /* inner range */
 };
 
 /* color ranges */
 struct crange {
     struct crange *next, *prev;     /* chained color ranges */
-    struct ent *left, *right;
+    rangeref_t rr;
     int color;
 };
 
@@ -606,18 +606,29 @@ static inline int cell_in_range(cellref_t cr, rangeref_t rr) {
             cr.col >= rr.left.col && cr.col <= rr.right.col);
 }
 
+static inline int range_in_range(rangeref_t rr1, rangeref_t rr2) {
+    return (rr1.left.row >= rr2.left.row && rr1.left.col >= rr2.left.col &&
+            rr1.right.row <= rr2.right.row && rr1.right.col <= rr2.right.col);
+}
+
+static inline int range_same(rangeref_t rr1, rangeref_t rr2) {
+    return (rr1.left.row == rr2.left.row && rr1.left.col == rr2.left.col &&
+            rr1.right.row == rr2.right.row && rr1.right.col == rr2.right.col);
+}
+
+static inline int range_overlap(rangeref_t rr1, rangeref_t rr2) {
+    return (rr1.left.row <= rr2.right.row && rr1.left.col <= rr2.right.col &&
+            rr1.right.row >= rr2.left.row && rr1.right.col >= rr2.left.col);
+}
+
 extern rangeref_t *range_normalize(rangeref_t *rr);
 extern sheet_t *sheet_init(sheet_t *sp); /* initialize settings to default values */
 extern void erasedb(sheet_t *sp);
 extern int load_scrc(sheet_t *sp);
 
-/* check if the cell at r,c has a value */
-/* p must be defined as struct ent *p; */
-#define VALID_CELL(sp, p, r, c) ((p = getcell(sp, r, c)) && (p->type != SC_EMPTY))
-
-/* a linked list of free [struct ent]'s, uses .next as the pointer */
 extern struct ent *lookat(sheet_t *sp, int row, int col);  /* allocates the cell */
 extern struct ent *getcell(sheet_t *sp, int row, int col); /* does not allocate the cell */
+extern int valid_cell(sheet_t *sp, int row, int col); /* check if the cell at row,col is not empty */
 extern int checkbounds(sheet_t *sp, int *rowp, int *colp);
 
 /*---------------- expressions ----------------*/
@@ -765,11 +776,9 @@ extern void crange_add(sheet_t *sp, rangeref_t rr, int pair);
 extern void crange_clean(sheet_t *sp);
 extern void crange_delete(sheet_t *sp, struct crange *r);
 extern struct crange *crange_find(sheet_t *sp, int row, int col);
+extern void crange_adjust(adjust_ctx_t *ap);
 extern void crange_list(sheet_t *sp, FILE *f);
 extern void crange_write(sheet_t *sp, FILE *f);
-extern void crange_sync(sheet_t *sp);
-extern void crange_fix(sheet_t *sp, int row1, int col1, int row2, int col2,
-                       int delta1, int delta2, struct frange *fr);
 
 /*---------------- abbreviations ----------------*/
 
@@ -788,12 +797,10 @@ extern void nrange_add(sheet_t *sp, SCXMEM string_t *name, rangeref_t rr, int is
 extern void nrange_clean(sheet_t *sp);
 extern void nrange_delete(sheet_t *sp, rangeref_t rr);
 extern int nrange_find_name(sheet_t *sp, const char *name, int len, struct nrange **rng);
-extern void nrange_list(sheet_t *sp, FILE *f);
 extern struct nrange *nrange_find_coords(sheet_t *sp, rangeref_t rr);
-extern void nrange_sync(sheet_t *sp);
+extern void nrange_adjust(adjust_ctx_t *ap);
+extern void nrange_list(sheet_t *sp, FILE *f);
 extern void nrange_write(sheet_t *sp, FILE *f);
-extern void nrange_fix(sheet_t *sp, int row1, int col1, int row2, int col2,
-                       int delta1, int delta2, struct frange *fr);
 
 /*---------------- frame ranges ----------------*/
 
@@ -806,14 +813,14 @@ extern void frange_add(sheet_t *sp, int flags, rangeref_t orr, rangeref_t irr,
                        int toprows, int bottomrows, int leftcols, int rightcols);
 extern void frange_clean(sheet_t *sp);
 extern void frange_delete(sheet_t *sp, struct frange *r);
+extern void frange_unframe(sheet_t *sp, int flags, rangeref_t rr);
+extern void frange_adjust(adjust_ctx_t *ap);
 extern void frange_list(sheet_t *sp, FILE *fp);
-extern void frange_sync(sheet_t *sp);
 extern void frange_write(sheet_t *sp, FILE *f);
+
 static inline struct frange *frange_get_current(sheet_t *sp) {
     return frange_find(sp, sp->currow, sp->curcol);
 }
-extern void frange_fix(sheet_t *sp, int row1, int col1, int row2, int col2,
-                       int delta1, int delta2, struct frange *fr);
 
 /*---------------- file reading and writing ----------------*/
 

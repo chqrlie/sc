@@ -428,12 +428,12 @@ int yylex(void) {
             if (!nrange_find_name(sp, p0, p - p0, &r)) {
                 // XXX: should keep a reference to the named range
                 if (r->is_range) {
-                    yylval.rval = rangeref1(r->left->row, r->left->col, FIX_ROW | FIX_COL,
-                                            r->right->row, r->right->col, FIX_ROW | FIX_COL);
+                    yylval.rval = rangeref1(r->rr.left.row, r->rr.left.col, FIX_ROW | FIX_COL,
+                                            r->rr.right.row, r->rr.right.col, FIX_ROW | FIX_COL);
                     ret = RANGE;
                     break;
                 } else {
-                    yylval.cval = cellref1(r->left->row, r->left->col, FIX_ROW | FIX_COL);
+                    yylval.cval = cellref1(r->rr.left.row, r->rr.left.col, FIX_ROW | FIX_COL);
                     ret = VAR;
                     break;
                 }

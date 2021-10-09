@@ -980,8 +980,8 @@ void vi_interaction(sheet_t *sp) {
                                 int c1 = 0, c2 = sp->maxcol;
                                 struct frange *fr;
                                 if ((fr = frange_get_current(sp))) {
-                                    c1 = fr->or_left->col;
-                                    c2 = fr->or_right->col;
+                                    c1 = fr->orr.left.col;
+                                    c2 = fr->orr.right.col;
                                 }
                                 valueize_area(sp, rangeref(sp->currow, c1, sp->currow + uarg - 1, c2));
                             } else {
@@ -1773,26 +1773,22 @@ static void write_line(sheet_t *sp, int c) {
                                 }
                             }                                       break;
         case 'c':           if ((cr = crange_find(sp, sp->currow, sp->curcol))) {
-                                ins_string(sp, r_name(sp, cr->left->row, cr->left->col,
-                                                      cr->right->row, cr->right->col));
+                                ins_string(sp, r_name(sp, cr->rr.left.row, cr->rr.left.col,
+                                                      cr->rr.right.row, cr->rr.right.col));
                                 toggle_navigate_mode();
                                 ins_in_line(sp, ' ');
                                 sp->showrange = 0;
                             }                                       break;
         case 'f':           if ((fr = frange_get_current(sp))) {
-                                ins_string(sp, r_name(sp, fr->or_left->row,
-                                                      fr->or_left->col,
-                                                      fr->or_right->row,
-                                                      fr->or_right->col));
+                                ins_string(sp, r_name(sp, fr->orr.left.row, fr->orr.left.col,
+                                                      fr->orr.right.row, fr->orr.right.col));
                                 toggle_navigate_mode();
                                 ins_in_line(sp, ' ');
                                 sp->showrange = 0;
                             }                                       break;
         case 'r':           if ((fr = frange_get_current(sp))) {
-                                ins_string(sp, r_name(sp, fr->ir_left->row,
-                                                      fr->ir_left->col,
-                                                      fr->ir_right->row,
-                                                      fr->ir_right->col));
+                                ins_string(sp, r_name(sp, fr->irr.left.row, fr->irr.left.col,
+                                                      fr->irr.right.row, fr->irr.right.col));
                                 toggle_navigate_mode();
                                 ins_in_line(sp, ' ');
                                 sp->showrange = 0;
@@ -2473,19 +2469,19 @@ static void cr_line(sheet_t *sp, int action) {
             } else {
                 if ((fr = frange_get_current(sp))) {
                     forwrow(sp, 1);
-                    if (sp->currow > fr->ir_right->row) {
+                    if (sp->currow > fr->irr.right.row) {
                         backrow(sp, 1);
                         if (sp->autowrap) {
                             forwcol(sp, 1);
-                            sp->currow = fr->ir_left->row;
+                            sp->currow = fr->irr.left.row;
                             if (row_hidden(sp, sp->currow))
                                 forwrow(sp, 1);
-                            if (sp->curcol > fr->ir_right->col) {
+                            if (sp->curcol > fr->irr.right.col) {
                                 backcol(sp, 1);
                                 if (sp->autoinsert)
                                     sp->curcol += insert_cols(sp, cellref_current(sp), 1, 1);
                                 else {
-                                    sp->currow = fr->ir_right->row;
+                                    sp->currow = fr->irr.right.row;
                                     if (row_hidden(sp, sp->currow))
                                         backrow(sp, 1);
                                 }
@@ -2504,19 +2500,19 @@ static void cr_line(sheet_t *sp, int action) {
             } else {
                 if ((fr = frange_get_current(sp))) {
                     forwcol(sp, 1);
-                    if (sp->curcol > fr->ir_right->col) {
+                    if (sp->curcol > fr->irr.right.col) {
                         backcol(sp, 1);
                         if (sp->autowrap) {
                             forwrow(sp, 1);
-                            sp->curcol = fr->ir_left->col;
+                            sp->curcol = fr->irr.left.col;
                             if (col_hidden(sp, sp->curcol))
                                 forwcol(sp, 1);
-                            if (sp->currow > fr->ir_right->row) {
+                            if (sp->currow > fr->irr.right.row) {
                                 backrow(sp, 1);
                                 if (sp->autoinsert)
                                     sp->currow += insert_rows(sp, cellref_current(sp), 1, 1);
                                 else {
-                                    sp->curcol = fr->ir_right->col;
+                                    sp->curcol = fr->irr.right.col;
                                     if (col_hidden(sp, sp->curcol))
                                         backcol(sp, 1);
                                 }
@@ -3036,15 +3032,14 @@ static void gohome(sheet_t *sp) {
 
     remember(sp, 0);
     if ((fr = frange_get_current(sp))) {
-        if (sp->currow >= fr->ir_left->row && sp->currow <= fr->ir_right->row &&
-            sp->curcol >= fr->ir_left->col && sp->curcol <= fr->ir_right->col &&
-            (sp->currow > fr->ir_left->row || sp->curcol > fr->ir_left->col)) {
-            sp->currow = fr->ir_left->row;
-            sp->curcol = fr->ir_left->col;
+        if (cell_in_range(cellref(sp->currow, sp->curcol), fr->irr)
+        &&  (sp->currow > fr->irr.left.row || sp->curcol > fr->irr.left.col)) {
+            sp->currow = fr->irr.left.row;
+            sp->curcol = fr->irr.left.col;
         } else
-        if (sp->currow > fr->or_left->row || sp->curcol > fr->or_left->col) {
-            sp->currow = fr->or_left->row;
-            sp->curcol = fr->or_left->col;
+        if (sp->currow > fr->orr.left.row || sp->curcol > fr->orr.left.col) {
+            sp->currow = fr->orr.left.row;
+            sp->curcol = fr->orr.left.col;
         } else {
             sp->currow = 0;
             sp->curcol = 0;
@@ -3062,45 +3057,44 @@ static void leftlimit(sheet_t *sp) {
 
     remember(sp, 0);
     if ((fr = frange_get_current(sp))) {
-        if (sp->currow >= fr->ir_left->row && sp->currow <= fr->ir_right->row &&
-            sp->curcol > fr->ir_left->col && sp->curcol <= fr->ir_right->col)
-            sp->curcol = fr->ir_left->col;
+        if (sp->currow >= fr->irr.left.row && sp->currow <= fr->irr.right.row &&
+            sp->curcol > fr->irr.left.col && sp->curcol <= fr->irr.right.col)
+            sp->curcol = fr->irr.left.col;
         else
-        if (sp->curcol > fr->or_left->col && sp->curcol <= fr->or_right->col)
-            sp->curcol = fr->or_left->col;
+        if (sp->curcol > fr->orr.left.col)
+            sp->curcol = fr->orr.left.col;
         else
             sp->curcol = 0;
-    } else
+    } else {
         sp->curcol = 0;
+    }
     remember(sp, 1);
 }
 
 static void rightlimit(sheet_t *sp) {
-    struct ent *p;
     struct frange *fr;
 
     remember(sp, 0);
     if ((fr = frange_get_current(sp))) {
-        if (sp->currow >= fr->ir_left->row && sp->currow <= fr->ir_right->row &&
-            sp->curcol >= fr->ir_left->col && sp->curcol < fr->ir_right->col)
-            sp->curcol = fr->ir_right->col;
+        if (sp->currow >= fr->irr.left.row && sp->currow <= fr->irr.right.row &&
+            sp->curcol >= fr->irr.left.col && sp->curcol < fr->irr.right.col)
+            sp->curcol = fr->irr.right.col;
         else
-        if (sp->curcol >= fr->or_left->col && sp->curcol < fr->or_right->col)
-            sp->curcol = fr->or_right->col;
+        if (sp->curcol >= fr->orr.left.col && sp->curcol < fr->orr.right.col)
+            sp->curcol = fr->orr.right.col;
         else {
-            sp->curcol = sp->maxcols - 1;
-            while (!VALID_CELL(sp, p, sp->currow, sp->curcol) &&
-                   sp->curcol > fr->or_right->col)
+            sp->curcol = sp->maxcol;
+            while (!valid_cell(sp, sp->currow, sp->curcol) && sp->curcol > fr->orr.right.col)
                 sp->curcol--;
             if ((fr = frange_get_current(sp)))
-                sp->curcol = fr->or_right->col;
+                sp->curcol = fr->orr.right.col;
         }
     } else {
-        sp->curcol = sp->maxcols - 1;
-        while (!VALID_CELL(sp, p, sp->currow, sp->curcol) && sp->curcol > 0)
+        sp->curcol = sp->maxcol;
+        while (!valid_cell(sp, sp->currow, sp->curcol) && sp->curcol > 0)
             sp->curcol--;
         if ((fr = frange_get_current(sp)))
-            sp->curcol = fr->or_right->col;
+            sp->curcol = fr->orr.right.col;
     }
     remember(sp, 1);
 }
@@ -3110,45 +3104,44 @@ static void gototop(sheet_t *sp) {
 
     remember(sp, 0);
     if ((fr = frange_get_current(sp))) {
-        if (sp->curcol >= fr->ir_left->col && sp->curcol <= fr->ir_right->col &&
-            sp->currow > fr->ir_left->row && sp->currow <= fr->ir_right->row)
-            sp->currow = fr->ir_left->row;
+        if (sp->curcol >= fr->irr.left.col && sp->curcol <= fr->irr.right.col &&
+            sp->currow > fr->irr.left.row && sp->currow <= fr->irr.right.row)
+            sp->currow = fr->irr.left.row;
         else
-        if (sp->currow > fr->or_left->row && sp->currow <= fr->or_right->row)
-            sp->currow = fr->or_left->row;
+        if (sp->currow > fr->orr.left.row)
+            sp->currow = fr->orr.left.row;
         else
             sp->currow = 0;
-    } else
+    } else {
         sp->currow = 0;
+    }
     remember(sp, 1);
 }
 
 static void gotobottom(sheet_t *sp) {
-    struct ent *p;
     struct frange *fr;
 
     remember(sp, 0);
     if ((fr = frange_get_current(sp))) {
-        if (sp->curcol >= fr->ir_left->col && sp->curcol <= fr->ir_right->col &&
-            sp->currow >= fr->ir_left->row && sp->currow < fr->ir_right->row)
-            sp->currow = fr->ir_right->row;
+        if (sp->curcol >= fr->irr.left.col && sp->curcol <= fr->irr.right.col &&
+            sp->currow >= fr->irr.left.row && sp->currow < fr->irr.right.row)
+            sp->currow = fr->irr.right.row;
         else
-        if (sp->currow >= fr->or_left->row && sp->currow < fr->or_right->row)
-            sp->currow = fr->or_right->row;
+        if (sp->currow < fr->orr.right.row)
+            sp->currow = fr->orr.right.row;
         else {
-            sp->currow = sp->maxrows - 1;
-            while (!VALID_CELL(sp, p, sp->currow, sp->curcol) &&
-                   sp->currow > fr->or_right->row)
+            sp->currow = sp->maxrow;
+            while (!valid_cell(sp, sp->currow, sp->curcol) && sp->currow > fr->orr.right.row)
                 sp->currow--;
             if ((fr = frange_get_current(sp)))
-                sp->currow = fr->or_right->row;
+                sp->currow = fr->orr.right.row;
         }
     } else {
-        sp->currow = sp->maxrows - 1;
-        while (!VALID_CELL(sp, p, sp->currow, sp->curcol) && sp->currow > 0)
+        sp->currow = sp->maxrow;
+        while (!valid_cell(sp, sp->currow, sp->curcol) && sp->currow > 0)
             sp->currow--;
         if ((fr = frange_get_current(sp)))
-            sp->currow = fr->or_right->row;
+            sp->currow = fr->orr.right.row;
     }
     remember(sp, 1);
 }

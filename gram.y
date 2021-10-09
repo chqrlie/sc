@@ -402,10 +402,8 @@ command:  S_LET var_or_range '=' e      { let(sht, $2.left, $4, -1); }
                                                      rangeref_empty(), -1, -1, -1, $3); }
         | S_FRAMERIGHT NUMBER           { frange_add(sht, FRANGE_FIND, rangeref_curcell(sht),
                                                      rangeref_empty(), -1, -1, -1, $2); }
-        | S_UNFRAME RANGE               { frange_add(sht, FRANGE_DIRECT, $2,
-                                                     rangeref_empty(), 0, 0, 0, 0); }
-        | S_UNFRAME                     { frange_add(sht, FRANGE_FIND, rangeref_curcell(sht),
-                                                     rangeref_empty(), 0, 0, 0, 0); }
+        | S_UNFRAME RANGE               { frange_unframe(sht, FRANGE_DIRECT, $2); }
+        | S_UNFRAME                     { frange_unframe(sht, FRANGE_FIND, rangeref_curcell(sht)); }
         | S_COLOR NUMBER '='            { initcolor(sht, $2); }
         | S_COLOR NUMBER '=' e          { change_color(sht, $2, $4); }
         | S_COLOR RANGE NUMBER          { crange_add(sht, $2, $3); }

@@ -129,7 +129,7 @@ static void delbuf_free(int idx) {
         return;
 
     delbuf[idx] = NULL;
-    if (--db->refs) {
+    if (--db->refs == 0) {
         /* free subsheet data if no duplicate found */
         for (p = db->ptr; p; p = next) {
             // XXX: entries are added to free_ents in reverse order
@@ -210,6 +210,11 @@ struct ent *getcell(sheet_t *sp, int row, int col) {
         return *ATBL(sp, row, col);
     else
         return NULL;
+}
+
+int valid_cell(sheet_t *sp, int row, int col) {
+    struct ent *p = getcell(sp, row, col);
+    return (p != NULL && (p->expr || p->type != SC_EMPTY));
 }
 
 /* move a cell to the delbuf list (reverse order) */
@@ -317,8 +322,8 @@ int dup_row(sheet_t *sp, cellref_t cr) {
     struct frange *fr;
 
     if ((fr = frange_find(sp, cr.row, cr.col))) {
-        c1 = fr->or_left->col;
-        c2 = fr->or_right->col;
+        c1 = fr->orr.left.col;
+        c2 = fr->orr.right.col;
     }
 
     if (!insert_rows(sp, cr, 1, 1))
@@ -389,14 +394,15 @@ int insert_rows(sheet_t *sp, cellref_t cr, int arg, int delta) {
     if ((fr = frange_find(sp, cr.row, cr.col))) {
         // XXX: should verify if cr.row + delta is inside the frange
         // XXX: inconsistent source range: marks are updated beyond rr.right.row
-        rr = rangeref(cr.row + delta, fr->or_left->col,
-                      fr->or_right->row, fr->or_right->col);
+        rr = rangeref(cr.row + delta, fr->orr.left.col,
+                      fr->orr.right.row, fr->orr.right.col);
         move_area(sp, rr.left.row + arg, rr.left.col, rr);
-        if (!delta && fr->ir_left->row == cr.row + arg)
-            fr->ir_left = lookat(sp, fr->ir_left->row - arg, fr->ir_left->col);
-        if (delta && fr->ir_right->row == cr.row)
-            fr->ir_right = lookat(sp, fr->ir_right->row + arg, fr->ir_right->col);
-
+#if 0
+        if (!delta && fr->irr.left.row == cr.row + arg)
+            fr->ir_left = lookat(sp, fr->irr.left.row - arg, fr->irr.left.col);
+        if (delta && fr->irr.right.row == cr.row)
+            fr->ir_right = lookat(sp, fr->irr.right.row + arg, fr->irr.right.col);
+#endif
     } else {
         /*
          * save the last active row+1, shift the rows downward, put the last
@@ -497,12 +503,14 @@ int insert_cols(sheet_t *sp, cellref_t cr, int arg, int delta) {
     fr = frange_find(sp, cr.row, cr.col);
     if (delta) {
         // XXX: why not always fix frame limits?
-        if (fr && fr->ir_right->col == cr.col)
-            fr->ir_right = lookat(sp, fr->ir_right->row, fr->ir_right->col + arg);
+        if (fr && fr->irr.right.col == cr.col) {
+            //fr->ir_right = lookat(sp, fr->irr.right.row, fr->irr.right.col + arg);
+        }
         fix_ranges(sp, -1, cr.col, -1, cr.col, 0, arg, fr);
     } else {
-        if (fr && fr->ir_left->col == cr.col + arg)
-            fr->ir_left = lookat(sp, fr->ir_left->row, fr->ir_left->col - arg);
+        if (fr && fr->irr.left.col == cr.col + arg) {
+            //fr->ir_left = lookat(sp, fr->irr.left.row, fr->irr.left.col - arg);
+        }
         fix_ranges(sp, -1, cr.col + arg, -1, cr.col + arg, arg, 0, fr);
     }
     FullUpdate++;
@@ -530,8 +538,8 @@ void delete_rows(sheet_t *sp, int r1, int r2) {
     nrows = r2 - r1 + 1;
 
     if (sp->currow == r1 && (fr = frange_get_current(sp))) {
-        c1 = fr->or_left->col;
-        c2 = fr->or_right->col;
+        c1 = fr->orr.left.col;
+        c2 = fr->orr.right.col;
     }
     if (any_locked_cells(sp, r1, c1, r2, c2)) {
         error("Locked cells encountered. Nothing changed");
@@ -553,14 +561,15 @@ void delete_rows(sheet_t *sp, int r1, int r2) {
         // XXX: update current frame, possibly redundant with fix_ranges()
         //      should frame bottom rows should move up or not?
         //      the code is inconsistent
-        if (r1 + nrows > fr->ir_right->row && fr->ir_right->row >= r1)
-            fr->ir_right = lookat(sp, r1 - 1, fr->ir_right->col);
-        if (r1 + nrows > fr->or_right->row) {
-            fr->or_right = lookat(sp, r1 - 1, fr->or_right->col);
-        } else {
-            move_area(sp, r1, c1, rangeref(r1 + nrows, c1, fr->or_right->row, c2));
+        if (r1 + nrows > fr->irr.right.row && fr->irr.right.row >= r1) {
+            //fr->ir_right = lookat(sp, r1 - 1, fr->irr.right.col);
         }
-        if (fr->ir_left->row > fr->ir_right->row) {
+        if (r1 + nrows > fr->orr.right.row) {
+            //fr->or_right = lookat(sp, r1 - 1, fr->orr.right.col);
+        } else {
+            move_area(sp, r1, c1, rangeref(r1 + nrows, c1, fr->orr.right.row, c2));
+        }
+        if (fr->irr.left.row > fr->irr.right.row) {
             frange_delete(sp, fr);
             fr = NULL;
         }
@@ -623,9 +632,9 @@ void yank_rows(sheet_t *sp, int r1, int r2) {
 
     // XXX: should check if r1 and r2 are inside current frange
     if (r1 == sp->currow && (fr = frange_get_current(sp))) {
-        nrows = fr->or_right->row - r1 + 1;
-        c1 = fr->or_left->col;
-        c2 = fr->or_right->col;
+        nrows = fr->orr.right.row - r1 + 1;
+        c1 = fr->orr.left.col;
+        c2 = fr->orr.right.col;
     }
     if (arg > nrows) {
         // XXX: should grow table or clip args
@@ -877,7 +886,7 @@ static void pullcells(sheet_t *sp, int src, int cmd, cellref_t cr) {
         if (!insert_rows(sp, cr, numrows, 0))
             return;
         if ((fr = frange_find(sp, cr.row, cr.col))) {
-            deltac = fr->or_left->col - mincol;
+            deltac = fr->orr.left.col - mincol;
         } else {
             db = delbuf[src];
             if (db->rowfmt && db->nrows >= numrows) {
@@ -1344,9 +1353,9 @@ void lock_cells(sheet_t *sp, rangeref_t rr) {
     range_normalize(&rr);
     for (r = rr.left.row; r <= rr.right.row; r++) {
         for (c = rr.left.col; c <= rr.right.col; c++) {
-            struct ent *n = lookat(sp, r, c);
+            struct ent *p = lookat(sp, r, c);
             // XXX: update IS_CHANGED?
-            n->flags |= IS_LOCKED;
+            p->flags |= IS_LOCKED;
         }
     }
     sp->modflg++;
@@ -1359,10 +1368,10 @@ void unlock_cells(sheet_t *sp, rangeref_t rr) {
     range_normalize(&rr);
     for (r = rr.left.row; r <= rr.right.row; r++) {
         for (c = rr.left.col; c <= rr.right.col; c++) {
-            struct ent *n = getcell(sp, r, c);
-            if (n) {
+            struct ent *p = getcell(sp, r, c);
+            if (p) {
                 // XXX: update IS_CHANGED?
-                n->flags &= ~IS_LOCKED;
+                p->flags &= ~IS_LOCKED;
             }
         }
     }
@@ -1464,10 +1473,6 @@ static void sync_ranges(sheet_t *sp) {
     int row, col;
     struct ent *p;
 
-    nrange_sync(sp);
-    frange_sync(sp);
-    crange_sync(sp);
-
     // XXX: should do this for delbuf cells too?
     for (row = 0; row <= sp->maxrow; row++) {
         for (col = 0; col <= sp->maxcol; col++) {
@@ -1516,13 +1521,13 @@ static void enode_fix(sheet_t *sp, struct enode *e,
             if (r1 > r2) SWAPINT(r1, r2);
             if (c1 > c2) SWAPINT(c1, c2);
 
-            if (!fr || (c1 >= fr->or_left->col && c1 <= fr->or_right->col)) {
+            if (!fr || (c1 >= fr->orr.left.col && c1 <= fr->orr.right.col)) {
                 // XXX: why special case r1==r2 or c1==c2 ?
                 if (r1 != r2 && r1 >= row1 && r1 <= row2) r1 = row2 - delta1;
                 if (c1 != c2 && c1 >= col1 && c1 <= col2) c1 = col2 - delta1;
             }
 
-            if (!fr || (c2 >= fr->or_left->col && c2 <= fr->or_right->col)) {
+            if (!fr || (c2 >= fr->orr.left.col && c2 <= fr->orr.right.col)) {
                 if (r1 != r2 && r2 >= row1 && r2 <= row2) r2 = row1 + delta2;
                 if (c1 != c2 && c2 >= col1 && c2 <= col2) c2 = col1 + delta2;
             }
@@ -1542,11 +1547,6 @@ static void fix_ranges(sheet_t *sp, int row1, int col1, int row2, int col2,
                        int delta1, int delta2, struct frange *fr)
 {
     int row, col;
-
-    /* First we fix all of the named/color/frame ranges. */
-    nrange_fix(sp, row1, col1, row2, col2, delta1, delta2, fr);
-    frange_fix(sp, row1, col1, row2, col2, delta1, delta2, fr);
-    crange_fix(sp, row1, col1, row2, col2, delta1, delta2, fr);
 
     /* Next, we go through all valid cells with expressions and fix any ranges
      * that need fixing.
@@ -1611,8 +1611,10 @@ void adjust_refs(adjust_ctx_t *ap) {
     /* Update goto targets. */
     range_adjust(ap, &gs.g_rr);
     cell_adjust(ap, &gs.st);
-    /* Update note targets. */
-    note_adjust(ap);
+    crange_adjust(ap);  /* Update color ranges. */
+    nrange_adjust(ap);  /* Update named ranges. */
+    frange_adjust(ap);  /* Update frames. */
+    note_adjust(ap);    /* Update note targets. */
 }
 
 /*---------------- hide/show commands ----------------*/
@@ -1992,6 +1994,7 @@ void note_delete(sheet_t *sp, cellref_t cr) {
 
 void note_adjust(adjust_ctx_t *ap) {
     struct note *a;
+
     for (a = ap->sp->note_base; a; a = a->next) {
         cell_adjust(ap, &a->cr);
         range_adjust(ap, &a->rr);

@@ -152,10 +152,10 @@ void cmd_getframe(sheet_t *sp, int fd) {
     *buf = '\0';
     if ((fr = frange_get_current(sp))) {
         snprintf(buf, sizeof buf - 1, "%s %s",
-                 r_name(sp, fr->or_left->row, fr->or_left->col,
-                        fr->or_right->row, fr->or_right->col),
-                 r_name(sp, fr->ir_left->row, fr->ir_left->col,
-                        fr->ir_right->row, fr->ir_right->col));
+                 r_name(sp, fr->orr.left.row, fr->orr.left.col,
+                        fr->orr.right.row, fr->orr.right.col),
+                 r_name(sp, fr->irr.left.row, fr->irr.left.col,
+                        fr->irr.right.row, fr->irr.right.col));
     }
     len = pstrcat(buf, sizeof buf, "\n");
     write(fd, buf, len);
@@ -169,10 +169,10 @@ void cmd_getrange(sheet_t *sp, SCXMEM string_t *name, int fd) {
     *buf = '\0';
     if (name && !nrange_find_name(sp, s2c(name), slen(name), &r)) {
         len = snprintf(buf, sizeof buf - 1, "%s%d",
-                       coltoa(r->left->col), r->left->row);
+                       coltoa(r->rr.left.col), r->rr.left.row);
         if (r->is_range) {
             snprintf(buf + len, sizeof(buf) - 1 - len, ":%s%d",
-                     coltoa(r->right->col), r->right->row);
+                     coltoa(r->rr.right.col), r->rr.right.row);
         }
     }
     len = pstrcat(buf, sizeof buf, "\n");

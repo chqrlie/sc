@@ -573,10 +573,10 @@ static scvalue_t eval_indirect(eval_ctx_t *cp, enode_t *e) {
             maxc = rr.right.col;
         } else
         if (nrange_find_name(cp->sp, s, len, &r)) {
-            minr = r->left->row;
-            minc = r->left->col;
-            maxr = r->right->row;
-            maxc = r->right->col;
+            minr = r->rr.left.row;
+            minc = r->rr.left.col;
+            maxr = r->rr.right.row;
+            maxc = r->rr.right.col;
         } else {
             err = ERROR_REF;
         }
@@ -1177,7 +1177,6 @@ static scvalue_t eval_aggregateif(eval_ctx_t *cp, enode_t *e,
     scvalue_t res = eval_range(cp, e->e.args[0]);
     criterion_t crit;
     int r, c, dr = 0, dc = 0;
-    struct ent *p;
 
     if (res.type != SC_RANGE)
         return scvalue_error(res.u.error);
@@ -1196,7 +1195,7 @@ static scvalue_t eval_aggregateif(eval_ctx_t *cp, enode_t *e,
     criterion_setup(&crit, eval_node_value(cp, e->e.args[1]));
     for (r = res.u.rr.left.row; r <= res.u.rr.right.row; r++) {
         for (c = res.u.rr.left.col; c <= res.u.rr.right.col; c++) {
-            p = getcell(cp->sp, r, c);
+            struct ent *p = getcell(cp->sp, r, c);
             if (criterion_test(&crit, p)) {
                 if (!fun) {
                     pack.count++;
