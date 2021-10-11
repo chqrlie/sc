@@ -156,7 +156,7 @@ struct ent {
     unsigned char cellerror;    /* error in a cell? (should pack with flags) */
     unsigned char type;         /* SC_xxx */
     int row;
-    short col;                  /* the cell col/row */
+    short col;
     short flags;
     struct ent *next;           /* next deleted ent (pulled, deleted cells) */
 };
@@ -684,8 +684,10 @@ extern void showcol(sheet_t *sp, int c1, int c2);
 extern void showrow(sheet_t *sp, int r1, int r2);
 extern void range_align(sheet_t *sp, rangeref_t rr, int align);
 extern const char *coltoa(int col);
-extern const char *v_name(sheet_t *sp, int row, int col);
-extern const char *r_name(sheet_t *sp, int r1, int c1, int r2, int c2);
+extern const char *cell_addr(sheet_t *sp, cellref_t cr);
+extern const char *cell_name(sheet_t *sp, cellref_t cr);
+extern const char *range_addr(sheet_t *sp, rangeref_t rr);
+extern const char *range_name(sheet_t *sp, rangeref_t rr);
 extern int atocol(const char *s, int *lenp);
 extern int rows_height(sheet_t *sp, int r, int n);
 extern int cols_width(sheet_t *sp, int c, int n);

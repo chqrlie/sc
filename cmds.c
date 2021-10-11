@@ -184,7 +184,7 @@ void delbuf_list(sheet_t *sp, FILE *f) {
         subsheet_t *db = delbuf[i];
         if (db) {
             fprintf(f, "  \"%c   %2d  %2d  %s\n", c, db->num, db->refs,
-                    r_name(sp, db->minrow, db->mincol, db->maxrow, db->maxcol));
+                    range_addr(sp, rangeref(db->minrow, db->mincol, db->maxrow, db->maxcol)));
             if (brokenpipe) return;
             n++;
         }
@@ -818,7 +818,7 @@ void valueize_area(sheet_t *sp, rangeref_t rr) {
             struct ent *p = getcell(sp, r, c);
             if (p && p->expr) {
                 if (p->flags & IS_LOCKED) {
-                    error(" Cell %s%d is locked", coltoa(c), r);
+                    error(" Cell %s is locked", cell_addr(sp, cellref(r, c)));
                     continue;
                 }
                 efree(p->expr);
@@ -1825,7 +1825,7 @@ void erasedb(sheet_t *sp) {
 int locked_cell(sheet_t *sp, int row, int col) {
     struct ent *p = getcell(sp, row, col);
     if (p && (p->flags & IS_LOCKED)) {
-        error("Cell %s%d is locked", coltoa(col), row);
+        error("Cell %s is locked", cell_addr(sp, cellref(row, col)));
         return 1;
     }
     return 0;
@@ -2009,12 +2009,10 @@ void note_write(sheet_t *sp, FILE *f) {
         if (a->str) {
             // XXX: should quote note string
             fprintf(f, "addnote %s \"%s\"\n",
-                    v_name(sp, a->cr.row, a->cr.col), s2c(a->str));
+                    cell_addr(sp, a->cr), s2c(a->str));
         } else {
             fprintf(f, "addnote %s %s\n",
-                    v_name(sp, a->cr.row, a->cr.col),
-                    r_name(sp, a->rr.left.row, a->rr.left.col,
-                           a->rr.right.row, a->rr.right.col));
+                    cell_addr(sp, a->cr), range_addr(sp, a->rr));
         }
     }
 }

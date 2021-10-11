@@ -193,12 +193,8 @@ void nrange_write(sheet_t *sp, FILE *f) {
     struct nrange *r;
 
     for (r = sp->nrange_tail; r; r = r->prev) {
-        fprintf(f, "define \"%s\" %s%d",
-                s2c(r->name), coltoa(r->rr.left.col), r->rr.left.row);
-        if (r->is_range) {
-            fprintf(f, ":%s%d", coltoa(r->rr.right.col), r->rr.right.row);
-        }
-        fprintf(f, "\n");
+        fprintf(f, "define \"%s\" %s\n", s2c(r->name),
+                r->is_range ? range_addr(sp, r->rr) : cell_addr(sp, r->rr.left));
     }
 }
 
@@ -214,12 +210,8 @@ void nrange_list(sheet_t *sp, FILE *f) {
     if (!brokenpipe) fprintf(f, "  %-30s %s\n", "----", "----------");
 
     for (r = sp->nrange_tail; r; r = r->prev) {
-        fprintf(f, "  %-30s %s%d",
-                s2c(r->name), coltoa(r->rr.left.col), r->rr.left.row);
-        if (r->is_range) {
-            fprintf(f, ":%s%d", coltoa(r->rr.right.col), r->rr.right.row);
-        }
-        fprintf(f, "\n");
+        fprintf(f, "  %-30s %s\n", s2c(r->name),
+                r->is_range ? range_addr(sp, r->rr) : cell_addr(sp, r->rr.left));
         if (brokenpipe) return;
     }
 }
@@ -240,36 +232,40 @@ const char *coltoa(int col) {
     return rname;
 }
 
-// XXX: should take cellref_t and a boolean to check and/or print flags
-//      and/or print named cells
-const char *v_name(sheet_t *sp, int row, int col) {
-    struct nrange *r;
+const char *cell_addr(sheet_t *sp, cellref_t cr) {
     static unsigned int bufn;
     static char buf[4][20];
-
-    // XXX: should we test the is_range flag?
-    if ((r = nrange_find_coords(sp, rangeref(row, col, row, col)))) {
-        return s2c(r->name);
-    } else {
-        char *vname = buf[bufn++ & 3];
-        snprintf(vname, sizeof buf[0], "%s%d", coltoa(col), row);
-        return vname;
-    }
+    char *vname = buf[bufn++ & 3];
+    snprintf(vname, sizeof buf[0], "%s%d", coltoa(cr.col), cr.row);
+    return vname;
 }
 
-// XXX: should take rangeref_t and a boolean to check and/or print flags
-//      and/or print named cells
-const char *r_name(sheet_t *sp, int r1, int c1, int r2, int c2) {
+const char *cell_name(sheet_t *sp, cellref_t cr) {
     struct nrange *r;
+
+    // XXX: should we test the is_range flag?
+    if ((r = nrange_find_coords(sp, rangeref2(cr, cr))))
+        return s2c(r->name);
+    else
+        return cell_addr(sp, cr);
+}
+
+const char *range_addr(sheet_t *sp, rangeref_t rr) {
     static unsigned int bufn;
     static char buf[2][100];
+    char *rname = buf[bufn++ & 1];
 
-    if ((r = nrange_find_coords(sp, rangeref(r1, c1, r2, c2)))) {
+    snprintf(rname, sizeof buf[0], "%s%d:%s%d",
+             coltoa(rr.left.col), rr.left.row,
+             coltoa(rr.right.col), rr.right.row);
+    return rname;
+}
+
+const char *range_name(sheet_t *sp, rangeref_t rr) {
+    struct nrange *r;
+
+    if ((r = nrange_find_coords(sp, rr)))
         return s2c(r->name);
-    } else {
-        char *rname = buf[bufn++ & 1];
-        snprintf(rname, sizeof buf[0], "%s%d:%s%d",
-                 coltoa(c1), r1, coltoa(c2), r2);
-        return rname;
-    }
+    else
+        return range_addr(sp, rr);
 }

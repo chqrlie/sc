@@ -158,11 +158,7 @@ void frange_write(sheet_t *sp, FILE *f) {
     struct frange *r;
 
     for (r = sp->frange_tail; r; r = r->prev) {
-        fprintf(f, "frame %s %s\n",
-                r_name(sp, r->orr.left.row, r->orr.left.col,
-                       r->orr.right.row, r->orr.right.col),
-                r_name(sp, r->irr.left.row, r->irr.left.col,
-                       r->irr.right.row, r->irr.right.col));
+        fprintf(f, "frame %s %s\n", range_addr(sp, r->orr), range_addr(sp, r->irr));
     }
 }
 
@@ -179,11 +175,7 @@ void frange_list(sheet_t *sp, FILE *f) {
         fprintf(f, "  %-30s %s\n", "-----------", "-----------");
 
     for (r = sp->frange_tail; r; r = r->prev) {
-        fprintf(f, "  %-30s %s\n",
-                r_name(sp, r->orr.left.row, r->orr.left.col,
-                       r->orr.right.row, r->orr.right.col),
-                r_name(sp, r->irr.left.row, r->irr.left.col,
-                       r->irr.right.row, r->irr.right.col));
+        fprintf(f, "  %-30s %s\n", range_addr(sp, r->orr), range_addr(sp, r->irr));
         if (brokenpipe) return;
     }
 }

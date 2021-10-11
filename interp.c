@@ -551,7 +551,8 @@ static scvalue_t eval_address(eval_ctx_t *cp, enode_t *e) {
     int rel = e->nargs > 2 ? eval_int(cp, e->e.args[2], 1, 4, &err) : 1;
     int len;
     if (err) return scvalue_error(err);
-    len = snprintf(buff, sizeof buff, "%s%s%s%d", &"$"[(rel & 1) ^ 1], coltoa(col), &"$"[rel > 2], row);
+    len = snprintf(buff, sizeof buff, "%s%s%s%d",
+                   &"$"[(rel & 1) ^ 1], coltoa(col), &"$"[rel > 2], row);
     return scvalue_string(string_new_len(buff, len, STRING_ASCII));
 }
 
@@ -2707,7 +2708,8 @@ static scvalue_t eval_assert(eval_ctx_t *cp, enode_t *e) {
     }
     if (!t) {
         buf_init(buf, buff, sizeof buff);
-        buf_printf(buf, "%s: assertion failed: ", v_name(cp->sp, cp->gmyrow, cp->gmycol));
+        buf_printf(buf, "%s: assertion failed: ",
+                   cell_addr(cp->sp, cellref(cp->gmyrow, cp->gmycol)));
         decompile_expr(cp->sp, buf, e->e.args[0], 0, 0, DCP_DEFAULT);
         buf_puts(buf, " -> ");
         buf_putvalue(buf, a);
@@ -3087,7 +3089,7 @@ static int RealEvalOne(sheet_t *sp, struct ent *p, enode_t *e, int row, int col)
     scvalue_t res;
 
     if (setjmp(fpe_save)) {
-        error("Floating point exception at %s", v_name(sp, row, col));
+        error("Floating point exception at %s", cell_addr(sp, cellref(row, col)));
         res = scvalue_error(ERROR_NUM);
     } else {
         res = eval_node_value(cp, e);

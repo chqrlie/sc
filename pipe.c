@@ -152,10 +152,7 @@ void cmd_getframe(sheet_t *sp, int fd) {
     *buf = '\0';
     if ((fr = frange_get_current(sp))) {
         snprintf(buf, sizeof buf - 1, "%s %s",
-                 r_name(sp, fr->orr.left.row, fr->orr.left.col,
-                        fr->orr.right.row, fr->orr.right.col),
-                 r_name(sp, fr->irr.left.row, fr->irr.left.col,
-                        fr->irr.right.row, fr->irr.right.col));
+                 range_addr(sp, fr->orr), range_addr(sp, fr->irr));
     }
     len = pstrcat(buf, sizeof buf, "\n");
     write(fd, buf, len);
@@ -168,11 +165,10 @@ void cmd_getrange(sheet_t *sp, SCXMEM string_t *name, int fd) {
 
     *buf = '\0';
     if (name && !nrange_find_name(sp, s2c(name), slen(name), &r)) {
-        len = snprintf(buf, sizeof buf - 1, "%s%d",
-                       coltoa(r->rr.left.col), r->rr.left.row);
         if (r->is_range) {
-            snprintf(buf + len, sizeof(buf) - 1 - len, ":%s%d",
-                     coltoa(r->rr.right.col), r->rr.right.row);
+            snprintf(buf, sizeof(buf) - 1, "%s", range_addr(sp, r->rr));
+        } else {
+            snprintf(buf, sizeof(buf) - 1, "%s", cell_addr(sp, r->rr.left));
         }
     }
     len = pstrcat(buf, sizeof buf, "\n");
@@ -254,7 +250,8 @@ void cmd_status(sheet_t *sp, int fd) {
 
 void cmd_whereami(sheet_t *sp, int fd) {
     char buf[64];
-    snprintf(buf, sizeof buf, "%s%d %s%d\n",
-             coltoa(sp->curcol), sp->currow, coltoa(sp->stcol), sp->strow);
+    snprintf(buf, sizeof buf, "%s %s\n",
+             cell_addr(sp, cellref_current(sp)),
+             cell_addr(sp, cellref(sp->strow, sp->stcol)));
     write(fd, buf, strlen(buf));
 }

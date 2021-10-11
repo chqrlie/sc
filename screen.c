@@ -692,7 +692,8 @@ void update(sheet_t *sp, int anychanged) {          /* did any cell really chang
 
             if (sp->showtop && !message) {
                 clrtoeol();
-                printw("Default range:  %s", r_name(sp, minsr, minsc, maxsr, maxsc));
+                printw("Default range:  %s",
+                       range_addr(sp, rangeref(minsr, minsc, maxsr, maxsc)));
             }
         }
     } else if (braille && braillealt && !message && mode_ind == 'v') {
@@ -1007,9 +1008,7 @@ void update(sheet_t *sp, int anychanged) {          /* did any cell really chang
                     /* Show the cell note string or range */
                     struct note *n = note_find(sp, cellref(sp->currow, sp->curcol));
                     if (n) {
-                        printw("{*%s} ", n->str ? s2c(n->str) :
-                               r_name(sp, n->rr.left.row, n->rr.left.col,
-                                      n->rr.right.row, n->rr.right.col));
+                        printw("{*%s} ", n->str ? s2c(n->str) : range_addr(sp, n->rr));
                     }
                 }
                 /* display cell alignment */

@@ -662,13 +662,13 @@ void vi_interaction(sheet_t *sp) {
                         // XXX: string should have been unescaped already
                         if (line[i] == '\\' && line[i+1] == '"') {
                             strsplice(line, sizeof line, i, 1, NULL, 0);
+                            /* i++ will skip the '"' */
                         } else
                         if (line[i] == '$' && line[i+1] == '$') {
-                            // XXX: could use v_name()
-                            char mycell[16];
-                            size_t len;
-                            len = snprintf(mycell, sizeof(mycell), "%s%d", coltoa(sp->curcol), sp->currow);
-                            strsplice(line, sizeof line, i, 2, mycell, len);
+                            const char *s = cell_addr(sp, cellref_current(sp));
+                            size_t len = strlen(s);
+                            strsplice(line, sizeof line, i, 2, s, len);
+                            /* i++ will skip the replacement string */
                             i += len - 1;
                         }
                     }
@@ -701,7 +701,7 @@ void vi_interaction(sheet_t *sp) {
                 case '5': case '6': case '7': case '8': case '9':
                 case '.':
                     if (!locked_cell(sp, sp->currow, sp->curcol)) {
-                        set_line("let %s = %c", v_name(sp, sp->currow, sp->curcol), c);
+                        set_line("let %s = %c", cell_addr(sp, cellref_current(sp)), c);
                         setmark(sp, '0');
                         numeric_field = 1;
                         cellassign = 1;
@@ -740,7 +740,7 @@ void vi_interaction(sheet_t *sp) {
 
                 case '=':
                     if (!locked_cell(sp, sp->currow, sp->curcol)) {
-                        set_line("let %s = ", v_name(sp, sp->currow, sp->curcol));
+                        set_line("let %s = ", cell_addr(sp, cellref_current(sp)));
                         setmark(sp, '0');
                         cellassign = 1;
                         insert_mode();
@@ -776,7 +776,7 @@ void vi_interaction(sheet_t *sp) {
                         startshow(sp);
                         break;
                     case 'm':
-                        set_line("move [destination src_range] %s ", v_name(sp, sp->currow, sp->curcol));
+                        set_line("move [destination src_range] %s ", cell_addr(sp, cellref_current(sp)));
                         insert_mode();
                         write_line(sp, ctl('v'));
                         break;
@@ -1040,7 +1040,7 @@ void vi_interaction(sheet_t *sp) {
                     break;
                 case '\\':
                     if (!locked_cell(sp, sp->currow, sp->curcol)) {
-                        set_line("label %s = \"\\", v_name(sp, sp->currow, sp->curcol));
+                        set_line("label %s = \"\\", cell_addr(sp, cellref_current(sp)));
                         setmark(sp, '0');
                         cellassign = 1;
                         insert_mode();
@@ -1049,7 +1049,7 @@ void vi_interaction(sheet_t *sp) {
 
                 case '<':
                     if (!locked_cell(sp, sp->currow, sp->curcol)) {
-                        set_line("leftstring %s = \"", v_name(sp, sp->currow, sp->curcol));
+                        set_line("leftstring %s = \"", cell_addr(sp, cellref_current(sp)));
                         setmark(sp, '0');
                         cellassign = 1;
                         insert_mode();
@@ -1058,7 +1058,7 @@ void vi_interaction(sheet_t *sp) {
 
                 case '>':
                     if (!locked_cell(sp, sp->currow, sp->curcol)) {
-                        set_line("rightstring %s = \"", v_name(sp, sp->currow, sp->curcol));
+                        set_line("rightstring %s = \"", cell_addr(sp, cellref_current(sp)));
                         setmark(sp, '0');
                         cellassign = 1;
                         insert_mode();
@@ -1097,12 +1097,12 @@ void vi_interaction(sheet_t *sp) {
                     p = getcell(sp, sp->currow, sp->curcol);
                     if (p && p->format) {
                         buf_init(buf, line, sizeof line);
-                        buf_setf(buf, "fmt [format] %s \"", v_name(sp, sp->currow, sp->curcol));
+                        buf_setf(buf, "fmt [format] %s \"", cell_addr(sp, cellref_current(sp)));
                         buf_quotestr(buf, 0, s2c(p->format), 0);
                         linelim = linelen = buf->len;
                         edit_mode();
                     } else {
-                        set_line("fmt [format] %s \"", v_name(sp, sp->currow, sp->curcol));
+                        set_line("fmt [format] %s \"", cell_addr(sp, cellref_current(sp)));
                         insert_mode();
                     }
                     break;
@@ -1317,7 +1317,7 @@ void vi_interaction(sheet_t *sp) {
                         break;
                     }
                     if (c == 'a' || c == 'A') {
-                        set_line("addnote [target range] %s ", v_name(sp, sp->currow, sp->curcol));
+                        set_line("addnote [target range] %s ", cell_addr(sp, cellref_current(sp)));
                         // XXX: should append note string if present
                         insert_mode();
                         write_line(sp, ctl('v'));
@@ -1737,7 +1737,7 @@ static void write_line(sheet_t *sp, int c) {
                             }                                       break;
         case '+':
         case '-':           if (!sp->showrange) {
-                                ins_string(sp, v_name(sp, sp->currow, sp->curcol));
+                                ins_string(sp, cell_addr(sp, cellref_current(sp)));
                                 ins_in_line(sp, c);
                             } else
                             if (linelim == linelen
@@ -1755,7 +1755,7 @@ static void write_line(sheet_t *sp, int c) {
                                 ins_in_line(sp, c);
                             }                                       break;
         case ctl('m'):      if (!sp->showrange) {
-                                ins_string(sp, v_name(sp, sp->currow, sp->curcol));
+                                ins_string(sp, cell_addr(sp, cellref_current(sp)));
                                 toggle_navigate_mode();
                             } else {
                                 toggle_navigate_mode();
@@ -1773,22 +1773,19 @@ static void write_line(sheet_t *sp, int c) {
                                 }
                             }                                       break;
         case 'c':           if ((cr = crange_find(sp, sp->currow, sp->curcol))) {
-                                ins_string(sp, r_name(sp, cr->rr.left.row, cr->rr.left.col,
-                                                      cr->rr.right.row, cr->rr.right.col));
+                                ins_string(sp, range_addr(sp, cr->rr));
                                 toggle_navigate_mode();
                                 ins_in_line(sp, ' ');
                                 sp->showrange = 0;
                             }                                       break;
         case 'f':           if ((fr = frange_get_current(sp))) {
-                                ins_string(sp, r_name(sp, fr->orr.left.row, fr->orr.left.col,
-                                                      fr->orr.right.row, fr->orr.right.col));
+                                ins_string(sp, range_addr(sp, fr->orr));
                                 toggle_navigate_mode();
                                 ins_in_line(sp, ' ');
                                 sp->showrange = 0;
                             }                                       break;
         case 'r':           if ((fr = frange_get_current(sp))) {
-                                ins_string(sp, r_name(sp, fr->irr.left.row, fr->irr.left.col,
-                                                      fr->irr.right.row, fr->irr.right.col));
+                                ins_string(sp, range_addr(sp, fr->irr));
                                 toggle_navigate_mode();
                                 ins_in_line(sp, ' ');
                                 sp->showrange = 0;
@@ -1969,7 +1966,7 @@ static void startshow(sheet_t *sp) {
 /* insert the range we defined by moving around the screen, see startshow(sp) */
 static void showdr(sheet_t *sp) {
     char buf[32];
-    const char *r = buf;
+    const char *s = buf;
     int minsr = sp->showsr < sp->currow ? sp->showsr : sp->currow;
     int minsc = sp->showsc < sp->curcol ? sp->showsc : sp->curcol;
     int maxsr = sp->showsr > sp->currow ? sp->showsr : sp->currow;
@@ -1980,9 +1977,9 @@ static void showdr(sheet_t *sp) {
     } else if (sp->showrange == SHOWCOLS) {
         snprintf(buf, sizeof buf, "%s:%s", coltoa(minsc), coltoa(maxsc));
     } else {
-        r = r_name(sp, minsr, minsc, maxsr, maxsc);
+        s = range_addr(sp, rangeref(minsr, minsc, maxsr, maxsc));
     }
-    ins_string(sp, r);
+    ins_string(sp, s);
     toggle_navigate_mode();
     sp->showrange = 0;
 }
@@ -3702,7 +3699,7 @@ int edit_cell(sheet_t *sp, buf_t buf, int row, int col, struct ent *p, int dcp_f
     case ALIGN_CENTER:  command = "label";       break;
     case ALIGN_RIGHT:   command = "rightstring"; break;
     }
-    len = buf_setf(buf, "%s %s = ", command, v_name(sp, row, col));
+    len = buf_setf(buf, "%s %s = ", command, cell_addr(sp, cellref(row, col)));
     if (p) {
         if (p->expr && !(dcp_flags & DCP_NO_EXPR)) {
             // XXX: should pass row, col as the cell reference

@@ -199,10 +199,7 @@ void crange_write(sheet_t *sp, FILE *f) {
     struct crange *r;
 
     for (r = sp->crange_tail; r; r = r->prev) {
-        fprintf(f, "color %s %d\n",
-                r_name(sp, r->rr.left.row, r->rr.left.col,
-                       r->rr.right.row, r->rr.right.col),
-                r->color);
+        fprintf(f, "color %s %d\n", range_addr(sp, r->rr), r->color);
     }
 }
 
@@ -221,10 +218,7 @@ void crange_list(sheet_t *sp, FILE *f) {
     if (!brokenpipe) fprintf(f, "  %-30s %s\n", "-----", "-----");
 
     for (r = sp->crange_tail; r; r = r->prev) {
-        fprintf(f, "  %-32s %d\n",
-                r_name(sp, r->rr.left.row, r->rr.left.col,
-                       r->rr.right.row, r->rr.right.col),
-                r->color);
+        fprintf(f, "  %-32s %d\n", range_addr(sp, r->rr), r->color);
         if (brokenpipe) return;
     }
 }
