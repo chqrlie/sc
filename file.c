@@ -428,7 +428,7 @@ void write_fd(sheet_t *sp, FILE *f, rangeref_t rr, int dcp_flags) {
         for (c = rr.left.col; c <= rr.right.col; c++) {
             struct ent *p = getcell(sp, r, c);
             if (p && (p->flags & IS_LOCKED)) {
-                fprintf(f, "lock %s\n", cell_addr(sp, cellref(p->row, p->col)));
+                fprintf(f, "lock %s\n", cell_addr(sp, cellref(r, c)));
             }
         }
     }
@@ -443,16 +443,18 @@ void write_fd(sheet_t *sp, FILE *f, rangeref_t rr, int dcp_flags) {
 void write_cells(sheet_t *sp, FILE *f, rangeref_t rr, cellref_t cr, int dcp_flags) {
     buf_t(buf, FBUFLEN);
     int r, c;
+    int deltar = cr.row - rr.left.row;
+    int deltac = cr.col - rr.left.col;
 
     dcp_flags |= DCP_NO_LOCALE;
     for (r = rr.left.row; r <= rr.right.row; r++) {
         for (c = rr.left.col; c <= rr.right.col; c++) {
             struct ent *p = getcell(sp, r, c);
             if (p) {
-                int row = r + cr.row - rr.left.row;
-                int col = c + cr.col - rr.left.col;
+                int row = r + deltar;
+                int col = c + deltac;
                 if (p->type || p->expr) {
-                    edit_cell(sp, buf, row, col, p, dcp_flags, 0);
+                    edit_cell(sp, buf, row, col, p, deltar, deltac, dcp_flags, 0);
                     fprintf(f, "%s\n", buf->buf);
                 } else
                 if ((p->flags & ALIGN_MASK) != ALIGN_DEFAULT) {

@@ -41,12 +41,13 @@ Parser:
 [ ] add VF_FULL_ROW and VF_FULL_COL
 [ ] parse num:num and col:col as ranges
 [ ] preserve spaces and parentheses from expression source using a pattern
-[ ] use expression pattern to preserve syntax errors and unknown functions
+[ ] use expression patterns to preserve syntax errors and unknown functions
 [ ] remove yacc based parser
 [ ] fix replicated cell alignment as alignment type and use whole parts
 [ ] add format info in scvalue_t
 
 Database:
+[ ] fix locked cell behavior: no effect unless sheet protection is on
 [ ] fix note references on 'dr/pr'
 [ ] keep range names in formulae and other range definitions
 [ ] fix format numbering, col, row, cell format precedence
@@ -56,13 +57,13 @@ Database:
 [ ] use sparse matrix for sheet_t cell data
 [ ] use sparse matrix for subsheet_t cell data
 [ ] implement virtual space: jagged 2D matrix
-[ ] remove cell pointers
 [ ] add sheet number in cell references
 [/] move more global data to sheet structure
 [+] group sheet data in sheet_t structures
 [ ] make delbufs sheet_t instances
+[ ] remove cell pointers in subsheets
 [?] hash string_t in a dictionary
-[ ] change representation for ranges: abs/rel coords instead of pointers
+[ ] change representation for ranges: abs/rel coords ?
 [ ] use an array of format strings, store an index in the cell struct
 [/] more efficient cell structure
 [/] generic formats
@@ -81,6 +82,7 @@ Update:
 [ ] update() should not have a side effect on the database
 [ ] don't redraw the whole screen all the time
 [ ] differentiate error and status messages
+[ ] overwrite intermediary messages in read/write file
 
 Commands:
 [ ] fix modflg, FullUpdate, modified, IS_CHANGED handling
@@ -184,3 +186,4 @@ Build:
 [X] use range references instead of ent pointers in franges
 [X] improve r_name() and v_name() APIs, use v_name() instead of coltoa()
 [X] use rangeref_t for find_range_coords()
+[X] change representation for ranges

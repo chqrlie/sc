@@ -726,7 +726,8 @@ void vi_interaction(sheet_t *sp) {
                         /* copy cell contents into line array */
                         buf_init(buf, line, sizeof line);
                         // XXX: the conversion should be localized
-                        linelim = linelen = edit_cell(sp, buf, sp->currow, sp->curcol, p, DCP_DEFAULT, 0);
+                        linelim = linelen = edit_cell(sp, buf, sp->currow, sp->curcol,
+                                                      p, 0, 0, DCP_DEFAULT, 0);
                         setmark(sp, '0');
                         numeric_field = 1;
                         cellassign = 1;
@@ -1081,13 +1082,15 @@ void vi_interaction(sheet_t *sp) {
                         /* copy cell contents into line array */
                         buf_init(buf, line, sizeof line);
                         // XXX: the conversion should be localized
-                        linelim = linelen = edit_cell(sp, buf, sp->currow, sp->curcol, p, DCP_DEFAULT, '"');
+                        linelim = linelen = edit_cell(sp, buf, sp->currow, sp->curcol,
+                                                      p, 0, 0, DCP_DEFAULT, '"');
                         setmark(sp, '0');
                         cellassign = 1;
                         if (c == 'e' && (p->type != SC_NUMBER)) {
                             insert_mode();
-                        } else
+                        } else {
                             edit_mode();
+                        }
                     }
                     break;
                 case 'f':
@@ -3688,7 +3691,9 @@ int modcheck(sheet_t *sp, const char *endstr) {
     return 0;
 }
 
-int edit_cell(sheet_t *sp, buf_t buf, int row, int col, struct ent *p, int dcp_flags, int c0) {
+int edit_cell(sheet_t *sp, buf_t buf, int row, int col, struct ent *p,
+              int deltar, int deltac, int dcp_flags, int c0)
+{
     int align = p ? (p->flags & ALIGN_MASK) : ALIGN_DEFAULT;
     size_t len;
     const char *command;
@@ -3702,8 +3707,8 @@ int edit_cell(sheet_t *sp, buf_t buf, int row, int col, struct ent *p, int dcp_f
     len = buf_setf(buf, "%s %s = ", command, cell_addr(sp, cellref(row, col)));
     if (p) {
         if (p->expr && !(dcp_flags & DCP_NO_EXPR)) {
-            // XXX: should pass row, col as the cell reference
-            decompile_expr(sp, buf, p->expr, row - p->row, col - p->col, dcp_flags);
+            // XXX: should pass row, col as a cell reference
+            decompile_expr(sp, buf, p->expr, deltar, deltac, dcp_flags);
         } else
         if (p->type == SC_NUMBER) {
             // XXX: should convert to locale: use out_number()?

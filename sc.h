@@ -95,24 +95,6 @@ struct rangeref {
     struct cellref left, right;
 };
 
-/*
- * ent_ptr holds the row/col # and address type of a cell
- *
- * vf is the type of cell address, 0 non-fixed, or bitwise OR of FIX_ROW or
- *      FIX_COL
- * vp : we just use vp->row or vp->col, vp may be a new cell just for holding
- *      row/col (say in gram.y) or a pointer to an existing cell
- */
-struct ent_ptr {
-    int vf;
-    struct ent *vp;
-};
-
-/* holds the beginning/ending cells of a range */
-struct range_s {
-    struct ent_ptr left, right;
-};
-
 typedef struct enode enode_t;
 
 #define SC_EMPTY   0
@@ -155,8 +137,8 @@ struct ent {
     SCXMEM string_t *format;    /* printf format for this cell */
     unsigned char cellerror;    /* error in a cell? (should pack with flags) */
     unsigned char type;         /* SC_xxx */
-    int row;
-    short col;
+    int row__;
+    short col__;
     short flags;
     struct ent *next;           /* next deleted ent (pulled, deleted cells) */
 };
@@ -175,8 +157,8 @@ struct enode {
     union {
         int error;                  /* error number */
         double k;                   /* constant # */
-        struct ent_ptr v;           /* ref. another cell */
-        struct range_s r;           /* op is on a range */
+        cellref_t cr;               /* ref. another cell */
+        rangeref_t rr;              /* op is on a range */
         SCXMEM string_t *s;         /* op is a string constant */
         SCXMEM enode_t *args[1];    /* flexible array of arguments */
     } e;
@@ -704,7 +686,8 @@ extern void copy_range(sheet_t *sp, int flags, rangeref_t drr, rangeref_t srr);
 extern int dup_col(sheet_t *sp, cellref_t cr);
 extern int dup_row(sheet_t *sp, cellref_t cr);
 extern void select_register(char c);
-extern int edit_cell(sheet_t *sp, buf_t buf, int row, int col, struct ent *p, int dcp_flags, int c0);
+extern int edit_cell(sheet_t *sp, buf_t buf, int row, int col, struct ent *p,
+                     int deltar, int deltac, int dcp_flags, int c0);
 extern void erase_range(sheet_t *sp, rangeref_t rr);
 extern void fill_range(sheet_t *sp, rangeref_t rr, double start, double inc, int bycols);
 extern void let(sheet_t *sp, cellref_t cr, SCXMEM enode_t *e, int align);

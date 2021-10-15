@@ -513,30 +513,25 @@ static scvalue_t scvalue_getcell(eval_ctx_t *cp, int row, int col) {
 }
 
 static scvalue_t eval__var(eval_ctx_t *cp, enode_t *e) {
-    struct ent *vp = e->e.v.vp;
-    if (vp) {
-        int row = (e->e.v.vf & FIX_ROW) ? vp->row : vp->row + cp->rowoffset;
-        int col = (e->e.v.vf & FIX_COL) ? vp->col : vp->col + cp->coloffset;
-        if (row >= 0 && col >= 0)
-            return scvalue_range(rangeref(row, col, row, col));
-    }
-    return scvalue_error(ERROR_REF);
+    int row = (e->e.cr.vf & FIX_ROW) ? e->e.cr.row : e->e.cr.row + cp->rowoffset;
+    int col = (e->e.cr.vf & FIX_COL) ? e->e.cr.col : e->e.cr.col + cp->coloffset;
+    if (row >= 0 && col >= 0)
+        return scvalue_range(rangeref(row, col, row, col));
+    else
+        return scvalue_error(ERROR_REF);
 }
 
 static scvalue_t eval__range(eval_ctx_t *cp, enode_t *e) {
-    struct ent *v1 = e->e.r.left.vp;
-    struct ent *v2 = e->e.r.right.vp;
-    if (v1 && v2) {
-        int minr = (e->e.r.left.vf & FIX_ROW) ? v1->row : v1->row + cp->rowoffset;
-        int minc = (e->e.r.left.vf & FIX_COL) ? v1->col : v1->col + cp->coloffset;
-        int maxr = (e->e.r.right.vf & FIX_ROW) ? v2->row : v2->row + cp->rowoffset;
-        int maxc = (e->e.r.right.vf & FIX_COL) ? v2->col : v2->col + cp->coloffset;
-        if (minr > maxr) SWAPINT(minr, maxr);
-        if (minc > maxc) SWAPINT(minc, maxc);
-        if (minr >= 0 && minc >= 0)
-            return scvalue_range(rangeref(minr, minc, maxr, maxc));
-    }
-    return scvalue_error(ERROR_REF);
+    int minr = (e->e.rr.left.vf & FIX_ROW) ? e->e.rr.left.row : e->e.rr.left.row + cp->rowoffset;
+    int minc = (e->e.rr.left.vf & FIX_COL) ? e->e.rr.left.col : e->e.rr.left.col + cp->coloffset;
+    int maxr = (e->e.rr.right.vf & FIX_ROW) ? e->e.rr.right.row : e->e.rr.right.row + cp->rowoffset;
+    int maxc = (e->e.rr.right.vf & FIX_COL) ? e->e.rr.right.col : e->e.rr.right.col + cp->coloffset;
+    if (minr > maxr) SWAPINT(minr, maxr);
+    if (minc > maxc) SWAPINT(minc, maxc);
+    if (minr >= 0 && minc >= 0)
+        return scvalue_range(rangeref(minr, minc, maxr, maxc));
+    else
+        return scvalue_error(ERROR_REF);
 }
 
 static scvalue_t eval__badname(eval_ctx_t *cp, enode_t *e) {
@@ -3251,8 +3246,7 @@ SCXMEM enode_t *new_var(sheet_t *sp, cellref_t cr) {
         p->op = OP__VAR;
         p->type = OP_TYPE_VAR;
         p->nargs = 0;
-        p->e.v.vf = cr.vf;
-        p->e.v.vp = lookat(sp, cr.row, cr.col);
+        p->e.cr = cr;
     }
     return p;
 }
@@ -3263,10 +3257,7 @@ SCXMEM enode_t *new_range(sheet_t *sp, rangeref_t rr) {
         p->op = OP__RANGE;
         p->type = OP_TYPE_RANGE;
         p->nargs = 0;
-        p->e.r.left.vf = rr.left.vf;
-        p->e.r.left.vp = lookat(sp, rr.left.row, rr.left.col);
-        p->e.r.right.vf = rr.right.vf;
-        p->e.r.right.vp = lookat(sp, rr.right.row, rr.right.col);
+        p->e.rr = rr;
     }
     return p;
 }
@@ -3322,41 +3313,44 @@ enode_t *copye(sheet_t *sp, enode_t *e, int deltar, int deltac,
         return NULL;
 
     if ((ret->type = e->type) == OP_TYPE_RANGE) {
-        vf = e->e.r.left.vf;
-        newrow = row = e->e.r.left.vp->row;
-        newcol = col = e->e.r.left.vp->col;
+        vf = e->e.rr.left.vf;
+        newrow = row = e->e.rr.left.row;
+        newcol = col = e->e.rr.left.col;
         if (row >= r1 && row <= r2 && col >= c1 && col <= c2) {
             if (!(vf & FIX_ROW))
                 newrow = transpose ? r1 + deltar + col - c1 : row + deltar;
             if (!(vf & FIX_COL))
                 newcol = transpose ? c1 + deltac + row - r1 : col + deltac;
         }
-        ret->e.r.left.vf = vf;
-        ret->e.r.left.vp = lookat(sp, newrow, newcol);
-        vf = e->e.r.right.vf;
-        newrow = row = e->e.r.right.vp->row;
-        newcol = col = e->e.r.right.vp->col;
+        ret->e.rr.left.vf = vf;
+        ret->e.rr.left.row = newrow;
+        ret->e.rr.left.col = newcol;
+        vf = e->e.rr.right.vf;
+        newrow = row = e->e.rr.right.row;
+        newcol = col = e->e.rr.right.col;
         if (row >= r1 && row <= r2 && col >= c1 && col <= c2) {
             if (!(vf & FIX_ROW))
                 newrow = transpose ? r1 + deltar + col - c1 : row + deltar;
             if (!(vf & FIX_COL))
                 newcol = transpose ? c1 + deltac + row - r1 : col + deltac;
         }
-        ret->e.r.right.vf = vf;
-        ret->e.r.right.vp = lookat(sp, newrow, newcol);
+        ret->e.rr.right.vf = vf;
+        ret->e.rr.right.row = newrow;
+        ret->e.rr.right.col = newcol;
     } else
     if (e->type == OP_TYPE_VAR) {
-        vf = e->e.v.vf;
-        newrow = row = e->e.v.vp->row;
-        newcol = col = e->e.v.vp->col;
+        vf = e->e.cr.vf;
+        newrow = row = e->e.cr.row;
+        newcol = col = e->e.cr.col;
         if (row >= r1 && row <= r2 && col >= c1 && col <= c2) {
             if (!(vf & FIX_ROW))
                 newrow = transpose ? r1 + deltar + col - c1 : row + deltar;
             if (!(vf & FIX_COL))
                 newcol = transpose ? c1 + deltac + row - r1 : col + deltac;
         }
-        ret->e.v.vp = lookat(sp, newrow, newcol);
-        ret->e.v.vf = vf;
+        ret->e.cr.vf = vf;
+        ret->e.cr.row = newrow;
+        ret->e.cr.col = newcol;
     } else
     if (e->type == OP_TYPE_DOUBLE) {
         ret->e.k = e->e.k;
@@ -3549,40 +3543,44 @@ static void out_error(decomp_t *dcp, int err) {
     buf_puts(dcp->buf, error_name[err]);
 }
 
-static void out_var(decomp_t *dcp, struct ent_ptr v, int usename) {
+static void out_var(decomp_t *dcp, cellref_t cr, int usename) {
     int row, col;
     struct nrange *r;
 
-    if (!v.vp || (v.vp->flags & IS_DELETED)
-    ||  (row = v.vp->row + dcp->dr) < 0
-    ||  (col = v.vp->col + dcp->dc) < 0) {
+    if ((cr.sheet != 0)
+    ||  (row = cr.row + dcp->dr) < 0
+    ||  (col = cr.col + dcp->dc) < 0) {
         buf_puts(dcp->buf, "@ERR");
     } else
     if (!(dcp->flags & DCP_NO_NAME) && usename
-    &&  (r = nrange_find_coords(dcp->sp, rangeref(v.vp->row, v.vp->col, v.vp->row, v.vp->col))) != NULL
+    &&  (r = nrange_find_coords(dcp->sp, rangeref2(cr, cr))) != NULL
     &&  !r->is_range) {
         // XXX: this is incorrect if the named range has different flags
         buf_puts(dcp->buf, s2c(r->name));
     } else {
         buf_printf(dcp->buf, "%s%s%s%d",
-                   (v.vf & FIX_COL) ? "$" : "", coltoa(col),
-                   (v.vf & FIX_ROW) ? "$" : "", row);
+                   (cr.vf & FIX_COL) ? "$" : "", coltoa(cr.col),
+                   (cr.vf & FIX_ROW) ? "$" : "", cr.row);
     }
 }
 
-static void out_range(decomp_t *dcp, enode_t *e) {
+static void out_range(decomp_t *dcp, enode_t *e, rangeref_t rr) {
     struct nrange *r;
 
+    if ((rr.left.sheet != 0 || rr.right.sheet != 0)
+    ||  (rr.left.row + dcp->dr) < 0
+    ||  (rr.left.col + dcp->dc) < 0) {
+        buf_puts(dcp->buf, "@ERR");
+    } else
     if (!(dcp->flags & DCP_NO_NAME)
-    &&  (r = nrange_find_coords(dcp->sp, rangeref(e->e.r.left.vp->row, e->e.r.left.vp->col,
-                                                  e->e.r.right.vp->row, e->e.r.right.vp->col))) != NULL
+    &&  (r = nrange_find_coords(dcp->sp, rr)) != NULL
     &&  r->is_range) {
         // XXX: this is incorrect if the named range has different flags
         buf_puts(dcp->buf, s2c(r->name));
     } else {
-        out_var(dcp, e->e.r.left, 0);
+        out_var(dcp, rr.left, 0);
         buf_putc(dcp->buf, ':');
-        out_var(dcp, e->e.r.right, 0);
+        out_var(dcp, rr.right, 0);
     }
 }
 
@@ -3649,8 +3647,8 @@ static void decompile_node(decomp_t *dcp, enode_t *e, int priority) {
     case OP_DUMMY:      decompile_node(dcp, e->e.args[1], priority); break;
     case OP__NUMBER:    out_number(dcp, e->e.k);        break;
     case OP__STRING:    out_string(dcp, s2c(e->e.s));   break;
-    case OP__VAR:       out_var(dcp, e->e.v, 1);        break;
-    case OP__RANGE:     out_range(dcp, e);              break;
+    case OP__VAR:       out_var(dcp, e->e.cr, 1);       break;
+    case OP__RANGE:     out_range(dcp, e, e->e.rr);     break;
     case OP__ERROR:     out_error(dcp, e->e.error);     break;
     case OP__BADFUNC:
     case OP__BADNAME:   out_badfunc(dcp, e);            break;
