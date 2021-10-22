@@ -3460,7 +3460,7 @@ void let(sheet_t *sp, cellref_t cr, SCXMEM enode_t *e, int align) {
     }
 
     // XXX: locked cell checking is done in vi.c. just return silently
-    if (v == NULL || (v->flags & IS_LOCKED)) {
+    if (v == NULL || (sp->protect && (v->flags & IS_LOCKED))) {
         efree(e);
         return;
     }

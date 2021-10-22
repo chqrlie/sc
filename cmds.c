@@ -46,7 +46,7 @@ static struct ent *free_ents;
 
 #define ATBL(sp, row, col)     (&(sp)->tbl[row][col])
 
-static int any_locked_cells(sheet_t *sp, int r1, int c1, int r2, int c2);
+static int any_locked_cells(sheet_t *sp, rangeref_t rr);
 static void move_area(sheet_t *sp, int dr, int dc, rangeref_t rr);
 static void yank_area(sheet_t *sp, int idx, rangeref_t rr);
 #define KA_DEFAULT      0
@@ -219,16 +219,12 @@ int valid_cell(sheet_t *sp, int row, int col) {
 }
 
 /* move a cell to the delbuf list (reverse order) */
-static void killcell(sheet_t *sp, int row, int col,
-                     subsheet_t *db, int ignorelock, int unlock)
-{
+static void killcell(sheet_t *sp, int row, int col, subsheet_t *db) {
     if (row >= 0 && row <= sp->maxrow && col >= 0 && col <= sp->maxcol) {
         struct ent **pp = ATBL(sp, row, col);
-        struct ent *p;
-        if ((p = *pp) && (!(p->flags & IS_LOCKED) || ignorelock)) {
+        struct ent *p = *pp;
+        if (p) {
             p->flags |= IS_DELETED;
-            if (unlock)
-                p->flags &= ~IS_LOCKED;
             *pp = NULL;
             if (db) {
                 p->row__ = row;
@@ -538,10 +534,9 @@ void delete_rows(sheet_t *sp, int r1, int r2) {
         c1 = fr->orr.left.col;
         c2 = fr->orr.right.col;
     }
-    if (any_locked_cells(sp, r1, c1, r2, c2)) {
-        error("Locked cells encountered. Nothing changed");
+    if (any_locked_cells(sp, rangeref(r1, c1, r2, c2)))
         return;
-    }
+
     delbuf_free(DELBUF_9);
     delbuf_free(qbuf);
     sync_refs(sp);
@@ -687,8 +682,8 @@ static void kill_area(sheet_t *sp, int idx, int sr, int sc, int er, int ec, int 
         for (r = sr; r <= er; r++) {
             for (c = sc; c <= ec; c++) {
                 struct ent **pp = ATBL(sp, r, c);
-                struct ent *p;
-                if ((p = *pp) && (!(p->flags & IS_LOCKED) || (flags & KA_IGNORE_LOCK))) {
+                struct ent *p = *pp;
+                if (p) {
                     p->flags |= IS_DELETED;
                     *pp = NULL;
                     ent_free(p);
@@ -743,7 +738,7 @@ static void kill_area(sheet_t *sp, int idx, int sr, int sc, int er, int ec, int 
     } else {
         for (r = sr; r <= er; r++) {
             for (c = sc; c <= ec; c++) {
-                killcell(sp, r, c, db, flags & KA_IGNORE_LOCK, 0);
+                killcell(sp, r, c, db);
             }
         }
     }
@@ -805,14 +800,13 @@ void valueize_area(sheet_t *sp, rangeref_t rr) {
     int r, c;
 
     range_normalize(&rr);
+    if (any_locked_cells(sp, rr))
+        return;
+
     for (r = rr.left.row; r <= rr.right.row; r++) {
         for (c = rr.left.col; c <= rr.right.col; c++) {
             struct ent *p = getcell(sp, r, c);
             if (p && p->expr) {
-                if (p->flags & IS_LOCKED) {
-                    error(" Cell %s is locked", cell_addr(sp, cellref(r, c)));
-                    continue;
-                }
                 efree(p->expr);
                 p->expr = NULL;
             }
@@ -959,7 +953,7 @@ static void pullcells(sheet_t *sp, int src, int cmd, cellref_t cr) {
             db = delbuf_find(DELBUF_TMP1);
             for (p = delbuf[src]->ptr; p; p = p->next) {
                 // XXX: db->colfmt and db->rowfmt are NULL
-                killcell(sp, p->row__ + deltar, p->col__ + deltac, db, 0, 1);
+                killcell(sp, p->row__ + deltar, p->col__ + deltac, db);
             }
         }
         /* move the cells from delbuf to destination */
@@ -1018,10 +1012,9 @@ void delete_cols(sheet_t *sp, int c1, int c2) {
         return;
     }
 
-    if (any_locked_cells(sp, 0, c1, sp->maxrow, c2)) {
-        error("Locked cells encountered. Nothing changed");
+    if (any_locked_cells(sp, rangeref(0, c1, sp->maxrow, c2)))
         return;
-    }
+
     ncols = c2 - c1 + 1;
     // XXX: probably useless and counterproductive
     //      this is for frange_get_current(sp) which is questionable
@@ -1221,6 +1214,9 @@ void copy_range(sheet_t *sp, int flags, rangeref_t drr, rangeref_t srr) {
         return;
     }
 
+    if (any_locked_cells(sp, rangeref(minsr, minsc, maxsr, maxsc)))
+        return;
+
     if (flags & COPY_FROM_QBUF) {
         delbuf_copy(qbuf, DELBUF_TMP1);
     } else {
@@ -1248,8 +1244,6 @@ void copy_range(sheet_t *sp, int flags, rangeref_t drr, rangeref_t srr) {
                 int vc = p->col__ + deltac;
                 if (vr <= maxdr && vc <= maxdc) {
                     struct ent *n = lookat(sp, vr, vc);
-                    if (n->flags & IS_LOCKED)
-                        continue;
                     ent_copy(sp, n, p, deltar, deltac, 0, 0, sp->maxrow, sp->maxcol, 0);
                 }
             }
@@ -1308,19 +1302,20 @@ void fill_range(sheet_t *sp, rangeref_t rr, double start, double inc, int bycols
     int dc = bycols != 0;
 
     range_normalize(&rr);
+    if (any_locked_cells(sp, rr))
+        return;
 
     for (c = rr.left.col, r = rr.left.row;;) {
         struct ent *p = lookat(sp, r, c);
-        if (!(p->flags & IS_LOCKED)) {
-            if (p->type == SC_STRING) {
-                string_set(&p->label, NULL); /* free the previous label */
-            }
-            p->type = SC_NUMBER;
-            p->cellerror = 0;
-            p->flags |= IS_CHANGED;
-            p->v = start;
-            start += inc;
+        if (p->type == SC_STRING) {
+            string_set(&p->label, NULL); /* free the previous label */
         }
+        p->type = SC_NUMBER;
+        p->cellerror = 0;
+        p->flags |= IS_CHANGED;
+        p->v = start;
+        start += inc;
+
         if ((c += dc) > rr.right.col) {
             c = rr.left.col;
             if (++r > rr.right.row)
@@ -1342,6 +1337,9 @@ void lock_cells(sheet_t *sp, rangeref_t rr) {
     int r, c;
 
     range_normalize(&rr);
+    if (any_locked_cells(sp, rr))
+        return;
+
     for (r = rr.left.row; r <= rr.right.row; r++) {
         for (c = rr.left.col; c <= rr.right.col; c++) {
             struct ent *p = lookat(sp, r, c);
@@ -1357,6 +1355,9 @@ void unlock_cells(sheet_t *sp, rangeref_t rr) {
     int r, c;
 
     range_normalize(&rr);
+    if (any_locked_cells(sp, rr))
+        return;
+
     for (r = rr.left.row; r <= rr.right.row; r++) {
         for (c = rr.left.col; c <= rr.right.col; c++) {
             struct ent *p = getcell(sp, r, c);
@@ -1377,22 +1378,19 @@ void format_cells(sheet_t *sp, rangeref_t rr, SCXMEM string_t *str) {
         str = NULL;
     }
 
-    // XXX: should be skip locked cells silently
-    //      or should be fail with an error
     range_normalize(&rr);
+    if (any_locked_cells(sp, rr))
+        return;
+
     for (r = rr.left.row; r <= rr.right.row; r++) {
         for (c = rr.left.col; c <= rr.right.col; c++) {
             if (str) {
                 struct ent *p = lookat(sp, r, c);
-                if (p->flags & IS_LOCKED)
-                    continue;
                 string_set(&p->format, string_dup(str));
                 p->flags |= IS_CHANGED;
             } else {
                 struct ent *p = getcell(sp, r, c);
-                if (!p || (p->flags & IS_LOCKED))
-                    continue;
-                if (p->format) {
+                if (p && p->format) {
                     string_set(&p->format, NULL);
                     p->flags |= IS_CHANGED;
                 }
@@ -1779,7 +1777,7 @@ static void ent_copy(sheet_t *sp, struct ent *n, struct ent *p, int dr, int dc,
     }
     if (special == 'f' || hasvalue) {
         /* transfer alignment and LOCKED flag */
-        n->flags &= ~ALIGN_MASK;
+        n->flags &= ~(ALIGN_MASK | IS_LOCKED);
         n->flags |= p->flags & (ALIGN_MASK | IS_LOCKED);
         if (p->format) {
             string_set(&n->format, string_dup(p->format));
@@ -1853,24 +1851,30 @@ void erasedb(sheet_t *sp) {
 
 /* Returns 1 if cell is locked, 0 otherwise */
 int locked_cell(sheet_t *sp, int row, int col) {
-    struct ent *p = getcell(sp, row, col);
-    if (p && (p->flags & IS_LOCKED)) {
-        error("Cell %s is locked", cell_addr(sp, cellref(row, col)));
-        return 1;
+    if (sp->protect) {
+        struct ent *p = getcell(sp, row, col);
+        if (p && (p->flags & IS_LOCKED)) {
+            error("Cell %s is locked", cell_addr(sp, cellref(row, col)));
+            return 1;
+        }
     }
     return 0;
 }
 
 /* Check if area contains locked cells */
-static int any_locked_cells(sheet_t *sp, int r1, int c1, int r2, int c2) {
-    int r, c;
-    struct ent *p;
+static int any_locked_cells(sheet_t *sp, rangeref_t rr) {
+    if (sp->protect) {
+        int r, c;
+        struct ent *p;
 
-    for (r = r1; r <= r2; r++) {
-        for (c = c1; c <= c2; c++) {
-            p = getcell(sp, r, c);
-            if (p && (p->flags & IS_LOCKED))
-                return 1;
+        for (r = rr.left.row; r <= rr.right.row; r++) {
+            for (c = rr.left.col; c <= rr.right.col; c++) {
+                p = getcell(sp, r, c);
+                if (p && (p->flags & IS_LOCKED)) {
+                    error("Locked cells encountered. Nothing changed");
+                    return 1;
+                }
+            }
         }
     }
     return 0;
@@ -2148,10 +2152,8 @@ void sort_range(sheet_t *sp, rangeref_t rr, SCXMEM string_t *criteria) {
     if (nrows <= 1)
         goto done;
 
-    if (any_locked_cells(sp, sc->minr, sc->minc, sc->maxr, sc->maxc)) {
-        error("Locked cells encountered. Nothing changed");
+    if (any_locked_cells(sp, rr))
         goto done;
-    }
 
     /* allocate sort criteria: at type 0, type 1 col=minc */
     sc->crit = scxmalloc(sizeof(*sc->crit) * 2);

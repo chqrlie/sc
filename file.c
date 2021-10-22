@@ -47,6 +47,7 @@ static void write_options(sheet_t *sp, FILE *f) {
         !sp->rndtoeven &&
         sp->propagation == 10 &&
         sp->calc_order == BYROWS &&
+        !sp->protect &&
         !sp->numeric &&
         sp->prescale == 1.0 &&
         !sp->extfunc &&
@@ -71,6 +72,7 @@ static void write_options(sheet_t *sp, FILE *f) {
     if (sp->rndtoeven)  fprintf(f, " rndtoeven");
     if (sp->propagation != 10)  fprintf(f, " iterations = %d", sp->propagation);
     if (sp->calc_order != BYROWS )  fprintf(f, " bycols");
+    if (sp->protect)    fprintf(f, " protect");
     if (sp->numeric)    fprintf(f, " numeric");
     if (sp->prescale != 1.0)    fprintf(f, " prescale");
     if (sp->extfunc)    fprintf(f, " extfun");

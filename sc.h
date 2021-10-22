@@ -444,6 +444,7 @@ typedef struct sheet {
     int rndtoeven;
     int propagation;   /* max number of times to try calculation */
     int calc_order;
+    int protect;
     int numeric;
     double prescale;   /* Prescale for constants in let() */
     int extfunc;       /* Enable/disable external functions */

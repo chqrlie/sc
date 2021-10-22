@@ -412,7 +412,7 @@ void vi_interaction(sheet_t *sp) {
                     break;      /* ignore flow control */
 
                 case ctl('t'):
-                    error("Toggle: a:auto,c:cell,e:ext funcs,n:numeric,t:top,"
+                    error("Toggle: a:auto,c:cell,e:ext funcs,n:numeric,p:protection,t:top,"
 #ifndef NOCRYPT
                           "x:encrypt,"
 #endif
@@ -463,6 +463,11 @@ void vi_interaction(sheet_t *sp) {
                         autolabel = !autolabel;
                         error("Autolabel %s.",
                               autolabel ? "enabled" : "disabled");
+                        break;
+                    case 'p':
+                        sp->protect = !sp->protect;
+                        error("Protect mode %s.",
+                              sp->protect ? "enabled" : "disabled");
                         break;
                     case 'n':
                         sp->numeric = !sp->numeric;

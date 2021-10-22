@@ -221,6 +221,7 @@ static SCXMEM string_t *get_strarg(sheet_t *sp, cellref_t cr) {
 %token K_BYCOLS
 %token K_OPTIMIZE
 %token K_ITERATIONS
+%token K_PROTECT
 %token K_NUMERIC
 %token K_PRESCALE
 %token K_EXTFUN
@@ -615,6 +616,7 @@ setitem : not K_AUTO                { set_autocalc(sht, $1); }
         | not K_COLORNEG            { sht->colorneg = $1; FullUpdate++; }
         | not K_COLORERR            { sht->colorerr = $1; FullUpdate++; }
         | not K_EXTFUN              { sht->extfunc = $1; }
+        | not K_PROTECT             { sht->protect = $1; }
         | not K_NUMERIC             { sht->numeric = $1; }
         | not K_OPTIMIZE            { sht->optimize = $1; }
         | not K_PRESCALE            { sht->prescale = $1 ? 0.01 : 1.0; } // XXX: should use 100.0

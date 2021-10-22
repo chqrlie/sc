@@ -64,6 +64,7 @@ static const char * const toggleoptions[] = {
 "          e    External function execution enable/disable.",
 "          l    Autolabeling defined cells enable/disable.",
 "          n    If enabled, a digit starts a numeric value.",
+"          p    Spreadsheet protection mode.",
 "          t    Top line display enable/disable.",
 #ifndef NOCRYPT
 "          x    Encrypt/decrypt database and listing files.",
