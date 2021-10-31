@@ -470,7 +470,6 @@ typedef struct adjust_context {
     rangeref_t move_rr;
     int clamp_newr, clamp_newc;
     int move_dr, move_dc;
-    int *destrows;
 } adjust_ctx_t;
 
 extern void cell_adjust(adjust_ctx_t *ap, cellref_t *cp);

@@ -581,12 +581,13 @@ void vi_interaction(sheet_t *sp) {
                 case ctl('w'):  /* insert variable expression */
                     if (linelim >= 0) {
                         buf_init2(buf, line, sizeof line, linelen);
-                        // XXX: why allocate cell?
-                        p = lookat(sp, sp->currow, sp->curcol);
+                        p = getcell(sp, sp->currow, sp->curcol);
                         /* decompile expression into line array */
                         // XXX: insert expression instead of appending?
                         // XXX: should pass sp->currow, sp->curcol as the cell reference
-                        linelim = linelen = decompile_expr(sp, buf, p->expr, 0, 0, DCP_DEFAULT);
+                        if (p && p->expr)
+                            decompile_expr(sp, buf, p->expr, 0, 0, DCP_DEFAULT);
+                        linelim = linelen = buf->len;
                     }
                     break;
 
@@ -1082,10 +1083,9 @@ void vi_interaction(sheet_t *sp) {
                 case 'e':
                 case 'E':
                     if (!locked_cell(sp, sp->currow, sp->curcol)) {
-                        // XXX: why allocate cell?
-                        p = lookat(sp, sp->currow, sp->curcol);
-                        /* copy cell contents into line array */
                         buf_init(buf, line, sizeof line);
+                        p = getcell(sp, sp->currow, sp->curcol);
+                        /* copy cell contents into line array */
                         // XXX: the conversion should be localized
                         linelim = linelen = edit_cell(sp, buf, sp->currow, sp->curcol,
                                                       p, 0, 0, DCP_DEFAULT, '"');

@@ -50,7 +50,6 @@ static int any_locked_cells(sheet_t *sp, rangeref_t rr);
 static void move_area(sheet_t *sp, int dr, int dc, rangeref_t rr);
 static void yank_area(sheet_t *sp, int idx, rangeref_t rr);
 #define KA_DEFAULT      0
-#define KA_IGNORE_LOCK  1
 #define KA_NO_FMT       2
 #define KA_COPY         4
 static void kill_area(sheet_t *sp, int idx, int sr, int sc, int er, int ec, int flags);
@@ -428,7 +427,6 @@ int insert_rows(sheet_t *sp, cellref_t cr, int arg, int delta) {
     adjust_ctx.move_rr = rr;
     adjust_ctx.move_dr = arg;
     adjust_ctx.move_dc = 0;
-    adjust_ctx.destrows = NULL;
     adjust_refs(&adjust_ctx);
 
     // XXX: cell coordinates have been updated
@@ -489,7 +487,6 @@ int insert_cols(sheet_t *sp, cellref_t cr, int arg, int delta) {
     adjust_ctx.move_rr = rangeref(0, sc1, sp->maxrow, sc2);
     adjust_ctx.move_dr = 0;
     adjust_ctx.move_dc = arg;
-    adjust_ctx.destrows = NULL;
     adjust_refs(&adjust_ctx);
 
     // XXX: cell coordinates have been updated
@@ -594,7 +591,6 @@ void delete_rows(sheet_t *sp, int r1, int r2) {
     adjust_ctx.move_rr = rangeref(r2 + 1, c1, sp->maxrow, c2);
     adjust_ctx.move_dr = -nrows;
     adjust_ctx.move_dc = 0;
-    adjust_ctx.destrows = NULL;
     adjust_refs(&adjust_ctx);
     if (!fr) {
         sp->maxrow -= nrows;
@@ -1059,7 +1055,6 @@ void delete_cols(sheet_t *sp, int c1, int c2) {
     adjust_ctx.move_rr = rangeref(0, c2 + 1, sp->maxrow, sp->maxcol);
     adjust_ctx.move_dr = 0;
     adjust_ctx.move_dc = -ncols;
-    adjust_ctx.destrows = NULL;
     adjust_refs(&adjust_ctx);
 
     sp->maxcol -= ncols;
@@ -1557,23 +1552,12 @@ void cell_adjust(adjust_ctx_t *ap, cellref_t *cp) {
         if (ap->clamp_newc >= 0) cp->col = ap->clamp_newc;
     } else
     if (cell_in_range(*cp, ap->move_rr)) {
-        if (ap->destrows) {
-            cp->row = ap->destrows[cp->row - ap->move_rr.left.row];
-        } else {
-            cp->row += ap->move_dr;
-            cp->col += ap->move_dc;
-        }
+        cp->row += ap->move_dr;
+        cp->col += ap->move_dc;
     }
 }
 
 void range_adjust(adjust_ctx_t *ap, rangeref_t *rp) {
-    if (ap->destrows) {
-        if (rp->left.row == rp->right.row
-        &&  cell_in_range(rp->left, ap->clamp_rr)
-        &&  cell_in_range(rp->right, ap->clamp_rr))
-            rp->left.row = rp->right.row = ap->destrows[rp->left.row - ap->move_rr.left.row];
-        return;
-    }
     if (cell_in_range(rp->left, ap->clamp_rr)) {
         if (ap->clamp_newr >= 0) rp->left.row = ap->clamp_newr;
         if (ap->clamp_newc >= 0) rp->left.col = ap->clamp_newc;
@@ -2059,7 +2043,7 @@ struct sortcrit {
 
 typedef struct sort_context {
     sheet_t *sp;
-    int minr, minc, maxr, maxc;
+    rangeref_t rr;
     SCXMEM struct sortcrit *crit;
     int ncrit;
 } sort_ctx_t;
@@ -2137,18 +2121,14 @@ void sort_range(sheet_t *sp, rangeref_t rr, SCXMEM string_t *criteria) {
     struct sortcrit *crit;
     SCXMEM int *rows;
     SCXMEM int *destrows;
-    int i, r, nrows, col, len;
+    int i, r, c, r1, nrows, col, len;
     const char *cp;
-    struct ent *p;
-    adjust_ctx_t adjust_ctx;
+    struct ent *p, *n;
 
     range_normalize(&rr);
     sc->sp = sp;
-    sc->minr = rr.left.row;
-    sc->minc = rr.left.col;
-    sc->maxr = rr.right.row;
-    sc->maxc = rr.right.col;
-    nrows = sc->maxr - sc->minr + 1;
+    sc->rr = rr;
+    nrows = rr.right.row - rr.left.row + 1;
     if (nrows <= 1)
         goto done;
 
@@ -2163,16 +2143,16 @@ void sort_range(sheet_t *sp, rangeref_t rr, SCXMEM string_t *criteria) {
     if (!sc->crit || !rows || !destrows)
         goto fail;
 
-    for (i = 0, r = sc->minr; r <= sc->maxr; r++, i++)
+    for (i = 0, r = rr.left.row; r <= rr.right.row; r++, i++)
         rows[i] = destrows[i] = r;
 
     if (sempty(criteria)) {
         sc->crit[0].direction = 1;
         sc->crit[0].type = 1;
-        sc->crit[0].column = sc->minc;
+        sc->crit[0].column = rr.left.col;
         sc->crit[1].direction = 1;
         sc->crit[1].type = 0;
-        sc->crit[1].column = sc->minc;
+        sc->crit[1].column = rr.left.col;
         sc->ncrit = 2;
     } else {
         for (sc->ncrit = 0, cp = s2c(criteria); *cp; sc->ncrit++) {
@@ -2209,7 +2189,7 @@ void sort_range(sheet_t *sp, rangeref_t rr, SCXMEM string_t *criteria) {
             if ((col = atocol(cp, &len)) >= 0) {
                 cp += len;
                 crit->column = col;
-                if (col >= sc->minc && col <= sc->maxc)
+                if (col >= sc->rr.left.col && col <= sc->rr.right.col)
                     continue;
             }
             error("Invalid sort criteria");
@@ -2222,45 +2202,28 @@ void sort_range(sheet_t *sp, rangeref_t rr, SCXMEM string_t *criteria) {
     qsort(rows, nrows, sizeof(*rows), compare);
     sort_context = NULL;
     for (i = 0; i < nrows; i++)
-        destrows[rows[i] - sc->minr] = sc->minr + i;
+        destrows[rows[i] - rr.left.row] = rr.left.row + i;
 
-    // XXX: this is bogus:
-    // - cell values and formats should be moved
-    // - cell borders should be left unchanged?
-    // - ranges should be adjusted if completely included
-    //   in a single row of the sorting range
-    /* move cell range to temporary subsheet */
-    kill_area(sp, DELBUF_TMP1, sc->minr, sc->minc, sc->maxr, sc->maxc, KA_NO_FMT | KA_IGNORE_LOCK);
-    // XXX: this seems bogus too
-    // XXX: make formulas that refer to the sort range
-    //      point to empty cells
-    // XXX: should we use sync_refs() instead?
-    // XXX: should use destrows to update formulae and ranges
-    //      the current model just moves all cells and updates all ranges
+    // XXX: Should copy cell values, expressions and formats, leave borders unchanged
+    kill_area(sp, DELBUF_TMP1, rr.left.row, rr.left.col, rr.right.row, rr.right.col, KA_NO_FMT);
     sync_ranges(sp);
     for (p = delbuf[DELBUF_TMP1]->ptr; p; p = p->next) {
-        if (p->row__ < sc->minr || p->row__ > sc->maxr) {
+        r = p->row__;
+        c = p->col__;
+        if (r < rr.left.row || r > rr.right.row) {
             /* cannot find row in sort range */
             error("sort error");
             break;
         }
-        p->row__ = destrows[p->row__ - sc->minr];
-        p->flags &= ~IS_DELETED;
-        setcell(sp, p->row__, p->col__, p);
+        r1 = destrows[r - rr.left.row];
+        n = lookat(sp, r1, c);
+        // XXX: should keep the original borders
+        ent_copy(sp, n, p, r1 - r, 0, 0, 0, sp->maxrow, sp->maxcol, 0);
+        setcell(sp, r1, c, p);
     }
-    delbuf[DELBUF_TMP1]->ptr = NULL;
     delbuf_free(DELBUF_TMP1);
 
-    /* Adjust range references. */
-    adjust_ctx.sp = sp;
-    adjust_ctx.clamp_rr = rangeref(-1, -1, -1, -1);
-    adjust_ctx.clamp_newr = -1;
-    adjust_ctx.clamp_newc = -1;
-    adjust_ctx.move_rr = rr;
-    adjust_ctx.move_dr = 0;
-    adjust_ctx.move_dc = 0;
-    adjust_ctx.destrows = destrows;
-    adjust_refs(&adjust_ctx);
+    /* Do not adjust range references. */
 
 fail:
     scxfree(sc->crit);
