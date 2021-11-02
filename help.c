@@ -5,13 +5,13 @@
  *              J. Buhrt 1990
  *              Charlie Gordon 2021
  *
- *              $Revision: 8.1 $
+ *              $Revision: 9.1 $
  */
 
 #ifdef QREF
 #include <stdio.h>
 static const char * const header = " Quick Reference";
-static const char * const revision = "$Revision: 8.1 $";
+static const char * const revision = "$Revision: 9.1 $";
 #else
 #include "sc.h"
 #endif /* QREF */

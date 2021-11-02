@@ -16,9 +16,9 @@
 .\" - TPs use default indent except for function names, then 18.
 .\" - Smallify uppercase strings.
 .\" - Avoid passive voice and third person.
-.\" $Revision: 8.1 $
+.\" $Revision: 9.1 $
 .\"
-.TH PNAME 1 "June 14, 2021" "PNAME #REVISION#"
+.TH PNAME 1 "November 2, 2021" "PNAME #REVISION#"
 .SH NAME
 pname \- spreadsheet calculator
 .SH SYNOPSIS

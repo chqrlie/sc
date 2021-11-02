@@ -31,7 +31,6 @@ Evaluator:
 [ ] add unified regex support for searching etc.
 [ ] minimize recompute: only recompute formulas whose antecedents change
 [ ] support unicode versions of case conversions
-[ ] use range references instead of ent_ptr in formulas
 
 Parser:
 [ ] set NULL arguments for omitted arguments
@@ -187,3 +186,4 @@ Build:
 [X] use rangeref_t for find_range_coords()
 [X] change representation for ranges
 [X] fix locked cell behavior: no effect unless sheet protection is on
+[X] use range references instead of ent_ptr in formulas

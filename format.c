@@ -1,11 +1,20 @@
-/*****************************************************************************
+/*      SC      A Table Calculator
+ *              Cell Formating functions
  *
- * Mark Nagel <nagel@ics.uci.edu>
- * 20 July 1989
+ *              Mark Nagel <nagel@ics.uci.edu>, 20 July 1989
+ *              updated by Charlie Gordon: June, 2021
  *
- * $Revision: 8.1 $
- *
- * int format(buf, buflen, fmt, precision, num)
+ *              $Revision: 9.1 $
+ */
+
+#ifdef USELOCALE
+#include <locale.h>
+#endif
+#include <math.h>
+#include <time.h>
+#include "sc.h"
+
+/* int format(buf, buflen, fmt, precision, num)
  *            char buf[];
  *            int buflen;
  *            const char *fmt;
@@ -103,13 +112,6 @@
  *  _    Adds a space equal in width to the following character.
  *
  *****************************************************************************/
-
-#ifdef USELOCALE
-#include <locale.h>
-#endif
-#include <math.h>
-#include <time.h>
-#include "sc.h"
 
 /*****************************************************************************/
 

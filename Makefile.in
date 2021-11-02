@@ -1,4 +1,7 @@
-# Makefile $Revision: 8.1 $
+# 	SC	A Spreadsheet Calculator
+#		Makefile template
+#
+#		$Revision: 9.1 $
 #
 # 1) Select the proper EXDIR (path), MANDIR, MANEXT, LIBDIR, SIGVOID,
 #	REGEX, DFLT_PAGER, and FMOD. Most of the other things aren't

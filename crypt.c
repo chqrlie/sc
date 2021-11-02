@@ -1,8 +1,11 @@
-/*
- * Encryption utilites
- * Bradley Williams
- * {allegra,ihnp4,uiucdcs,ctvax}!convex!williams
- * $Revision: 8.1 $
+/*      SC      A Table Calculator
+ *              Encryption utilites
+ *
+ *              Bradley Williams
+ *              {allegra,ihnp4,uiucdcs,ctvax}!convex!williams
+ *              updated by Charlie Gordon: June, 2021
+ *
+ *              $Revision: 9.1 $
  */
 
 #include <sys/file.h>
