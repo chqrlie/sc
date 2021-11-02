@@ -47,7 +47,6 @@ Parser:
 [ ] add format info in scvalue_t
 
 Database:
-[ ] fix locked cell behavior: no effect unless sheet protection is on
 [ ] fix note references on 'dr/pr'
 [ ] keep range names in formulae and other range definitions
 [ ] fix format numbering, col, row, cell format precedence
@@ -187,3 +186,4 @@ Build:
 [X] improve r_name() and v_name() APIs, use v_name() instead of coltoa()
 [X] use rangeref_t for find_range_coords()
 [X] change representation for ranges
+[X] fix locked cell behavior: no effect unless sheet protection is on

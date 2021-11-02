@@ -52,7 +52,8 @@ static void yank_area(sheet_t *sp, int idx, rangeref_t rr);
 #define KA_DEFAULT      0
 #define KA_NO_FMT       2
 #define KA_COPY         4
-static void kill_area(sheet_t *sp, int idx, int sr, int sc, int er, int ec, int flags);
+static void kill_area(sheet_t *sp, int idx, rangeref_t rr, int flags);
+// XXX: should use rangeref_t for adjust range
 static void ent_copy(sheet_t *sp, struct ent *n, struct ent *p,
                      int dr, int dc, int r1, int c1, int r2, int c2, int transpose);
 
@@ -537,7 +538,7 @@ void delete_rows(sheet_t *sp, int r1, int r2) {
     delbuf_free(DELBUF_9);
     delbuf_free(qbuf);
     sync_refs(sp);
-    kill_area(sp, DELBUF_DEF, r1, c1, r2, c2, KA_DEFAULT);
+    kill_area(sp, DELBUF_DEF, rangeref(r1, c1, r2, c2), KA_DEFAULT);
     // XXX: should delay until after area has moved
     fix_ranges(sp, r1, -1, r2, -1, -1, -1, fr);
     delbuf_copy(DELBUF_DEF, qbuf);
@@ -658,13 +659,15 @@ void yank_cols(sheet_t *sp, int c1, int c2) {
     qbuf = 0;
 }
 
-/* ignorelock is used when sorting so that locked cells can still be sorted */
-
 /* move cell range to subsheet delbuf[idx] */
 // XXX: should not modify sheet boundaries
-static void kill_area(sheet_t *sp, int idx, int sr, int sc, int er, int ec, int flags) {
+static void kill_area(sheet_t *sp, int idx, rangeref_t rr, int flags) {
     subsheet_t *db;
     int r, c;
+    int sr = rr.left.row;
+    int sc = rr.left.col;
+    int er = rr.right.row;
+    int ec = rr.right.col;
 
     if (sr > er) SWAPINT(sr, er);
     if (sc > ec) SWAPINT(sc, ec);
@@ -744,7 +747,7 @@ static void kill_area(sheet_t *sp, int idx, int sr, int sc, int er, int ec, int 
 static void yank_area(sheet_t *sp, int idx, rangeref_t rr) {
     range_clip(sp, range_normalize(&rr));
     /* copy cell range to subsheet delbuf[idx] */
-    kill_area(sp, idx, rr.left.row, rr.left.col, rr.right.row, rr.right.col, KA_COPY);
+    kill_area(sp, idx, rr, KA_COPY);
 }
 
 /* uses temporary subsheet DELBUF_TMP1 */
@@ -759,7 +762,7 @@ static void move_area(sheet_t *sp, int dr, int dc, rangeref_t rr) {
      * buffer stack.
      */
     /* move cell range to temporary subsheet */
-    kill_area(sp, DELBUF_TMP1, rr.left.row, rr.left.col, rr.right.row, rr.right.col, KA_DEFAULT);
+    kill_area(sp, DELBUF_TMP1, rr, KA_DEFAULT);
 
     deltar = dr - rr.left.row;
     deltac = dc - rr.left.col;
@@ -769,7 +772,7 @@ static void move_area(sheet_t *sp, int dr, int dc, rangeref_t rr) {
      * as we go, leaving the stack in its original state.
      */
     /* discard cell range to black hole */
-    kill_area(sp, -1, dr, dc, rr.right.row + deltar, rr.right.col + deltac, KA_NO_FMT);
+    kill_area(sp, -1, rangeref(dr, dc, rr.right.row + deltar, rr.right.col + deltac), KA_NO_FMT);
     // XXX: why not sync_refs() ??? most likely a bug
     // XXX: if moving entire columns or rows, the column or row flags should be copied
     // XXX: this could be addressed with flags
@@ -897,26 +900,25 @@ static void pullcells(sheet_t *sp, int src, int cmd, cellref_t cr) {
          * delete buffer stack in preparation for the exchange.
          */
         /* move cell range to temporary subsheet */
-        kill_area(sp, DELBUF_TMP1, minrow + deltar, mincol + deltac,
-                   maxrow + deltar, maxcol + deltac, KA_DEFAULT);
+        kill_area(sp, DELBUF_TMP1, rangeref(minrow + deltar, mincol + deltac,
+                                            maxrow + deltar, maxcol + deltac), KA_DEFAULT);
     } else
     if (cmd == 'p') {     /* PULL */
         // XXX: should just clear area (free cells) and sync the references
-        kill_area(sp, DELBUF_TMP1, minrow + deltar, mincol + deltac,
-                   maxrow + deltar, maxcol + deltac, KA_NO_FMT);
+        kill_area(sp, DELBUF_TMP1, rangeref(minrow + deltar, mincol + deltac,
+                                            maxrow + deltar, maxcol + deltac), KA_NO_FMT);
         sync_refs(sp);
         delbuf_free(DELBUF_TMP1);
     } else
     if (cmd == 't') {     /* PULLTP (transpose) */
         // XXX: named ranges and range references may not be updated properly
         // XXX: should just clear area (free cells) and sync the references
-        kill_area(sp, DELBUF_TMP1, minrow + deltar, mincol + deltac,
-                   minrow + deltar + maxcol - mincol,
-                   mincol + deltac + maxrow - minrow, KA_NO_FMT);
+        kill_area(sp, DELBUF_TMP1, rangeref(minrow + deltar, mincol + deltac,
+                                            minrow + deltar + maxcol - mincol,
+                                            mincol + deltac + maxrow - minrow), KA_NO_FMT);
         sync_refs(sp);
         delbuf_free(DELBUF_TMP1);
     }
-
     if (cmd != 'x') {     /* PULLXCHG */
         /* At this point, we copy the cells from the delete buffer into the
          * destination range.
@@ -1020,7 +1022,7 @@ void delete_cols(sheet_t *sp, int c1, int c2) {
     delbuf_free(qbuf);
     sync_refs(sp);
     /* move cell range to subsheet delbuf[0] */
-    kill_area(sp, DELBUF_DEF, 0, c1, sp->maxrow, c2, KA_DEFAULT);
+    kill_area(sp, DELBUF_DEF, rangeref(0, c1, sp->maxrow, c2), KA_DEFAULT);
     // XXX: should use sync_refs() to flag invalid references
     fix_ranges(sp, -1, c1, -1, c2, -1, -1, frange_get_current(sp));
     delbuf_copy(DELBUF_DEF, qbuf);
@@ -1209,7 +1211,7 @@ void copy_range(sheet_t *sp, int flags, rangeref_t drr, rangeref_t srr) {
         return;
     }
 
-    if (any_locked_cells(sp, rangeref(minsr, minsc, maxsr, maxsc)))
+    if (any_locked_cells(sp, rangeref(mindr, mindc, maxdr, maxdc)))
         return;
 
     if (flags & COPY_FROM_QBUF) {
@@ -1221,7 +1223,7 @@ void copy_range(sheet_t *sp, int flags, rangeref_t drr, rangeref_t srr) {
     }
 
     /* move cell range to other temporary subsheet */
-    kill_area(sp, DELBUF_TMP2, mindr, mindc, maxdr, maxdc, KA_NO_FMT);
+    kill_area(sp, DELBUF_TMP2, rangeref(mindr, mindc, maxdr, maxdc), KA_NO_FMT);
     sync_refs(sp);
     delbuf_free(DELBUF_TMP2);
 
@@ -1230,8 +1232,8 @@ void copy_range(sheet_t *sp, int flags, rangeref_t drr, rangeref_t srr) {
         screen_refresh();
 
     /* copy source range, replicating to fill destination range */
-    for (r = mindr; r <= maxdr; r++) {
-        for (c = mindc; c <= maxdc; c++) {
+    for (r = mindr; r <= maxdr; r += maxsr - minsr + 1) {
+        for (c = mindc; c <= maxdc; c += maxsc - minsc + 1) {
             int deltar = r - minsr;
             int deltac = c - minsc;
             for (p = delbuf[DELBUF_TMP1]->ptr; p; p = p->next) {
@@ -1262,7 +1264,7 @@ void erase_range(sheet_t *sp, rangeref_t rr) {
     delbuf_free(qbuf);
     // XXX: missing sync_refs() ???
     /* move cell range to subsheet delbuf[0] */
-    kill_area(sp, DELBUF_DEF, rr.left.row, rr.left.col, rr.right.row, rr.right.col, KA_DEFAULT);
+    kill_area(sp, DELBUF_DEF, rr, KA_DEFAULT);
     sync_refs(sp);
     delbuf_copy(DELBUF_DEF, qbuf);
     qbuf = 0;
@@ -2205,7 +2207,7 @@ void sort_range(sheet_t *sp, rangeref_t rr, SCXMEM string_t *criteria) {
         destrows[rows[i] - rr.left.row] = rr.left.row + i;
 
     // XXX: Should copy cell values, expressions and formats, leave borders unchanged
-    kill_area(sp, DELBUF_TMP1, rr.left.row, rr.left.col, rr.right.row, rr.right.col, KA_NO_FMT);
+    kill_area(sp, DELBUF_TMP1, rr, KA_NO_FMT);
     sync_ranges(sp);
     for (p = delbuf[DELBUF_TMP1]->ptr; p; p = p->next) {
         r = p->row__;
@@ -2216,10 +2218,11 @@ void sort_range(sheet_t *sp, rangeref_t rr, SCXMEM string_t *criteria) {
             break;
         }
         r1 = destrows[r - rr.left.row];
+        // XXX: should just fixup cell references and move the cell
+        //setcell(sp, r1, c, p);
         n = lookat(sp, r1, c);
         // XXX: should keep the original borders
         ent_copy(sp, n, p, r1 - r, 0, 0, 0, sp->maxrow, sp->maxcol, 0);
-        setcell(sp, r1, c, p);
     }
     delbuf_free(DELBUF_TMP1);
 
