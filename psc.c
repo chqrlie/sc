@@ -1,4 +1,4 @@
-/* Sc parse routine
+/* SC parse routine
  *
  * usage psc options
  * options:
@@ -42,9 +42,6 @@ sheet_t *sht = &cur_sheet;
 static int scan(void);
 static int getrow(const char *p);
 static int getcol(const char *p);
-
-//int growtbl(sheet_t *sp, int rowcol, int toprow, int topcol);
-//char *coltoa(int col);
 
 static int curlen;
 static int coff, roff;
@@ -155,7 +152,7 @@ int main(int argc, char **argv) {
     }
 
     /* setup the spreadsheet arrays */
-    if (!growtbl(sp, GROWNEW, 0, 0))
+    if (checkbounds(sp, MINROWS, MINCOLS) < 0)
         return EXIT_FAILURE;
 
     curlen = 0;
@@ -185,12 +182,10 @@ int main(int argc, char **argv) {
 
             printf("let %s%d = %s\n", coltoa(effc), effr, token);
 
-            if (effc >= sp->maxcols - 1) {
-                if (!growtbl(sp, GROWCOL, 0, effc)) {
-                    fprintf(stderr, "Invalid column used: %s\n", coltoa(effc));
-                    exit_status = EXIT_FAILURE;
-                    continue;
-                }
+            if (checkbounds(sp, effr, effc) < 0) {
+                fprintf(stderr, "Invalid column used: %s\n", coltoa(effc));
+                exit_status = EXIT_FAILURE;
+                continue;
             }
 
             i = 0;
@@ -239,7 +234,7 @@ int main(int argc, char **argv) {
                 printf("%s %s%d = \"%s\"\n", cmd, coltoa(effc), effr, token);
             }
 
-            if (effc >= sp->maxcols - 1 && !growtbl(sp, GROWCOL, 0, effc)) {
+            if (checkbounds(sp, effr, effc) < 0) {
                 fprintf(stderr, "Invalid column used: %s\n", coltoa(effc));
                 exit_status = EXIT_FAILURE;
                 continue;
@@ -412,40 +407,41 @@ const char *coltoa(int col) {
 static const char nowider[] = "The table cannot be any wider";
 
 /*
- * grow the main && auxiliary tables (reset maxrows/maxcols as needed)
- * toprow &&/|| topcol tell us a better guess of how big to become.
+ * Grow the main && auxiliary tables (update maxrows/maxcols as needed)
+ * toprow &&/|| topcol tell us how big to become.
  * we return TRUE if we could grow, FALSE if not....
  */
-int growtbl(sheet_t *sp, int rowcol, int toprow, int topcol) {
-    int curcols, newcols;
+static int growtbl(sheet_t *sp, int toprow, int topcol) {
+    int curcols, currows, newrows, newcols;
 
-    (void)toprow; /* unused */
+    newrows = currows = sp->maxrows;
     newcols = curcols = sp->maxcols;
-    if (rowcol == GROWNEW) {
-        newcols = MINCOLS;
-        sp->maxcols = topcol = 0;
-    }
-    if (rowcol & GROWCOL) {
-        if ((rowcol == GROWCOL) && ((sp->maxcols == ABSMAXCOLS) || (topcol >= ABSMAXCOLS))) {
+
+    if (topcol >= curcols) {
+        if (topcol > ABSMAXCOLS) {
             error(nowider);
             return FALSE;
         }
-
-        if (topcol > sp->maxcols)
-            newcols = GROWAMT + topcol;
-        else
-            newcols += GROWAMT;
-
+        newcols = (topcol / GROWAMT + 1) * GROWAMT;
         if (newcols > ABSMAXCOLS)
             newcols = ABSMAXCOLS;
     }
-
-    if ((rowcol == GROWCOL) || (rowcol == GROWBOTH) || (rowcol == GROWNEW)) {
+    if (toprow >= currows) {
+        newrows = toprow + 1;
+    }
+    if (newcols > curcols) {
         //colfmt_t def_colfmt = { FALSE, DEFWIDTH, DEFPREC, DEFREFMT };
         colfmt_t def_colfmt = { 0, 0, 0, 0 };
         GROWALLOC(sp->colfmt, curcols, newcols, nowider, def_colfmt);
     }
-
+    sp->maxrows = newrows;
     sp->maxcols = newcols;
     return TRUE;
+}
+
+int checkbounds(sheet_t *sp, int row, int col) {
+    if (row >= sp->maxrows || col >= sp->maxcols)
+        return growtbl(sp, row, col) ? 1 : -1;
+    else
+        return 0;
 }

@@ -299,12 +299,7 @@ extern struct opdef const opdefs[];
 #define SLATEX  4       /* 'SLaTeX' (Scandinavian LaTeX) */
 #define FRAME   5       /* tblprint style output for FrameMaker */
 
-#define GROWAMT 30      /* default minimum amount to grow */
-
-#define GROWNEW     1   /* first time table */
-#define GROWROW     2   /* add rows */
-#define GROWCOL     4   /* add columns */
-#define GROWBOTH    6   /* grow both */
+#define GROWAMT 32      /* default minimum amount to grow */
 
 /*---------------- keyboard input stuff ----------------*/
 
@@ -406,8 +401,13 @@ typedef struct colfmt {
     unsigned char realfmt;
 } colfmt_t;
 
+typedef struct rowptr {
+    short mincol, maxcol;
+    SCXMEM struct ent **cp;
+} rowptr_t;
+
 typedef struct sheet {
-    SCXMEM struct ent ***tbl;
+    SCXMEM struct rowptr *tbl;
     int maxrow, maxcol;
     int maxrows, maxcols;   /* # cells currently allocated */
     int currow, curcol;     /* current cell */
@@ -418,7 +418,6 @@ typedef struct sheet {
     int modflg;             /* sheet modified indicator */
     SCXMEM colfmt_t *colfmt;
     SCXMEM rowfmt_t *rowfmt;
-    SCXMEM short *row_size;
     SCXMEM string_t *mdir;
     SCXMEM string_t *autorun;
     SCXMEM string_t *fkey[FKEYS];
@@ -460,9 +459,10 @@ typedef struct sheet {
     char curfile[PATHLEN];
 } sheet_t;
 
-static inline int row_hidden(sheet_t *sp, int row) { return sp->rowfmt[row].hidden; }
-static inline int col_hidden(sheet_t *sp, int col) { return sp->colfmt[col].hidden; }
-static inline int col_fwidth(sheet_t *sp, int col) { return sp->colfmt[col].fwidth; }
+// XXX: should use unsigned types
+static inline int row_hidden(sheet_t *sp, int row) { return row < sp->maxrows && sp->rowfmt[row].hidden; }
+static inline int col_hidden(sheet_t *sp, int col) { return col < sp->maxcols && sp->colfmt[col].hidden; }
+static inline int col_fwidth(sheet_t *sp, int col) { return col < sp->maxcols ? sp->colfmt[col].fwidth : DEFWIDTH; }
 
 typedef struct adjust_context {
     sheet_t *sp;
@@ -608,10 +608,10 @@ extern sheet_t *sheet_init(sheet_t *sp); /* initialize settings to default value
 extern void erasedb(sheet_t *sp);
 extern int load_scrc(sheet_t *sp);
 
-extern struct ent *lookat(sheet_t *sp, int row, int col);  /* allocates the cell */
+extern struct ent *lookat(sheet_t *sp, int row, int col);  /* extends the sheet, allocates the cell */
 extern struct ent *getcell(sheet_t *sp, int row, int col); /* does not allocate the cell */
 extern int valid_cell(sheet_t *sp, int row, int col); /* check if the cell at row,col is not empty */
-extern int checkbounds(sheet_t *sp, int *rowp, int *colp);
+extern int checkbounds(sheet_t *sp, int row, int col);
 
 /*---------------- expressions ----------------*/
 
@@ -701,7 +701,6 @@ extern void valueize_area(sheet_t *sp, rangeref_t rr);
 extern void yank_cols(sheet_t *sp, int c1, int c2);
 extern void yank_rows(sheet_t *sp, int r1, int r2);
 extern void yank_range(sheet_t *sp, rangeref_t rr);
-extern int growtbl(sheet_t *sp, int rowcol, int toprow, int topcol);
 
 extern void delbuf_init(void);
 extern void delbuf_clean(void);

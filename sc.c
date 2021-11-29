@@ -174,14 +174,12 @@ int main(int argc, char **argv) {
     read_hist(string_dup(histfile));
 
     /* setup the spreadsheet arrays, initscr() will get the screen size */
-    if (!growtbl(sp, GROWNEW, 0, 0)) {
+    if (checkbounds(sp, MINROWS, MINCOLS) < 0) {
         stopdisp();
         exit(1);
     }
 
-    /*
-     * Build revision message for later use:
-     */
+    /* Build revision message for later use: */
 
     if (popt) {
         *revmsg = '\0';
@@ -209,7 +207,7 @@ int main(int argc, char **argv) {
         optind++;
     } else {
         erasedb(sp);       // XXX: probably redundant
-        growtbl(sp, GROWNEW, 0, 0);
+        checkbounds(sp, MINROWS, MINCOLS);
         load_scrc(sp);
     }
 

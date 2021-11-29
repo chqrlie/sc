@@ -63,7 +63,6 @@ void moveto(sheet_t *sp, rangeref_t rr, cellref_t st) {
     if (!loading && rr.left.row != -1 && (rr.left.row != sp->currow || rr.left.col != sp->curcol))
         remember(sp, 0);
 
-    //lookat(sp, rr.left.row, rr.left.col);
     sp->currow = rr.left.row;
     sp->curcol = rr.left.col;
     go_free(sp);
@@ -332,6 +331,7 @@ void doend(sheet_t *sp, int rowinc, int colinc) {
         }
     }
 
+    // XXX: skip hidden cells?
     if (!valid_cell(sp, sp->currow, sp->curcol)) {
         switch (rowinc) {
         case -1:
@@ -429,18 +429,21 @@ void forwcell(sheet_t *sp, int arg) {
 }
 
 /* moves curcol forward one displayed column */
+// XXX: should not modify sheet boundaries
 void forwcol(sheet_t *sp, int arg) {
+    int col = sp->curcol;
     while (arg --> 0) {
-        if (sp->curcol < sp->maxcols - 1)
-            sp->curcol++;
+        if (col < sp->maxcols - 1)
+            col++;
         else
-        if (!growtbl(sp, GROWCOL, 0, arg))  /* get as much as needed */
+        if (checkbounds(sp, 0, col + arg) < 0)  /* get as much as needed */
             break;
         else
-            sp->curcol++;
-        while (col_hidden(sp, sp->curcol) && (sp->curcol < sp->maxcols - 1))
-            sp->curcol++;
+            col++;
+        while (col_hidden(sp, col) && (col < sp->maxcols - 1))
+            col++;
     }
+    sp->curcol = col;
 }
 
 /* moves curcol backward to the previous cell, wrapping at 0 */
@@ -477,18 +480,21 @@ void backcol(sheet_t *sp, int arg) {
 }
 
 /* moves currow forward one displayed row */
+// XXX: should not modify sheet boundaries
 void forwrow(sheet_t *sp, int arg) {
+    int row = sp->currow;
     while (arg --> 0) {
-        if (sp->currow < sp->maxrows - 1)
-            sp->currow++;
+        if (row < sp->maxrows - 1)
+            row++;
         else
-        if (!growtbl(sp, GROWROW, sp->maxrows + arg, 0))  /* get as much as needed */
+        if (checkbounds(sp, row + arg, 0) < 0)  /* get as much as needed */
             break;
         else
-            sp->currow++;
-        while (row_hidden(sp, sp->currow) && (sp->currow < sp->maxrows - 1))
-            sp->currow++;
+            row++;
+        while (row_hidden(sp, row) && (row < sp->maxrows - 1))
+            row++;
     }
+    sp->currow = row;
 }
 
 /* moves currow backward one displayed row */

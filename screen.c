@@ -134,7 +134,7 @@ void select_style(int n, int rev) {
 
 int rows_height(sheet_t *sp, int r, int n) {
     int height = 0;
-    while (n --> 0 && r < sp->maxrows) {
+    while (n --> 0 /* && r < sp->maxrows */) {
         if (!row_hidden(sp, r))
             height += 1;
         r++;
@@ -144,7 +144,7 @@ int rows_height(sheet_t *sp, int r, int n) {
 
 int cols_width(sheet_t *sp, int c, int n) {
     int width = 0;
-    while (n --> 0 && c < sp->maxcols) {
+    while (n --> 0 /* && c < sp->maxcols */) {
         if (!col_hidden(sp, c))
             width += col_fwidth(sp, c);
         c++;
@@ -284,7 +284,7 @@ void update(sheet_t *sp, int anychanged) {          /* did any cell really chang
                 else
                     col += flcols;
             }
-            for (; i < sp->maxcols &&
+            for (; /* i < sp->maxcols && */
                     (col + col_fwidth(sp, i) < cols - 1 || col_hidden(sp, i) || i < sp->curcol);
                  i++) {
                 lcols++;
@@ -383,7 +383,7 @@ void update(sheet_t *sp, int anychanged) {          /* did any cell really chang
                 else
                     col += flcols;
             }
-            for (; i < sp->maxcols &&
+            for (; /* i < sp->maxcols && */
                     (col + col_fwidth(sp, i) < cols-1 || col_hidden(sp, i) || i < sp->curcol);
                     i++) {
                 lcols++;
@@ -434,7 +434,7 @@ void update(sheet_t *sp, int anychanged) {          /* did any cell really chang
                 else
                     row += ftrows;
             }
-            for (; (row < lines || row_hidden(sp, i) || i < sp->currow) && i < sp->maxrows; i++) {
+            for (; (row < lines || row_hidden(sp, i) || i < sp->currow) /* && i < sp->maxrows */; i++) {
                 rows++;
                 if (fr && i == fr->irr.right.row + 1) {
                     row -= fbrows;
@@ -520,7 +520,7 @@ void update(sheet_t *sp, int anychanged) {          /* did any cell really chang
                 else
                     row += ftrows;
             }
-            for (; (row < lines || row_hidden(sp, i) || i < sp->currow) && i < sp->maxrows; i++) {
+            for (; (row < lines || row_hidden(sp, i) || i < sp->currow) /* && i < sp->maxrows */; i++) {
                 rows++;
                 if (fr && i == fr->irr.right.row + 1) {
                     row -= fbrows;
@@ -668,7 +668,7 @@ void update(sheet_t *sp, int anychanged) {          /* did any cell really chang
             minsr = sp->showsr < sp->currow ? sp->showsr : sp->currow;
             minsc = fr ? fr->orr.left.col : 0;
             maxsr = sp->showsr > sp->currow ? sp->showsr : sp->currow;
-            maxsc = fr ? fr->orr.right.col : sp->maxcols;
+            maxsc = fr ? fr->orr.right.col : sp->maxcols - 1;
 
             if (sp->showtop && !message) {
                 clrtoeol();
@@ -677,7 +677,7 @@ void update(sheet_t *sp, int anychanged) {          /* did any cell really chang
         } else if (sp->showrange == SHOWCOLS) {
             minsr = 0;
             minsc = sp->showsc < sp->curcol ? sp->showsc : sp->curcol;
-            maxsr = sp->maxrows;
+            maxsr = sp->maxrows - 1;
             maxsc = sp->showsc > sp->curcol ? sp->showsc : sp->curcol;
 
             if (sp->showtop && !message) {

@@ -74,7 +74,7 @@ void nrange_add(sheet_t *sp, SCXMEM string_t *name, rangeref_t rr, int is_range)
 
     if (autolabel && rr.left.col > 0 && !is_range) {
         struct ent *cp = lookat(sp, rr.left.row, rr.left.col - 1);
-        if (cp->type == SC_EMPTY && !cp->expr && !(sp->protect && (cp->flags & IS_LOCKED))) {
+        if (cp && cp->type == SC_EMPTY && !cp->expr && !(sp->protect && (cp->flags & IS_LOCKED))) {
             /* empty cell to the left of the defined cell:
                set the cell label to the name.
              */
