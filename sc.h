@@ -137,8 +137,6 @@ struct ent {
     SCXMEM string_t *format;    /* printf format for this cell */
     unsigned char cellerror;    /* error in a cell? (should pack with flags) */
     unsigned char type;         /* SC_xxx */
-    int row__;
-    short col__;
     short flags;
     struct ent *next;           /* next deleted ent (pulled, deleted cells) */
 };
@@ -407,7 +405,7 @@ typedef struct rowptr {
 } rowptr_t;
 
 typedef struct sheet {
-    SCXMEM struct rowptr *tbl;
+    SCXMEM rowptr_t *tbl;
     int maxrow, maxcol;
     int maxrows, maxcols;   /* # cells currently allocated */
     int currow, curcol;     /* current cell */

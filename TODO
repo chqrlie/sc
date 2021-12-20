@@ -59,7 +59,6 @@ Database:
 [/] move more global data to sheet structure
 [+] group sheet data in sheet_t structures
 [ ] make delbufs sheet_t instances
-[ ] remove cell pointers in subsheets
 [?] hash string_t in a dictionary
 [ ] change representation for ranges: abs/rel coords ?
 [ ] use an array of format strings, store an index in the cell struct
@@ -187,3 +186,4 @@ Build:
 [X] change representation for ranges
 [X] fix locked cell behavior: no effect unless sheet protection is on
 [X] use range references instead of ent_ptr in formulas
+[X] remove cell pointers in subsheets
