@@ -431,9 +431,9 @@ command:  S_LET var_or_range '=' e      { let(sht, $2.left, $4, -1); }
         | S_OPENCOL                     { sht->curcol += insert_cols(sht, cellref_current(sht),  1, 1); }
         | S_OPENCOL '*' NUMBER          { sht->curcol += insert_cols(sht, cellref_current(sht), $3, 1); }
         | S_DELETEROW                   { if (sht->showrange == SHOWROWS)
-                                            delete_cols(sht, sht->showsr, sht->currow);
+                                            delete_rows(sht, sht->showsr, sht->currow);
                                           else
-                                            delete_cols(sht, sht->currow, sht->currow);
+                                            delete_rows(sht, sht->currow, sht->currow);
                                         }
         | S_DELETEROW '*' NUMBER        { delete_rows(sht, sht->currow, sht->currow + $3 - 1); }
         | S_DELETEROW NUMBER            { delete_rows(sht, $2, $2); }
