@@ -102,10 +102,8 @@ void abbrev_clean(sheet_t *sp) {
 struct abbrev *abbrev_find(sheet_t *sp, const char *name, int len, struct abbrev **prev) {
     struct abbrev *a;
     int cmp;
-    int exact = FALSE;
 
     if (len < 0) {
-        exact = TRUE;
         len = strlen(name);
     }
 
@@ -115,7 +113,7 @@ struct abbrev *abbrev_find(sheet_t *sp, const char *name, int len, struct abbrev
         if ((cmp = strncmp(name, a_name, len)) < 0)
             return NULL;
         if (cmp == 0) {
-            if (!exact || a_name[len] == '\0')
+            if (a_name[len] == '\0')
                 return a;
         }
     }
