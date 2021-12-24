@@ -17,15 +17,8 @@ static const char * const revision = "$Revision: 9.1 $";
 #endif /* QREF */
 
 static const char * const intro[] = {
-" ",
-#if defined(QREF) && defined(TROFF)
-".SH",
-#endif
 " Overview:",
 " ",
-#if defined(QREF) && defined(TROFF)
-".Lp",
-#endif
 " A:   This overview",
 " B:   Toggle Options",
 " C:   Set Options",
@@ -48,48 +41,34 @@ NULL
 };
 
 static const char * const toggleoptions[] = {
-" ",
-#if defined(QREF) && defined(TROFF)
-".SH",
-#endif
 " B: Toggle Options",
 " ",
-#if defined(QREF) && defined(TROFF)
-".Lp",
-#endif
-"     ^To  Toggle options. Toggle one option selected by o:",
-"          a    Recalculate automatically or on ``@'' commands.",
-"          o    Optimize expressions upon entry if enabled.",
-"          c    Current cell highlighting enable/disable.",
-"          e    External function execution enable/disable.",
-"          l    Autolabeling defined cells enable/disable.",
-"          n    If enabled, a digit starts a numeric value.",
-"          p    Spreadsheet protection mode.",
-"          t    Top line display enable/disable.",
+"     ^Tx  Toggle options. Toggle one option selected by x:",
+"       a    Recalculate automatically or on ``@'' commands.",
+"       o    Optimize expressions upon entry if enabled.",
+"       c    Current cell highlighting enable/disable.",
+"       e    External function execution enable/disable.",
+"       l    Autolabeling defined cells enable/disable.",
+"       n    If enabled, a digit starts a numeric value.",
+"       p    Spreadsheet protection mode.",
+"       t    Top line display enable/disable.",
 #ifndef NOCRYPT
-"          x    Encrypt/decrypt database and listing files.",
+"       x    Encrypt/decrypt database and listing files.",
 #else
-"          x    Encrypt/decrypt database and listing files (Not available).",
+"       x    Encrypt/decrypt database and listing files (Not available).",
 #endif
-"          $    Dollar prescale.  If enabled, all numeric constants",
-"               (not expressions) entered are multipled by 0.01.",
-"          r    Newline action.  Toggle between no action, move down",
-"               after entry and move right after entry.",
-"          z    Set the newline action limits to the current row and column",
-"               (for r && z see also set rowlimit=n, collimit=n)",
+"       $    Dollar prescale.  If enabled, all numeric constants",
+"            (not expressions) entered are multipled by 0.01.",
+"       r    Newline action.  Toggle between no action, move down",
+"            after entry and move right after entry.",
+"       z    Set the newline action limits to the current row and column",
+"            (for r && z see also set rowlimit=n, collimit=n)",
 NULL
 };
 
 static const char * const setoptions[] = {
-" ",
-#if defined(QREF) && defined(TROFF)
-".SH",
-#endif
 " C: Set Options",
 " ",
-#if defined(QREF) && defined(TROFF)
-".Lp",
-#endif
 "     S  Set options.  Options include:",
 "          autocalc      Automatic recalculation.",
 "          byrows        Recalculate in row order. (default)",
@@ -107,15 +86,8 @@ NULL
 };
 
 static const char * const cursor[] = {
-" ",
-#if defined(QREF) && defined(TROFF)
-".SH",
-#endif
 " D: Cell cursor movement (always OK):",
 " ",
-#if defined(QREF) && defined(TROFF)
-".Lp",
-#endif
 "     ^N ^P      Down, up",
 "     j k l h    Down, up, right, left",
 "     Arrow keys (if the terminal and termcap support them.)",
@@ -139,22 +111,11 @@ NULL
 };
 
 static const char * const cell[] = {
-" ",
-#if defined(QREF) && defined(TROFF)
-".SH",
-#endif
 " E: Cell entry and editing commands:",
 " ",
-#if defined(QREF) && defined(TROFF)
-".Lp",
-#endif
 "     =    Enter a numeric constant or expression.",
 "     <    Enter a left justified string or string expression.",
-#if defined(QREF) && defined(TROFF)
-"     \\\\    Enter a centered label.",
-#else
 "     \\    Enter a centered label.",
-#endif
 "     >    Enter a right justified string or string expression.",
 "     e    Edit the current cell's numeric value.",
 "     E    Edit the current cell's string part.",
@@ -163,8 +124,8 @@ static const char * const cell[] = {
 "     m    Followed by any lowercase letter, marks the current cell",
 "          with that letter.",
 "     c    Copy a marked cell to the current cell.",
-"     +    Increment numeric part",
-"     -    Decrement numeric part",
+"     +    Increment numeric value",
+"     -    Decrement numeric value",
 "  RETURN  Enter insert mode if the input line was empty (ESC to edit)",
 " ",
 "     In numeric mode, a decimal digit, ``+'', ``-'', and ``.'' all start",
@@ -173,15 +134,8 @@ NULL
 };
 
 static const char * const vi[] = {
-" ",
-#if defined(QREF) && defined(TROFF)
-".SH",
-#endif
 " F: Line Editor",
 " ",
-#if defined(QREF) && defined(TROFF)
-".Lp",
-#endif
 "     Hitting the ESC key while entering any command on the top line",
 "     will start a one-line vi-style editor.  Supported commands:",
 " ",
@@ -209,15 +163,8 @@ NULL
 };
 
 static const char * const file[] = {
-" ",
-#if defined(QREF) && defined(TROFF)
-".SH",
-#endif
 " G: File commands:",
 " ",
-#if defined(QREF) && defined(TROFF)
-".Lp",
-#endif
 "     G    Get a new database from a file. ",
 "     M    Merge a new file into the current database.",
 "     P    Put the current database into a file.",
@@ -241,15 +188,8 @@ NULL
 };
 
 static const char * const row[] = {
-" ",
-#if defined(QREF) && defined(TROFF)
-".SH",
-#endif
 " H: Row and column commands:",
 " ",
-#if defined(QREF) && defined(TROFF)
-".Lp",
-#endif
 "     ir, ic      Insert a new, empty row (column)",
 "     ar, ac      Append a new copy of the current row (column)",
 "     dr, dc      Delete the current row (column)",
@@ -266,7 +206,7 @@ static const char * const row[] = {
 " ",
 "     Commands which move or copy cells also modify the row and column ",
 "     references in the new cell expressions.  Use the ``$'' style cell ",
-"     reference to supress the change.",
+"     reference to suppress the change.",
 " ",
 "     @myrow, @mycol        return the row or column of the current cell",
 "     @lastrow, @lastcol    return the row or column of the current cell",
@@ -274,14 +214,8 @@ NULL
 };
 
 static const char * const range[] = {
-" ",
-#if defined(QREF) && defined(TROFF)
-".SH",
-#endif
 " I: Range commands:",
-#if defined(QREF) && defined(TROFF)
-".Lp",
-#endif
+" ",
 "     rx   Clear a range. ",
 "     rv   Remove the expressions from a range of cells, leaving ",
 "          just the values.",
@@ -307,15 +241,8 @@ NULL
 };
 
 static const char * const misc[] = {
-" ",
-#if defined(QREF) && defined(TROFF)
-".SH",
-#endif
 " J: Miscellaneous commands:",
 " ",
-#if defined(QREF) && defined(TROFF)
-".Lp",
-#endif
 "     Q q ^C   Exit from the program.",
 "     ^G ESC   Abort entry of the current command.",
 "     ?        Help",
@@ -334,15 +261,8 @@ NULL
 };
 
 static const char * const var[] = {
-" ",
-#if defined(QREF) && defined(TROFF)
-".SH",
-#endif
 " K: Variable names:",
 " ",
-#if defined(QREF) && defined(TROFF)
-".Lp",
-#endif
 "     K20    Row and column can vary on copies.",
 "     $K$20  Row and column stay fixed on copies.",
 "     $K20   Row can vary; column stays fixed on copies.",
@@ -365,15 +285,8 @@ NULL
 };
 
 static const char * const rangef[] = {
-" ",
-#if defined(QREF) && defined(TROFF)
-".SH",
-#endif
 " L: Range functions:",
 " ",
-#if defined(QREF) && defined(TROFF)
-".Lp",
-#endif
 "     @sum(r)           Sum all valid cells in the range.",
 "     @product(r)       Multiply together all valid cells in the range.",
 "     @avg(r)           Average all valid cells in the range.",
@@ -397,15 +310,8 @@ NULL
 };
 
 static const char * const numericf[] = {
-" ",
-#if defined(QREF) && defined(TROFF)
-".SH",
-#endif
 " M: Numeric functions:",
 " ",
-#if defined(QREF) && defined(TROFF)
-".Lp",
-#endif
 "     @atan2(e1,e2)     Arc tangent of e1/e2.",
 "     @ceiling(e)       Smallest integer not less than e.",
 "     @exp(e)           Exponential function of e.",
@@ -429,14 +335,8 @@ NULL
 };
 
 static const char * const stringf[] = {
-" ",
-#if defined(QREF) && defined(TROFF)
-".SH",
-#endif
 " N: String functions:",
-#if defined(QREF) && defined(TROFF)
-".Lp",
-#endif
+" ",
 "     #                 Concatenate strings.  For example, the",
 "                       string expression ``A0 # \"zy dog\"'' yields",
 "                       ``the lazy dog'' if A0 is ``the la''.",
@@ -462,15 +362,8 @@ NULL
 };
 
 static const char * const finf[] = {
-" ",
-#if defined(QREF) && defined(TROFF)
-".SH",
-#endif
 " O: Financial functions:",
 " ",
-#if defined(QREF) && defined(TROFF)
-".Lp",
-#endif
 "     @pmt(e1,e2,e3)    @pmt(60000,.01,360) computes the monthly",
 "                       payments for a $60000 mortgage at 12%",
 "                       annual interest (.01 per month) for 30",
@@ -494,15 +387,8 @@ NULL
 };
 
 static const char * const timef[] = {
-" ",
-#if defined(QREF) && defined(TROFF)
-".SH",
-#endif
 " P: Time and date functions:",
 " ",
-#if defined(QREF) && defined(TROFF)
-".Lp",
-#endif
 "     @now              Return the time encoded in seconds since 1970.",
 "     @date(e1,e2,e3)   Return e1/e2/e3 encoded in seconds since 1970.",
 "                       Either m/d/y or y/m/d may be used (year must",
@@ -545,10 +431,13 @@ void help(int ctx) {
             page = HELP_INTRO;
         history[pos] = page;
         screen_erase();
-        screen_draw_page(1, 4, pages[page]);
+        screen_draw_page(2, 4, pages[page]);
         screen_draw_line(0, 0, "Which Screen? [a-p, q]");
         screen_refresh();
         switch (nmgetch(0)) {
+        case SC_KEY_F(1):
+        case SC_KEY_HELP:
+        case '?':
         case 'a': case 'A': page = HELP_INTRO; break;
         case 'b': case 'B': page = HELP_TOGGLEOPTIONS; break;
         case 'c': case 'C': page = HELP_SETOPTIONS; break;
@@ -603,7 +492,8 @@ void help(int ctx) {
 
 int main(void) {
 #ifdef TROFF
-    const char * const * const *pagep = pages;
+    const char * const *page;
+    const char *p;
     int lineno, pageno = 0;
 
     puts(".nr PS 12");
@@ -624,30 +514,38 @@ int main(void) {
     puts(".P1");
     puts(".LP");
 
-    while (*pagep) {
-        for (lineno = 0; (*pagep)[lineno]; lineno++) {
-            puts((*pagep)[lineno]);
+    while ((page = pages[pageno++])) {
+        puts(" ");
+        puts(".SH");
+        for (lineno = 0; page[lineno]; lineno++) {
+            if (lineno == 2)
+                puts(".Lp");
+            /* output contents, quoting backslashes */
+            for (p = page[lineno]; *p; p++) {
+                if (*p == '\\')
+                    putchar('\\');
+                putchar(*p);
+            }
+            putchar('\n');
         }
-        pagep++;
-        pageno++;
         if (!(pageno % 2))
             puts(".bp");
     }
 #else /* TROFF */
-    const char * const * const *pagep = pages;
-    int lineno;
+    const char * const *page;
+    int lineno, pageno = 0;
 
-    while (*pagep) {
+    while ((page = pages[pageno++])) {
         fputs(SCNAME, stdout);
         fputs(header, stdout);
-        printf("\n");
+        puts("");
         puts(revision);
+        puts("");
 
-        for (lineno = 0; (*pagep)[lineno]; lineno++) {
-            puts((*pagep)[lineno]);
+        for (lineno = 0; page[lineno]; lineno++) {
+            puts(page[lineno]);
         }
         putchar('\f');
-        pagep++;
     }
 #endif /* TROFF */
     return 0;

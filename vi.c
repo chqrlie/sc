@@ -109,6 +109,7 @@ static int search_dir;      /* Search direction:  forward = 0; back = 1 */
 #define DOTLEN          200
 
 static int mode = INSERT_MODE;
+static int help_topic = HELP_INTRO;
 
 static SCXMEM string_t *history[HISTLEN + 1];
 static int histp = 0;
@@ -640,10 +641,14 @@ void vi_interaction(sheet_t *sp) {
                 }
             } else
             if (c == SC_KEY_F(1) && sempty(sp->fkey[c - SC_KEY_F0])) {
+#if 0
                 screen_deraw(1);
                 system("man sc");
                 screen_goraw();
                 screen_erase();
+#else
+                help(help_topic);
+#endif
             } else
             if (linelim >= 0) {
                 /* Editing line */
@@ -1037,7 +1042,7 @@ void vi_interaction(sheet_t *sp) {
                     break;
                 case SC_KEY_HELP:
                 case '?':
-                    help(HELP_INTRO);
+                    help(help_topic);
                     break;
                 case SC_ALT('?'):
                     error("count=%zu  requested=%zu  allocated=%zu  overhead=%zu",
