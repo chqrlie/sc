@@ -1092,6 +1092,7 @@ void cmd_format(sheet_t *sp, int c1, int c2, int w, int p, int r) {
     }
 
     if (usecurses) {
+        // XXX: should do this only as side effect of display
         int maxwidth = screen_COLS - sp->rescol - 2;
         if (w > maxwidth) {
             error("Width too large - Maximum = %d", maxwidth);

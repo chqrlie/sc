@@ -118,23 +118,29 @@ int num_search(sheet_t *sp, int g_type, rangeref_t rr, double n) {
     lastrow = rr.right.row;
     lastcol = rr.right.col;
 
-    if (sp->currow >= firstrow && sp->currow <= lastrow &&
-        sp->curcol >= firstcol && sp->curcol <= lastcol) {
-        endr = sp->currow;
-        endc = sp->curcol;
+    // XXX: should clip search area to active area
+    row = sp->currow;
+    col = sp->curcol;
+    if (row >= firstrow && row <= lastrow && col >= firstcol && col <= lastcol) {
+        endr = row;
+        endc = col;
     } else {
-        endr = lastrow;
-        endc = lastcol;
+        endr = row = lastrow;
+        endc = col = lastcol;
     }
-    row = endr;
-    col = endc;
+
     for (;;) {
         if (col++ >= lastcol) {
             col = firstcol;
+            if (col > lastcol)
+                break;
             if (row++ >= lastrow) {
                 row = firstrow;
+                if (row > lastrow)
+                    break;
             }
         }
+        // XXX: should skip hidden rows
         if (!row_hidden(sp, row) && !col_hidden(sp, col) && (p = getcell(sp, row, col))) {
             if (errsearch) {
                 if (errsearch & (1 << p->cellerror)) {
@@ -229,23 +235,29 @@ int str_search(sheet_t *sp, int g_type, rangeref_t rr, SCXMEM string_t *str) {
     lastrow = rr.right.row;
     lastcol = rr.right.col;
 
-    if (sp->currow >= firstrow && sp->currow <= lastrow && sp->curcol >= firstcol && sp->curcol <= lastcol) {
-        endr = sp->currow;
-        endc = sp->curcol;
+    // XXX: should clip search area to active area
+    row = sp->currow;
+    col = sp->curcol;
+    if (row >= firstrow && row <= lastrow && col >= firstcol && col <= lastcol) {
+        endr = row;
+        endc = col;
     } else {
-        endr = lastrow;
-        endc = lastcol;
+        endr = row = lastrow;
+        endc = col = lastcol;
     }
-    row = endr;
-    col = endc;
-    // XXX: incorrect if firstrow or lastrow is hidden
+
     for (;;) {
         if (col++ >= lastcol) {
             col = firstcol;
+            if (col > lastcol)
+                break;
             if (row++ >= lastrow) {
                 row = firstrow;
+                if (row > lastrow)
+                    break;
             }
         }
+        // XXX: should skip hidden rows
         if (!row_hidden(sp, row) && !col_hidden(sp, col) && (p = getcell(sp, row, col))) {
             /* convert cell contents, do not test width, ignore alignment */
             const char *s1 = field;
@@ -390,19 +402,19 @@ void doend(sheet_t *sp, int rowinc, int colinc) {
 }
 
 /* moves currow down one page */
+// XXX: hidden row issue
 void forwpage(sheet_t *sp, int arg) {
     int ps = sp->pagesize ? sp->pagesize : (screen_LINES - RESROW - framerows) / 2;
     forwrow(sp, arg * ps);
-    // XXX: hidden row issue
     sp->strow = sp->strow + arg * ps;
     FullUpdate++;
 }
 
 /* moves currow up one page */
+// XXX: hidden row issue
 void backpage(sheet_t *sp, int arg) {
     int ps = sp->pagesize ? sp->pagesize : (screen_LINES - RESROW - framerows) / 2;
     backrow(sp, arg * ps);
-    // XXX: hidden row issue
     sp->strow = sp->strow - arg * ps;
     if (sp->strow < 0) sp->strow = 0;
     FullUpdate++;
@@ -428,24 +440,6 @@ void forwcell(sheet_t *sp, int arg) {
     }
 }
 
-/* moves curcol forward one displayed column */
-// XXX: should not modify sheet boundaries
-void forwcol(sheet_t *sp, int arg) {
-    int col = sp->curcol;
-    while (arg --> 0) {
-        if (col < sp->maxcols - 1)
-            col++;
-        else
-        if (checkbounds(sp, 0, col + arg) < 0)  /* get as much as needed */
-            break;
-        else
-            col++;
-        while (col_hidden(sp, col) && (col < sp->maxcols - 1))
-            col++;
-    }
-    sp->curcol = col;
-}
-
 /* moves curcol backward to the previous cell, wrapping at 0 */
 void backcell(sheet_t *sp, int arg) {
     while (arg --> 0) {
@@ -466,47 +460,67 @@ void backcell(sheet_t *sp, int arg) {
     }
 }
 
-/* moves curcol back one displayed column */
+/* moves curcol forward arg displayed columns */
+void forwcol(sheet_t *sp, int arg) {
+    int col = sp->curcol;
+    while (arg > 0) {
+        if (col >= ABSMAXCOLS) {
+            error("At max col");
+            return;
+        }
+        col++;
+        if (!col_hidden(sp, col)) {
+            sp->curcol = col;
+            arg--;
+        }
+    }
+}
+
+/* moves curcol back arg displayed columns */
 void backcol(sheet_t *sp, int arg) {
-    while (arg --> 0) {
-        if (!sp->curcol) {
+    int col = sp->curcol;
+    while (arg > 0) {
+        if (col <= 0) {
             error("At column A");
             break;
         }
-        sp->curcol--;
-        while (sp->curcol && col_hidden(sp, sp->curcol))
-            sp->curcol--;
+        col--;
+        if (!col_hidden(sp, col)) {
+            sp->curcol = col;
+            arg--;
+        }
     }
 }
 
-/* moves currow forward one displayed row */
-// XXX: should not modify sheet boundaries
+/* moves currow forward arg displayed rows */
 void forwrow(sheet_t *sp, int arg) {
     int row = sp->currow;
-    while (arg --> 0) {
-        if (row < sp->maxrows - 1)
-            row++;
-        else
-        if (checkbounds(sp, row + arg, 0) < 0)  /* get as much as needed */
-            break;
-        else
-            row++;
-        while (row_hidden(sp, row) && (row < sp->maxrows - 1))
-            row++;
+    while (arg > 0) {
+        if (row >= ABSMAXROWS) {
+            error("At max row");
+            return;
+        }
+        row++;
+        if (!row_hidden(sp, row)) {
+            sp->currow = row;
+            arg--;
+        }
     }
-    sp->currow = row;
 }
 
-/* moves currow backward one displayed row */
+/* moves currow backward arg displayed rows */
 void backrow(sheet_t *sp, int arg) {
-    while (arg --> 0) {
-        if (!sp->currow) {
-            error("At row zero");
+    int row = sp->currow;
+    while (arg > 0) {
+        if (row <= 0) {
+            error("At min row");
             break;
         }
-        sp->currow--;
-        while (sp->currow && row_hidden(sp, sp->currow))
-            sp->currow--;
+        row--;
+        if (!row_hidden(sp, row)) {
+            sp->currow = row;
+            arg--;
+        }
     }
 }
 
@@ -516,6 +530,7 @@ void gotonote(sheet_t *sp) {
         struct note *n = note_find(sp, cellref(sp->currow, sp->curcol));
         if (n) {
             if (!n->str) {
+                // XXX: what if target is hidden?
                 moveto(sp, n->rr, cellref(-1, -1));
             } else {
                 error("No note target range");

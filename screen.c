@@ -157,6 +157,7 @@ void update(sheet_t *sp, int anychanged) {          /* did any cell really chang
     char field[FBUFLEN];
     int row, col;
     struct ent *p;
+    int rescol;
     int mxrow, mxcol;
     int minsr = 0, minsc = 0, maxsr = 0, maxsc = 0;
     int r, i;
@@ -549,6 +550,16 @@ void update(sheet_t *sp, int anychanged) {          /* did any cell really chang
     lastfbottomrows = fbottomrows;
     lastfleftcols = fleftcols;
     lastfrightcols = frightcols;
+
+    /* update rescol */
+    row = mxrow;
+    for (rescol = 4; row >= 1000; rescol++) {
+        row /= 10;
+    }
+    if (rescol != sp->rescol) {
+        sp->rescol = rescol;
+        FullUpdate++;
+    }
 
     /* Get rid of cursor standout on the cell at previous cursor position */
     if (!FullUpdate) {

@@ -73,6 +73,7 @@ Database:
 [ ] save formula values in .sc files
 
 Update:
+[ ] abbrev bug: GOTO A1 -> invalid argument: this
 [ ] truncate cell value display (both formula and string value)
 [ ] rewrite update() function in screen.c from scratch in a more sane manner
 [ ] update() should not have a side effect on currow/curcol

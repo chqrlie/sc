@@ -1045,10 +1045,10 @@ void vi_interaction(sheet_t *sp) {
                     help(help_topic);
                     break;
                 case SC_ALT('?'):
-                    error("count=%zu  requested=%zu  allocated=%zu  overhead=%zu",
-                          scxmem_count, scxmem_requested, scxmem_allocated, scxmem_overhead);
-                    //error("maxrow=%d  maxcol=%d  maxrows=%d  maxcols=%d  rescol=%d",
-                    //      sp->maxrow, sp->maxcol, sp->maxrows, sp->maxcols, rescol);
+                    error("count=%zu  requested=%zu  allocated=%zu  overhead=%zu"
+                          "  maxrow,col=%d,%d  maxrows,cols=%d,%d  rescol=%d",
+                          scxmem_count, scxmem_requested, scxmem_allocated, scxmem_overhead,
+                          sp->maxrow, sp->maxcol, sp->maxrows, sp->maxcols, sp->rescol);
                     break;
                 case '\\':
                     if (!locked_cell(sp, sp->currow, sp->curcol)) {
@@ -3254,8 +3254,11 @@ static int mouse_sel_cell(sheet_t *sp) { /* 0: set, 1: save, 2: cmp and set */
         update(sp, 0);
         return 1;
     }
+    // XXX: clicking on column name should select entire column
+    // XXX: clicking on row number should select entire row
     if ((y = mevent.y - RESROW) < 0 || (x = mevent.x - sp->rescol) < 0)
         return 1;
+    // XXX: should use variable row height
     for (ty = sp->strow, i = y;; ty++) {
         if (row_hidden(sp, ty))
             continue;
