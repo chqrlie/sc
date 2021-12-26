@@ -94,7 +94,7 @@ void printfile(sheet_t *sp, SCXMEM string_t *str, rangeref_t rr) {
                     align |= ALIGN_CLIP;
                 } else
                 if (p->type == SC_BOOLEAN) {
-                    len = pstrcpy(field, sizeof field, p->v ? "TRUE " : "FALSE");
+                    len = pstrcpy(field, sizeof field, boolean_name[!!p->v]);
                     if (!align)
                         align = ALIGN_CENTER;
                 } else {
@@ -363,7 +363,7 @@ void tblprintfile(sheet_t *sp, SCXMEM string_t *str, rangeref_t rr) {
                         align |= ALIGN_CLIP;
                     } else
                     if (p->type == SC_BOOLEAN) {
-                        pstrcpy(field, sizeof field, p->v ? "TRUE " : "FALSE");
+                        pstrcpy(field, sizeof field, boolean_name[!!p->v]);
                         if (!align)
                             align = ALIGN_CENTER;
                     } else {

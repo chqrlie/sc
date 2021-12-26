@@ -345,18 +345,18 @@ command:  S_LET var_or_range '=' e      { let(sht, $2.left, $4, -1); }
         | S_UNLOCK var_or_range         { unlock_cells(sht, $2); }
         | S_GOTO var_or_range var_or_range { moveto(sht, $2, $3.left); }
         | S_GOTO var_or_range           { moveto(sht, $2, cellref(-1, -1)); }
-        | S_GOTO num RANGE              { num_search(sht, G_NUM, $3, $2); }
-        | S_GOTO num                    { num_search(sht, G_NUM, rangeref_total(sht), $2); }
-        | S_GOTO GO_ERROR RANGE         { num_search(sht, G_ERROR, $3, 0.0); }
-        | S_GOTO GO_ERROR               { num_search(sht, G_ERROR, rangeref_total(sht), 0.0); }
-        | S_GOTO GO_INVALID RANGE       { num_search(sht, G_INVALID, $3, 0.0); }
-        | S_GOTO GO_INVALID             { num_search(sht, G_INVALID, rangeref_total(sht), 0.0); }
-        | S_GOTO STRING RANGE           { str_search(sht, G_STR, $3, $2); }
-        | S_GOTO '#' STRING RANGE       { str_search(sht, G_NSTR, $4, $3); }
-        | S_GOTO '%' STRING RANGE       { str_search(sht, G_XSTR, $4, $3); }
-        | S_GOTO STRING                 { str_search(sht, G_STR, rangeref_total(sht), $2); }
-        | S_GOTO '#' STRING             { str_search(sht, G_NSTR, rangeref_total(sht), $3); }
-        | S_GOTO '%' STRING             { str_search(sht, G_XSTR, rangeref_total(sht), $3); }
+        | S_GOTO num RANGE              { do_search(sht, G_NUM, $3, $2, NULL); }
+        | S_GOTO num                    { do_search(sht, G_NUM, rangeref_total(sht), $2, NULL); }
+        | S_GOTO GO_ERROR RANGE         { do_search(sht, G_ERROR, $3, 0.0, NULL); }
+        | S_GOTO GO_ERROR               { do_search(sht, G_ERROR, rangeref_total(sht), 0.0, NULL); }
+        | S_GOTO GO_INVALID RANGE       { do_search(sht, G_INVALID, $3, 0.0, NULL); }
+        | S_GOTO GO_INVALID             { do_search(sht, G_INVALID, rangeref_total(sht), 0.0, NULL); }
+        | S_GOTO STRING RANGE           { do_search(sht, G_STR, $3, 0.0, $2); }
+        | S_GOTO STRING                 { do_search(sht, G_STR, rangeref_total(sht), 0.0, $2); }
+        | S_GOTO '#' STRING RANGE       { do_search(sht, G_NSTR, $4, 0.0, $3); }
+        | S_GOTO '#' STRING             { do_search(sht, G_NSTR, rangeref_total(sht), 0.0, $3); }
+        | S_GOTO '%' STRING RANGE       { do_search(sht, G_XSTR, $4, 0.0, $3); }
+        | S_GOTO '%' STRING             { do_search(sht, G_XSTR, rangeref_total(sht), 0.0, $3); }
         | S_GOTO                        { go_last(sht); }
         | S_GOTO WORD                   { /* don't repeat last goto on "unintelligible word" */ }
         | S_DEFINE strarg               { nrange_add(sht, $2, rangeref_current(sht), -1); }

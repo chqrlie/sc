@@ -454,6 +454,7 @@ typedef struct sheet {
     int color;
     int colorneg;     /* Increment color number for cells with negative numbers */
     int colorerr;     /* Color cells with errors with color 3 */
+    int remrow, remcol, remstrow, remstcol;  /* used to save current positions in remember */
     char curfile[PATHLEN];
 } sheet_t;
 
@@ -508,6 +509,7 @@ extern SCXMEM string_t *slatexext;
 extern SCXMEM string_t *texext;
 extern struct go_save gs;
 extern const char * const error_name[];
+extern const char * const boolean_name[];
 #ifndef NOCRYPT
 extern int Crypt;
 #endif
@@ -822,22 +824,29 @@ extern void write_fd(sheet_t *sp, FILE *f, rangeref_t rr, int dcp_flags);
 
 /*---------------- navigation ----------------*/
 
-extern void moveto(sheet_t *sp, rangeref_t rr, cellref_t st);
-extern void backpage(sheet_t *sp, int arg);
-extern void backcell(sheet_t *sp, int arg);
-extern void backcol(sheet_t *sp, int arg);
-extern void backrow(sheet_t *sp, int arg);
-extern void doend(sheet_t *sp, int rowinc, int colinc);
-extern void forwpage(sheet_t *sp, int arg);
-extern void forwcell(sheet_t *sp, int arg);
-extern void forwcol(sheet_t *sp, int arg);
-extern void forwrow(sheet_t *sp, int arg);
 extern void go_free(sheet_t *sp);
 extern void go_last(sheet_t *sp);
-extern int num_search(sheet_t *sp, int g_type, rangeref_t rr, double n);
-extern int str_search(sheet_t *sp, int g_type, rangeref_t rr, SCXMEM string_t *str);
-extern void remember(sheet_t *sp, int save);
+extern void moveto(sheet_t *sp, rangeref_t rr, cellref_t st);
+extern int do_search(sheet_t *sp, int g_type, rangeref_t rr, double n, SCXMEM string_t *str);
+
+extern void doend(sheet_t *sp, int rowinc, int colinc);
+extern void forwpage(sheet_t *sp, int arg);
+extern void backpage(sheet_t *sp, int arg);
+extern void forwcell(sheet_t *sp, int arg);
+extern void backcell(sheet_t *sp, int arg);
+extern void forwcol(sheet_t *sp, int arg);
+extern void backcol(sheet_t *sp, int arg);
+extern void forwrow(sheet_t *sp, int arg);
+extern void backrow(sheet_t *sp, int arg);
 extern void gotonote(sheet_t *sp);
+extern void remember(sheet_t *sp, int save);
+extern void gohome(sheet_t *sp);
+extern void leftlimit(sheet_t *sp);
+extern void rightlimit(sheet_t *sp);
+extern void gototop(sheet_t *sp);
+extern void gotobottom(sheet_t *sp);
+extern void scroll_down(sheet_t *sp);
+extern void scroll_up(sheet_t *sp, int x);
 
 /*---------------- interaction ----------------*/
 

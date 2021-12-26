@@ -44,6 +44,11 @@ const char * const error_name[] = {
     "#INT!",    // ERROR_INT: Internal error.
 };
 
+const char * const boolean_name[] = {
+    "FALSE",
+    "TRUE",
+};
+
 static SCXMEM enode_t *new_node(int op, int nargs);
 extern scvalue_t eval_node(eval_ctx_t *cp, enode_t *e);
 extern scvalue_t eval_node_value(eval_ctx_t *cp, enode_t *e);
@@ -189,7 +194,7 @@ static SCXMEM string_t *eval_str(eval_ctx_t *cp, enode_t *e, int *errp) {
         return string_new_len(buf, len, STRING_ASCII);
     }
     if (res.type == SC_BOOLEAN)
-        return string_new(res.u.v ? "TRUE" : "FALSE");
+        return string_new(boolean_name[!!res.u.v]);
     if (res.type == SC_EMPTY)
         return string_empty();
     /* type is SC_ERROR */
@@ -1124,11 +1129,11 @@ static int criterion_setup(criterion_t *crtp, scvalue_t a) {
                 scvalue_free(a);
                 a = scvalue_number(v);
             } else
-            if (!sc_strcasecmp(s, "TRUE")) {
+            if (!sc_strcasecmp(s, boolean_name[1])) {
                 scvalue_free(a);
                 a = scvalue_boolean(1);
             } else
-            if (!sc_strcasecmp(s, "FALSE")) {
+            if (!sc_strcasecmp(s, boolean_name[0])) {
                 scvalue_free(a);
                 a = scvalue_boolean(0);
             }
@@ -2220,8 +2225,8 @@ static scvalue_t eval_sval(eval_ctx_t *cp, enode_t *e) {
     if (res.type == SC_STRING)
         return res;
     if (res.type == SC_BOOLEAN)
-        return scvalue_string(string_new(res.u.v ? "TRUE" : "FALSE"));
-    if (res.type == SC_NUMBER) {
+        return scvalue_string(string_new(boolean_name[!!res.u.v]));
+        if (res.type == SC_NUMBER) {
         int len = snprintf(buf, sizeof buf, "%.15g", res.u.v);
         return scvalue_string(string_new_len(buf, len, STRING_ASCII));
     }
@@ -2679,7 +2684,7 @@ static scvalue_t eval_isbetween(eval_ctx_t *cp, enode_t *e) {
 int buf_putvalue(buf_t buf, scvalue_t a) {
     switch (a.type) {
     case SC_NUMBER:  return buf_printf(buf, "%.15g", a.u.v);
-    case SC_BOOLEAN: return buf_puts(buf, a.u.v ? "TRUE" : "FALSE");
+    case SC_BOOLEAN: return buf_puts(buf, boolean_name[!!a.u.v]);
     case SC_STRING:  return buf_quotestr(buf, '"', s2c(a.u.str), '"');
     case SC_EMPTY:
     default:         return 0;

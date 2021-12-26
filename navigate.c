@@ -24,6 +24,7 @@ char *regex();
 #include "sc.h"
 
 /* Use this structure to save the last 'g' command */
+// XXX: this duplicates the search_ctx_t feature
 struct go_save gs;
 
 /* Goto subroutines */
@@ -42,12 +43,10 @@ void go_last(sheet_t *sp) {
     case G_NUM:
     case G_ERROR:
     case G_INVALID:
-        num_search(sp, gs.g_type, gs.g_rr, gs.g_n);
-        break;
     case G_STR:
     case G_NSTR:
     case G_XSTR:
-        str_search(sp, gs.g_type, gs.g_rr, string_dup(gs.g_s));
+        do_search(sp, gs.g_type, gs.g_rr, gs.g_n, string_dup(gs.g_s));
         break;
     default:
         error("Nothing to repeat");
@@ -60,8 +59,7 @@ void go_last(sheet_t *sp) {
  * screen if possible.
  */
 void moveto(sheet_t *sp, rangeref_t rr, cellref_t st) {
-    if (!loading && rr.left.row != -1 && (rr.left.row != sp->currow || rr.left.col != sp->curcol))
-        remember(sp, 0);
+    remember(sp, 0);
 
     sp->currow = rr.left.row;
     sp->curcol = rr.left.col;
@@ -89,184 +87,102 @@ void moveto(sheet_t *sp, rangeref_t rr, cellref_t st) {
     }
 }
 
-/*
- * 'goto' either a given number, 'error', or 'invalid' starting at currow/curcol
- */
-//int do_search(int g_type, rangeref_t rr, ... {double n or SCXMEM char *str})
-
-int num_search(sheet_t *sp, int g_type, rangeref_t rr, double n) {
-    struct ent *p;
-    int firstrow, firstcol, lastrow, lastcol;
-    int row, col, endr, endc;
-    int found = 0;
-    int errsearch = 0;
-
-    if (!loading)
-        remember(sp, 0);
-
-    // XXX: refine this, find all errors for now
-    if (g_type == G_ERROR || g_type == G_INVALID)
-        errsearch = -1;
-
-    go_free(sp);
-    gs.g_type = g_type;
-    gs.g_rr = rr;
-    gs.g_n = n;
-
-    firstrow = rr.left.row;
-    firstcol = rr.left.col;
-    lastrow = rr.right.row;
-    lastcol = rr.right.col;
-
-    // XXX: should clip search area to active area
-    row = sp->currow;
-    col = sp->curcol;
-    if (row >= firstrow && row <= lastrow && col >= firstcol && col <= lastcol) {
-        endr = row;
-        endc = col;
-    } else {
-        endr = row = lastrow;
-        endc = col = lastcol;
-    }
-
-    for (;;) {
-        if (col++ >= lastcol) {
-            col = firstcol;
-            if (col > lastcol)
-                break;
-            if (row++ >= lastrow) {
-                row = firstrow;
-                if (row > lastrow)
-                    break;
-            }
-        }
-        // XXX: should skip hidden rows
-        if (!row_hidden(sp, row) && !col_hidden(sp, col) && (p = getcell(sp, row, col))) {
-            if (errsearch) {
-                if (errsearch & (1 << p->cellerror)) {
-                    found = 1;
-                    break;
-                }
-            } else
-            if (p->type == SC_NUMBER && p->v == n) {
-                found = 1;
-                break;
-            }
-        }
-        if (row == endr && col == endc)
-            break;
-    }
-
-    if (found) {
-        sp->currow = row;
-        sp->curcol = col;
-        if (loading) {
-            update(sp, 1);
-            changed = 0;
-        } else {
-            remember(sp, 1);
-        }
-    } else {
-        if (errsearch) {
-            error("no ERROR cell found");
-        } else {
-            error("Number not found");
-        }
-    }
-    return found;
-}
-
-/* 'goto' a cell containing a matching string */
-int str_search(sheet_t *sp, int g_type, rangeref_t rr, SCXMEM string_t *str) {
-    char field[FBUFLEN];
-    struct ent *p;
-    int firstrow, firstcol, lastrow, lastcol;
-    int row, col, endr, endc;
-    int found = 0;
+// XXX: this duplicates the go_save structure
+typedef struct search_context {
+    sheet_t *sp;
+    int g_type;
+    int errsearch;
+    double n;
     const char *s;
 #if defined REGCOMP
     regex_t preg;
     int errcode;
 #elif defined RE_COMP
-    char *tmp = NULL;
+    char *tmp;
 #elif defined REGCMP
-    char *tmp = NULL;
+    char *tmp;
 #else
 #endif
+} search_ctx_t;
 
-    if (!str)
-        return -1;
-
-    s = s2c(str);
-
-#if defined REGCOMP
-    if ((errcode = regcomp(&preg, s, REG_EXTENDED))) {
-        char buf[160];
-        regerror(errcode, &preg, buf, sizeof(buf));
-        error("%s", buf);
-        string_free(str);
-        return -1;
-    }
-#elif defined RE_COMP
-    if ((tmp = re_comp(s)) != NULL) {
-        error("%s", tmp);
-        string_free(str);
-        return -1;
-    }
-#elif defined REGCMP
-    if ((tmp = regcmp(s, NULL)) == NULL) {
-        error("Invalid search string");
-        string_free(str);
-        return -1;
-    }
-#else
-    /* otherwise nothing to do, will just use strcmp() */
-#endif
-    if (!loading)
-        remember(sp, 0);
+static int search_init(search_ctx_t *sc, sheet_t *sp, int g_type, rangeref_t rr, double n, SCXMEM string_t *str) {
+    sc->sp = sp;
 
     go_free(sp);
     gs.g_type = g_type;
     gs.g_rr = rr;
+    gs.g_n = n;
     string_set(&gs.g_s, str);
 
-    firstrow = rr.left.row;
-    firstcol = rr.left.col;
-    lastrow = rr.right.row;
-    lastcol = rr.right.col;
+    switch (sc->g_type = g_type) {
+    case G_ERROR:
+    case G_INVALID:
+        // XXX: refine this, find all errors for now
+        sc->errsearch = -2;
+        break;
+    case G_NUM:
+        sc->n = n;
+        break;
+    case G_STR:
+    case G_NSTR:
+    case G_XSTR:
+        if (!str)
+            return -1;
 
-    // XXX: should clip search area to active area
-    row = sp->currow;
-    col = sp->curcol;
-    if (row >= firstrow && row <= lastrow && col >= firstcol && col <= lastcol) {
-        endr = row;
-        endc = col;
-    } else {
-        endr = row = lastrow;
-        endc = col = lastcol;
-    }
+        sc->s = s2c(str);
 
-    for (;;) {
-        if (col++ >= lastcol) {
-            col = firstcol;
-            if (col > lastcol)
-                break;
-            if (row++ >= lastrow) {
-                row = firstrow;
-                if (row > lastrow)
-                    break;
-            }
+#if defined REGCOMP
+        if ((sc->errcode = regcomp(&sc->preg, sc->s, REG_EXTENDED))) {
+            char buf[160];
+            regerror(sc->errcode, &sc->preg, buf, sizeof(buf));
+            error("%s", buf);
+            return -1;
         }
-        // XXX: should skip hidden rows
-        if (!row_hidden(sp, row) && !col_hidden(sp, col) && (p = getcell(sp, row, col))) {
+#elif defined RE_COMP
+        if ((sc->tmp = re_comp(sc->s)) != NULL) {
+            error("%s", sc->tmp);
+            return -1;
+        }
+#elif defined REGCMP
+        if ((sc->tmp = regcmp(sc->s, NULL)) == NULL) {
+            error("Invalid search string");
+            return -1;
+        }
+#else
+        /* otherwise nothing to do, will just use strcmp() */
+#endif
+        break;
+    }
+    return 0;
+}
+static int search_match(search_ctx_t *sc, int row, int col, struct ent *p) {
+    switch (sc->g_type) {
+    case G_ERROR:
+    case G_INVALID:
+        if (sc->errsearch & (1 << p->cellerror))
+            return 1;
+        break;
+    case G_NUM:
+        if (p->type == SC_NUMBER && p->v == sc->n)
+            return 1;
+        break;
+    case G_STR:
+    case G_NSTR:
+    case G_XSTR: {
             /* convert cell contents, do not test width, ignore alignment */
+            char field[FBUFLEN];
             const char *s1 = field;
             int align = ALIGN_DEFAULT;
+            sheet_t *sp = sc->sp;
 
             *field = '\0';
-            if (gs.g_type == G_NSTR) {
+            if (sc->g_type == G_NSTR) {
+                /* match regex on formated number, error or boolean */
                 if (p->cellerror) {
                     s1 = error_name[p->cellerror];
+                } else
+                if (p->type == SC_BOOLEAN) {
+                    s1 = boolean_name[!!p->v];
                 } else
                 if (p->type == SC_NUMBER) {
                     if (p->format) {
@@ -275,28 +191,111 @@ int str_search(sheet_t *sp, int g_type, rangeref_t rr, SCXMEM string_t *str) {
                         engformat(field, sizeof field, sp->colfmt[col].realfmt, sp->colfmt[col].precision, p->v, &align);
                     }
                 }
-            } else if (gs.g_type == G_XSTR) {
+                // XXX: should other types be matched too?
+            } else if (sc->g_type == G_XSTR) {
+                /* match regex on expression source code only */
                 if (p->expr) {
                     // XXX: should pass row, col as the cell reference
                     decompile(sp, field, sizeof field, p->expr, 0, 0, DCP_DEFAULT);
                     if (*field == '?')
                         *field = '\0';
                 }
-            }
-            if (gs.g_type == G_STR && p->type == SC_STRING) {
-                s1 = s2str(p->label);
+            } else if (sc->g_type == G_STR) {
+                if (p->type == SC_STRING) {
+                    s1 = s2str(p->label);
+                }
             }
             if (s1 && *s1
 #if defined REGCOMP
-            &&  (regexec(&preg, s1, 0, NULL, 0) == 0)
+            &&  (regexec(&sc->preg, s1, 0, NULL, 0) == 0)
 #elif defined RE_COMP
             &&  (re_exec(s1) != 0)
 #elif defined REGCMP
-            &&  (regex(tmp, s1) != NULL)
+            &&  (regex(sc->tmp, s1) != NULL)
 #else
-            &&  (strcmp(s, s1) == 0)
+            &&  (strcmp(sc->s, s1) == 0) // case sensitive
 #endif
                 ) {
+                return 1;
+            }
+            break;
+        }
+    }
+    return 0;
+}
+
+static void search_close(search_ctx_t *sc, int found) {
+    switch (sc->g_type) {
+    case G_ERROR:
+    case G_INVALID:
+        if (!found)
+            error("no ERROR cell found");
+        break;
+    case G_NUM:
+        if (!found)
+            error("Number not found");
+        break;
+    case G_STR:
+    case G_NSTR:
+    case G_XSTR:
+#if defined REGCOMP
+        regfree(&sc->preg);
+#elif defined RE_COMP
+#elif defined REGCMP
+        free(sc->tmp);
+#else
+#endif
+        if (!found)
+            error("String not found");
+        break;
+    }
+}
+
+/*
+ * 'goto' either a given number, string, regex, 'error', or 'invalid' starting at currow/curcol
+ */
+int do_search(sheet_t *sp, int g_type, rangeref_t rr, double n, SCXMEM string_t *str) {
+    search_ctx_t sc[1];
+    struct ent *p;
+    int firstrow, firstcol, lastrow, lastcol;
+    int row, col, endr, endc;
+    int found = 0;
+
+    if (search_init(sc, sp, g_type, rr, n, str))
+        return -1;
+
+    remember(sp, 0);
+
+    firstrow = rr.left.row;
+    firstcol = rr.left.col;
+    lastrow = rr.right.row;
+    lastcol = rr.right.col;
+
+    // XXX: should clip search area to active area
+    row = sp->currow;
+    col = sp->curcol;
+    if (row >= firstrow && row <= lastrow && col >= firstcol && col <= lastcol) {
+        endr = row;
+        endc = col;
+    } else {
+        endr = row = lastrow;
+        endc = col = lastcol;
+    }
+
+    for (;;) {
+        if (col++ >= lastcol) {
+            col = firstcol;
+            if (col > lastcol)
+                break;
+            if (row++ >= lastrow) {
+                row = firstrow;
+                if (row > lastrow)
+                    break;
+            }
+        }
+        // XXX: should skip hidden rows
+        if (!row_hidden(sp, row) && !col_hidden(sp, col) && (p = getcell(sp, row, col))) {
+            if (search_match(sc, row, col, p)) {
                 found = 1;
                 break;
             }
@@ -304,13 +303,9 @@ int str_search(sheet_t *sp, int g_type, rangeref_t rr, SCXMEM string_t *str) {
         if (row == endr && col == endc)
             break;
     }
-#if defined REGCOMP
-    regfree(&preg);
-#elif defined RE_COMP
-#elif defined REGCMP
-    free(tmp);
-#else
-#endif
+
+    search_close(sc, found);
+
     if (found) {
         sp->currow = row;
         sp->curcol = col;
@@ -320,17 +315,16 @@ int str_search(sheet_t *sp, int g_type, rangeref_t rr, SCXMEM string_t *str) {
         } else {
             remember(sp, 1);
         }
-    } else {
-        error("String not found");
     }
     return found;
 }
 
+/* spreadsheet navigation primitives */
+
 void doend(sheet_t *sp, int rowinc, int colinc) {
     int r, c;
 
-    if (!loading)
-        remember(sp, 0);
+    remember(sp, 0);
 
     if (valid_cell(sp, sp->currow, sp->curcol)) {
         r = sp->currow + rowinc;
@@ -367,8 +361,7 @@ void doend(sheet_t *sp, int rowinc, int colinc) {
             }
             break;
         }
-        if (!loading)
-            remember(sp, 1);
+        remember(sp, 1);
         return;
     }
 
@@ -541,4 +534,166 @@ void gotonote(sheet_t *sp) {
     } else {
         error("No note attached");
     }
+}
+
+/* If save is 0, remember the current position.  Otherwise, if the current
+ * cell has changed since the last remember(sp, 0), save the remembered location
+ * for the `, ', and c comands.
+ */
+// XXX: move out of vi.c (maybe navigate.c ?)
+void remember(sheet_t *sp, int save) {
+    if (loading)
+        return;
+    if (save) {
+        if (sp->currow != sp->remrow || sp->curcol != sp->remcol
+        ||  sp->strow != sp->remstrow || sp->stcol != sp->remstcol) {
+            sp->savedcr[0] = cellref(sp->remrow, sp->remcol);
+            sp->savedst[0] = cellref(sp->remstrow, sp->remstcol);
+        }
+    } else {
+        sp->remrow = sp->currow;
+        sp->remcol = sp->curcol;
+        sp->remstrow = sp->strow;
+        sp->remstcol = sp->stcol;
+    }
+}
+
+void gohome(sheet_t *sp) {
+    struct frange *fr;
+
+    remember(sp, 0);
+    if ((fr = frange_get_current(sp))) {
+        if (cell_in_range(cellref(sp->currow, sp->curcol), fr->irr)
+        &&  (sp->currow > fr->irr.left.row || sp->curcol > fr->irr.left.col)) {
+            sp->currow = fr->irr.left.row;
+            sp->curcol = fr->irr.left.col;
+        } else
+        if (sp->currow > fr->orr.left.row || sp->curcol > fr->orr.left.col) {
+            sp->currow = fr->orr.left.row;
+            sp->curcol = fr->orr.left.col;
+        } else {
+            sp->currow = 0;
+            sp->curcol = 0;
+        }
+    } else {
+        sp->currow = 0;
+        sp->curcol = 0;
+    }
+    remember(sp, 1);
+    FullUpdate++;
+}
+
+void leftlimit(sheet_t *sp) {
+    struct frange *fr;
+
+    remember(sp, 0);
+    if ((fr = frange_get_current(sp))) {
+        if (sp->currow >= fr->irr.left.row && sp->currow <= fr->irr.right.row &&
+            sp->curcol > fr->irr.left.col && sp->curcol <= fr->irr.right.col)
+            sp->curcol = fr->irr.left.col;
+        else
+        if (sp->curcol > fr->orr.left.col)
+            sp->curcol = fr->orr.left.col;
+        else
+            sp->curcol = 0;
+    } else {
+        sp->curcol = 0;
+    }
+    remember(sp, 1);
+}
+
+void rightlimit(sheet_t *sp) {
+    struct frange *fr;
+
+    remember(sp, 0);
+    if ((fr = frange_get_current(sp))) {
+        if (sp->currow >= fr->irr.left.row && sp->currow <= fr->irr.right.row &&
+            sp->curcol >= fr->irr.left.col && sp->curcol < fr->irr.right.col)
+            sp->curcol = fr->irr.right.col;
+        else
+        if (sp->curcol >= fr->orr.left.col && sp->curcol < fr->orr.right.col)
+            sp->curcol = fr->orr.right.col;
+        else {
+            sp->curcol = sp->maxcol;
+            while (!valid_cell(sp, sp->currow, sp->curcol) && sp->curcol > fr->orr.right.col)
+                sp->curcol--;
+            if ((fr = frange_get_current(sp)))
+                sp->curcol = fr->orr.right.col;
+        }
+    } else {
+        sp->curcol = sp->maxcol;
+        while (!valid_cell(sp, sp->currow, sp->curcol) && sp->curcol > 0)
+            sp->curcol--;
+        if ((fr = frange_get_current(sp)))
+            sp->curcol = fr->orr.right.col;
+    }
+    remember(sp, 1);
+}
+
+void gototop(sheet_t *sp) {
+    struct frange *fr;
+
+    remember(sp, 0);
+    if ((fr = frange_get_current(sp))) {
+        if (sp->curcol >= fr->irr.left.col && sp->curcol <= fr->irr.right.col &&
+            sp->currow > fr->irr.left.row && sp->currow <= fr->irr.right.row)
+            sp->currow = fr->irr.left.row;
+        else
+        if (sp->currow > fr->orr.left.row)
+            sp->currow = fr->orr.left.row;
+        else
+            sp->currow = 0;
+    } else {
+        sp->currow = 0;
+    }
+    remember(sp, 1);
+}
+
+void gotobottom(sheet_t *sp) {
+    struct frange *fr;
+
+    remember(sp, 0);
+    if ((fr = frange_get_current(sp))) {
+        if (sp->curcol >= fr->irr.left.col && sp->curcol <= fr->irr.right.col &&
+            sp->currow >= fr->irr.left.row && sp->currow < fr->irr.right.row)
+            sp->currow = fr->irr.right.row;
+        else
+        if (sp->currow < fr->orr.right.row)
+            sp->currow = fr->orr.right.row;
+        else {
+            sp->currow = sp->maxrow;
+            while (!valid_cell(sp, sp->currow, sp->curcol) && sp->currow > fr->orr.right.row)
+                sp->currow--;
+            if ((fr = frange_get_current(sp)))
+                sp->currow = fr->orr.right.row;
+        }
+    } else {
+        sp->currow = sp->maxrow;
+        while (!valid_cell(sp, sp->currow, sp->curcol) && sp->currow > 0)
+            sp->currow--;
+        if ((fr = frange_get_current(sp)))
+            sp->currow = fr->orr.right.row;
+    }
+    remember(sp, 1);
+}
+
+void scroll_down(sheet_t *sp) {
+    sp->strow++;
+    // XXX: check maximum row?
+    while (row_hidden(sp, sp->strow))
+        sp->strow++;
+    if (sp->currow < sp->strow)
+        sp->currow = sp->strow;
+}
+
+void scroll_up(sheet_t *sp, int x) {
+    if (sp->strow) {
+        sp->strow--;
+        while (sp->strow && row_hidden(sp, sp->strow))
+            sp->strow--;
+    }
+    forwrow(sp, x);
+    if (sp->currow >= lastendrow)
+        backrow(sp, 1);
+    backrow(sp, x);
 }

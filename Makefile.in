@@ -322,7 +322,11 @@ YTAB=y.tab
 
 #########################################
 _CFLAGS= $(CFLAGS) $(WARNINGS) $(INCDIR_CURSES) $(DEFINES) $(__CDBG) $(__CLDBG) \
-	#-DTRACE='"/tmp/trace.txt"'
+         ${CRYPT} ${BROKENCURSES} ${DFLT_PAGER} ${FLOAT_STORE} ${FMOD} \
+         ${HISTORY_FILE} ${IDLOKISBAD} ${IEEE_MATH} ${LIBRARY} ${NO_IDLOK} \
+         ${NO_NOTIMEOUT} ${REGEX} ${RIGHTBUG} ${RINT} ${SAVE} ${SIGVOID} \
+         ${SIMPLE} ${USELOCALE} \
+         #-DTRACE='"/tmp/trace.txt"'
 _LDFLAGS=$(LDFLAGS) $(__CLDBG)
 LDADD=-lm $(LIBDIR_CURSES) $(LIB_CURSES)
 
@@ -384,37 +388,37 @@ tokens.h: gram.y Makefile
 # Objects
 
 $O/abbrev.o: abbrev.c $(DEPENDS)
-	$(CC) $(_CFLAGS) -o $@ ${DFLT_PAGER} -c abbrev.c
+	$(CC) $(_CFLAGS) -o $@ -c abbrev.c
 
 $O/cmds.o: cmds.c $(DEPENDS)
-	$(CC) $(_CFLAGS) -o $@ ${CRYPT} -c cmds.c
+	$(CC) $(_CFLAGS) -o $@ -c cmds.c
 
 $O/color.o: color.c $(DEPENDS)
 	$(CC) $(_CFLAGS) -o $@ -c color.c
 
 $O/crypt.o: crypt.c $(DEPENDS)
-	$(CC) $(_CFLAGS) -o $@ ${CRYPT} -c crypt.c
+	$(CC) $(_CFLAGS) -o $@ -c crypt.c
 
 $O/file.o: file.c $(DEPENDS)
 	$(CC) $(_CFLAGS) -o $@ -c file.c
 
 $O/format.o: format.c $(DEPENDS)
-	$(CC) $(_CFLAGS) -o $@ ${USELOCALE} -c format.c
+	$(CC) $(_CFLAGS) -o $@ -c format.c
 
 $O/frame.o: frame.c $(DEPENDS)
 	$(CC) $(_CFLAGS) -o $@ -c frame.c
 
 $O/gram.o: $(YTAB).c $(YTAB).h $(DEPENDS)
-	$(CC) $(_CFLAGS) -o $@ ${USELOCALE} -c $(YTAB).c
+	$(CC) $(_CFLAGS) -o $@ -c $(YTAB).c
 
 $O/help.o: help.c $(DEPENDS)
-	$(CC) $(_CFLAGS) -o $@ ${CRYPT} -c help.c
+	$(CC) $(_CFLAGS) -o $@ -c help.c
 
 $O/interp.o: interp.c $(DEPENDS) opcodes.h
-	$(CC) $(_CFLAGS) -o $@ ${FLOAT_STORE} ${IEEE_MATH} ${SIGVOID} ${RINT} ${REGEX} ${FMOD} -c interp.c
+	$(CC) $(_CFLAGS) -o $@ -c interp.c
 
 $O/lex.o: $(YTAB).h $(YTAB).c lex.c $(DEPENDS) $(YTAB).h tokens.h
-	$(CC) $(_CFLAGS) -o $@ ${SIMPLE} ${IEEE_MATH} ${LIBRARY} ${SIGVOID} ${NO_NOTIMEOUT} -c lex.c
+	$(CC) $(_CFLAGS) -o $@ -c lex.c
 
 $O/lotus.o: lotus.c $(DEPENDS)
 	$(CC) $(_CFLAGS) -o $@ -c lotus.c
@@ -432,10 +436,10 @@ $O/range.o: range.c $(DEPENDS)
 	$(CC) $(_CFLAGS) -o $@ -c range.c
 
 $O/sc.o: sc.c $(DEPENDS)
-	$(CC) $(_CFLAGS) -o $@ ${DFLT_PAGER} ${SIGVOID} ${SAVE} ${USELOCALE} -c sc.c
+	$(CC) $(_CFLAGS) -o $@ -c sc.c
 
 $O/screen.o: screen.c $(DEPENDS) icurses.h
-	$(CC) $(_CFLAGS) -o $@ ${BROKENCURSES} ${IDLOKISBAD} ${RIGHTBUG} ${SIGVOID} ${NO_IDLOK} -c screen.c
+	$(CC) $(_CFLAGS) -o $@ -c screen.c
 
 $O/util.o: util.c $(DEPENDS)
 	$(CC) $(_CFLAGS) -o $@ -c util.c
@@ -444,7 +448,7 @@ $O/version.o: version.c version.h
 	$(CC) $(_CFLAGS) -o $@ -c version.c
 
 $O/vi.o: vi.c $(DEPENDS)
-	$(CC) $(_CFLAGS) -o $@ ${REGEX} ${HISTORY_FILE} -c vi.c
+	$(CC) $(_CFLAGS) -o $@ -c vi.c
 
 $O/vmtbl.o: vmtbl.c $(DEPENDS)
 	$(CC) $(_CFLAGS) -o $@ -c vmtbl.c
@@ -464,16 +468,16 @@ shar: ${SRCS} ${DOCS}
 lint: lintsc lintqref lintpsc
 
 lintsc: $(YTAB).c
-	lint ${LINTFLAGS} $(_CFLAGS) ${SIMPLE} \
+	lint ${LINTFLAGS} $(_CFLAGS) \
 	    abbrev.c cmds.c color.c crypt.c file.c format.c frame.c help.c interp.c \
 	    lex.c lotus.c navigate.c pipe.c print.c range.c sc.c screen.c \
 	    util.c version.c vi.c vmtbl.c $(YTAB).c $(LDADD)
 
 lintqref:
-	lint ${LINTFLAGS} $(_CFLAGS) ${SIMPLE} -DQREF help.c
+	lint ${LINTFLAGS} $(_CFLAGS) -DQREF help.c
 
 lintpsc:
-	lint ${LINTFLAGS} $(_CFLAGS) ${SIMPLE} psc.c
+	lint ${LINTFLAGS} $(_CFLAGS) psc.c
 
 .SUFFIXES: .doc .1
 

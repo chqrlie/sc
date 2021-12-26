@@ -834,7 +834,7 @@ void update(sheet_t *sp, int anychanged) {          /* did any cell really chang
                         int align = p->flags & ALIGN_MASK;
 
                         if (p->type == SC_BOOLEAN) {
-                            len = pstrcpy(field, sizeof field, p->v ? "TRUE" : "FALSE");
+                            len = pstrcpy(field, sizeof field, boolean_name[!!p->v]);
                             if (!align)
                                 align = ALIGN_CENTER;
                         } else {
@@ -1042,7 +1042,7 @@ void update(sheet_t *sp, int anychanged) {          /* did any cell really chang
                     addch(' ');
                 } else
                 if (p->type == SC_BOOLEAN) { /* value is logical */
-                    addstr(p->v ? "TRUE" : "FALSE");
+                    addstr(boolean_name[!!p->v]);
                     addch(' ');
                 } else
                 if (p->type == SC_STRING) { /* value is a string */

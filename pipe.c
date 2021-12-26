@@ -25,7 +25,7 @@ void cmd_getnum(sheet_t *sp, rangeref_t rr, int fd) {
                     snprintf(buf, sizeof buf - 1, "%.15g", p->v);
                     break;
                 case SC_BOOLEAN:
-                    snprintf(buf, sizeof buf - 1, "%s", p->v ? "TRUE" : "FALSE");
+                    snprintf(buf, sizeof buf - 1, "%s", boolean_name[!!p->v]);
                     break;
                 case SC_ERROR:
                     snprintf(buf, sizeof buf - 1, "%s", error_name[p->cellerror]);
@@ -61,7 +61,7 @@ void cmd_fgetnum(sheet_t *sp, rangeref_t rr, int fd) {
                     }
                     break;
                 case SC_BOOLEAN:
-                    snprintf(buf, sizeof buf - 1, "%s", p->v ? "TRUE" : "FALSE");
+                    snprintf(buf, sizeof buf - 1, "%s", boolean_name[!!p->v]);
                     break;
                 case SC_ERROR:
                     snprintf(buf, sizeof buf - 1, "%s", error_name[p->cellerror]);

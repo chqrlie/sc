@@ -66,8 +66,6 @@ static void yank_cmd(sheet_t *sp, int delete, int change);
 static void yank_chars(int first, int last, int delete);
 static int get_motion(sheet_t *sp, int change);
 static int vigetch(sheet_t *sp);
-static void scroll_down(sheet_t *sp);
-static void scroll_up(sheet_t *sp, int x);
 static void colshow_op(sheet_t *sp);
 static void rowshow_op(sheet_t *sp);
 static int setmark(sheet_t *sp, int c);  /* convert and set the mark and return index or complain and return -1 */
@@ -81,12 +79,9 @@ static void insert_mode(void);
 static void toggle_navigate_mode(void);
 static void startshow(sheet_t *sp);
 static void showdr(sheet_t *sp);
-static void gotobottom(sheet_t *sp);
-static void gototop(sheet_t *sp);
-static void gohome(sheet_t *sp);
-static void leftlimit(sheet_t *sp);
-static void rightlimit(sheet_t *sp);
 static void list_all(sheet_t *sp);
+static void mouse_set_pos(void);
+static int mouse_sel_cell(sheet_t *sp);
 
 /* used in update() in screen.c */
 char line[FBUFLEN];
@@ -142,9 +137,6 @@ static int findchar = 1;
 static int finddir = 0;
 static int numeric_field = 0; /* Started the line editing with a number */
 static int cellassign;
-
-static void mouse_set_pos(void);
-static int mouse_sel_cell(sheet_t *sp);
 
 int set_line(const char *fmt, ...) {
     size_t len;
@@ -602,6 +594,7 @@ void vi_interaction(sheet_t *sp) {
                         write_line(sp, c);
                     } else {
                         remember(sp, 0);
+                        // XXX: update strow/stcol?
                         sp->currow = 0;
                         sp->curcol = 0;
                         remember(sp, 1);
@@ -1413,27 +1406,6 @@ void vi_interaction(sheet_t *sp) {
         }                           /* while (running) */
         inloop = modcheck(sp, " before exiting");
     }                           /*  while (inloop) */
-}
-
-static void scroll_down(sheet_t *sp) {
-    sp->strow++;
-    // XXX: check maximum row?
-    while (row_hidden(sp, sp->strow))
-        sp->strow++;
-    if (sp->currow < sp->strow)
-        sp->currow = sp->strow;
-}
-
-static void scroll_up(sheet_t *sp, int x) {
-    if (sp->strow) {
-        sp->strow--;
-        while (sp->strow && row_hidden(sp, sp->strow))
-            sp->strow--;
-    }
-    forwrow(sp, x);
-    if (sp->currow >= lastendrow)
-        backrow(sp, 1);
-    backrow(sp, x);
 }
 
 static void colshow_op(sheet_t *sp) {
@@ -3016,146 +2988,6 @@ static void match_paren(void) {
     }
 }
 
-/* If save is 0, remember the current position.  Otherwise, if the current
- * cell has changed since the last remember(sp, 0), save the remembered location
- * for the `, ', and c comands.
- */
-// XXX: move out of vi.c (maybe navigate.c ?)
-void remember(sheet_t *sp, int save) {
-    static int remrow, remcol, remstrow, remstcol;
-
-    if (save && (sp->currow != remrow || sp->curcol != remcol ||
-                 sp->strow != remstrow || sp->stcol != remstcol))
-    {
-        sp->savedcr[0] = cellref(remrow, remcol);
-        sp->savedst[0] = cellref(remstrow, remstcol);
-    } else {
-        remrow = sp->currow;
-        remcol = sp->curcol;
-        remstrow = sp->strow;
-        remstcol = sp->stcol;
-    }
-}
-
-static void gohome(sheet_t *sp) {
-    struct frange *fr;
-
-    remember(sp, 0);
-    if ((fr = frange_get_current(sp))) {
-        if (cell_in_range(cellref(sp->currow, sp->curcol), fr->irr)
-        &&  (sp->currow > fr->irr.left.row || sp->curcol > fr->irr.left.col)) {
-            sp->currow = fr->irr.left.row;
-            sp->curcol = fr->irr.left.col;
-        } else
-        if (sp->currow > fr->orr.left.row || sp->curcol > fr->orr.left.col) {
-            sp->currow = fr->orr.left.row;
-            sp->curcol = fr->orr.left.col;
-        } else {
-            sp->currow = 0;
-            sp->curcol = 0;
-        }
-    } else {
-        sp->currow = 0;
-        sp->curcol = 0;
-    }
-    remember(sp, 1);
-    FullUpdate++;
-}
-
-static void leftlimit(sheet_t *sp) {
-    struct frange *fr;
-
-    remember(sp, 0);
-    if ((fr = frange_get_current(sp))) {
-        if (sp->currow >= fr->irr.left.row && sp->currow <= fr->irr.right.row &&
-            sp->curcol > fr->irr.left.col && sp->curcol <= fr->irr.right.col)
-            sp->curcol = fr->irr.left.col;
-        else
-        if (sp->curcol > fr->orr.left.col)
-            sp->curcol = fr->orr.left.col;
-        else
-            sp->curcol = 0;
-    } else {
-        sp->curcol = 0;
-    }
-    remember(sp, 1);
-}
-
-static void rightlimit(sheet_t *sp) {
-    struct frange *fr;
-
-    remember(sp, 0);
-    if ((fr = frange_get_current(sp))) {
-        if (sp->currow >= fr->irr.left.row && sp->currow <= fr->irr.right.row &&
-            sp->curcol >= fr->irr.left.col && sp->curcol < fr->irr.right.col)
-            sp->curcol = fr->irr.right.col;
-        else
-        if (sp->curcol >= fr->orr.left.col && sp->curcol < fr->orr.right.col)
-            sp->curcol = fr->orr.right.col;
-        else {
-            sp->curcol = sp->maxcol;
-            while (!valid_cell(sp, sp->currow, sp->curcol) && sp->curcol > fr->orr.right.col)
-                sp->curcol--;
-            if ((fr = frange_get_current(sp)))
-                sp->curcol = fr->orr.right.col;
-        }
-    } else {
-        sp->curcol = sp->maxcol;
-        while (!valid_cell(sp, sp->currow, sp->curcol) && sp->curcol > 0)
-            sp->curcol--;
-        if ((fr = frange_get_current(sp)))
-            sp->curcol = fr->orr.right.col;
-    }
-    remember(sp, 1);
-}
-
-static void gototop(sheet_t *sp) {
-    struct frange *fr;
-
-    remember(sp, 0);
-    if ((fr = frange_get_current(sp))) {
-        if (sp->curcol >= fr->irr.left.col && sp->curcol <= fr->irr.right.col &&
-            sp->currow > fr->irr.left.row && sp->currow <= fr->irr.right.row)
-            sp->currow = fr->irr.left.row;
-        else
-        if (sp->currow > fr->orr.left.row)
-            sp->currow = fr->orr.left.row;
-        else
-            sp->currow = 0;
-    } else {
-        sp->currow = 0;
-    }
-    remember(sp, 1);
-}
-
-static void gotobottom(sheet_t *sp) {
-    struct frange *fr;
-
-    remember(sp, 0);
-    if ((fr = frange_get_current(sp))) {
-        if (sp->curcol >= fr->irr.left.col && sp->curcol <= fr->irr.right.col &&
-            sp->currow >= fr->irr.left.row && sp->currow < fr->irr.right.row)
-            sp->currow = fr->irr.right.row;
-        else
-        if (sp->currow < fr->orr.right.row)
-            sp->currow = fr->orr.right.row;
-        else {
-            sp->currow = sp->maxrow;
-            while (!valid_cell(sp, sp->currow, sp->curcol) && sp->currow > fr->orr.right.row)
-                sp->currow--;
-            if ((fr = frange_get_current(sp)))
-                sp->currow = fr->orr.right.row;
-        }
-    } else {
-        sp->currow = sp->maxrow;
-        while (!valid_cell(sp, sp->currow, sp->curcol) && sp->currow > 0)
-            sp->currow--;
-        if ((fr = frange_get_current(sp)))
-            sp->currow = fr->orr.right.row;
-    }
-    remember(sp, 1);
-}
-
 static void dogoto(sheet_t *sp) {
     char buf[80];
     int len;
@@ -3729,7 +3561,7 @@ int edit_cell(sheet_t *sp, buf_t buf, int row, int col, struct ent *p,
         } else
         if (p->type == SC_BOOLEAN) {
             // XXX: should translate?
-            buf_puts(buf, p->v ? "TRUE" : "FALSE");
+            buf_puts(buf, boolean_name[!!p->v]);
         } else
         if (p->type == SC_STRING) {
             buf_quotestr(buf, '"', s2str(p->label), '"');
